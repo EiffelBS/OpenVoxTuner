@@ -1,0 +1,6 @@
+#pragma once
+
+// Generated build information
+#define OVT_BUILD_ID "@BUILD_ID@"
+#define OVT_BUILD_TIME "@BUILD_TIME@"
+#define OVT_PROJECT_VERSION "@PROJECT_VERSION@"

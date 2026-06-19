@@ -1,0 +1,35 @@
+Autotune Clone VST3 Plugin
+Copyright (C) 2026 Jerome
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+---
+
+This software incorporates the Rubber Band Library
+(https://breakfastquay.com/rubberband/), which is also licensed under
+the GNU General Public License v2 or later.
+
+The full text of the GNU General Public License v2 is available at
+<https://www.gnu.org/licenses/old-licenses/gpl-2.0.html> and is also
+included in the external/rubberband-4.0.0/COPYING file distributed
+with the Rubber Band source code.
+
+In accordance with the GPL, the complete corresponding source code
+for this program (including any modifications) is available from
+the project's source repository.
+
+If you wish to distribute this software under terms other than the
+GPL, you must first obtain a commercial license for the Rubber Band
+Library from Breakfast Quay (https://breakfastquay.com/technology/license.html).
