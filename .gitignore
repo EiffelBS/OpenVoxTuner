@@ -81,3 +81,9 @@ test/*.pdb
 .env.local
 .env
 !.env.example
+
+# --- OpenVoxTuner generated folders ---
+build/
+build-mac/
+build-mac-*/
+dist/
