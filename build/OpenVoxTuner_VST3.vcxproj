@@ -1,0 +1,573 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{09CF819D-684E-34F3-A9AB-2D324A34A413}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>OpenVoxTuner_VST3</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\Debug\VST3\OpenVoxTuner.vst3\Contents\x86_64-win\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">OpenVoxTuner_VST3.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">OpenVoxTuner</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.vst3</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\Release\VST3\OpenVoxTuner.vst3\Contents\x86_64-win\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">OpenVoxTuner_VST3.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">OpenVoxTuner</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.vst3</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\MinSizeRel\VST3\OpenVoxTuner.vst3\Contents\x86_64-win\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">OpenVoxTuner_VST3.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">OpenVoxTuner</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.vst3</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\RelWithDebInfo\VST3\OpenVoxTuner.vst3\Contents\x86_64-win\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">OpenVoxTuner_VST3.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">OpenVoxTuner</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.vst3</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1;DEBUG=1;_DEBUG=1;JucePlugin_IsSynth=0;JucePlugin_ManufacturerCode=0x45696666;JucePlugin_Manufacturer="EiffelBS";JucePlugin_ManufacturerWebsite="";JucePlugin_ManufacturerEmail="";JucePlugin_PluginCode=0x4f767450;JucePlugin_ProducesMidiOutput=1;JucePlugin_IsMidiEffect=0;JucePlugin_WantsMidiInput=0;JucePlugin_EditorRequiresKeyboardFocus=0;JucePlugin_Name="OpenVoxTuner";JucePlugin_Desc="OpenVoxTuner";JucePlugin_Version=0.1.1;JucePlugin_VersionString="0.1.1";JucePlugin_VersionCode=0x101;JucePlugin_VSTUniqueID=JucePlugin_PluginCode;JucePlugin_VSTCategory=kPlugCategEffect;JucePlugin_Vst3Category="Fx";JucePlugin_AUMainType='aufx';JucePlugin_AUSubType=JucePlugin_PluginCode;JucePlugin_AUExportPrefix=OpenVoxTunerAU;JucePlugin_AUExportPrefixQuoted="OpenVoxTunerAU";JucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_CFBundleIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_AAXProductId=JucePlugin_PluginCode;JucePlugin_AAXCategory=0;JucePlugin_AAXDisableBypass=0;JucePlugin_AAXDisableMultiMono=0;JucePlugin_VSTNumMidiInputs=16;JucePlugin_VSTNumMidiOutputs=16;JucePlugin_Enable_ARA=1;JucePlugin_ARAFactoryID="com.EiffelBS.OpenVoxTuner.arafactory.0.1.1";JucePlugin_ARADocumentArchiveID="com.EiffelBS.OpenVoxTuner.aradocumentarchive.1";JucePlugin_ARACompatibleArchiveIDs="";JucePlugin_ARAContentTypes=0;JucePlugin_ARATransformationFlags=0;JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1;JUCE_PLUGIN_WANTS_MIDI_INPUT=0;JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1;JUCE_MODULE_AVAILABLE_juce_audio_plugin_client=1;JUCE_MODULE_AVAILABLE_juce_audio_processors=1;JUCE_MODULE_AVAILABLE_juce_gui_extra=1;JUCE_MODULE_AVAILABLE_juce_gui_basics=1;JUCE_MODULE_AVAILABLE_juce_graphics=1;JUCE_MODULE_AVAILABLE_juce_events=1;JUCE_MODULE_AVAILABLE_juce_core=1;JUCE_MODULE_AVAILABLE_juce_data_structures=1;JUCE_MODULE_AVAILABLE_juce_audio_processors_headless=1;JUCE_MODULE_AVAILABLE_juce_audio_basics=1;JUCE_MODULE_AVAILABLE_juce_audio_devices=1;JUCE_MODULE_AVAILABLE_juce_audio_formats=1;JUCE_MODULE_AVAILABLE_juce_audio_utils=1;JUCE_MODULE_AVAILABLE_juce_dsp=1;JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_AAX=0;JucePlugin_Build_LV2=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=1;CMAKE_INTDIR="Debug";OpenVoxTuner_VST3_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1;DEBUG=1;_DEBUG=1;JucePlugin_IsSynth=0;JucePlugin_ManufacturerCode=0x45696666;JucePlugin_Manufacturer=\"EiffelBS\";JucePlugin_ManufacturerWebsite=\"\";JucePlugin_ManufacturerEmail=\"\";JucePlugin_PluginCode=0x4f767450;JucePlugin_ProducesMidiOutput=1;JucePlugin_IsMidiEffect=0;JucePlugin_WantsMidiInput=0;JucePlugin_EditorRequiresKeyboardFocus=0;JucePlugin_Name=\"OpenVoxTuner\";JucePlugin_Desc=\"OpenVoxTuner\";JucePlugin_Version=0.1.1;JucePlugin_VersionString=\"0.1.1\";JucePlugin_VersionCode=0x101;JucePlugin_VSTUniqueID=JucePlugin_PluginCode;JucePlugin_VSTCategory=kPlugCategEffect;JucePlugin_Vst3Category=\"Fx\";JucePlugin_AUMainType='aufx';JucePlugin_AUSubType=JucePlugin_PluginCode;JucePlugin_AUExportPrefix=OpenVoxTunerAU;JucePlugin_AUExportPrefixQuoted=\"OpenVoxTunerAU\";JucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_CFBundleIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_AAXProductId=JucePlugin_PluginCode;JucePlugin_AAXCategory=0;JucePlugin_AAXDisableBypass=0;JucePlugin_AAXDisableMultiMono=0;JucePlugin_VSTNumMidiInputs=16;JucePlugin_VSTNumMidiOutputs=16;JucePlugin_Enable_ARA=1;JucePlugin_ARAFactoryID=\"com.EiffelBS.OpenVoxTuner.arafactory.0.1.1\";JucePlugin_ARADocumentArchiveID=\"com.EiffelBS.OpenVoxTuner.aradocumentarchive.1\";JucePlugin_ARACompatibleArchiveIDs=\"\";JucePlugin_ARAContentTypes=0;JucePlugin_ARATransformationFlags=0;JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1;JUCE_PLUGIN_WANTS_MIDI_INPUT=0;JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1;JUCE_MODULE_AVAILABLE_juce_audio_plugin_client=1;JUCE_MODULE_AVAILABLE_juce_audio_processors=1;JUCE_MODULE_AVAILABLE_juce_gui_extra=1;JUCE_MODULE_AVAILABLE_juce_gui_basics=1;JUCE_MODULE_AVAILABLE_juce_graphics=1;JUCE_MODULE_AVAILABLE_juce_events=1;JUCE_MODULE_AVAILABLE_juce_core=1;JUCE_MODULE_AVAILABLE_juce_data_structures=1;JUCE_MODULE_AVAILABLE_juce_audio_processors_headless=1;JUCE_MODULE_AVAILABLE_juce_audio_basics=1;JUCE_MODULE_AVAILABLE_juce_audio_devices=1;JUCE_MODULE_AVAILABLE_juce_audio_formats=1;JUCE_MODULE_AVAILABLE_juce_audio_utils=1;JUCE_MODULE_AVAILABLE_juce_dsp=1;JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_AAX=0;JucePlugin_Build_LV2=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=1;CMAKE_INTDIR=\"Debug\";OpenVoxTuner_VST3_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>		</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/JuceLibraryCode/icon.ico C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.vst3/Plugin.ico
+if %errorlevel% neq 0 goto :cmEnd
+attrib +s C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.vst3/desktop.ini
+if %errorlevel% neq 0 goto :cmEnd
+attrib +s C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.vst3
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E echo "removing moduleinfo.json"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E remove -f C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.vst3/Contents/moduleinfo.json C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.vst3/Contents/Resources/moduleinfo.json
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E echo "creating C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.vst3"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.vst3/Contents/Resources
+if %errorlevel% neq 0 goto :cmEnd
+Debug\OpenVoxTuner_vst3_helper.exe &gt; C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.vst3/Contents/Resources/moduleinfo.json
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
+    <Link>
+      <AdditionalDependencies>OpenVoxTuner_artefacts\Debug\OpenVoxTuner_SharedCode.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:/JUCE/modules/juce_audio_plugin_client/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_plugin_client/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_processors/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_processors/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_gui_extra/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_gui_extra/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_gui_basics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_gui_basics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_graphics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_graphics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_events/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_events/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_core/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_core/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_data_structures/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_data_structures/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_processors_headless/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_processors_headless/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_basics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_basics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_devices/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_devices/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_formats/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_formats/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_utils/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_utils/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_dsp/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_dsp/libs/VisualStudio2022/x64/MDd/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Debug/VST3/OpenVoxTuner.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1;NDEBUG=1;_NDEBUG=1;JucePlugin_IsSynth=0;JucePlugin_ManufacturerCode=0x45696666;JucePlugin_Manufacturer="EiffelBS";JucePlugin_ManufacturerWebsite="";JucePlugin_ManufacturerEmail="";JucePlugin_PluginCode=0x4f767450;JucePlugin_ProducesMidiOutput=1;JucePlugin_IsMidiEffect=0;JucePlugin_WantsMidiInput=0;JucePlugin_EditorRequiresKeyboardFocus=0;JucePlugin_Name="OpenVoxTuner";JucePlugin_Desc="OpenVoxTuner";JucePlugin_Version=0.1.1;JucePlugin_VersionString="0.1.1";JucePlugin_VersionCode=0x101;JucePlugin_VSTUniqueID=JucePlugin_PluginCode;JucePlugin_VSTCategory=kPlugCategEffect;JucePlugin_Vst3Category="Fx";JucePlugin_AUMainType='aufx';JucePlugin_AUSubType=JucePlugin_PluginCode;JucePlugin_AUExportPrefix=OpenVoxTunerAU;JucePlugin_AUExportPrefixQuoted="OpenVoxTunerAU";JucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_CFBundleIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_AAXProductId=JucePlugin_PluginCode;JucePlugin_AAXCategory=0;JucePlugin_AAXDisableBypass=0;JucePlugin_AAXDisableMultiMono=0;JucePlugin_VSTNumMidiInputs=16;JucePlugin_VSTNumMidiOutputs=16;JucePlugin_Enable_ARA=1;JucePlugin_ARAFactoryID="com.EiffelBS.OpenVoxTuner.arafactory.0.1.1";JucePlugin_ARADocumentArchiveID="com.EiffelBS.OpenVoxTuner.aradocumentarchive.1";JucePlugin_ARACompatibleArchiveIDs="";JucePlugin_ARAContentTypes=0;JucePlugin_ARATransformationFlags=0;JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1;JUCE_PLUGIN_WANTS_MIDI_INPUT=0;JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1;JUCE_MODULE_AVAILABLE_juce_audio_plugin_client=1;JUCE_MODULE_AVAILABLE_juce_audio_processors=1;JUCE_MODULE_AVAILABLE_juce_gui_extra=1;JUCE_MODULE_AVAILABLE_juce_gui_basics=1;JUCE_MODULE_AVAILABLE_juce_graphics=1;JUCE_MODULE_AVAILABLE_juce_events=1;JUCE_MODULE_AVAILABLE_juce_core=1;JUCE_MODULE_AVAILABLE_juce_data_structures=1;JUCE_MODULE_AVAILABLE_juce_audio_processors_headless=1;JUCE_MODULE_AVAILABLE_juce_audio_basics=1;JUCE_MODULE_AVAILABLE_juce_audio_devices=1;JUCE_MODULE_AVAILABLE_juce_audio_formats=1;JUCE_MODULE_AVAILABLE_juce_audio_utils=1;JUCE_MODULE_AVAILABLE_juce_dsp=1;JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_AAX=0;JucePlugin_Build_LV2=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=1;CMAKE_INTDIR="Release";OpenVoxTuner_VST3_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1;NDEBUG=1;_NDEBUG=1;JucePlugin_IsSynth=0;JucePlugin_ManufacturerCode=0x45696666;JucePlugin_Manufacturer=\"EiffelBS\";JucePlugin_ManufacturerWebsite=\"\";JucePlugin_ManufacturerEmail=\"\";JucePlugin_PluginCode=0x4f767450;JucePlugin_ProducesMidiOutput=1;JucePlugin_IsMidiEffect=0;JucePlugin_WantsMidiInput=0;JucePlugin_EditorRequiresKeyboardFocus=0;JucePlugin_Name=\"OpenVoxTuner\";JucePlugin_Desc=\"OpenVoxTuner\";JucePlugin_Version=0.1.1;JucePlugin_VersionString=\"0.1.1\";JucePlugin_VersionCode=0x101;JucePlugin_VSTUniqueID=JucePlugin_PluginCode;JucePlugin_VSTCategory=kPlugCategEffect;JucePlugin_Vst3Category=\"Fx\";JucePlugin_AUMainType='aufx';JucePlugin_AUSubType=JucePlugin_PluginCode;JucePlugin_AUExportPrefix=OpenVoxTunerAU;JucePlugin_AUExportPrefixQuoted=\"OpenVoxTunerAU\";JucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_CFBundleIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_AAXProductId=JucePlugin_PluginCode;JucePlugin_AAXCategory=0;JucePlugin_AAXDisableBypass=0;JucePlugin_AAXDisableMultiMono=0;JucePlugin_VSTNumMidiInputs=16;JucePlugin_VSTNumMidiOutputs=16;JucePlugin_Enable_ARA=1;JucePlugin_ARAFactoryID=\"com.EiffelBS.OpenVoxTuner.arafactory.0.1.1\";JucePlugin_ARADocumentArchiveID=\"com.EiffelBS.OpenVoxTuner.aradocumentarchive.1\";JucePlugin_ARACompatibleArchiveIDs=\"\";JucePlugin_ARAContentTypes=0;JucePlugin_ARATransformationFlags=0;JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1;JUCE_PLUGIN_WANTS_MIDI_INPUT=0;JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1;JUCE_MODULE_AVAILABLE_juce_audio_plugin_client=1;JUCE_MODULE_AVAILABLE_juce_audio_processors=1;JUCE_MODULE_AVAILABLE_juce_gui_extra=1;JUCE_MODULE_AVAILABLE_juce_gui_basics=1;JUCE_MODULE_AVAILABLE_juce_graphics=1;JUCE_MODULE_AVAILABLE_juce_events=1;JUCE_MODULE_AVAILABLE_juce_core=1;JUCE_MODULE_AVAILABLE_juce_data_structures=1;JUCE_MODULE_AVAILABLE_juce_audio_processors_headless=1;JUCE_MODULE_AVAILABLE_juce_audio_basics=1;JUCE_MODULE_AVAILABLE_juce_audio_devices=1;JUCE_MODULE_AVAILABLE_juce_audio_formats=1;JUCE_MODULE_AVAILABLE_juce_audio_utils=1;JUCE_MODULE_AVAILABLE_juce_dsp=1;JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_AAX=0;JucePlugin_Build_LV2=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=1;CMAKE_INTDIR=\"Release\";OpenVoxTuner_VST3_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>		</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/JuceLibraryCode/icon.ico C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3/Plugin.ico
+if %errorlevel% neq 0 goto :cmEnd
+attrib +s C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3/desktop.ini
+if %errorlevel% neq 0 goto :cmEnd
+attrib +s C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E echo "removing moduleinfo.json"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E remove -f C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3/Contents/moduleinfo.json C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3/Contents/Resources/moduleinfo.json
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E echo "creating C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3/Contents/Resources
+if %errorlevel% neq 0 goto :cmEnd
+Release\OpenVoxTuner_vst3_helper.exe &gt; C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3/Contents/Resources/moduleinfo.json
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
+    <Link>
+      <AdditionalDependencies>OpenVoxTuner_artefacts\Release\OpenVoxTuner_SharedCode.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:/JUCE/modules/juce_audio_plugin_client/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_plugin_client/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_processors/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_processors/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_gui_extra/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_gui_extra/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_gui_basics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_gui_basics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_graphics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_graphics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_events/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_events/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_core/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_core/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_data_structures/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_data_structures/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_processors_headless/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_processors_headless/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_basics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_basics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_devices/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_devices/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_formats/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_formats/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_utils/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_utils/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_dsp/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_dsp/libs/VisualStudio2022/x64/MDd/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1;NDEBUG=1;_NDEBUG=1;JucePlugin_IsSynth=0;JucePlugin_ManufacturerCode=0x45696666;JucePlugin_Manufacturer="EiffelBS";JucePlugin_ManufacturerWebsite="";JucePlugin_ManufacturerEmail="";JucePlugin_PluginCode=0x4f767450;JucePlugin_ProducesMidiOutput=1;JucePlugin_IsMidiEffect=0;JucePlugin_WantsMidiInput=0;JucePlugin_EditorRequiresKeyboardFocus=0;JucePlugin_Name="OpenVoxTuner";JucePlugin_Desc="OpenVoxTuner";JucePlugin_Version=0.1.1;JucePlugin_VersionString="0.1.1";JucePlugin_VersionCode=0x101;JucePlugin_VSTUniqueID=JucePlugin_PluginCode;JucePlugin_VSTCategory=kPlugCategEffect;JucePlugin_Vst3Category="Fx";JucePlugin_AUMainType='aufx';JucePlugin_AUSubType=JucePlugin_PluginCode;JucePlugin_AUExportPrefix=OpenVoxTunerAU;JucePlugin_AUExportPrefixQuoted="OpenVoxTunerAU";JucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_CFBundleIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_AAXProductId=JucePlugin_PluginCode;JucePlugin_AAXCategory=0;JucePlugin_AAXDisableBypass=0;JucePlugin_AAXDisableMultiMono=0;JucePlugin_VSTNumMidiInputs=16;JucePlugin_VSTNumMidiOutputs=16;JucePlugin_Enable_ARA=1;JucePlugin_ARAFactoryID="com.EiffelBS.OpenVoxTuner.arafactory.0.1.1";JucePlugin_ARADocumentArchiveID="com.EiffelBS.OpenVoxTuner.aradocumentarchive.1";JucePlugin_ARACompatibleArchiveIDs="";JucePlugin_ARAContentTypes=0;JucePlugin_ARATransformationFlags=0;JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1;JUCE_PLUGIN_WANTS_MIDI_INPUT=0;JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1;JUCE_MODULE_AVAILABLE_juce_audio_plugin_client=1;JUCE_MODULE_AVAILABLE_juce_audio_processors=1;JUCE_MODULE_AVAILABLE_juce_gui_extra=1;JUCE_MODULE_AVAILABLE_juce_gui_basics=1;JUCE_MODULE_AVAILABLE_juce_graphics=1;JUCE_MODULE_AVAILABLE_juce_events=1;JUCE_MODULE_AVAILABLE_juce_core=1;JUCE_MODULE_AVAILABLE_juce_data_structures=1;JUCE_MODULE_AVAILABLE_juce_audio_processors_headless=1;JUCE_MODULE_AVAILABLE_juce_audio_basics=1;JUCE_MODULE_AVAILABLE_juce_audio_devices=1;JUCE_MODULE_AVAILABLE_juce_audio_formats=1;JUCE_MODULE_AVAILABLE_juce_audio_utils=1;JUCE_MODULE_AVAILABLE_juce_dsp=1;JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_AAX=0;JucePlugin_Build_LV2=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=1;CMAKE_INTDIR="MinSizeRel";OpenVoxTuner_VST3_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1;NDEBUG=1;_NDEBUG=1;JucePlugin_IsSynth=0;JucePlugin_ManufacturerCode=0x45696666;JucePlugin_Manufacturer=\"EiffelBS\";JucePlugin_ManufacturerWebsite=\"\";JucePlugin_ManufacturerEmail=\"\";JucePlugin_PluginCode=0x4f767450;JucePlugin_ProducesMidiOutput=1;JucePlugin_IsMidiEffect=0;JucePlugin_WantsMidiInput=0;JucePlugin_EditorRequiresKeyboardFocus=0;JucePlugin_Name=\"OpenVoxTuner\";JucePlugin_Desc=\"OpenVoxTuner\";JucePlugin_Version=0.1.1;JucePlugin_VersionString=\"0.1.1\";JucePlugin_VersionCode=0x101;JucePlugin_VSTUniqueID=JucePlugin_PluginCode;JucePlugin_VSTCategory=kPlugCategEffect;JucePlugin_Vst3Category=\"Fx\";JucePlugin_AUMainType='aufx';JucePlugin_AUSubType=JucePlugin_PluginCode;JucePlugin_AUExportPrefix=OpenVoxTunerAU;JucePlugin_AUExportPrefixQuoted=\"OpenVoxTunerAU\";JucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_CFBundleIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_AAXProductId=JucePlugin_PluginCode;JucePlugin_AAXCategory=0;JucePlugin_AAXDisableBypass=0;JucePlugin_AAXDisableMultiMono=0;JucePlugin_VSTNumMidiInputs=16;JucePlugin_VSTNumMidiOutputs=16;JucePlugin_Enable_ARA=1;JucePlugin_ARAFactoryID=\"com.EiffelBS.OpenVoxTuner.arafactory.0.1.1\";JucePlugin_ARADocumentArchiveID=\"com.EiffelBS.OpenVoxTuner.aradocumentarchive.1\";JucePlugin_ARACompatibleArchiveIDs=\"\";JucePlugin_ARAContentTypes=0;JucePlugin_ARATransformationFlags=0;JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1;JUCE_PLUGIN_WANTS_MIDI_INPUT=0;JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1;JUCE_MODULE_AVAILABLE_juce_audio_plugin_client=1;JUCE_MODULE_AVAILABLE_juce_audio_processors=1;JUCE_MODULE_AVAILABLE_juce_gui_extra=1;JUCE_MODULE_AVAILABLE_juce_gui_basics=1;JUCE_MODULE_AVAILABLE_juce_graphics=1;JUCE_MODULE_AVAILABLE_juce_events=1;JUCE_MODULE_AVAILABLE_juce_core=1;JUCE_MODULE_AVAILABLE_juce_data_structures=1;JUCE_MODULE_AVAILABLE_juce_audio_processors_headless=1;JUCE_MODULE_AVAILABLE_juce_audio_basics=1;JUCE_MODULE_AVAILABLE_juce_audio_devices=1;JUCE_MODULE_AVAILABLE_juce_audio_formats=1;JUCE_MODULE_AVAILABLE_juce_audio_utils=1;JUCE_MODULE_AVAILABLE_juce_dsp=1;JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_AAX=0;JucePlugin_Build_LV2=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=1;CMAKE_INTDIR=\"MinSizeRel\";OpenVoxTuner_VST3_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>		</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/JuceLibraryCode/icon.ico C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.vst3/Plugin.ico
+if %errorlevel% neq 0 goto :cmEnd
+attrib +s C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.vst3/desktop.ini
+if %errorlevel% neq 0 goto :cmEnd
+attrib +s C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.vst3
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E echo "removing moduleinfo.json"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E remove -f C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.vst3/Contents/moduleinfo.json C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.vst3/Contents/Resources/moduleinfo.json
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E echo "creating C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.vst3"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.vst3/Contents/Resources
+if %errorlevel% neq 0 goto :cmEnd
+MinSizeRel\OpenVoxTuner_vst3_helper.exe &gt; C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.vst3/Contents/Resources/moduleinfo.json
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
+    <Link>
+      <AdditionalDependencies>OpenVoxTuner_artefacts\MinSizeRel\OpenVoxTuner_SharedCode.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:/JUCE/modules/juce_audio_plugin_client/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_plugin_client/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_processors/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_processors/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_gui_extra/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_gui_extra/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_gui_basics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_gui_basics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_graphics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_graphics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_events/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_events/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_core/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_core/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_data_structures/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_data_structures/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_processors_headless/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_processors_headless/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_basics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_basics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_devices/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_devices/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_formats/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_formats/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_utils/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_utils/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_dsp/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_dsp/libs/VisualStudio2022/x64/MDd/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/MinSizeRel/VST3/OpenVoxTuner.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1;NDEBUG=1;_NDEBUG=1;JucePlugin_IsSynth=0;JucePlugin_ManufacturerCode=0x45696666;JucePlugin_Manufacturer="EiffelBS";JucePlugin_ManufacturerWebsite="";JucePlugin_ManufacturerEmail="";JucePlugin_PluginCode=0x4f767450;JucePlugin_ProducesMidiOutput=1;JucePlugin_IsMidiEffect=0;JucePlugin_WantsMidiInput=0;JucePlugin_EditorRequiresKeyboardFocus=0;JucePlugin_Name="OpenVoxTuner";JucePlugin_Desc="OpenVoxTuner";JucePlugin_Version=0.1.1;JucePlugin_VersionString="0.1.1";JucePlugin_VersionCode=0x101;JucePlugin_VSTUniqueID=JucePlugin_PluginCode;JucePlugin_VSTCategory=kPlugCategEffect;JucePlugin_Vst3Category="Fx";JucePlugin_AUMainType='aufx';JucePlugin_AUSubType=JucePlugin_PluginCode;JucePlugin_AUExportPrefix=OpenVoxTunerAU;JucePlugin_AUExportPrefixQuoted="OpenVoxTunerAU";JucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_CFBundleIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_AAXProductId=JucePlugin_PluginCode;JucePlugin_AAXCategory=0;JucePlugin_AAXDisableBypass=0;JucePlugin_AAXDisableMultiMono=0;JucePlugin_VSTNumMidiInputs=16;JucePlugin_VSTNumMidiOutputs=16;JucePlugin_Enable_ARA=1;JucePlugin_ARAFactoryID="com.EiffelBS.OpenVoxTuner.arafactory.0.1.1";JucePlugin_ARADocumentArchiveID="com.EiffelBS.OpenVoxTuner.aradocumentarchive.1";JucePlugin_ARACompatibleArchiveIDs="";JucePlugin_ARAContentTypes=0;JucePlugin_ARATransformationFlags=0;JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1;JUCE_PLUGIN_WANTS_MIDI_INPUT=0;JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1;JUCE_MODULE_AVAILABLE_juce_audio_plugin_client=1;JUCE_MODULE_AVAILABLE_juce_audio_processors=1;JUCE_MODULE_AVAILABLE_juce_gui_extra=1;JUCE_MODULE_AVAILABLE_juce_gui_basics=1;JUCE_MODULE_AVAILABLE_juce_graphics=1;JUCE_MODULE_AVAILABLE_juce_events=1;JUCE_MODULE_AVAILABLE_juce_core=1;JUCE_MODULE_AVAILABLE_juce_data_structures=1;JUCE_MODULE_AVAILABLE_juce_audio_processors_headless=1;JUCE_MODULE_AVAILABLE_juce_audio_basics=1;JUCE_MODULE_AVAILABLE_juce_audio_devices=1;JUCE_MODULE_AVAILABLE_juce_audio_formats=1;JUCE_MODULE_AVAILABLE_juce_audio_utils=1;JUCE_MODULE_AVAILABLE_juce_dsp=1;JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_AAX=0;JucePlugin_Build_LV2=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=1;CMAKE_INTDIR="RelWithDebInfo";OpenVoxTuner_VST3_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1;NDEBUG=1;_NDEBUG=1;JucePlugin_IsSynth=0;JucePlugin_ManufacturerCode=0x45696666;JucePlugin_Manufacturer=\"EiffelBS\";JucePlugin_ManufacturerWebsite=\"\";JucePlugin_ManufacturerEmail=\"\";JucePlugin_PluginCode=0x4f767450;JucePlugin_ProducesMidiOutput=1;JucePlugin_IsMidiEffect=0;JucePlugin_WantsMidiInput=0;JucePlugin_EditorRequiresKeyboardFocus=0;JucePlugin_Name=\"OpenVoxTuner\";JucePlugin_Desc=\"OpenVoxTuner\";JucePlugin_Version=0.1.1;JucePlugin_VersionString=\"0.1.1\";JucePlugin_VersionCode=0x101;JucePlugin_VSTUniqueID=JucePlugin_PluginCode;JucePlugin_VSTCategory=kPlugCategEffect;JucePlugin_Vst3Category=\"Fx\";JucePlugin_AUMainType='aufx';JucePlugin_AUSubType=JucePlugin_PluginCode;JucePlugin_AUExportPrefix=OpenVoxTunerAU;JucePlugin_AUExportPrefixQuoted=\"OpenVoxTunerAU\";JucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_CFBundleIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXIdentifier=com.EiffelBS.OpenVoxTuner;JucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode;JucePlugin_AAXProductId=JucePlugin_PluginCode;JucePlugin_AAXCategory=0;JucePlugin_AAXDisableBypass=0;JucePlugin_AAXDisableMultiMono=0;JucePlugin_VSTNumMidiInputs=16;JucePlugin_VSTNumMidiOutputs=16;JucePlugin_Enable_ARA=1;JucePlugin_ARAFactoryID=\"com.EiffelBS.OpenVoxTuner.arafactory.0.1.1\";JucePlugin_ARADocumentArchiveID=\"com.EiffelBS.OpenVoxTuner.aradocumentarchive.1\";JucePlugin_ARACompatibleArchiveIDs=\"\";JucePlugin_ARAContentTypes=0;JucePlugin_ARATransformationFlags=0;JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1;JUCE_PLUGIN_WANTS_MIDI_INPUT=0;JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1;JUCE_MODULE_AVAILABLE_juce_audio_plugin_client=1;JUCE_MODULE_AVAILABLE_juce_audio_processors=1;JUCE_MODULE_AVAILABLE_juce_gui_extra=1;JUCE_MODULE_AVAILABLE_juce_gui_basics=1;JUCE_MODULE_AVAILABLE_juce_graphics=1;JUCE_MODULE_AVAILABLE_juce_events=1;JUCE_MODULE_AVAILABLE_juce_core=1;JUCE_MODULE_AVAILABLE_juce_data_structures=1;JUCE_MODULE_AVAILABLE_juce_audio_processors_headless=1;JUCE_MODULE_AVAILABLE_juce_audio_basics=1;JUCE_MODULE_AVAILABLE_juce_audio_devices=1;JUCE_MODULE_AVAILABLE_juce_audio_formats=1;JUCE_MODULE_AVAILABLE_juce_audio_utils=1;JUCE_MODULE_AVAILABLE_juce_dsp=1;JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_AAX=0;JucePlugin_Build_LV2=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=1;CMAKE_INTDIR=\"RelWithDebInfo\";OpenVoxTuner_VST3_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode;C:\Users\User\Documents\trae_projects\VST3\build;C:\JUCE\modules;C:\JUCE\modules\juce_audio_processors_headless\format_types\VST3_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lv2;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\serd;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sord\src;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\sratom;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv;C:\JUCE\modules\juce_audio_processors_headless\format_types\LV2_SDK\lilv\src;C:\Users\User\Documents\trae_projects\VST3\external\ARA_SDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>		</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/JuceLibraryCode/icon.ico C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.vst3/Plugin.ico
+if %errorlevel% neq 0 goto :cmEnd
+attrib +s C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.vst3/desktop.ini
+if %errorlevel% neq 0 goto :cmEnd
+attrib +s C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.vst3
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E echo "removing moduleinfo.json"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E remove -f C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.vst3/Contents/moduleinfo.json C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.vst3/Contents/Resources/moduleinfo.json
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E echo "creating C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.vst3"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.vst3/Contents/Resources
+if %errorlevel% neq 0 goto :cmEnd
+RelWithDebInfo\OpenVoxTuner_vst3_helper.exe &gt; C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.vst3/Contents/Resources/moduleinfo.json
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
+    <Link>
+      <AdditionalDependencies>OpenVoxTuner_artefacts\RelWithDebInfo\OpenVoxTuner_SharedCode.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:/JUCE/modules/juce_audio_plugin_client/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_plugin_client/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_processors/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_processors/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_gui_extra/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_gui_extra/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_gui_basics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_gui_basics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_graphics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_graphics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_events/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_events/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_core/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_core/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_data_structures/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_data_structures/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_processors_headless/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_processors_headless/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_basics/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_basics/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_devices/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_devices/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_formats/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_formats/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_audio_utils/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_audio_utils/libs/VisualStudio2022/x64/MDd/$(Configuration);C:/JUCE/modules/juce_dsp/libs/VisualStudio2022/x64/MDd;C:/JUCE/modules/juce_dsp/libs/VisualStudio2022/x64/MDd/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>C:/Users/User/Documents/trae_projects/VST3/build/OpenVoxTuner_artefacts/RelWithDebInfo/VST3/OpenVoxTuner.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\User\Documents\trae_projects\VST3\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/User/Documents/trae_projects/VST3/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/User/Documents/trae_projects/VST3 -BC:/Users/User/Documents/trae_projects/VST3/build --check-stamp-file C:/Users/User/Documents/trae_projects/VST3/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Linker\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Linker\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\WindowsPaths.cmake;C:\Users\User\Documents\trae_projects\VST3\Source\BuildInfo.h.in;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeCXXCompiler.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeRCCompiler.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeSystem.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/User/Documents/trae_projects/VST3/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/User/Documents/trae_projects/VST3 -BC:/Users/User/Documents/trae_projects/VST3/build --check-stamp-file C:/Users/User/Documents/trae_projects/VST3/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Linker\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Linker\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\WindowsPaths.cmake;C:\Users\User\Documents\trae_projects\VST3\Source\BuildInfo.h.in;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeCXXCompiler.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeRCCompiler.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeSystem.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/User/Documents/trae_projects/VST3/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/User/Documents/trae_projects/VST3 -BC:/Users/User/Documents/trae_projects/VST3/build --check-stamp-file C:/Users/User/Documents/trae_projects/VST3/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Linker\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Linker\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\WindowsPaths.cmake;C:\Users\User\Documents\trae_projects\VST3\Source\BuildInfo.h.in;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeCXXCompiler.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeRCCompiler.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeSystem.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/User/Documents/trae_projects/VST3/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/User/Documents/trae_projects/VST3 -BC:/Users/User/Documents/trae_projects/VST3/build --check-stamp-file C:/Users/User/Documents/trae_projects/VST3/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Linker\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Linker\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\WindowsPaths.cmake;C:\Users\User\Documents\trae_projects\VST3\Source\BuildInfo.h.in;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeCXXCompiler.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeRCCompiler.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\4.3.3\CMakeSystem.cmake;C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\User\Documents\trae_projects\VST3\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode\icon.ico">
+    </None>
+    <None Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\Debug\VST3\OpenVoxTuner.vst3\desktop.ini">
+    </None>
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_AAX.cpp" />
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_AAX_utils.cpp" />
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_ARA.cpp" />
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_LV2.cpp" />
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_Standalone.cpp" />
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_Unity.cpp" />
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_VST2.cpp" />
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_VST3.cpp" />
+    <Object Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_rc_lib.dir\$(Configuration)\OpenVoxTuner_resources.res" />
+    <None Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\Release\VST3\OpenVoxTuner.vst3\desktop.ini">
+    </None>
+    <None Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\MinSizeRel\VST3\OpenVoxTuner.vst3\desktop.ini">
+    </None>
+    <None Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\RelWithDebInfo\VST3\OpenVoxTuner.vst3\desktop.ini">
+    </None>
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\User\Documents\trae_projects\VST3\build\ZERO_CHECK.vcxproj">
+      <Project>{2D3A05E1-EA66-3857-B013-3C9E41011994}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner.vcxproj">
+      <Project>{83DB33D1-BAD0-3C85-8D11-5ABA76C5574E}</Project>
+      <Name>OpenVoxTuner</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_rc_lib.vcxproj">
+      <Project>{0A94E138-8F7E-3654-8CBB-DD02E9B8AB60}</Project>
+      <Name>OpenVoxTuner_rc_lib</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_vst3_helper.vcxproj">
+      <Project>{0997ED0A-A431-301D-9E83-FD1BD6026112}</Project>
+      <Name>OpenVoxTuner_vst3_helper</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

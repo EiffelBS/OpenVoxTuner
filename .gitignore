@@ -1,0 +1,83 @@
+# ============================================================================
+# Autotune Clone - .gitignore
+# ============================================================================
+
+# --- JUCE / Projucer ---
+JuceLibraryCode/
+Builds/
+*.jucer.bak
+
+# --- Visual Studio ---
+.vs/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.cachefile
+*.VC.db
+ipch/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Dd]ebug-*/
+[Rr]elease-*/
+x64/
+x86/
+Win32/
+ARM/
+ARM64/
+*.aps
+*.pch
+*.vspscc
+*.vssscc
+*.tlog
+*.lastbuildstate
+*.unsuccessfulbuild
+*.idb
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.log
+
+# --- CMake (si utilise en alternative a Projucer) ---
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+cmake-build-*/
+
+# --- Build artefacts ---
+*.dll
+*.lib
+*.exp
+*.ilk
+*.pdb
+*.so
+*.dylib
+*.a
+
+# --- Fichiers IDE / OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Fichiers temporaires / de test (regle user 10) ---
+# Les scripts de test dans test/ sont versionnes, mais les artefacts non.
+test/build/
+test/*.exe
+test/*.obj
+test/*.pdb
+
+# --- Fichiers de configuration locaux ---
+# L'utilisateur peut creer un .env.local pour ses reglages (non versionne)
+.env.local
+.env
+!.env.example

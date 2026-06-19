@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/EiffelBS/OpenVoxTuner/tree/main/docs
+    about: Check build and usage documentation before opening an issue.

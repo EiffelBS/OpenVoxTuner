@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_AAX.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_AAX_utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_ARA.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_LV2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_Standalone.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_Unity.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_VST2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_VST3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\User\Documents\trae_projects\VST3\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_artefacts\JuceLibraryCode\icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="C:\Users\User\Documents\trae_projects\VST3\build\OpenVoxTuner_rc_lib.dir\$(Configuration)\OpenVoxTuner_resources.res">
+      <Filter>Object Libraries</Filter>
+    </Object>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Object Libraries">
+      <UniqueIdentifier>{322F03A1-747B-345F-B6D3-E8BE10901C03}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{D231236C-F50A-31D1-8B54-2F768349BB15}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
