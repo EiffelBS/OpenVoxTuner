@@ -81,15 +81,36 @@ Write-Log "Lancement de la build …"
 ./build.ps1 | Out-Null
 
 # --------------------------------------------------------------------
-# 5️⃣ Packager les artefacts (optionnel)
+# Packager les artefacts (optionnel)
 # --------------------------------------------------------------------
 $artifactsDir = Join-Path $PSScriptRoot 'build\OpenVoxTuner_artefacts'
 if (Test-Path $artifactsDir) {
     $zipName = Join-Path $PSScriptRoot "OpenVoxTuner_$Version.zip"
     Compress-Archive -Path (Join-Path $artifactsDir '*') -DestinationPath $zipName -Force
     Write-Log "Artefacts packagés : $zipName"
+    # Eviter d'inclure le zip dans git
+    if (Test-Path $zipName) {
+        git rm --cached -q "$zipName" 2>$null
+    }
 } else {
     Write-Warning "Répertoire des artefacts introuvable. La build a peut‑être échoué."
+}
+
+# Créer une release GitHub et uploader l'archive (si gh CLI disponible)
+try {
+    if (Get-Command gh -ErrorAction SilentlyContinue) {
+        $tag = "v$Version"
+        Write-Log "Création de la release GitHub pour $tag…"
+        gh release create $tag --title "Release $Version" --notes "" --draft | Out-Null
+        if (Test-Path $zipName) {
+            gh release upload $tag "$zipName" | Out-Null
+            Write-Log "Archive téléchargée dans la release."
+        }
+    } else {
+        Write-Warning "GitHub CLI 'gh' non trouvé - l'archive n'est pas uploadée comme asset de release."
+    }
+} catch {
+    Write-Warning "Erreur lors de la création/upload de la release GitHub : $_"
 }
 
 Write-Host "Release $Version prête."
