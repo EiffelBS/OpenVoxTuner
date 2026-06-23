@@ -16,7 +16,7 @@
 
 /**
  * Main class of the audio processor.
- * Inherits from juce::AudioProcessor (JUCE base class for audio plugins).
+ * Inherits from juce::AudioProcessor (JUCE base class for audio plugins).      
  * Responsibilities:
  *   - Receive audio buffers from the host
  *   - Execute the DSP pipeline on each block
@@ -24,7 +24,7 @@
  *   - Save/load the plugin state
  */
 class OpenVoxTunerAudioProcessor : public juce::AudioProcessor,
-                                    public juce::AudioProcessorARAExtension
+                                    public juce::AudioProcessorARAExtension     
 {
 public:
     // === Construction / destruction ===
@@ -32,11 +32,11 @@ public:
     ~OpenVoxTunerAudioProcessor() override;
 
     // === Plugin configuration (before prepareToPlay) ===
-    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+    void prepareToPlay (double sampleRate, int samplesPerBlock) override;       
     void releaseResources() override;
 
     // === Main audio routine: called for each audio block ===
-    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;  
 
     // === Plugin information (editable in Projucer) ===
     const juce::String getName() const override;
@@ -50,14 +50,14 @@ public:
     int getCurrentProgram() override;
     void setCurrentProgram (int index) override;
     const juce::String getProgramName (int index) override;
-    void changeProgramName (int index, const juce::String& newName) override;
+    void changeProgramName (int index, const juce::String& newName) override;   
 
     // === Plugin state (save / load) ===
     void getStateInformation (juce::MemoryBlock& destData) override;
-    void setStateInformation (const void* data, int sizeInBytes) override;
+    void setStateInformation (const void* data, int sizeInBytes) override;      
 
     // === Audio bus layout (inputs / outputs) ===
-    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
+    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;    
 
     // === Latency (reported to host) ===
     // Note: in JUCE 8, getLatencySamples() is NOT virtual, so we can't
@@ -69,35 +69,35 @@ public:
     bool hasEditor() const override;
 
     // === Pitch data access for GUI ===
-    float getCurrentInputPitch() const  { return lastInputPitch.load(); }
-    float getCurrentOutputPitch() const { return lastOutputPitch.load(); }
-    float getCurrentCentsOffset() const { return lastCentsOffset.load(); }
+    float getCurrentInputPitch() const  { return lastInputPitch.load(); }       
+    float getCurrentOutputPitch() const { return lastOutputPitch.load(); }      
+    float getCurrentCentsOffset() const { return lastCentsOffset.load(); }      
 
     // === Harmony data access for GUI ===
     const juce::Array<float>& getHarmonyFrequencies() const { return harmonyFrequencies; }
-    float getHarmonyOutputLevel() const { return harmonyOutputLevel.load(); }
+    float getHarmonyOutputLevel() const { return harmonyOutputLevel.load(); }   
 
     // === Scale note names (for the editor) ===
     static juce::Array<juce::String> getScaleNoteNames (int key, atdsp::Scale scale);
 
     // Pitch curve access (for the editor).
     atdsp::PitchCurve& getPitchCurve() { return *pitchCurve; }
-    const atdsp::PitchCurve& getPitchCurve() const { return *pitchCurve; }
+    const atdsp::PitchCurve& getPitchCurve() const { return *pitchCurve; }      
 
     // Access sent note for UI
     int getLastSentMidiNoteForChannel (int channel) const;
 
     // Sets the transport time (from the host).
-    void setTransportTime (double seconds) { transportTime.store (seconds); }
+    void setTransportTime (double seconds) { transportTime.store (seconds); }   
     double getTransportTime() const { return transportTime.load(); }
-    bool isTimeProvidedByHost() const { return timeProvidedByHost.load(); }
+    bool isTimeProvidedByHost() const { return timeProvidedByHost.load(); }     
     
     // Checks if the plugin is bound to the ARA environment (via ARADocumentController)
     bool isBoundToARA_custom() const { return isBoundToARA(); }
     bool isStandaloneWrapper() const { return wrapperType == juce::AudioProcessor::wrapperType_Standalone; }
 
     // Parameter tree access (for the editor).
-    juce::AudioProcessorValueTreeState& getParameters() { return parameters; }
+    juce::AudioProcessorValueTreeState& getParameters() { return parameters; }  
 
     // VST3 Extension (Micro View, etc.)
     juce::VST3ClientExtensions* getVST3ClientExtensions() override;
@@ -112,9 +112,9 @@ public:
     void forceCreatePitchTestGrain();
 
 
-    void resetTransportTime() { 
+    void resetTransportTime() {
         customTimeOffset.store(rawHostTime.load());
-        transportTime.store(0.0); 
+        transportTime.store(0.0);
     }
 
 private:
@@ -124,25 +124,25 @@ private:
     juce::AudioProcessorValueTreeState parameters;
 
     // Parameter targets (sliders, knobs, etc.).
-    std::atomic<float>* speedParam   = nullptr; // Correction speed (ms)
+    std::atomic<float>* speedParam   = nullptr; // Correction speed (ms)        
     std::atomic<float>* amountParam  = nullptr; // Intensity (0-1)
-    std::atomic<float>* latencyModeParam = nullptr; // 0=Low Latency, 1=Quality
-    std::atomic<float>* formantParam = nullptr; // Formant shift (-12 to 12)
+    std::atomic<float>* latencyModeParam = nullptr; // 0=Low Latency, 1=Quality 
+    std::atomic<float>* formantParam = nullptr; // Formant shift (-12 to 12)    
     std::atomic<float>* formantEnableParam = nullptr; // Formant On/Off
     std::atomic<float>* keyParam     = nullptr; // Tonic index (0-11)
-    std::atomic<float>* scaleParam   = nullptr; // Mode index (0-5, 5=custom)
+    std::atomic<float>* scaleParam   = nullptr; // Mode index (0-5, 5=custom)   
     std::atomic<float>* bypassParam  = nullptr; // Bypass on/off
     std::atomic<float>* modeParam    = nullptr; // Auto/graphic mode
     std::atomic<float>* engineParam  = nullptr; // Audio engine (0=RubberBand, 1=SoundTouch, 2=PSOLA)
-    std::atomic<float>* harmonyTypeParam = nullptr; // Harmony type (0-9)
-    std::atomic<float>* harmonyGainParam = nullptr; // Harmony volume level
-    std::atomic<float>* harmonyBlendParam = nullptr; // Harmony blend (0-1)
+    std::atomic<float>* harmonyTypeParam = nullptr; // Harmony type (0-9)       
+    std::atomic<float>* harmonyGainParam = nullptr; // Harmony volume level     
+    std::atomic<float>* harmonyBlendParam = nullptr; // Harmony blend (0-1)     
     std::atomic<float>* harmonyEnableParam = nullptr; // Harmony on/off
     std::atomic<float>* harmonyUseVoiceParam = nullptr; // Use real voice for harmony (bool)
     std::atomic<float>* harmonyShiftedVoicesParam = nullptr; // number of shifted voices (1..4)
     std::atomic<float>* harmonyToneParam = nullptr; // synth harmony tone (choice)
     std::atomic<float>* harmonyToneColorParam = nullptr; // synth harmony tone color (continuous)
-    std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
+    std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable        
 
     // "Custom note on/off" parameters (12 booleans, indices 0..11).
     // Stored as 12 separate AudioParameterBool so the host can
@@ -154,9 +154,9 @@ private:
     std::unique_ptr<atdsp::ScaleQuantizer>    scaleQuantizer;
     std::unique_ptr<atdsp::PitchShifter>      pitchShifter;
     std::unique_ptr<atdsp::HarmonyEngine>     harmonyEngine;
-    
+
     std::unique_ptr<atdsp::RetargetEnvelope>  retargetEnvelope;
-    std::unique_ptr<atdsp::PitchCurve>        pitchCurve; // "graphic" mode
+    std::unique_ptr<atdsp::PitchCurve>        pitchCurve; // "graphic" mode     
 
     // Current correction mode.
     //   0 = auto (standard quantization)
@@ -205,7 +205,7 @@ private:
 
     // Debug: remember previous bypass state to log changes
     std::atomic<int> prevBypassState { 0 };
-    // Debug: observe grains created by PitchShifter (cross-thread counter)
+    // Debug: observe grains created by PitchShifter (cross-thread counter)     
     int lastObservedGrainCount = 0;
     // Debug: test grain parameter
     std::atomic<float>* dbgTestGrainParam = nullptr;
@@ -231,7 +231,7 @@ private:
 
     // PRE-ALLOCATED linear buffer to un-FIFO before YIN detection.
     // Allocated in prepareToPlay() to `analysisWindow` floats. Avoids
-    // heap allocation per audio block (otherwise 2.4 MB/s allocations at
+    // heap allocation per audio block (otherwise 2.4 MB/s allocations at       
     // 144 samples, major source of glitches).
     juce::HeapBlock<float> analysisLinearBuffer;
 
@@ -242,8 +242,8 @@ private:
     // VST3 Extensions (e.g., Micro View for Studio One)
     std::unique_ptr<juce::VST3ClientExtensions> vst3Extensions;
 
-    // Calculates the input pitch on the current block, returns freq in Hz.
+    // Calculates the input pitch on the current block, returns freq in Hz.     
     float computeInputPitch (const juce::AudioBuffer<float>& buffer);
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenVoxTunerAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenVoxTunerAudioProcessor)   
 };
