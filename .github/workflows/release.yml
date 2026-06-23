@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout JUCE
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          path: JUCE
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $env:JUCE_PATH = "${{ github.workspace }}\JUCE"
+          .\build_installer.ps1
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenVoxTuner-Windows-Installer
+          path: build/installer/OpenVoxTuner_Windows_Installer.exe
+
+  macos-release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout JUCE
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          path: JUCE
+
+      - name: Build macOS package
+        run: |
+          chmod +x ./build_macos_pkg.sh
+          ./build_macos_pkg.sh --juce-path "${{ github.workspace }}/JUCE" --output "dist/OpenVoxTuner-macOS.pkg"
+
+      - name: Upload macOS package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenVoxTuner-macOS-PKG
+          path: dist/OpenVoxTuner-macOS.pkg
+
+  publish-release:
+    needs: [windows-release, macos-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: OpenVoxTuner-Windows-Installer
+          path: release-assets
+
+      - name: Download macOS package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: OpenVoxTuner-MacOS-PKG
+          path: release-assets
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/OpenVoxTuner_Windows_Installer.exe
+            release-assets/OpenVoxTuner-macOS.pkg
+          generate_release_notes: true

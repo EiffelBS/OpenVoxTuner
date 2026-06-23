@@ -249,6 +249,8 @@ namespace atdsp
         auto xml = std::make_unique<juce::XmlElement> ("PITCH_CURVE");
         xml->setAttribute ("numPoints", points.size());
         xml->setAttribute ("stepMode", stepMode);
+        xml->setAttribute ("snapEnabled", snapEnabled);
+        xml->setAttribute ("snapToGridEnabled", snapToGridEnabled);
         for (int i = 0; i < points.size(); ++i)
         {
             auto* p = xml->createNewChildElement ("POINT");
@@ -263,6 +265,8 @@ namespace atdsp
         points.clear();
         if (!xml.hasTagName ("PITCH_CURVE")) return;
         stepMode = xml.getBoolAttribute ("stepMode", false);
+        snapEnabled = xml.getBoolAttribute ("snapEnabled", true);
+        snapToGridEnabled = xml.getBoolAttribute ("snapToGridEnabled", false);
         for (auto* p : xml.getChildWithTagNameIterator ("POINT"))
         {
             PitchPoint pt;

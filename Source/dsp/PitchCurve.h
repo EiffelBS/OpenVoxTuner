@@ -69,7 +69,7 @@ namespace atdsp
         PitchPoint&       getPoint (int index)       { return points.getReference(index); }
 
         /// Modifie le pitch du point a l'index donne.
-        /// Equivaut a points.getReference(index).pitch = pitch, mais garantit
+        /// Equivaut a points.getReference (index).pitch = pitch, mais garantit
         /// une ecriture directe dans le Array (evite toute ambiguite liee a
         /// une copie par valeur accidentelle).
         void setPointPitch (int index, float pitch) { points.getReference (index).pitch = pitch; }
@@ -136,8 +136,9 @@ namespace atdsp
     private:
         juce::Array<PitchPoint> points;
         bool stepMode = false;
+        bool snapEnabled = true;
+        bool snapToGridEnabled = false;
 
-        // Re-trie les points par 'time' croissant (apres edition).
         void sortPoints();
     };
 }
