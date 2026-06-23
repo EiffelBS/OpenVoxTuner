@@ -1,0 +1,3 @@
+[submodule "external/ARA_SDK"]
+	path = external/ARA_SDK
+	url = https://github.com/Celemony/ARA_SDK
