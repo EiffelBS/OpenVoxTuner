@@ -1,0 +1,45 @@
+# .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'          # ex. v1.2.0, v2.0.3, …
+
+jobs:
+  build_and_release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # pour récupérer tous les tags
+
+      # --- 1️⃣ Bump la version dans le header généré -------------------------
+      - name: Update JuceHeader.h
+        shell: pwsh
+        run: |
+          .\release.ps1 -Version "${{ github.ref_name }}".Substring(1)   # supprime le 'v'
+      
+      # --- 2️⃣ Build ----------------------------------------------------------
+      - name: Build plugin
+        shell: pwsh
+        run: .\build.ps1
+
+      # --- 3️⃣ Pack & Upload -------------------------------------------------
+      - name: Archive artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.ref_name }}
+          path: |
+            build/OpenVoxTuner_artefacts/Release/**
+
+      # --- 4️⃣ Create GitHub release ----------------------------------------
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            build/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3
+            build/OpenVoxTuner_artefacts/Release/Standalone/OpenVoxTuner.exe
+            # Ajoutez d’autres fichiers si besoin
