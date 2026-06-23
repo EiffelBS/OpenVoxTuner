@@ -3,4 +3,8 @@
 // Generated build information
 #define OVT_BUILD_ID "@BUILD_ID@"
 #define OVT_BUILD_TIME "@BUILD_TIME@"
+<<<<<<< HEAD
 #define OVT_PROJECT_VERSION "1.2.0"
+=======
+#define OVT_PROJECT_VERSION "1.2.1"
+>>>>>>> 3106cc8ce00d7d5d14b7f25a1dfb7217d7e49694
