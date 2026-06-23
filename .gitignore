@@ -87,3 +87,5 @@ build/
 build-mac/
 build-mac-*/
 dist/
+
+/build/
