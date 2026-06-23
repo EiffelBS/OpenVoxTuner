@@ -77,6 +77,7 @@ target_include_directories(OpenVoxTuner PRIVATE ${CMAKE_BINARY_DIR})
 target_compile_definitions(OpenVoxTuner PRIVATE
     JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1
     JUCE_PLUGIN_WANTS_MIDI_INPUT=0
+    OVT_UPDATE_INFO_URL="${OVT_UPDATE_INFO_URL}"
 )
 
 # Workaround for VST3 JUCE 8 Parameter ID Warning.
@@ -137,6 +138,11 @@ target_link_libraries(OpenVoxTuner PRIVATE
     juce::juce_gui_extra
     juce_ara_sdk
 )
+
+# URL de mise a jour (JSON public sur GitHub raw).
+if(NOT DEFINED OVT_UPDATE_INFO_URL)
+    set(OVT_UPDATE_INFO_URL "https://raw.githubusercontent.com/EiffelBS/OpenVoxTuner/main/docs/releases/latest.json" CACHE STRING "Update info JSON URL")
+endif()
 
 # === Cible pour les tests unitaires (GTest-like console app) ===
 juce_add_console_app(OpenVoxTunerTests

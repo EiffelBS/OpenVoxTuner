@@ -14,6 +14,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <functional>
 #include "../dsp/PitchCurve.h"
 #include "../dsp/ScaleQuantizer.h"
 #include "PianoKeyboard.h"
@@ -123,6 +124,8 @@ namespace ui
         // Listener (un seul pour MVP).
         void addListener (Listener* l) { listener = l; }
         void removeListener() { listener = nullptr; }
+
+        std::function<void(const juce::MouseEvent&)> onRightClick;
 
     private:
         // === Donnees ===

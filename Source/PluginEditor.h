@@ -7,12 +7,15 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <array>
+#include <memory>
 #include "PluginProcessor.h"
 #include "ui/PitchVisualizer.h"
 #include "ui/PitchCurveEditor.h"
 #include "ui/ScaleKeyboardComponent.h"
 #include "dsp/NoteUtils.h"
 #include "ui/LookAndFeel.h"
+
+struct OpenVoxTunerUpdateCheckState;
 
 class OpenVoxTunerAudioProcessorEditor : public juce::AudioProcessorEditor,
                                          public ui::PitchCurveEditor::Listener,
@@ -67,12 +70,39 @@ private:
     juce::Label       harmonyToneColorLabel;
 
     // Snap Toggle.
-    juce::DrawableButton presetsButton {"Presets", juce::DrawableButton::ImageOnButtonBackground};
+    // Custom button that draws an icon and text
+    class PresetsButton : public juce::TextButton
+    {
+    public:
+        PresetsButton(const juce::String& name) : juce::TextButton(name) {}
+        void setIcon(std::unique_ptr<juce::Drawable> d) { icon = std::move(d); }
+    protected:
+        void paint(juce::Graphics& g) override
+        {
+            TextButton::paint(g);
+            if (icon)
+            {
+                int h = getHeight();
+                auto iconBounds = icon->getBounds();
+                float y = (h - iconBounds.getHeight()) * 0.5f;
+                juce::AffineTransform t = juce::AffineTransform().translated(0.0f, y);
+                icon->draw(g, 1.0f, t);
+            }
+        }
+    private:
+        std::unique_ptr<juce::Drawable> icon;
+    };
+
+    PresetsButton presetsButton {"Presets"};
     juce::DrawableButton snapButton {"Snap to scale", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton snapGridButton {"Snap to grid", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton stepModeButton {"Step mode", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton clearCurveButton {"Clear curve", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton resetTransportButton {"Reset playhead", juce::DrawableButton::ImageOnButtonBackground};
+
+    // Update checker / release notification.
+    juce::TextButton updateButton { "Check updates" };
+    std::shared_ptr<OpenVoxTunerUpdateCheckState> updateCheckState;
 
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
     
@@ -121,12 +151,14 @@ private:
     // Updates the visualizer with the current pitch from the processor.
     void refreshVisualizer();
 
-    void showPresetsMenu();
+    void showPresetsMenu (const juce::MouseEvent* mouseEvent = nullptr);
     void loadCustomPresetFromFile (const juce::File& file);
     void promptSaveCustomPreset();
     void writeCustomPresetFile (const juce::String& name, const juce::File& file);
     void deleteCustomPresetFile (const juce::File& file);
     void applyPresetUiStateFromXml (const juce::XmlElement& xml);
+    void startUpdateCheck();
+    static bool isVersionNewer (const juce::String& latest, const juce::String& current);
 
     // Bounds for the bottom blocks
     juce::Rectangle<int> block1Bounds;

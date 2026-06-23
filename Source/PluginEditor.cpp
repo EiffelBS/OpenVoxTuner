@@ -56,14 +56,149 @@ namespace
 
         return out;
     }
+
+    juce::String normaliseVersionString (juce::String v)
+    {
+        v = v.trim();
+        if (v.startsWithChar ('v') || v.startsWithChar ('V'))
+            v = v.substring (1).trim();
+        return v;
+    }
+
+    int compareVersionStrings (juce::String latest, juce::String current)
+    {
+        latest = normaliseVersionString (latest);
+        current = normaliseVersionString (current);
+
+        juce::StringArray a, b;
+        a.addTokens (latest, ".", "");
+        b.addTokens (current, ".", "");
+        const int count = juce::jmax (a.size(), b.size());
+
+        for (int i = 0; i < count; ++i)
+        {
+            const int av = (i < a.size()) ? a[i].getIntValue() : 0;
+            const int bv = (i < b.size()) ? b[i].getIntValue() : 0;
+            if (av > bv) return 1;
+            if (av < bv) return -1;
+        }
+
+        return 0;
+    }
+}
+
+struct OpenVoxTunerUpdateCheckState
+{
+    std::atomic<bool> finished { false };
+    std::atomic<bool> cancelled { false };
+    std::atomic<bool> updateAvailable { false };
+    juce::String latestVersion;
+    juce::String releaseUrl;
+    juce::String statusText;
+};
+
+bool OpenVoxTunerAudioProcessorEditor::isVersionNewer (const juce::String& latest, const juce::String& current)
+{
+    return compareVersionStrings (latest, current) > 0;
+}
+
+void OpenVoxTunerAudioProcessorEditor::startUpdateCheck()
+{
+    updateCheckState = std::make_shared<OpenVoxTunerUpdateCheckState>();
+
+    juce::String currentVersion;
+   #if defined (JucePlugin_VersionString)
+    currentVersion = JucePlugin_VersionString;
+   #elif defined (JucePlugin_Version)
+    currentVersion = juce::String (JucePlugin_Version);
+   #else
+    currentVersion = "0.0.0";
+   #endif
+
+    const juce::String updateInfoUrl = OVT_UPDATE_INFO_URL;
+    auto state = updateCheckState;
+
+    std::thread ([state, currentVersion, updateInfoUrl]
+    {
+        if (state == nullptr || state->cancelled.load())
+            return;
+
+        state->statusText = "Checking...";
+        state->releaseUrl = "https://github.com/EiffelBS/OpenVoxTuner/releases/latest";
+
+        juce::String response;
+        try
+        {
+            response = juce::URL (updateInfoUrl).readEntireTextStream (false);
+        }
+        catch (...)
+        {
+            response.clear();
+        }
+
+        if (! state->cancelled.load() && response.isNotEmpty())
+        {
+            auto parsed = juce::JSON::parse (response);
+            juce::String latestVersion;
+            juce::String releaseUrl;
+
+            if (auto* obj = parsed.getDynamicObject())
+            {
+                latestVersion = obj->getProperty ("version").toString();
+                releaseUrl = obj->getProperty ("url").toString();
+            }
+
+            if (releaseUrl.isEmpty())
+                releaseUrl = "https://github.com/EiffelBS/OpenVoxTuner/releases/latest";
+
+            if (latestVersion.isNotEmpty())
+            {
+                state->latestVersion = latestVersion;
+                state->releaseUrl = releaseUrl;
+                state->updateAvailable.store (OpenVoxTunerAudioProcessorEditor::isVersionNewer (latestVersion, currentVersion));
+                state->statusText = state->updateAvailable.load() ? "Update available" : "Up to date";
+            }
+            else
+            {
+                state->statusText = "Update check failed";
+            }
+        }
+        else if (! state->cancelled.load())
+        {
+            state->statusText = "Update check failed";
+        }
+
+        state->finished.store (true);
+    }).detach();
 }
 
 OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTunerAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
     setLookAndFeel (&customLookAndFeel);
-    tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 250);
+    tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 100);
     tooltipWindow->setLookAndFeel (&customLookAndFeel);
+
+    updateButton.setButtonText ("Check updates");
+    updateButton.setTooltip ("Check the latest OpenVoxTuner release on GitHub.");
+    updateButton.onClick = [this]
+    {
+        if (updateCheckState != nullptr && updateCheckState->updateAvailable.load())
+        {
+            if (updateCheckState->releaseUrl.isNotEmpty())
+                juce::URL (updateCheckState->releaseUrl).launchInDefaultBrowser();
+        }
+        else
+        {
+            juce::URL ("https://github.com/EiffelBS/OpenVoxTuner/releases").launchInDefaultBrowser();
+        }
+    };
+    updateButton.setColour (juce::TextButton::buttonColourId, kBgPanel);
+    updateButton.setColour (juce::TextButton::textColourOffId, kText);
+    updateButton.setColour (juce::TextButton::textColourOnId, kAccent);
+    addAndMakeVisible (updateButton);
+
+    startUpdateCheck();
 
     // === Configuration of the 4 sliders (rotary knobs) ===
     auto setupKnob = [this] (juce::Slider& s, juce::Label* l, const juce::String& name)
@@ -244,6 +379,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         // Custom background colors for DrawableButton
         btn.setColour(juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
         btn.setColour(juce::DrawableButton::backgroundOnColourId, kAccent.withAlpha(0.2f));
+        btn.setColour(juce::DrawableButton::textColourId, juce::Colours::white);
+        btn.setColour(juce::DrawableButton::textColourOnId, juce::Colours::white);
         addAndMakeVisible(btn);
     };
 
@@ -282,33 +419,48 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     pathPresets.addLineSegment (juce::Line<float> (2, 12, 14, 12), 2.0f);
 
     // Setup Toolbar Buttons
-    setupIconButton(presetsButton, pathPresets, false, "Presets");
+    // Custom button: icon + text
+{
+    // Set up the custom PresetsButton member
+    auto normal = createDrawable(pathPresets, juce::Colours::grey);
+    auto over   = createDrawable(pathPresets, juce::Colours::lightgrey);
+    auto down   = createDrawable(pathPresets, juce::Colours::white);
+
+    // Assign the icon (use the first drawable for normal state)
+    presetsButton.setIcon(std::move(normal));
+
+    // Ensure proper layout and appearance
+
+    presetsButton.setSize(80, 22);
+    addAndMakeVisible(presetsButton);
+
+    // Callbacks and tooltip
     presetsButton.onClick = [this] { showPresetsMenu(); };
     presetsButton.setTooltip ("Presets.\n"
                               "Factory: load built-in presets.\n"
                               "Custom: load/save/delete your own presets.");
+}
 
     setupIconButton(snapButton, pathScale, true, "Snap to scale");
     snapButton.setToggleState(true, juce::dontSendNotification);
     snapButton.onClick = [this] {
         if (curveEditor != nullptr) curveEditor->setSnapEnabled(snapButton.getToggleState());
     };
-    snapButton.setTooltip ("Snap pitches to the selected scale.\n"
-                           "When enabled, added/dragged points are quantized to scale notes.");
+    snapButton.setTooltip ("Snap to scale");
 
     setupIconButton(snapGridButton, pathGrid, true, "Snap to grid");
-    snapGridButton.setToggleState(false, juce::dontSendNotification);
+    snapGridButton.setToggleState(true, juce::dontSendNotification);
     snapGridButton.onClick = [this] {
         if (curveEditor != nullptr) curveEditor->setSnapToGridEnabled(snapGridButton.getToggleState());
     };
-    snapGridButton.setTooltip ("Snap time to the beat grid.\n"
-                               "When enabled, added/dragged points lock to the nearest grid line.");
+    snapGridButton.setTooltip ("Snap to grid");
 
     setupIconButton(stepModeButton, pathStep, true, "Step mode (staircase interpolation)");
-    stepModeButton.setToggleState(false, juce::dontSendNotification);
+    stepModeButton.setToggleState(true, juce::dontSendNotification);
     stepModeButton.onClick = [this] {
         if (curveEditor != nullptr) curveEditor->setStepModeEnabled(stepModeButton.getToggleState());
     };
+    stepModeButton.setTooltip ("Step mode");
     stepModeButton.setTooltip ("Step mode.\n"
                                "Holds the pitch until the next point, then jumps vertically.");
 
@@ -535,10 +687,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // === Pitch visualizer ===
     pitchVisualizer = std::make_unique<ui::PitchVisualizer>();
 
-    // === Pitch curve editor (Curve Editor mode) ===
     curveEditor = std::make_unique<ui::PitchCurveEditor>();
     curveEditor->addListener (this);
     curveEditor->setViewRange (16.0, 50.0f, 1000.0f);
+    curveEditor->onRightClick = [this] (const juce::MouseEvent& e) {
+        showPresetsMenu (&e);
+    };
 
     // Initialize tabs
       tabbedComponent.setOutline(0);
@@ -573,6 +727,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
 OpenVoxTunerAudioProcessorEditor::~OpenVoxTunerAudioProcessorEditor()
 {
+    if (updateCheckState != nullptr)
+        updateCheckState->cancelled.store (true);
+
     stopTimer();
     if (tooltipWindow != nullptr)
     {
@@ -664,13 +821,16 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const bool showBypass = processorRef.isStandaloneWrapper();
     const int toggleW = 98;
     const int latencyW = 110;
+    const int updateW = 118;
 
    #if JUCE_DEBUG
     const int debugW = 72;
-    auto rightTools = titleArea.removeFromRight (showBypass ? 420 : 330);
+    auto rightTools = titleArea.removeFromRight (showBypass ? 540 : 450);
+    updateButton.setBounds (rightTools.removeFromRight (updateW).reduced (4, 10));
     debugWindowButton.setBounds (rightTools.removeFromRight (debugW).reduced (4, 10));
    #else
-    auto rightTools = titleArea.removeFromRight (showBypass ? 340 : 250);
+    auto rightTools = titleArea.removeFromRight (showBypass ? 460 : 370);
+    updateButton.setBounds (rightTools.removeFromRight (updateW).reduced (4, 10));
     debugWindowButton.setBounds (0, 0, 0, 0);
    #endif
 
@@ -711,7 +871,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     toolsArea.removeFromRight(8);
     snapButton.setBounds (toolsArea.removeFromRight(iconSize));
     toolsArea.removeFromRight(8);
-    presetsButton.setBounds (toolsArea.removeFromRight(iconSize));
+    presetsButton.setBounds (toolsArea.removeFromRight(80));
 
     // === Bottom bar: 3 blocks ===
     auto bottomArea = bounds.reduced (pad);
@@ -816,9 +976,34 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
 {
     refreshVisualizer();
 
+    if (updateCheckState != nullptr)
+    {
+        if (! updateCheckState->finished.load())
+        {
+            updateButton.setButtonText ("Checking...");
+            updateButton.setEnabled (false);
+        }
+        else
+        {
+            updateButton.setEnabled (true);
+            if (updateCheckState->updateAvailable.load())
+            {
+                updateButton.setButtonText ("Update " + updateCheckState->latestVersion);
+                updateButton.setColour (juce::TextButton::buttonColourId, kAccent.darker (0.2f));
+                updateButton.setTooltip ("Open the latest OpenVoxTuner release.");
+            }
+            else
+            {
+                updateButton.setButtonText ("Up to date");
+                updateButton.setColour (juce::TextButton::buttonColourId, kBgPanel);
+                updateButton.setTooltip (updateCheckState->statusText.isNotEmpty() ? updateCheckState->statusText : "Open the OpenVoxTuner releases page.");
+            }
+        }
+    }
+
     // Sync tab <-> "mode" parameter
     int tabIndex = tabbedComponent.getCurrentTabIndex();
-    
+
     // Visibility of Curve Editor Mode specific buttons
     bool isCurveEditorMode = (tabIndex == 1);
     presetsButton.setVisible (isCurveEditorMode);
@@ -826,7 +1011,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     snapGridButton.setVisible (isCurveEditorMode);
     stepModeButton.setVisible (isCurveEditorMode);
     clearCurveButton.setVisible (isCurveEditorMode);
-    
+
     // Gray out Formant slider if disabled
     bool isFormantEnabled = formantEnableButton.getToggleState();
     formantSlider.setEnabled (isFormantEnabled);
@@ -1053,11 +1238,6 @@ void OpenVoxTunerAudioProcessorEditor::loadCustomPresetFromFile (const juce::Fil
         applyPresetUiStateFromXml (*root);
     else
         stepModeButton.setToggleState (newCurve.isStepMode(), juce::dontSendNotification);
-
-    juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-                                                 "Preset loaded",
-                                                 "Loaded custom preset:\n" + file.getFileNameWithoutExtension(),
-                                                 this);
 }
 
 void OpenVoxTunerAudioProcessorEditor::promptSaveCustomPreset()
@@ -1158,28 +1338,34 @@ void OpenVoxTunerAudioProcessorEditor::deleteCustomPresetFile (const juce::File&
 
     juce::NativeMessageBox::showAsync (opts, [this, file] (int result)
     {
-        if (result != 2)
+        // Debug: display the result value
+        // Debug: show the actual result value
+        if (result != 1) // Delete button id is 1 in makeOptionsYesNo
             return;
 
+        // Ensure file is writable before attempting deletion
+        file.setReadOnly(false);
         const bool deleted = file.deleteFile();
-        if (deleted)
+        if (!deleted || file.existsAsFile())
         {
-            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-                                                         "Preset deleted",
-                                                         "Deleted custom preset:\n" + file.getFileNameWithoutExtension(),
-                                                         this);
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                             "Delete failed",
+                                                             "Couldn't delete the preset file. Check permissions.",
+                                                             this);
         }
         else
         {
-            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                                                         "Delete failed",
-                                                         "Couldn't delete the preset file.",
-                                                         this);
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                                                             "Preset deleted",
+                                                             "Deleted custom preset:\n" + file.getFileNameWithoutExtension(),
+                                                             this);
+            // Refresh the presets menu immediately so the entry disappears
+            showPresetsMenu();
         }
     });
 }
 
-void OpenVoxTunerAudioProcessorEditor::showPresetsMenu()
+void OpenVoxTunerAudioProcessorEditor::showPresetsMenu (const juce::MouseEvent* mouseEvent)
 {
     if (curveEditor == nullptr)
         return;
@@ -1235,8 +1421,17 @@ void OpenVoxTunerAudioProcessorEditor::showPresetsMenu()
     menu.addSubMenu ("Factory", factory);
     menu.addSubMenu ("Custom", custom);
 
-    auto opts = juce::PopupMenu::Options().withTargetComponent (&presetsButton)
-                                         .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards);
+    auto opts = juce::PopupMenu::Options();
+    if (mouseEvent != nullptr)
+    {
+        opts = opts.withTargetComponent (mouseEvent->eventComponent)
+                   .withTargetScreenArea (juce::Rectangle<int> (mouseEvent->getScreenX(), mouseEvent->getScreenY(), 1, 1));
+    }
+    else
+    {
+        opts = opts.withTargetComponent (&presetsButton)
+                   .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards);
+    }
 
     menu.showMenuAsync (opts, [this, actions] (int result) mutable
     {

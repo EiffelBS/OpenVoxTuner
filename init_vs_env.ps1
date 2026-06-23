@@ -26,7 +26,7 @@ $msvcBin = "$vsToolsRoot\bin\Hostx64\x64"
 $msvcBinArm = "$vsToolsRoot\bin\Hostx64\arm64"  # cross-compile arm64
 $sdkBin = "$sdkRoot\bin\$sdkVersion\x64"
 
-$env:Path = "$msvcBin;$sdkBin;$env:Path"
+$env:Path = "$msvcBin;$sdkBin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;$env:Path"
 
 # === INCLUDE ===
 $env:INCLUDE = @(

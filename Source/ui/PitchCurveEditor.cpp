@@ -38,6 +38,11 @@ namespace ui
             harmonyTimes.add (juce::Array<double>());
             harmonyPitches.add (juce::Array<float>());
         }
+
+        // Default states
+        snapEnabled = true;
+        snapToGridEnabled = true;
+        setStepModeEnabled(true);
     }
 
     PitchCurveEditor::~PitchCurveEditor() { stopTimer(); }
@@ -266,7 +271,7 @@ namespace ui
                 
                 g.setColour (juce::Colours::white);
                 g.setFont (12.0f);
-                g.drawText (tooltipText, tooltipBounds, juce::Justification::centred, false);
+                g.drawText (noteStr, tooltipBounds, juce::Justification::centred, false);
             }
         }
 
@@ -291,7 +296,7 @@ namespace ui
 #endif
         g.drawText ("MouseWheel: Scroll | " + modifierName + "+MouseWheel: Zoom",
                     b.getWidth() - 280, b.getHeight() - 36, 270, 14, juce::Justification::bottomRight);
-        g.drawText ("Double-click: Add point | Right-click: Menu",
+        g.drawText ("Double-click: Add point | Right-click: Curve presets",
                     b.getWidth() - 280, b.getHeight() - 20, 270, 14, juce::Justification::bottomRight);
 
         g.restoreState();
@@ -464,6 +469,13 @@ namespace ui
         }
         else
         {
+            if (e.mods.isRightButtonDown())
+            {
+                if (onRightClick != nullptr)
+                    onRightClick (e);
+                return;
+            }
+
             selectedIndices.clear();
             marqueeStart = e.position;
             marqueeRect = juce::Rectangle<float> (marqueeStart, marqueeStart);

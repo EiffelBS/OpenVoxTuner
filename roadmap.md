@@ -211,11 +211,11 @@ Legende :
 - [x] Rédiger le guide de déploiement et packaging (`docs/deployment-and-packaging-guide.md`) - 2026-06-15
 - [x] Créer un script PowerShell local (`build_installer.ps1`) pour compiler et générer automatiquement l'installateur Windows sans utiliser les quotas GitHub Actions.
 - [x] Configurer Inno Setup (`installer/OpenVoxTuner.iss`) pour créer un `.exe` d'installation déployant le VST3 et le Standalone dans les dossiers Windows standards.
-- [ ] Mettre en place un workflow GitHub Actions (Windows/macOS)
-- [ ] Générer l'installateur macOS (pkgbuild, `.pkg`)
+- [x] Mettre en place un workflow GitHub Actions (Windows/macOS)
+- [x] Générer l'installateur macOS (pkgbuild, `.pkg`)
 - [ ] Configurer la signature de code Windows (EV Certificate)
 - [ ] Configurer la signature et notarisation macOS (Apple Developer ID)
-- [ ] Implémenter le mécanisme de vérification des mises à jour dans l'UI du plugin
+- [x] Implémenter le mécanisme de vérification des mises à jour dans l'UI du plugin
 
 ## Hors scope MVP
 
