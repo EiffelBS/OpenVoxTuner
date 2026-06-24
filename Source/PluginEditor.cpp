@@ -1124,11 +1124,6 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
     const atdsp::NoteInfo info = atdsp::describePitch (hzIn, hzOut);
     pitchVisualizer->setNoteInfo (info);
 
-    // Mise a jour des noms de notes sur les deux pianos (correctif R2.2).
-    pitchVisualizer->getPianoKeyboard().setNoteNames (info.name, info.targetName);
-    if (curveEditor != nullptr)
-        curveEditor->getPianoKeyboard().setNoteNames (info.name, info.targetName);
-
     // Update the scale intervals (for the background lines).
     // We read them from the parameter tree -> ScaleQuantizer.
     // Note: the quantizer is rebuilt in syncParameters() every block,
