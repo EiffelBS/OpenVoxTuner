@@ -198,10 +198,15 @@ private:
 
     // Dernier pitch valide apres filtrage anti-saut-d'octave.
     // Si le pitch detecte saute d'un facteur ~2 ou ~0.5 par rapport a
-    // cette reference, on conserve l'ancienne valeur. Cela empeche les
-    // drops d'octave audibles meme quand le detecteur YIN (ou son
-    // anti-octave-error) fournit transitoirement la 2e harmonique.
+    // cette reference, on conserve l'ancienne valeur. Un compteur de
+    // persistence permet de laisser passer les vrais changements de
+    // registre vocal apres ~0.5 s de detection stable.
     std::atomic<float> lastOctaveValidatedPitch { 0.0f };
+    // Compteur de cycles consecutifs ou le filtre a rejete un saut
+    // d'octave. Apres OCTAVE_JUMP_PERSISTENCE_THRESHOLD rejets, on
+    // accepte le nouveau pitch (vrai changement de registre).
+    static constexpr int octaveJumpPersistenceThreshold = 10;
+    int octaveJumpRejectionCount = 0;
 
     // Cached transport time (beats) refreshed at most every 10 ms in
     // the audio thread to avoid blocking calls to getPlayHead() and

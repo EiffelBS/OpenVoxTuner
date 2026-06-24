@@ -126,39 +126,41 @@ namespace ui
             g.setColour (juce::Colour (0x331A9AF0));
             g.fillRect (0, headerH - 2, W, 2);
 
-            // ---- Note badge (left side) ----
-            const juce::String noteDisplay = noteInfo.valid ? noteInfo.name : "--";
-            const juce::String targetDisplay = (noteInfo.valid && noteInfo.targetName != noteInfo.name)
-                                                 ? noteInfo.targetName : juce::String();
-
-            // Glowing note badge
-            const int badgeW = 100;
             const int badgeH = headerH - 12;
-            const int badgeX = 14;
             const int badgeY = (headerH - badgeH) / 2;
 
+            // ---- Note badge (center-aligned text) ----
+            const juce::String noteDisplay = noteInfo.valid ? noteInfo.name : "--";
+
+            // Note name on the left side, centered in its area
+            const int noteAreaW = 90;
+            const int noteAreaX = 14;
+
+            // Subtle background glow for the note area
             juce::Colour badgeCol = noteInfo.valid
                 ? juce::Colour (0x221A9AF0)
                 : juce::Colour (0x11ffffff);
             g.setColour (badgeCol);
-            g.fillRoundedRectangle ((float)badgeX, (float)badgeY, (float)badgeW, (float)badgeH, 6.0f);
+            g.fillRoundedRectangle ((float)noteAreaX, (float)badgeY, (float)noteAreaW, (float)badgeH, 6.0f);
             g.setColour (juce::Colour (0x441A9AF0));
-            g.drawRoundedRectangle ((float)badgeX, (float)badgeY, (float)badgeW, (float)badgeH, 6.0f, 1.0f);
+            g.drawRoundedRectangle ((float)noteAreaX, (float)badgeY, (float)noteAreaW, (float)badgeH, 6.0f, 1.0f);
 
-            // Current sung note (large, prominent)
+            // Current sung note, CENTERED in its badge zone
             g.setColour (juce::Colours::white);
             g.setFont (juce::Font (24.0f, juce::Font::bold));
             g.drawText (noteDisplay,
-                        badgeX, badgeY, badgeW - 4, badgeH,
-                        juce::Justification::centredLeft);
+                        noteAreaX, badgeY, noteAreaW, badgeH,
+                        juce::Justification::centred);
 
-            // Target note arrow + name (right of the badge)
+            // Target note arrow + name (right of the note badge), centered vertically
+            const juce::String targetDisplay = (noteInfo.valid && noteInfo.targetName != noteInfo.name)
+                                                 ? noteInfo.targetName : juce::String();
             if (targetDisplay.isNotEmpty())
             {
                 g.setColour (juce::Colour (0xff8bc34a));
                 g.setFont (juce::Font (13.0f, juce::Font::bold));
                 g.drawText ("> " + targetDisplay,
-                            badgeX + badgeW + 6, badgeY, 80, badgeH,
+                            noteAreaX + noteAreaW + 4, badgeY, 80, badgeH,
                             juce::Justification::centredLeft);
             }
 
@@ -167,73 +169,82 @@ namespace ui
             {
                 const float cents = noteInfo.cents;
                 juce::Colour centsCol;
-                if (std::abs (cents) < 5.0f)      centsCol = juce::Colour (0xff4caf50); // green - in tune
-                else if (std::abs (cents) < 15.0f) centsCol = juce::Colour (0xffcddc39); // yellow - close
-                else if (std::abs (cents) < 35.0f) centsCol = juce::Colour (0xffff9800); // orange - off
-                else                                centsCol = juce::Colour (0xffe57373); // red - far off
+                if (std::abs (cents) < 5.0f)      centsCol = juce::Colour (0xff4caf50);
+                else if (std::abs (cents) < 15.0f) centsCol = juce::Colour (0xffcddc39);
+                else if (std::abs (cents) < 35.0f) centsCol = juce::Colour (0xffff9800);
+                else                                centsCol = juce::Colour (0xffe57373);
 
                 g.setColour (centsCol);
                 g.setFont (juce::Font (18.0f, juce::Font::bold));
                 const juce::String centsStr = (cents >= 0.0f ? "+" : "")
                     + juce::String (static_cast<int> (std::round (cents))) + "\xc2\xa2";
                 g.drawText (centsStr,
-                            200, badgeY, 76, badgeH,
-                            juce::Justification::centredLeft);
+                            185, badgeY, 72, badgeH,
+                            juce::Justification::centred);
             }
 
-            // ---- Horizontal tuning meter (right portion of header) ----
+            // ---- Horizontal VU-style tuning meter ----
             {
                 const float cents = noteInfo.valid ? noteInfo.cents : 0.0f;
-                const int meterLeft  = 290;
-                const int meterW     = juce::jmax (80, W - meterLeft - 20);
+                const int meterLeft  = 275;
+                const int meterRight = W - 14;
+                const int meterW     = juce::jmax (60, meterRight - meterLeft);
                 const int meterY    = badgeY + 2;
                 const int meterH    = badgeH - 4;
 
                 if (meterW > 40 && noteInfo.valid)
                 {
                     // Meter background: dark rounded track
-                    g.setColour (juce::Colour (0x33000000));
+                    g.setColour (juce::Colour (0x3322222a));
                     g.fillRoundedRectangle ((float)meterLeft, (float)meterY, (float)meterW, (float)meterH, 4.0f);
+                    g.setColour (juce::Colour (0x44444466));
+                    g.drawRoundedRectangle ((float)meterLeft, (float)meterY, (float)meterW, (float)meterH, 4.0f, 1.0f);
 
-                    // Center line (0 cents mark)
                     const int centerX = meterLeft + meterW / 2;
-                    g.setColour (juce::Colour (0x664caf50));
+
+                    // Center "0" mark — thicker green marker
+                    g.setColour (juce::Colour (0xaa4caf50));
                     g.fillRect (centerX - 1, meterY + 2, 2, meterH - 4);
 
-                    // Tuning gradient: green center -> yellow -> orange -> red at edges
-                    const float inTuneZoneFrac = 0.15f; // +/- 15% around center
-                    g.setColour (juce::Colour (0x224caf50));
-                    g.fillRect (centerX - (int)(meterW * inTuneZoneFrac / 2.0f),
-                                meterY + 2,
-                                (int)(meterW * inTuneZoneFrac),
-                                meterH - 4);
+                    // Tick marks at ±25 cents (subtle)
+                    g.setColour (juce::Colour (0x44ffffff));
+                    const int tick25 = meterW / 4; // 25 cents = 1/4 of the meter when range is ±50
+                    g.fillRect (centerX - tick25, meterY + meterH - 8, 1, 6);
+                    g.fillRect (centerX + tick25, meterY + meterH - 8, 1, 6);
 
-                    // Cursor/needle position with smoothing (subtle animation)
-                    const float centsNorm = juce::jlimit (-1.0f, 1.0f, cents * 0.95f);
+                    // "0" label centered below meter
+                    g.setFont (juce::Font (8.0f));
+                    g.setColour (juce::Colour (0xaa4caf50));
+                    g.drawText ("0", centerX - 10, meterY + meterH + 1, 20, 10,
+                                juce::Justification::centred);
+
+                    // Needle position: mapped to ±50 cents range (full meter width)
+                    const float clampedCents = juce::jlimit (-50.0f, 50.0f, cents);
+                    const float centsNorm = clampedCents / 50.0f; // normalized to [-1, 1]
                     int needleTarget = centerX + (int)(centsNorm * meterW / 2.0f);
                     needleTarget = juce::jlimit (meterLeft + 3, meterLeft + meterW - 3, needleTarget);
 
-                    // Smooth interpolation for needle animation
-                    const float animAlpha = 0.35f;
+                    // Smooth interpolation for slow, fluid animation
+                    const float animAlpha = 0.12f; // slower for a polished feel
                     lastNeedleX = lastNeedleX + (needleTarget - lastNeedleX) * animAlpha;
 
-                    // Needle color
+                    // Needle color based on absolute cents value
                     juce::Colour needleCol;
                     if (std::abs (cents) < 5.0f)      needleCol = juce::Colour (0xff4caf50);
                     else if (std::abs (cents) < 15.0f) needleCol = juce::Colour (0xffcddc39);
-                    else if (std::abs (cents) < 35.0f) needleCol = juce::Colour (0xffff9800);
+                    else if (std::abs (cents) < 30.0f) needleCol = juce::Colour (0xffff9800);
                     else                                needleCol = juce::Colour (0xffe57373);
 
-                    // Draw needle as a diamond (triangle marker)
+                    // Draw the VU needle as a small diamond marker
+                    const int nX = (int)juce::jlimit ((float)meterLeft + 3, (float)(meterLeft + meterW - 3), lastNeedleX);
                     juce::Path needle;
-                    const int nX = (int)lastNeedleX;
                     needle.addTriangle ((float)nX, (float)(meterY + 2),
-                                        (float)(nX - 5), (float)(meterY + meterH - 2),
-                                        (float)(nX + 5), (float)(meterY + meterH - 2));
+                                        (float)(nX - 4), (float)(meterY + meterH - 2),
+                                        (float)(nX + 4), (float)(meterY + meterH - 2));
                     g.setColour (needleCol);
                     g.fillPath (needle);
 
-                    // Small white dot on the needle
+                    // Small white dot at the needle tip
                     g.setColour (juce::Colours::white);
                     g.fillEllipse ((float)nX - 2.0f, (float)(meterY + meterH / 2) - 2.0f, 4.0f, 4.0f);
                 }
