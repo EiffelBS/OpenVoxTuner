@@ -354,6 +354,9 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     for (int ch = 0; ch < 16; ++ch)
         lastSentMidiNote[ch] = -1;
 
+    // Initialise le compteur de persistence anti-saut-octave
+    octaveJumpRejectionCount = 0;
+
     // Retrieves raw pointers to the parameters' atomic values.
     speedParam   = parameters.getRawParameterValue ("speed");
     amountParam  = parameters.getRawParameterValue ("amount");
@@ -781,35 +784,49 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         f0_in = 0.0f;
 
     // Filtre anti-saut-d'octave : si f0_in saute d'un facteur ~2 ou ~0.5
-    // par rapport au dernier pitch valide, on conserve l'ancienne valeur.
-    // Cela protege le PitchShifter d'un ratio faux meme quand YIN (ou son
-    // anti-octave-error) livre transitoirement la 2e harmonique.
-    // Ce filtre est volontairement agressif (seuils larges) pour garantir
-    // la continuite auditive, au prix d'une latence d'une analyse YIN
-    // en cas de vrai changement de registre vocal.
+    // par rapport au dernier pitch valide, on conserve l'ancienne valeur
+    // temporairement. Un compteur de persistence permet de laisser passer
+    // les VRAIS changements de registre vocal (~0.5 s de detection stable).
     if (f0_in > 0.0f)
     {
         float ref = lastOctaveValidatedPitch.load();
         if (ref > 0.0f)
         {
             float ratio = f0_in / ref;
-            // Saut d'octave vers le haut: f0_in ~= 2 * ref (ex: 220 -> 440)
-            if (ratio > 1.7f && ratio < 2.3f)
+            bool isOctaveJump = (ratio > 1.7f && ratio < 2.3f) || (ratio > 0.40f && ratio < 0.55f);
+
+            if (isOctaveJump)
             {
-                f0_in = ref;
+                ++octaveJumpRejectionCount;
+                if (octaveJumpRejectionCount >= octaveJumpPersistenceThreshold)
+                {
+                    // Persistance depassee : vrai changement de registre,
+                    // on accepte le nouveau pitch et on reinitialise le compteur.
+                    lastOctaveValidatedPitch.store (f0_in);
+                    octaveJumpRejectionCount = 0;
+                }
+                else
+                {
+                    // Rejet temporaire : on conserve l'ancienne valeur
+                    f0_in = ref;
+                }
             }
-            // Saut d'octave vers le bas: f0_in ~= 0.5 * ref (ex: 440 -> 220)
-            else if (ratio > 0.40f && ratio < 0.55f)
+            else
             {
-                f0_in = ref;
+                // Pas un saut d'octave : on accepte et on reinitialise le compteur
+                octaveJumpRejectionCount = 0;
+                lastOctaveValidatedPitch.store (f0_in);
             }
         }
-        lastOctaveValidatedPitch.store (f0_in);
+        else
+        {
+            octaveJumpRejectionCount = 0;
+            lastOctaveValidatedPitch.store (f0_in);
+        }
     }
     else
     {
-        // Silence: on reinitialise la reference pour permettre une
-        // detection propre a la reprise du chant.
+        octaveJumpRejectionCount = 0;
         lastOctaveValidatedPitch.store (0.0f);
     }
     lastInputPitch.store (f0_in);
