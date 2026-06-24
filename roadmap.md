@@ -312,6 +312,14 @@ Suivi consulte lors de chaque modification du projet.
 - [ ] Detection d'onset (transient detection) -> bypass PSOLA sur les
       transitoires (preserve les "t", "k", "p")
 - [ ] LPC + resampling non-uniforme pour preservation exacte des formants
+- [x] **Anti-octave-error YIN (continuite d'octave)** (FAIT 2026-06-23) :
+      ajout d'une verification de continuite d'octave dans le median
+      filter de `PitchDetector`. Si la mediane differe du dernier
+      pitch valide d'un facteur proche de 2 (octave au-dessus) ou
+      0.5 (octave en-dessous), on ajuste vers l'octave la plus
+      proche du contexte precedent. Corrige les sauts d'octave sur
+      les voix graves ou le fondamental est faible et YIN detecte
+      2*f0 au lieu de f0.
 - [ ] MPM en complement de YIN (plus robuste sur les voix graves/aigues)
 - [ ] Gate de silence (ne pas shifter quand clarte YIN < seuil)
 - [~] **Test audio subjectif sur voix reelle (homme/femme)** :
@@ -407,4 +415,100 @@ Suivi consulte lors de chaque modification du projet.
 - [x] Refactor Curve Editor toolbar using clean vector icon buttons
 - [x] Add themed tooltips for all Curve Editor toolbar icons
 - [x] Mirror sung/corrected note highlights on the Curve Editor piano keyboard
+
+## Phase 13 - Restauration de l'autotune (Corrections 2026-06-24)
+
+> Bug critique rapporte par Jerome : "le plugin d'autotune est inutilisable".
+> Aucun effet audible sur la voix chantee, visualiseur graphique vide,
+> piano vertical muet. Trois pannes racines identifiees par analyse
+> statique du code et detaillees dans
+> `docs/diagnostic-pannes-autotune-2026-06-24.md`. Plan de correction
+> complet dans `docs/correctif-pannes-autotune-2026-06-24.md`.
+
+### R1 - Traitement audio principal (pitch detection + autotune)
+- [x] **Diagnostic** : ratio `1.0` injecte au PitchShifter a cause de
+      l'anti-octave-error trop zele (`f0_in == 0.0f` transitoire)
+- [x] **Correctif 1.1** : `computeInputPitch()` reutilise
+      `lastValidPitchForAutotune` quand YIN ne detecte rien
+- [x] **Correctif 1.2** : `processBlock` reutilise le dernier ratio
+      snapshot au lieu de retomber a `1.0` lors des micro-pauses
+- [x] **Correctif 1.3** : `PitchShifter::process` valide le ratio
+      d'entree (NaN/Inf/<=0) et retombe sur 1.0 en securite
+- [ ] Test voix feminine (aigue, harmonique 2 forte) - bloque par R1
+- [ ] Test voix masculine (medium, avec vibrato) - bloque par R1
+
+### R2 - Affichage visuel (visualiseur + piano vertical)
+- [x] **Diagnostic** : `timerCallback` ne pousse les donnees
+      (`pushInputPitch`, `pushOutputPitch`, `setNoteInfo`) qu'a
+      l'onglet actif, donc si "Curve Editor" est selectionne
+      par defaut, le visualiseur "Live" reste vide
+- [x] **Correctif 2.1** : pousser systematiquement les donnees dans
+      le visualiseur independamment de l'onglet selectionne
+- [x] **Correctif 2.2** : nouvelle methode `PianoKeyboard::setNoteNames`
+      pour afficher en temps reel la note chantee et la note corrigee
+- [x] **Correctif 2.3** : constante unique `kHarmonyColour` (bleu
+      `#1A9AF0`) alignee sur la spec
+- [x] Code couleur spec conforme :
+  - [x] Rouge (`#e91e63`) -> voix chantee originale
+  - [x] Vert (`#00e676`) -> voix corrigee par l'autotune
+  - [x] Bleu (`#1A9AF0`) -> harmonies generees
+
+### R3 - Latence temps reel < 30 ms
+- [x] **Diagnostic** : `getPlayHead()->getPosition()` et
+      `getLoopPoints()` executes en synchrone dans le thread audio
+- [x] **Correctif 3.1** : cache du transport time, maj limitee a
+      10 ms (100 Hz max)
+- [x] **Correctif 3.2** : `getLoopPoints()` ignore en mode Standalone
+- [ ] Test loop 5 min Reaper/FL Studio - bloque par R3
+
+### R4 - YIN ne s'execute jamais (BUG BLOQUANT - Round 2, 2026-06-24)
+- [x] **Diagnostic** : `prepareToPlay` utilise `sampleRate/4.0` mais
+      `computeInputPitch` decime par 8 -> buffer decime de 256 echantillons
+      insuffisant pour YIN (besoin 734 a 11025 Hz) -> `detectPitch` retourne
+      0 a chaque bloc depuis la refonte Multi-Moteurs (Phase 7)
+- [x] **Correctif R4.1** : `analysisWindow` passe de 2048 a 4096 (`PluginProcessor.h`)
+- [x] **Correctif R4.2** : `analysisHopSize` passe de 1024 a 2048 (`PluginProcessor.h`)
+- [x] **Correctif R4.3** : `decimation` passe de 8 a 4 dans `computeInputPitch` (`PluginProcessor.cpp`)
+- [x] Verification : decimatedWindow = 4096/4 = 1024 >= 734 (besoin YIN) -> OK
+
+### R5 - Drops d'octave sur note tenue (Round 3, 2026-06-24)
+- [x] **Diagnostic** : 2 bugs dans l'anti-octave-error du PitchDetector
+- [x] **Bug 1 (detectPitch etape 3b)** : seuils trop restrictifs empechaient
+      la correction quand YIN trouve la 2e harmonique (tau->2*f0) ->
+      remplace par evaluation systematique des 2 alternatives avec
+      choix par clarte + continuite d'octave
+- [x] **Bug 2 (getMedianFiltered)** : boucle arretait apres 1 valeur a
+      cause d'un `break` -> corrige par consensus vote >= 3/5 valeurs
+- [x] Fichier : `Source/dsp/PitchDetector.cpp`
+
+### R6 - Drops d'octave persistent en mode Curve Editor (Round 4, 2026-06-24)
+- [x] **Diagnostic** : le probleme n'est pas dans YIN mais dans
+      `processBlock` — meme avec la bonne note cible (courbe), si
+      `f0_in` saute d'une octave, le ratio `f0_target/f0_in` est
+      faux et le PitchShifter produit un drop audible
+- [x] **Correctif** : filtre anti-saut d'octave dans `processBlock`
+      qui compare `f0_in` au dernier pitch valide et rejette les
+      sauts d'un facteur ~2 ou ~0.5
+- [x] Fichiers : `Source/PluginProcessor.h` (membre `lastOctaveValidatedPitch`),
+      `Source/PluginProcessor.cpp` (filtre apres computeInputPitch)
+
+### Validation post-correction (Phase 13)
+- [ ] Build Release x64 via `build.ps1 -configuration Release`
+- [ ] Installation VST3 via `install_vst3.ps1`
+- [ ] Test voix reelle homme (5 min, mix justesse)
+- [ ] Test voix reelle femme (5 min, mix justesse)
+- [ ] Test 3 traces colorees simultanees (Live tab)
+- [ ] Test piano vertical : marqueurs rouge+vert en temps reel
+- [ ] Test latence <= 30 ms sur Reaper / Studio One / Standalone
+- [ ] Test pitch shift faible (+/-1 demi-ton)
+- [ ] Test pitch shift fort (+/-7 demi-tons)
+- [ ] Test voix parlee (transitoires)
+- [ ] Test 5 min en mode loop Reaper (zero glitch)
+
+### Prevention des regressions (Phase 13)
+- [ ] Test unitaire `test/dsp/PitchShifterTest.cpp` : ratio invalide -> 1.0
+- [ ] Assert `jassert(pitchVisualizer != nullptr)` dans `timerCallback`
+- [ ] Log OVT en DEBUG si trace rouge vide pendant > 1 s de chant
+- [ ] Encapsulation `updateTransportTimeIfNeeded()` documentee
+      "NE PAS APPELER PLUS D'UNE FOIS PAR TRANCHE DE 10 ms"
 

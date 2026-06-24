@@ -41,6 +41,11 @@ namespace ui
         /// Definit les pitches courants (pour la surbrillance des touches).
         void setCurrentPitches (float inputHz, float outputHz);
 
+        /// Affiche les noms des notes (originale et corrigee) sous forme de
+        /// labels colores colles en haut du clavier. Note : l'appelant doit
+        /// fournir les noms formats (ex: "A#3", "C4").
+        void setNoteNames (const juce::String& inputName, const juce::String& outputName);
+
         /// Renvoie le Y (en pixels) d'une note MIDI donnee.
         float midiToY (int midi) const;
 
@@ -57,6 +62,10 @@ namespace ui
         juce::Array<int> scaleIntervals; // demi-tons 0..11 dans la gamme
         float currentInputHz = 0.0f;
         float currentOutputHz = 0.0f;
+
+        // Labels pour afficher le nom des notes en temps reel (correctif R2.2).
+        std::unique_ptr<juce::Label> inputNoteLabel;
+        std::unique_ptr<juce::Label> outputNoteLabel;
 
         // Couleurs.
         static const juce::Colour kWhiteKey;

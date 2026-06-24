@@ -14,6 +14,27 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Position Independent Code (necessaire pour certains formats de plugin).
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# ---------------------------------------------------------------
+# Compatibilite macOS : forcer un deployment target compatible
+# avec JUCE 8 pour les builds sur Xcode 17+ / SDK 26.x "insider".
+# ---------------------------------------------------------------
+if(APPLE)
+    # Force le SDK macOS a une version compatible avec JUCE 8.
+    # JuCE 8 supporte officiellement macOS 10.15+ (Catalina) / 11.0+ (Big Sur).
+    # Sur un SDK "insider" 26.x, certaines API sont depreciees et le flag
+    # -Wunguarded-availability peut generer des erreurs. On fixe le
+    # deployment target pour utiliser uniquement les API disponibles
+    # depuis cette version.
+    if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS deployment target (force 11.0 pour compat JUCE8 avec SDK 26.x)")
+    endif()
+    # Desactiver les avertissements de disponibilite non guardee
+    # (causes par des API nouvelles dans le SDK 26.x que JUCE 8 ne connait pas)
+    add_compile_options(-Wno-unguarded-availability)
+    
+    message(STATUS "macOS build: deployment target = ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+endif()
+
 # Emplacement de JUCE (relatif ou absolu).
 if(NOT DEFINED JUCE_PATH)
     set(JUCE_PATH "C:/JUCE" CACHE PATH "Chemin vers le depot JUCE")

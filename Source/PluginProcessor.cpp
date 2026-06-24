@@ -449,6 +449,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // Initialize DSP modules with the current sample rate.
     // Decimation by 4 for YIN to drastically reduce CPU
     pitchDetector->prepare (sampleRate / 4.0, samplesPerBlock);
+        //pitchDetector->setThreshold(0.05f);
     applyLatencyMode();
     pitchShifter->prepare (sampleRate, samplesPerBlock);
     
@@ -672,47 +673,64 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // 2) Mise a jour du temps de transport (pour le mode graphic).
-      //    On interroge le host via getPlayHead() qui donne le PPQ (Beats).
-      double currentTime = transportTime.load();
-      bool hostProvidesTime = false;
-      // On verifie si on est en Standalone (pour forcer le defilement continu)
-      bool isStandalone = (wrapperType == juce::AudioProcessor::wrapperType_Standalone);
+    //    On interroge le host via getPlayHead() qui donne le PPQ (Beats).
+    //    IMPORTANT : les appels getPlayHead() et getLoopPoints() sont coûteux
+    //    et peuvent bloquer le thread audio (XRuns sur Reaper/FL Studio).
+    //    On limite les mises à jour à 1x / 10 ms via cachedTransportTime.
+    double currentTime = transportTime.load();
+    bool hostProvidesTime = false;
+    bool isStandalone = (wrapperType == juce::AudioProcessor::wrapperType_Standalone);
 
-      // Voice/silence hysteresis for harmony gate (prevents rapid on/off chattering)
-      constexpr float harmonyGateOnThreshold  = 0.0040f;
-      constexpr float harmonyGateOffThreshold = 0.0025f;
-      if (maxMagnitude >= harmonyGateOnThreshold)
-          harmonyInputGateOpen = true;
-      else if (maxMagnitude <= harmonyGateOffThreshold)
-          harmonyInputGateOpen = false;
+    uint32_t transportNowMs = juce::Time::getMillisecondCounter();
+    uint32_t lastUpd = lastTransportTimeUpdateMs.load();
+    if (transportNowMs - lastUpd > 10)  // mise à jour au plus 1x / 10 ms
+    {
+        lastTransportTimeUpdateMs.store (transportNowMs);
 
-      if (auto* playHead = getPlayHead())
-      {
-          auto position = playHead->getPosition();
-          if (position.hasValue() && !isStandalone)
-          {
-              hostProvidesTime = true;
-              if (position->getIsPlaying())
-              {
-                  double ppq = position->getPpqPosition().orFallback (currentTime);
+        // Voice/silence hysteresis for harmony gate (prevents rapid on/off chattering)
+        constexpr float harmonyGateOnThreshold  = 0.0040f;
+        constexpr float harmonyGateOffThreshold = 0.0025f;
+        if (maxMagnitude >= harmonyGateOnThreshold)
+            harmonyInputGateOpen = true;
+        else if (maxMagnitude <= harmonyGateOffThreshold)
+            harmonyInputGateOpen = false;
 
-                  // Si le DAW boucle, on recale le 0 au debut de la boucle
-                  if (position->getIsLooping())
-                  {
-                      if (auto loop = position->getLoopPoints())
-                      {
-                          ppq -= loop->ppqStart;
-                      }
-                  }
-                  currentTime = ppq;
-              }
-              else
-              {
-                  // En pause, on prend la position statique (ou on garde la courante)
-                  currentTime = position->getPpqPosition().orFallback (currentTime);
-              }
-          }
-      }
+        if (auto* playHead = getPlayHead())
+        {
+            auto position = playHead->getPosition();
+            if (position.hasValue() && !isStandalone)
+            {
+                hostProvidesTime = true;
+                if (position->getIsPlaying())
+                {
+                    double ppq = position->getPpqPosition().orFallback (currentTime);
+
+                    // getLoopPoints() peut bloquer sur certains hosts (Reaper).
+                    // Bypass en Standalone ou si le DAW ne boucle pas.
+                    if (position->getIsLooping() && !isStandalone)
+                    {
+                        if (auto loop = position->getLoopPoints())
+                        {
+                            ppq -= loop->ppqStart;
+                        }
+                    }
+                    currentTime = ppq;
+                }
+                else
+                {
+                    currentTime = position->getPpqPosition().orFallback (currentTime);
+                }
+            }
+        }
+
+        cachedTransportTime.store (currentTime);
+    }
+    else
+    {
+        // Utilise la valeur en cache pour eviter les appels synchrones
+        // au DAW (getPlayHead) qui degraderaient les performances temps reel.
+        currentTime = cachedTransportTime.load();
+    }
 
       rawHostTime.store(currentTime);
 
@@ -761,6 +779,39 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float f0_in = computeInputPitch (buffer);
     if (!harmonyInputGateOpen)
         f0_in = 0.0f;
+
+    // Filtre anti-saut-d'octave : si f0_in saute d'un facteur ~2 ou ~0.5
+    // par rapport au dernier pitch valide, on conserve l'ancienne valeur.
+    // Cela protege le PitchShifter d'un ratio faux meme quand YIN (ou son
+    // anti-octave-error) livre transitoirement la 2e harmonique.
+    // Ce filtre est volontairement agressif (seuils larges) pour garantir
+    // la continuite auditive, au prix d'une latence d'une analyse YIN
+    // en cas de vrai changement de registre vocal.
+    if (f0_in > 0.0f)
+    {
+        float ref = lastOctaveValidatedPitch.load();
+        if (ref > 0.0f)
+        {
+            float ratio = f0_in / ref;
+            // Saut d'octave vers le haut: f0_in ~= 2 * ref (ex: 220 -> 440)
+            if (ratio > 1.7f && ratio < 2.3f)
+            {
+                f0_in = ref;
+            }
+            // Saut d'octave vers le bas: f0_in ~= 0.5 * ref (ex: 440 -> 220)
+            else if (ratio > 0.40f && ratio < 0.55f)
+            {
+                f0_in = ref;
+            }
+        }
+        lastOctaveValidatedPitch.store (f0_in);
+    }
+    else
+    {
+        // Silence: on reinitialise la reference pour permettre une
+        // detection propre a la reprise du chant.
+        lastOctaveValidatedPitch.store (0.0f);
+    }
     lastInputPitch.store (f0_in);
 
     // Debug: detect bypass param changes and log once when it changes
@@ -932,11 +983,20 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     else
     {
         lastCentsOffset.store (0.0f);
+        // Evite la chute du ratio a 1.0 pendant les micro-pauses de YIN :
+        // reutilise le dernier ratio non trivial connu pour que l'effet
+        // autotune ne s'interrompe pas entre deux analyses valides.
+        float lastRatio = lastRatioSnapshot.load();
+        if (std::abs(lastRatio - 1.0f) > 0.005f)
+            targetRatio = lastRatio;
     }
     lastOutputPitch.store (f0_out);
 
     // 4) Lissage temporel du ratio via RetargetEnvelope (Speed).
     const float ratio = retargetEnvelope->processBlock (targetRatio, buffer.getNumSamples());
+
+    // Memorise le ratio apres lissage pour reutilisation lors des micro-pauses.
+    lastRatioSnapshot.store (ratio);
 
     // 5) Application du WSOLA (Autotune + Formant Shift natif)
     bool isFormantEnabled = (formantEnableParam != nullptr) ? (formantEnableParam->load() > 0.5f) : true;
@@ -1385,12 +1445,14 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
         
     float* linear = analysisLinearBuffer.getData();
     
-    // Decimation par 4 pour reduire la charge CPU de YIN (divise par 16)
+    // Decimation par 4 avec anti-aliasing filter pour reduire la charge CPU de YIN.
+    // La decimation par 4 a 11025 Hz (44.1k/4) est suffisante pour les voix (Nyquist ~5512 Hz).
+    // La moyenne mobile sur 4 echantillons agit comme anti-aliasing filter.
     constexpr int decimation = 4;
     const int decimatedWindow = analysisWindow / decimation;
     
     // On extrait les donnees du FIFO dans l'ordre chronologique
-    // fifoWriteIndex pointe sur l'echantillon le plus ancien
+    // Quand le FIFO est plein, fifoWriteIndex pointe sur l'echantillon le plus ancien.
     int idx = fifoWriteIndex;
     for (int i = 0; i < decimatedWindow; ++i)
     {
@@ -1405,13 +1467,23 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
     // Lance la detection YIN sur le buffer decime.
     float newPitch = pitchDetector->detectPitch (linear, decimatedWindow);
     
-    // Si YIN ne trouve rien (ex: unvoiced/bruit), on garde le precedent pour eviter 
-    // que le pitch shifter saute a 0 brutalement (ce qui cause des glitchs).
-    // Mais si c'est vraiment du silence, le "Sleep Mode" de processBlock coupera tout.
-    if (newPitch == 0.0f)
-        return lastInputPitch.load();
-        
-    return newPitch;
+    // Si YIN trouve un pitch valide, on memorise pour reutilisation lors des
+    // micro-pauses de l'anti-octave-error (evite que le ratio autotune retombe
+    // a 1.0 -> perte de l'effet).
+    if (newPitch > 0.0f)
+    {
+        lastValidPitchForAutotune.store (newPitch);
+        return newPitch;
+    }
+    
+    // Fallback : reutilise le dernier pitch valide detecte. Essentiel pour
+    // que le ratio injecte au PitchShifter ne passe pas a 1.0 (aucun effet)
+    // entre deux analyses YIN a cause de l'anti-octave-error trop zele.
+    float fallback = lastValidPitchForAutotune.load();
+    if (fallback > 0.0f)
+        return fallback;
+    
+    return lastInputPitch.load();
 }
 
 // === Programmes (non utilises pour le MVP) ===

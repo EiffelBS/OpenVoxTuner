@@ -47,6 +47,9 @@ namespace ui
         /// displayed as thin blue lines following the same timeline as input/output.
         void setHarmonyFrequencies (const juce::Array<float>& freqs);
 
+        /// Accesseur au clavier de piano integre (correctif R2.2).
+        PianoKeyboard& getPianoKeyboard() { return pianoKeyboard; }
+
     private:
         // Historique des pitches (Hz), taille max ~5 secondes a 30 fps.
         static constexpr int historySize = 150;
@@ -73,6 +76,7 @@ namespace ui
         static const juce::Colour kInputColour;
         static const juce::Colour kOutputColour;
         static const juce::Colour kScaleLineColour;
+        static const juce::Colour kHarmonyColour;  // bleu pour les harmonies generees
 
         // Limites d'affichage (Hz, echelle log).
         float fMin = 50.0f;
