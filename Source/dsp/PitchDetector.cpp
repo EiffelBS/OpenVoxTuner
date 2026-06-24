@@ -16,8 +16,8 @@ namespace atdsp
     void PitchDetector::prepare (double sr, int blockSize)
     {
         sampleRate = sr;
-        // Limite basse 50 Hz (homme basse), limite haute 1000 Hz (enfant/femme aigu).
-        freqMinHz = 50.0f;
+        // Limite basse 30 Hz pour couvrir les notes très graves comme F#1 (~46 Hz). 
+        freqMinHz = 30.0f;
         freqMaxHz = 1000.0f;
 
         // Le lag max correspond a la periode la plus longue (frequence min).
@@ -43,6 +43,7 @@ namespace atdsp
             history[i] = 0.0f;
         }
         historyIdx = 0;
+        lastValidPitch = 0.0f;
     }
 
     float PitchDetector::getMedianFiltered(float newValue)
@@ -64,8 +65,52 @@ namespace atdsp
             }
         }
 
-        // Return median
-        return sorted[MEDIAN_SIZE / 2];
+        float median = sorted[MEDIAN_SIZE / 2];
+
+        // Anti-octave error par continuite d'octave : on examine les 5
+        // valeurs de l'historique pour detecter un saut d'octave. Si la
+        // majorite (>= 3) des valeurs valides indique le meme saut, on
+        // le corrige. Ce consensus evite les corrections intempestives
+        // sur un seul echantillon parasite.
+        if (median > 0.0f && median >= 30.0f && median <= 1200.0f)
+        {
+            int votesUp = 0;   // median est une octave trop haute -> corriger vers le bas
+            int votesDown = 0; // median est une octave trop basse -> corriger vers le haut
+            int validCount = 0;
+
+            for (int i = 0; i < MEDIAN_SIZE; ++i)
+            {
+                const float lastPitch = sorted[i];
+                if (lastPitch <= 0.0f) continue;
+                
+                ++validCount;
+                const float ratio = median / lastPitch;
+                
+                // Octave au-dessus (median ~ 2 * lastPitch) : YIN a saute
+                // une octave trop haut -> on divise par 2
+                if (ratio > 1.7f && ratio < 2.3f)
+                    ++votesUp;
+                // Octave en-dessous (median ~ 0.5 * lastPitch) : YIN a saute
+                // une octave trop bas -> on multiplie par 2
+                else if (ratio > 0.45f && ratio < 0.55f)
+                    ++votesDown;
+            }
+
+            // Applique la correction seulement si consensus clair
+            // (> 50% des valeurs valides indiquent la meme direction)
+            const int threshold = juce::jmax(3, (validCount / 2) + 1);
+            float candidate = median;
+
+            if (votesUp >= threshold && votesDown == 0)
+                candidate = median * 0.5f;
+            else if (votesDown >= threshold && votesUp == 0)
+                candidate = median * 2.0f;
+
+            if (candidate >= 30.0f && candidate <= 1200.0f)
+                median = candidate;
+        }
+
+        return median;
     }
 
     float PitchDetector::detectPitch (const float* samples, int numSamples)
@@ -85,15 +130,16 @@ namespace atdsp
         float cumSum = 0.0f;
 
         const int halfSize = numSamples / 2;
-        const int maxTau = juce::jmin(halfSize, maxLag);
+        // Allow detection up to the largest possible lag that fits in the buffer
+        const int maxTau = juce::jmin(maxLag, numSamples - 1);
         for (int tau = 1; tau <= maxTau; ++tau)
         {
+            int len = std::min(numSamples - tau, halfSize); // effective comparison length
             float sum = 0.0f;
             const float* s1 = samples;
             const float* s2 = samples + tau;
 
-            // Auto-vectorizable loop
-            for (int j = 0; j < halfSize; ++j)
+            for (int j = 0; j < len; ++j)
             {
                 const float delta = s1[j] - s2[j];
                 sum += delta * delta;
@@ -127,24 +173,84 @@ namespace atdsp
             return 0.0f; // Pas de pitch detecte.
         }
 
-        // Etape 3b (ANTI-OCTAVE-ERROR) : si 2*tau est aussi sous le seuil,
-        // c'est que tau est probablement une sous-harmonique (le vrai
-        // fondamental est a 2*tau). C'est le cas classique "YIN detecte
-        // 2*f0 au lieu de f0" sur les signaux avec une forte 2e harmonique.
-        // Reference : de Cheveigne & Kawahara, "YIN, a fundamental frequency
-        // estimator for speech and music", J. Acoust. Soc. Am. 2002.
+        // Etape 3b (ANTI-OCTAVE-ERROR) : correction amelioree.
+        // On evalue systematiquement les alternatives a l'octave superieure
+        // (tau/2, qui donne 2*f0) et inferieure (2*tau, qui donne f0/2).
+        // On choisit la meilleure selon :
+        //   (a) la valeur de d' (plus basse = meilleure clarte)
+        //   (b) la continuite d'octave avec le dernier pitch valide
+        //
+        // Note : YIN trouve souvent la 2e harmonique comme premier minimum
+        // sous le seuil (voix feminines aigues, ou formant F1 eleve). Dans
+        // ce cas, tau/2 est la bonne fondamentale et d'(tau/2) < d'(tau).
+        // A l'inverse, sur les voix graves avec sous-harmoniques, 2*tau
+        // est la bonne fondamentale.
+        bool octaveCorrected = false;
+        int bestTau = tauEstimate;
+        float bestClarity = yinBuffer[tauEstimate];
+        const float bestFreq = sampleRate / (float)tauEstimate;
+
+        // Verifie l'alternative a l'octave superieure : tau/2 -> 2*f0
+        // (corrige le cas ou YIN a trouve la 2e harmonique au lieu du fondamental)
+        if (tauEstimate % 2 == 0 && tauEstimate / 2 >= minLag)
         {
-            const int tau2 = tauEstimate * 2;
-            if (tau2 > tauEstimate && tau2 < halfSize
-                && yinBuffer[tau2] < threshold)
+            int tauHalf = tauEstimate / 2;
+            while (tauHalf + 1 < halfSize && yinBuffer[tauHalf + 1] < yinBuffer[tauHalf])
+                ++tauHalf;
+            const float halfClarity = yinBuffer[tauHalf];
+            const float halfFreq = sampleRate / (float)tauHalf;
+            
+            if (halfClarity < bestClarity)
             {
-                // tauEstimate est une sous-harmonique : on prend 2*tau a la place.
-                tauEstimate = tau2;
-                // Redescend au minimum local autour de 2*tau.
-                while (tauEstimate + 1 < halfSize
-                       && yinBuffer[tauEstimate + 1] < yinBuffer[tauEstimate])
-                    ++tauEstimate;
+                bestTau = tauHalf;
+                bestClarity = halfClarity;
             }
+            else if (lastValidPitch > 0.0f && halfClarity < bestClarity * 1.20f)
+            {
+                // Clarte similaire (< 20% de difference) : on utilise la
+                // continuite d'octave pour trancher. On prefere l'octave
+                // la plus proche du dernier pitch valide.
+                const float halfDist = std::abs(std::log2(halfFreq / lastValidPitch));
+                const float bestDist = std::abs(std::log2(bestFreq / lastValidPitch));
+                if (halfDist < bestDist)
+                {
+                    bestTau = tauHalf;
+                    bestClarity = halfClarity;
+                }
+            }
+        }
+
+        // Verifie l'alternative a l'octave inferieure : 2*tau -> f0/2
+        // (corrige le cas ou YIN a trouve une sous-harmonique)
+        if (tauEstimate * 2 < halfSize)
+        {
+            int tauDouble = tauEstimate * 2;
+            while (tauDouble + 1 < halfSize && yinBuffer[tauDouble + 1] < yinBuffer[tauDouble])
+                ++tauDouble;
+            const float doubleClarity = yinBuffer[tauDouble];
+            const float doubleFreq = sampleRate / (float)tauDouble;
+            
+            if (doubleClarity < bestClarity)
+            {
+                bestTau = tauDouble;
+                bestClarity = doubleClarity;
+            }
+            else if (lastValidPitch > 0.0f && doubleClarity < bestClarity * 1.20f)
+            {
+                const double doubleDist = std::abs(std::log2(doubleFreq / lastValidPitch));
+                const double bestDist = std::abs(std::log2(bestFreq / lastValidPitch));
+                if (doubleDist < bestDist)
+                {
+                    bestTau = tauDouble;
+                    bestClarity = doubleClarity;
+                }
+            }
+        }
+
+        if (bestTau != tauEstimate)
+        {
+            tauEstimate = bestTau;
+            octaveCorrected = true;
         }
 
         // Etape 4 : interpolation parabolique pour la precision sub-sample.
@@ -166,7 +272,10 @@ namespace atdsp
         }
 
         float f0 = static_cast<float> (sampleRate / betterTau);
-        return getMedianFiltered(f0);
+        float result = getMedianFiltered(f0);
+        if (result > 0.0f)
+            lastValidPitch = result;
+        return result;
     }
 
     float PitchDetector::computeYin (const float* /*samples*/, int /*numSamples*/)

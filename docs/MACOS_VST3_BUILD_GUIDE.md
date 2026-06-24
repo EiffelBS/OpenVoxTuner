@@ -26,6 +26,41 @@ chmod +x ./build_macos_vst3.sh
 ./build_macos_vst3.sh --juce-path ~/dev/JUCE --install
 ```
 
+## Build sur macOS avec SDK "insider" (26.x)
+
+Si vous utilisez une version "insider" du SDK macOS (ex: Xcode 17+ / macOS 26.5)
+qui n'est pas officiellement supportee par JUCE 8, le CMakeLists.txt contient
+deja les adaptations necessaires :
+
+1. **Deployment target force** : `CMAKE_OSX_DEPLOYMENT_TARGET = "11.0"`
+   (configurable via `-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0` en ligne de commande)
+2. **Avertissements desactives** : `-Wno-unguarded-availability` pour ignorer
+   les warnings d'API depreciees dans le SDK 26.x.
+
+**Si des erreurs persistent**, vous pouvez forcer l'utilisation d'un SDK
+specifique installe sur votre machine (ex: macOS 14.5 SDK) :
+
+```bash
+# Lister les SDK disponibles
+ls /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
+# ou pour Xcode beta
+ls /Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
+
+# Forcer un SDK specifique dans la commande CMake
+cmake -B build_mac \
+  -DCMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+  -DJUCE_PATH=~/dev/JUCE \
+  -G Ninja
+
+cmake --build build_mac
+```
+
+> **Note** : `CMAKE_OSX_SYSROOT` pointe vers un dossier SDK INSTALLE.
+> Si vous n'avez qu'un seul Xcode, le SDK par defaut est le bon.
+> Utilisez `CMAKE_OSX_DEPLOYMENT_TARGET` seul suffit dans la majorite
+> des cas.
+
 Ce script :
 1. Configure CMake en `Release`
 2. Build la target `OpenVoxTuner_VST3`

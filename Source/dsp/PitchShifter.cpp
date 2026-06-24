@@ -125,6 +125,17 @@ namespace atdsp
         if (output.getNumChannels() != numChannels || output.getNumSamples() != numSamples)
             output.setSize (numChannels, numSamples, false, true, true);
 
+        // Defense en profondeur : valider les ratios d'entree pour eviter
+        // de propager NaN, Inf ou ratio <= 0 au pipeline de synthese.
+        if (pitchRatio <= 0.0f || std::isnan(pitchRatio) || std::isinf(pitchRatio))
+        {
+            pitchRatio = 1.0f;  // ratio invalide -> pass-through neutre
+        }
+        if (formantRatio <= 0.0f || std::isnan(formantRatio) || std::isinf(formantRatio))
+        {
+            formantRatio = 1.0f;
+        }
+
         // Throttle verbose debug logs to once per second
         static uint32_t lastLogMs = 0;
         uint32_t nowMs = juce::Time::getMillisecondCounter();

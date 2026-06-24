@@ -18,6 +18,7 @@ namespace ui
     const juce::Colour PitchVisualizer::kInputColour     = juce::Colour (0xffe91e63).withAlpha (0.4f);
     const juce::Colour PitchVisualizer::kOutputColour    = juce::Colour (0xff00e676);
     const juce::Colour PitchVisualizer::kScaleLineColour = juce::Colour (0x10ffffff);
+    const juce::Colour PitchVisualizer::kHarmonyColour   = juce::Colour (0xff1A9AF0).withAlpha (0.7f); // bleu spec
 
     PitchVisualizer::PitchVisualizer()
     {
@@ -263,7 +264,7 @@ namespace ui
         // Draw harmony voice traces (one history per voice) in soft blue
         {
             const float dx = static_cast<float> (plotArea.getWidth()) / static_cast<float> (historySize - 1);
-            juce::Colour harmonyLine = juce::Colour (0xff1A9AF0).withAlpha (0.7f);
+            juce::Colour harmonyLine = kHarmonyColour;
             for (int v = 0; v < maxHarmonyVoices; ++v)
             {
                 const auto& h = harmonyHistory[v];

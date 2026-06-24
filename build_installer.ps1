@@ -44,11 +44,13 @@ if (Test-Path $isccPath) {
 if (-not $NoBuild) {
     Write-Host "`n[1/2] Configuring project with CMake..." -ForegroundColor Cyan
 
+    # Remove old CMake cache to avoid generator conflicts
+    if (Test-Path $BuildDir) {
+        Remove-Item -Recurse -Force $BuildDir
+    }
+
     # Source the MSVC environment.
     . (Join-Path $ProjectRoot "init_vs_env.ps1") 2>$null | Out-Null
-# Ensure Windows system utilities are available for MSBuild custom commands
-$env:Path = "C:\Windows\System32;$env:Path"
-$Env:COMSPEC = "$env:SystemRoot\\system32\\cmd.exe"
 
     if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
         Write-Host "cl.exe introuvable meme apres init_vs_env.ps1" -ForegroundColor Red
@@ -66,6 +68,7 @@ $Env:COMSPEC = "$env:SystemRoot\\system32\\cmd.exe"
         exit 1
     }
 
+    # Configure CMake
     & $cmake -S $ProjectRoot -B $BuildDir -G "Visual Studio 17 2022" -A x64 `
         -DCMAKE_BUILD_TYPE=Release `
         -DJUCE_PATH="$JucePath"
@@ -75,10 +78,51 @@ $Env:COMSPEC = "$env:SystemRoot\\system32\\cmd.exe"
     }
 
     Write-Host "`n[2/2] Building Release targets..." -ForegroundColor Cyan
-    & $cmake --build $BuildDir --config Release --target OpenVoxTuner_VST3 OpenVoxTuner_Standalone
-    if ($LASTEXITCODE -ne 0) {
+    
+    # Run build in a cmd.exe context with the correct PATH for MSBuild custom commands.
+    # MSBuild spawns child cmd.exe processes for custom build steps and they need
+    # access to Windows system utilities like attrib.exe.
+    $buildScript = Join-Path $ProjectRoot "build_helper.cmd"
+    $cmakeExe = (Get-Command cmake -ErrorAction SilentlyContinue).Source
+    
+    # Read the MSVC environment paths from init_vs_env.ps1
+    $vsToolsRoot = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207"
+    $sdkRoot = "C:\Program Files (x86)\Windows Kits\10"
+    $sdkVersion = "10.0.19041.0"
+    $vsRoot = "C:\Program Files\Microsoft Visual Studio\2022\Community"
+    
+    $msvcBin = "$vsToolsRoot\bin\Hostx64\x64"
+    $sdkBin = "$sdkRoot\bin\$sdkVersion\x64"
+    
+    $buildContent = @"
+@echo off
+setlocal
+set PATH=C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;$msvcBin;$sdkBin;$env:Path
+set INCLUDE=$vsToolsRoot\include;$sdkRoot\Include\$sdkVersion\ucrt;$sdkRoot\Include\$sdkVersion\um;$sdkRoot\Include\$sdkVersion\shared;$sdkRoot\Include\$sdkVersion\winrt;$sdkRoot\Include\$sdkVersion\cppwinrt
+set LIB=$vsToolsRoot\lib\onecore\x64;$vsToolsRoot\lib\x64;$sdkRoot\Lib\$sdkVersion\ucrt\x64;$sdkRoot\Lib\$sdkVersion\um\x64
+set VCINSTALLDIR=$vsRoot\VC
+set VCToolsInstallDir=$vsToolsRoot
+set VCToolsVersion=14.44.35207
+set WindowsSdkDir=$sdkRoot\
+set WindowsSDKVersion=$sdkVersion\
+set UniversalCRTSdkDir=$sdkRoot\
+set UCRTVersion=$sdkVersion
+set VSINSTALLDIR=$vsRoot
+set DevEnvDir=$vsRoot\Common7\IDE
+set VS170COMNTOOLS=$vsRoot\Common7\Tools\
+set COMSPEC=%SystemRoot%\system32\cmd.exe
+set PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
+"$cmakeExe" --build $BuildDir --config Release --target OpenVoxTuner_VST3 OpenVoxTuner_Standalone
+exit /b %errorlevel%
+"@
+    $buildContent | Out-File -Encoding ASCII $buildScript
+    
+    cmd.exe /c $buildScript
+    $buildLASTEXITCODE = $LASTEXITCODE
+    
+    if ($buildLASTEXITCODE -ne 0) {
         Write-Error "Build failed! Aborting installer generation."
-        exit $LASTEXITCODE
+        exit $buildLASTEXITCODE
     }
 } else {
     Write-Host "`n[1/2] Skipping build step (-NoBuild specified)..." -ForegroundColor Yellow

@@ -51,7 +51,7 @@ namespace atdsp
         float freqMaxHz = 1000.0f;
 
         // Seuil de clarte (probabilite que le minimum soit correct).
-        float threshold = 0.10f;
+        float threshold = 0.05f;
 
         // Buffers de travail.
         juce::HeapBlock<float> yinBuffer; // difference function cumulee
@@ -61,10 +61,12 @@ namespace atdsp
         // Algorithme YIN.
         float computeYin (const float* samples, int numSamples);
 
-        // Anti-octave error (Median filter)
+        // Anti-octave error (Median filter + octave continuity)
         static constexpr int MEDIAN_SIZE = 5;
         float history[MEDIAN_SIZE] = {0.0f};
         int historyIdx = 0;
+        // Dernier pitch valide pour la verification de continuite d'octave.
+        float lastValidPitch = 0.0f;
         float getMedianFiltered(float newValue);
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PitchDetector)

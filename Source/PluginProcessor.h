@@ -185,6 +185,30 @@ private:
 
     std::atomic<float> lastValidF0 { 0.0f };
 
+    // Last valid pitch snapshot used by autotune to keep the pitch
+    // shifter's ratio coherent during transient YIN dropouts
+    // (anti-octave-error too aggressive). Updated only when a non-zero
+    // pitch is detected. Avoids the "no audible effect" regression.
+    std::atomic<float> lastValidPitchForAutotune { 0.0f };
+
+    // Last non-trivial pitch ratio passed to the PitchShifter. Used as
+    // a fallback when YIN drops to 0 to avoid the autotune effect
+    // collapsing to a 1.0 ratio (pass-through) for a few blocks.
+    std::atomic<float> lastRatioSnapshot { 1.0f };
+
+    // Dernier pitch valide apres filtrage anti-saut-d'octave.
+    // Si le pitch detecte saute d'un facteur ~2 ou ~0.5 par rapport a
+    // cette reference, on conserve l'ancienne valeur. Cela empeche les
+    // drops d'octave audibles meme quand le detecteur YIN (ou son
+    // anti-octave-error) fournit transitoirement la 2e harmonique.
+    std::atomic<float> lastOctaveValidatedPitch { 0.0f };
+
+    // Cached transport time (beats) refreshed at most every 10 ms in
+    // the audio thread to avoid blocking calls to getPlayHead() and
+    // getLoopPoints() which can stall Reaper / FL Studio.
+    std::atomic<double> cachedTransportTime { 0.0 };
+    std::atomic<uint32_t> lastTransportTimeUpdateMs { 0 };
+
     // Harmony state.
     juce::Array<float> harmonyFrequencies;
     juce::Array<float> lastHarmonyNotes; // keep last notes to allow release rendering
@@ -222,8 +246,8 @@ private:
 
     // FIFO to accumulate samples for pitch detection.
     // Necessary because the analysis window is larger than the block.
-    static constexpr int analysisWindow = 2048;
-    static constexpr int analysisHopSize = 1024; // Calculate YIN every ~23ms to halve CPU load
+    static constexpr int analysisWindow = 4096;
+    static constexpr int analysisHopSize = 2048; // Calculate YIN every ~46ms to halve CPU load
     int samplesSinceLastAnalysis = 0;
     juce::AudioBuffer<float> analysisFifo;
     int fifoWriteIndex = 0;
