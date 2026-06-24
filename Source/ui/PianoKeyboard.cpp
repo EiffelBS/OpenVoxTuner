@@ -87,32 +87,6 @@ namespace ui
         repaint();
     }
 
-    void PianoKeyboard::setNoteNames (const juce::String& inputName, const juce::String& outputName)
-    {
-        if (inputNoteLabel == nullptr)
-        {
-            inputNoteLabel = std::make_unique<juce::Label>();
-            inputNoteLabel->setJustificationType (juce::Justification::centred);
-            inputNoteLabel->setFont (juce::Font (12.0f, juce::Font::bold));
-            inputNoteLabel->setColour (juce::Label::textColourId, juce::Colour (0xffe91e63)); // rouge
-            inputNoteLabel->setColour (juce::Label::backgroundColourId, juce::Colour (0xcc000000));
-            addAndMakeVisible (inputNoteLabel.get());
-        }
-        if (outputNoteLabel == nullptr)
-        {
-            outputNoteLabel = std::make_unique<juce::Label>();
-            outputNoteLabel->setJustificationType (juce::Justification::centred);
-            outputNoteLabel->setFont (juce::Font (12.0f, juce::Font::bold));
-            outputNoteLabel->setColour (juce::Label::textColourId, juce::Colour (0xff00e676)); // vert
-            outputNoteLabel->setColour (juce::Label::backgroundColourId, juce::Colour (0xcc000000));
-            addAndMakeVisible (outputNoteLabel.get());
-        }
-
-        inputNoteLabel->setText (inputName, juce::dontSendNotification);
-        outputNoteLabel->setText (outputName, juce::dontSendNotification);
-        resized(); // repositionne les labels
-    }
-
     void PianoKeyboard::paint (juce::Graphics& g)
     {
         const int W = getWidth();
@@ -279,13 +253,5 @@ namespace ui
         // Supprime car l'utilisateur prefere la surbrillance des touches elles-memes.
     }
 
-    void PianoKeyboard::resized()
-    {
-        const int W = getWidth();
-        const int labelH = 18;
-        if (inputNoteLabel != nullptr)
-            inputNoteLabel->setBounds (0, 0, W, labelH);
-        if (outputNoteLabel != nullptr)
-            outputNoteLabel->setBounds (0, labelH, W, labelH);
-    }
+    void PianoKeyboard::resized() {}
 }

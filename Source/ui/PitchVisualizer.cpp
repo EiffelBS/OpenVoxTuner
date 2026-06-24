@@ -104,98 +104,147 @@ namespace ui
         const int W = b.getWidth();
         const int H = b.getHeight();
 
-        // Reserve la zone du haut pour le bandeau note / cents (60 px)
-        // et la zone droite pour le meter de tuning (50 px).
-        const int headerH   = juce::jmin (60, H / 3);
-        const int meterW    = juce::jmin (60, W / 6);
-        const int pianoW    = pianoKeyboard.getWidth();
+        // === Layout ===
+        // Modern header strip (50px): integrated note display + tuning meter
+        // Piano on the left (60px)
+        // Plot area fills the rest
+        const int headerH = juce::jmin (50, H / 4);
+        const int pianoW  = pianoKeyboard.getWidth() > 0 ? pianoKeyboard.getWidth() : 60;
 
-        const auto plotArea = juce::Rectangle<int> (pianoW, headerH, W - meterW - pianoW, H - headerH);
+        const auto plotArea = juce::Rectangle<int> (pianoW, headerH, W - pianoW, H - headerH);
 
-        // === Fond ===
+        // === Background ===
         g.fillAll (kBg);
 
-        // === Bandeau du haut : note chantee + offset cents ===
-        g.setColour (juce::Colour (0xff181820));
-        g.fillRect (0, 0, W, headerH);
-
-        // Note chantee (gros texte).
-        g.setColour (juce::Colours::white);
-        g.setFont (juce::Font (28.0f, juce::Font::bold));
-        g.drawText (noteInfo.name,
-                    12, 6, 130, 38,
-                    juce::Justification::centredLeft);
-
-        // Nom de la note cible.
-        if (noteInfo.valid && noteInfo.targetName != noteInfo.name)
+        // === Modern header strip ===
         {
-            g.setColour (juce::Colour (0xff8bc34a));
-            g.setFont (12.0f);
-            g.drawText ("-> " + noteInfo.targetName,
-                        12, 42, 130, 16,
+            // Dark glass-panel background
+            g.setColour (juce::Colour (0xff15151e));
+            g.fillRect (0, 0, W, headerH);
+
+            // Bottom border accent line
+            g.setColour (juce::Colour (0x331A9AF0));
+            g.fillRect (0, headerH - 2, W, 2);
+
+            // ---- Note badge (left side) ----
+            const juce::String noteDisplay = noteInfo.valid ? noteInfo.name : "--";
+            const juce::String targetDisplay = (noteInfo.valid && noteInfo.targetName != noteInfo.name)
+                                                 ? noteInfo.targetName : juce::String();
+
+            // Glowing note badge
+            const int badgeW = 100;
+            const int badgeH = headerH - 12;
+            const int badgeX = 14;
+            const int badgeY = (headerH - badgeH) / 2;
+
+            juce::Colour badgeCol = noteInfo.valid
+                ? juce::Colour (0x221A9AF0)
+                : juce::Colour (0x11ffffff);
+            g.setColour (badgeCol);
+            g.fillRoundedRectangle ((float)badgeX, (float)badgeY, (float)badgeW, (float)badgeH, 6.0f);
+            g.setColour (juce::Colour (0x441A9AF0));
+            g.drawRoundedRectangle ((float)badgeX, (float)badgeY, (float)badgeW, (float)badgeH, 6.0f, 1.0f);
+
+            // Current sung note (large, prominent)
+            g.setColour (juce::Colours::white);
+            g.setFont (juce::Font (24.0f, juce::Font::bold));
+            g.drawText (noteDisplay,
+                        badgeX, badgeY, badgeW - 4, badgeH,
                         juce::Justification::centredLeft);
-        }
 
-        // Cents (texte a droite de la note).
-        if (noteInfo.valid)
-        {
-            const float cents = noteInfo.cents;
-            juce::Colour centsCol = juce::Colours::white;
-            if (std::abs (cents) < 5.0f)         centsCol = juce::Colour (0xff4caf50);
-            else if (std::abs (cents) < 25.0f)   centsCol = juce::Colour (0xffcddc39);
-            else                                  centsCol = juce::Colour (0xffe57373);
-
-            g.setColour (centsCol);
-            g.setFont (juce::Font (18.0f, juce::Font::bold));
-            const juce::String centsStr =
-                (cents >= 0.0f ? "+" : "") + juce::String (static_cast<int> (std::round (cents))) + " c";
-            g.drawText (centsStr,
-                        145, 12, 130, 28,
-                        juce::Justification::centredLeft);
-        }
-
-        // === Meter de tuning vertical (a droite) ===
-        if (meterW > 0)
-        {
-            const auto meterArea = juce::Rectangle<int> (W - meterW, headerH, meterW, H - headerH);
-            g.setColour (juce::Colour (0xff181820));
-            g.fillRect (meterArea);
-
-            // Barre centrale (=0 cents).
-            const int midY = meterArea.getCentreY();
-            g.setColour (juce::Colour (0xff4caf50));
-            g.fillRect (meterArea.getX() + meterW / 2 - 1, meterArea.getY() + 4, 2, meterArea.getHeight() - 8);
-
-            // Graduations : +/- 50, +/- 100 cents.
-            g.setColour (kGrid);
-            for (int c = -100; c <= 100; c += 50)
+            // Target note arrow + name (right of the badge)
+            if (targetDisplay.isNotEmpty())
             {
-                if (c == 0) continue;
-                const float ratio = static_cast<float> (c) / 100.0f; // +/- 50% de la hauteur
-                const int y = midY - static_cast<int> (ratio * (meterArea.getHeight() - 8) * 0.5f);
-                g.drawHorizontalLine (y, static_cast<float> (meterArea.getX() + 4),
-                                            static_cast<float> (meterArea.getRight() - 4));
+                g.setColour (juce::Colour (0xff8bc34a));
+                g.setFont (juce::Font (13.0f, juce::Font::bold));
+                g.drawText ("> " + targetDisplay,
+                            badgeX + badgeW + 6, badgeY, 80, badgeH,
+                            juce::Justification::centredLeft);
             }
 
-            // Aiguille : position selon cents.
+            // ---- Cents value (inline, with color) ----
             if (noteInfo.valid)
             {
-                const float cents = juce::jlimit (-100.0f, 100.0f, noteInfo.cents);
-                const float ratio = cents / 100.0f;
-                const int ay = midY - static_cast<int> (ratio * (meterArea.getHeight() - 8) * 0.5f);
-                juce::Colour needleCol = juce::Colour (0xff4caf50);
-                if (std::abs (cents) > 25.0f) needleCol = juce::Colour (0xffe57373);
-                else if (std::abs (cents) > 10.0f) needleCol = juce::Colour (0xffcddc39);
-                g.setColour (needleCol);
-                g.fillRect (meterArea.getX() + 4, ay - 1, meterW - 8, 2);
+                const float cents = noteInfo.cents;
+                juce::Colour centsCol;
+                if (std::abs (cents) < 5.0f)      centsCol = juce::Colour (0xff4caf50); // green - in tune
+                else if (std::abs (cents) < 15.0f) centsCol = juce::Colour (0xffcddc39); // yellow - close
+                else if (std::abs (cents) < 35.0f) centsCol = juce::Colour (0xffff9800); // orange - off
+                else                                centsCol = juce::Colour (0xffe57373); // red - far off
+
+                g.setColour (centsCol);
+                g.setFont (juce::Font (18.0f, juce::Font::bold));
+                const juce::String centsStr = (cents >= 0.0f ? "+" : "")
+                    + juce::String (static_cast<int> (std::round (cents))) + "\xc2\xa2";
+                g.drawText (centsStr,
+                            200, badgeY, 76, badgeH,
+                            juce::Justification::centredLeft);
+            }
+
+            // ---- Horizontal tuning meter (right portion of header) ----
+            {
+                const float cents = noteInfo.valid ? noteInfo.cents : 0.0f;
+                const int meterLeft  = 290;
+                const int meterW     = juce::jmax (80, W - meterLeft - 20);
+                const int meterY    = badgeY + 2;
+                const int meterH    = badgeH - 4;
+
+                if (meterW > 40 && noteInfo.valid)
+                {
+                    // Meter background: dark rounded track
+                    g.setColour (juce::Colour (0x33000000));
+                    g.fillRoundedRectangle ((float)meterLeft, (float)meterY, (float)meterW, (float)meterH, 4.0f);
+
+                    // Center line (0 cents mark)
+                    const int centerX = meterLeft + meterW / 2;
+                    g.setColour (juce::Colour (0x664caf50));
+                    g.fillRect (centerX - 1, meterY + 2, 2, meterH - 4);
+
+                    // Tuning gradient: green center -> yellow -> orange -> red at edges
+                    const float inTuneZoneFrac = 0.15f; // +/- 15% around center
+                    g.setColour (juce::Colour (0x224caf50));
+                    g.fillRect (centerX - (int)(meterW * inTuneZoneFrac / 2.0f),
+                                meterY + 2,
+                                (int)(meterW * inTuneZoneFrac),
+                                meterH - 4);
+
+                    // Cursor/needle position with smoothing (subtle animation)
+                    const float centsNorm = juce::jlimit (-1.0f, 1.0f, cents * 0.95f);
+                    int needleTarget = centerX + (int)(centsNorm * meterW / 2.0f);
+                    needleTarget = juce::jlimit (meterLeft + 3, meterLeft + meterW - 3, needleTarget);
+
+                    // Smooth interpolation for needle animation
+                    const float animAlpha = 0.35f;
+                    lastNeedleX = lastNeedleX + (needleTarget - lastNeedleX) * animAlpha;
+
+                    // Needle color
+                    juce::Colour needleCol;
+                    if (std::abs (cents) < 5.0f)      needleCol = juce::Colour (0xff4caf50);
+                    else if (std::abs (cents) < 15.0f) needleCol = juce::Colour (0xffcddc39);
+                    else if (std::abs (cents) < 35.0f) needleCol = juce::Colour (0xffff9800);
+                    else                                needleCol = juce::Colour (0xffe57373);
+
+                    // Draw needle as a diamond (triangle marker)
+                    juce::Path needle;
+                    const int nX = (int)lastNeedleX;
+                    needle.addTriangle ((float)nX, (float)(meterY + 2),
+                                        (float)(nX - 5), (float)(meterY + meterH - 2),
+                                        (float)(nX + 5), (float)(meterY + meterH - 2));
+                    g.setColour (needleCol);
+                    g.fillPath (needle);
+
+                    // Small white dot on the needle
+                    g.setColour (juce::Colours::white);
+                    g.fillEllipse ((float)nX - 2.0f, (float)(meterY + meterH / 2) - 2.0f, 4.0f, 4.0f);
+                }
             }
         }
 
-        // === Zone du trace (pitch curves) ===
+        // === Plot area: pitch curves ===
         g.saveState();
         g.reduceClipRegion (plotArea);
 
-        // Grille de base (C2..C6) en gris clair.
+        // Base grid (C2..C6)
         g.setColour (kGrid);
         const float refFreqs[] = { 65.4f, 130.8f, 261.6f, 523.3f, 1046.5f };
         for (int i = 0; i < 5; ++i)
@@ -206,14 +255,14 @@ namespace ui
                                   static_cast<float> (plotArea.getRight()));
         }
 
-        // Lignes des notes de la gamme (toutes les notes, sur 2 octaves).
+        // Scale note lines
         g.setColour (kScaleLineColour);
         for (int oct = 2; oct <= 5; ++oct)
         {
             for (int n = 0; n < scaleIntervals.size(); ++n)
             {
                 const int semi = scaleIntervals[n];
-                if (semi == 0) continue; // C est deja sur la grille de base
+                if (semi == 0) continue;
                 const int midi = (oct + 1) * 12 + semi;
                 const float hz = atdsp::midiToHz (static_cast<float> (midi));
                 const float y = plotArea.getY() + hzToY (hz, plotArea.getHeight());
@@ -223,7 +272,7 @@ namespace ui
             }
         }
 
-        // Trace la pitch curve d'entree (rose/rouge).
+        // Input pitch curve (red)
         if (inputHistory.size() > 1)
         {
             juce::Path p;
@@ -241,7 +290,7 @@ namespace ui
             g.strokePath (p, juce::PathStrokeType (1.5f));
         }
 
-        // Trace la pitch curve corrigee (vert).
+        // Output pitch curve (green)
         if (outputHistory.size() > 1)
         {
             juce::Path p;
@@ -255,16 +304,13 @@ namespace ui
                 if (i == 0 || outputHistory[i - 1] <= 0.0f) p.startNewSubPath (x, y);
                 else p.lineTo (x, y);
             }
-
-            // Draw line
             g.setColour (kOutputColour);
             g.strokePath (p, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
 
-        // Draw harmony voice traces (one history per voice) in soft blue
+        // Harmony voices (blue)
         {
             const float dx = static_cast<float> (plotArea.getWidth()) / static_cast<float> (historySize - 1);
-            juce::Colour harmonyLine = kHarmonyColour;
             for (int v = 0; v < maxHarmonyVoices; ++v)
             {
                 const auto& h = harmonyHistory[v];
@@ -276,29 +322,14 @@ namespace ui
                 {
                     const float hz = h[i];
                     const float x = plotArea.getX() + dx * (historySize - h.size() + i);
-
-                    if (hz <= 0.0f)
-                    {
-                        segmentOpen = false;
-                        continue;
-                    }
-
+                    if (hz <= 0.0f) { segmentOpen = false; continue; }
                     const float y = plotArea.getY() + hzToY (hz, plotArea.getHeight());
-                    if (!segmentOpen)
-                    {
-                        p.startNewSubPath (x, y);
-                        segmentOpen = true;
-                        hasAny = true;
-                    }
-                    else
-                    {
-                        p.lineTo (x, y);
-                    }
+                    if (!segmentOpen) { p.startNewSubPath (x, y); segmentOpen = true; hasAny = true; }
+                    else p.lineTo (x, y);
                 }
                 if (hasAny)
                 {
-                    g.setColour (harmonyLine);
-                    // Draw thin solid line (dashed not available on this JUCE version)
+                    g.setColour (kHarmonyColour);
                     g.strokePath (p, juce::PathStrokeType (0.8f));
                 }
             }
@@ -306,17 +337,13 @@ namespace ui
 
         g.restoreState();
 
-        // Legende en bas a droite de la zone de trace.
+        // Legend at bottom-right of plot area
         g.setFont (10.0f);
         g.setColour (kInputColour);
-        g.drawText ("Input",
-                    plotArea.getRight() - 110, plotArea.getBottom() - 18, 50, 14,
-                    juce::Justification::centredRight);
+        g.drawText ("Input", plotArea.getRight() - 110, plotArea.getBottom() - 18, 50, 14, juce::Justification::centredRight);
         g.setColour (kOutputColour);
-        g.drawText ("Output",
-                    plotArea.getRight() - 60, plotArea.getBottom() - 18, 50, 14,
-                    juce::Justification::centredRight);
-                    
+        g.drawText ("Output", plotArea.getRight() - 60, plotArea.getBottom() - 18, 50, 14, juce::Justification::centredRight);
+
         g.setColour (juce::Colours::grey.withAlpha(0.6f));
         g.setFont (11.0f);
         const juce::String modifierName =
@@ -326,13 +353,12 @@ namespace ui
             "Ctrl";
 #endif
         g.drawText ("MouseWheel: Scroll | " + modifierName + "+MouseWheel: Zoom",
-                    plotArea.getRight() - 210, plotArea.getBottom() - 32, 200, 14,
-                    juce::Justification::bottomRight);
+                    plotArea.getRight() - 210, plotArea.getBottom() - 32, 200, 14, juce::Justification::bottomRight);
     }
 
     void PitchVisualizer::resized()
     {
-        const int headerH = juce::jmin (60, getHeight() / 3);
+        const int headerH = juce::jmin (50, getHeight() / 4);
         pianoKeyboard.setBounds (0, headerH, 60, getHeight() - headerH);
     }
 

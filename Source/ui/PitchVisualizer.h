@@ -70,6 +70,9 @@ namespace ui
         float latestInputHz = 0.0f;
         float latestOutputHz = 0.0f;
 
+        // Needle X position for smoothing (subtle animation).
+        float lastNeedleX = 0.0f;
+
         // Couleurs du theme.
         static const juce::Colour kBg;
         static const juce::Colour kGrid;
