@@ -54,7 +54,6 @@ namespace atdsp
         float sorted[MEDIAN_SIZE];
         for (int i = 0; i < MEDIAN_SIZE; ++i) sorted[i] = history[i];
 
-        // Bubble sort (size is very small)
         for (int i = 0; i < MEDIAN_SIZE - 1; ++i) {
             for (int j = 0; j < MEDIAN_SIZE - i - 1; ++j) {
                 if (sorted[j] > sorted[j + 1]) {
@@ -66,50 +65,9 @@ namespace atdsp
         }
 
         float median = sorted[MEDIAN_SIZE / 2];
-
-        // Anti-octave error par continuite d'octave : on examine les 5
-        // valeurs de l'historique pour detecter un saut d'octave. Si la
-        // majorite (>= 3) des valeurs valides indique le meme saut, on
-        // le corrige. Ce consensus evite les corrections intempestives
-        // sur un seul echantillon parasite.
-        if (median > 0.0f && median >= 30.0f && median <= 1200.0f)
-        {
-            int votesUp = 0;   // median est une octave trop haute -> corriger vers le bas
-            int votesDown = 0; // median est une octave trop basse -> corriger vers le haut
-            int validCount = 0;
-
-            for (int i = 0; i < MEDIAN_SIZE; ++i)
-            {
-                const float lastPitch = sorted[i];
-                if (lastPitch <= 0.0f) continue;
-                
-                ++validCount;
-                const float ratio = median / lastPitch;
-                
-                // Octave au-dessus (median ~ 2 * lastPitch) : YIN a saute
-                // une octave trop haut -> on divise par 2
-                if (ratio > 1.7f && ratio < 2.3f)
-                    ++votesUp;
-                // Octave en-dessous (median ~ 0.5 * lastPitch) : YIN a saute
-                // une octave trop bas -> on multiplie par 2
-                else if (ratio > 0.45f && ratio < 0.55f)
-                    ++votesDown;
-            }
-
-            // Applique la correction seulement si consensus clair
-            // (> 50% des valeurs valides indiquent la meme direction)
-            const int threshold = juce::jmax(3, (validCount / 2) + 1);
-            float candidate = median;
-
-            if (votesUp >= threshold && votesDown == 0)
-                candidate = median * 0.5f;
-            else if (votesDown >= threshold && votesUp == 0)
-                candidate = median * 2.0f;
-
-            if (candidate >= 30.0f && candidate <= 1200.0f)
-                median = candidate;
-        }
-
+        // Note : la correction d'octave est desormais geree dans detectPitch()
+        // etape 3b. getMedianFiltered se contente de filtrer les outliers
+        // passagers par mediane, sans correction d'octave supplementaire.
         return median;
     }
 
@@ -174,84 +132,111 @@ namespace atdsp
         }
 
         // Etape 3b (ANTI-OCTAVE-ERROR) : correction amelioree.
-        // On evalue systematiquement les alternatives a l'octave superieure
-        // (tau/2, qui donne 2*f0) et inferieure (2*tau, qui donne f0/2).
-        // On choisit la meilleure selon :
-        //   (a) la valeur de d' (plus basse = meilleure clarte)
-        //   (b) la continuite d'octave avec le dernier pitch valide
+        // Principe : on evalue systematiquement les 2 alternatives d'octave.
         //
-        // Note : YIN trouve souvent la 2e harmonique comme premier minimum
-        // sous le seuil (voix feminines aigues, ou formant F1 eleve). Dans
-        // ce cas, tau/2 est la bonne fondamentale et d'(tau/2) < d'(tau).
-        // A l'inverse, sur les voix graves avec sous-harmoniques, 2*tau
-        // est la bonne fondamentale.
+        // Cas A (le PLUS FREQUENT pour la voix) : YIN trouve la 2e harmonique.
+        //   Ex: l'utilisateur chante F2 (87 Hz, tau=126) mais YIN trouve F3
+        //   (174 Hz, tau=63) car la 2e harmonique a plus d'energie que le
+        //   fondamental ("missing fundamental"). La periode detectee est la
+        //   MOITIE de la vraie periode, donc il faut tester **tau * 2**
+        //   (= periode double = frequence moitie = un octave en dessous).
+        //
+        // Cas B (moins frequent) : YIN trouve une sous-harmonique.
+        //   La periode detectee est le DOUBLE de la vraie periode.
+        //   Il faut tester **tau / 2** (= periode moitie = frequence double).
+        //
+        // Strategie de correction : on ne demande PAS que l'alternative ait
+        // une meilleure clarte que la detection initiale. On demande juste
+        // qu'elle soit "acceptable" (valeur de d' sous un seuil elargi),
+        // puis on tranche par continuite d'octave.
         bool octaveCorrected = false;
         int bestTau = tauEstimate;
         float bestClarity = yinBuffer[tauEstimate];
-        const float bestFreq = sampleRate / (float)tauEstimate;
 
-        // Verifie l'alternative a l'octave superieure : tau/2 -> 2*f0
-        // (corrige le cas ou YIN a trouve la 2e harmonique au lieu du fondamental)
-        if (tauEstimate % 2 == 0 && tauEstimate / 2 >= minLag)
-        {
-            int tauHalf = tauEstimate / 2;
-            while (tauHalf + 1 < halfSize && yinBuffer[tauHalf + 1] < yinBuffer[tauHalf])
-                ++tauHalf;
-            const float halfClarity = yinBuffer[tauHalf];
-            const float halfFreq = sampleRate / (float)tauHalf;
-            
-            if (halfClarity < bestClarity)
-            {
-                bestTau = tauHalf;
-                bestClarity = halfClarity;
-            }
-            else if (lastValidPitch > 0.0f && halfClarity < bestClarity * 1.20f)
-            {
-                // Clarte similaire (< 20% de difference) : on utilise la
-                // continuite d'octave pour trancher. On prefere l'octave
-                // la plus proche du dernier pitch valide.
-                const float halfDist = std::abs(std::log2(halfFreq / lastValidPitch));
-                const float bestDist = std::abs(std::log2(bestFreq / lastValidPitch));
-                if (halfDist < bestDist)
-                {
-                    bestTau = tauHalf;
-                    bestClarity = halfClarity;
-                }
-            }
-        }
+        // Seuil elargi pour considerer une alternative comme "acceptable".
+        // Une valeur d' < 0.25 est tres probablement un vrai pitch meme si
+        // ce n'est pas le meilleur minimum local.
+        constexpr float softThreshold = 0.25f;
 
-        // Verifie l'alternative a l'octave inferieure : 2*tau -> f0/2
-        // (corrige le cas ou YIN a trouve une sous-harmonique)
+        // --- Cas A : YIN a trouve la 2e harmonique -> on teste tau * 2 ---
+        // (periode double = frequence moitie = un octave en dessous)
         if (tauEstimate * 2 < halfSize)
         {
             int tauDouble = tauEstimate * 2;
             while (tauDouble + 1 < halfSize && yinBuffer[tauDouble + 1] < yinBuffer[tauDouble])
                 ++tauDouble;
             const float doubleClarity = yinBuffer[tauDouble];
-            const float doubleFreq = sampleRate / (float)tauDouble;
-            
+
             if (doubleClarity < bestClarity)
             {
+                // L'alternative a strictement meilleure clarte -> on adopte
                 bestTau = tauDouble;
                 bestClarity = doubleClarity;
+                octaveCorrected = true;
             }
-            else if (lastValidPitch > 0.0f && doubleClarity < bestClarity * 1.20f)
+            else if (doubleClarity < softThreshold)
             {
-                const double doubleDist = std::abs(std::log2(doubleFreq / lastValidPitch));
-                const double bestDist = std::abs(std::log2(bestFreq / lastValidPitch));
-                if (doubleDist < bestDist)
+                // Alternative acceptable : on tranche par continuite d'octave
+                if (lastValidPitch > 0.0f)
                 {
+                    const float doubleFreq = sampleRate / (float)tauDouble;
+                    const float bestFreq = sampleRate / (float)tauEstimate;
+                    const float doubleDist = std::abs(std::log2(doubleFreq / lastValidPitch));
+                    const float bestDist = std::abs(std::log2(bestFreq / lastValidPitch));
+                    if (doubleDist < bestDist)
+                    {
+                        bestTau = tauDouble;
+                        bestClarity = doubleClarity;
+                        octaveCorrected = true;
+                    }
+                }
+                else
+                {
+                    // Pas de contexte de continuite : on prefere la frequence
+                    // la plus basse (tau le plus grand) -> la fondamentale
                     bestTau = tauDouble;
                     bestClarity = doubleClarity;
+                    octaveCorrected = true;
                 }
             }
         }
 
-        if (bestTau != tauEstimate)
+        // --- Cas B : YIN a trouve une sous-harmonique -> on teste tau / 2 ---
+        // (periode moitie = frequence double = un octave au-dessus)
+        if (!octaveCorrected && tauEstimate % 2 == 0 && tauEstimate / 2 >= minLag)
         {
-            tauEstimate = bestTau;
-            octaveCorrected = true;
+            int tauHalf = tauEstimate / 2;
+            while (tauHalf + 1 < halfSize && yinBuffer[tauHalf + 1] < yinBuffer[tauHalf])
+                ++tauHalf;
+            const float halfClarity = yinBuffer[tauHalf];
+
+            if (halfClarity < bestClarity)
+            {
+                bestTau = tauHalf;
+                bestClarity = halfClarity;
+                octaveCorrected = true;
+            }
+            else if (halfClarity < softThreshold)
+            {
+                if (lastValidPitch > 0.0f)
+                {
+                    const float halfFreq = sampleRate / (float)tauHalf;
+                    const float bestFreq = sampleRate / (float)tauEstimate;
+                    const float halfDist = std::abs(std::log2(halfFreq / lastValidPitch));
+                    const float bestDist = std::abs(std::log2(bestFreq / lastValidPitch));
+                    if (halfDist < bestDist)
+                    {
+                        bestTau = tauHalf;
+                        bestClarity = halfClarity;
+                        octaveCorrected = true;
+                    }
+                }
+                // Sans continuite, on garde la detection originale (conservateur)
+            }
         }
+
+        if (octaveCorrected)
+            tauEstimate = bestTau;
 
         // Etape 4 : interpolation parabolique pour la precision sub-sample.
         // On ajuste tau autour du minimum grace a 3 points.
