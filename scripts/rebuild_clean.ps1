@@ -8,7 +8,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = $PSScriptRoot
+$ProjectRoot = Split-Path $PSScriptRoot -Parent
 $BuildDir = Join-Path $ProjectRoot "build"
 
 Write-Host "=== Nettoyage et Rebuild Complet ===" -ForegroundColor Cyan

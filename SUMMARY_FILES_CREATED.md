@@ -18,7 +18,7 @@
 | `BUILD_GUIDE.md` | Guide complet de build, installation et workflow |
 | `DEBUG_GUIDE.md` | ⭐ Guide de débogage dans Visual Studio |
 | `QUICKFIX_ALL_BUILD_ERROR.md` | Solution rapide erreur ALL_BUILD |
-| `changelog-2026-06-17-fix-logging.md` | Détails des corrections apportées |
+| `docs/changelogs/changelog-2026-06-17-fix-logging.md` | Détails des corrections apportées |
 
 ---
 
@@ -105,7 +105,7 @@ cd build
 | Erreur "Impossible de démarrer ALL_BUILD" | `QUICKFIX_ALL_BUILD_ERROR.md` |
 | Déboguer dans Visual Studio | `DEBUG_GUIDE.md` |
 | Déboguer dans un DAW | `DEBUG_GUIDE.md` (section DAW) |
-| Plugin ne fonctionne pas en VST3 | `changelog-2026-06-17-fix-logging.md` |
+| Plugin ne fonctionne pas en VST3 | `docs/changelogs/changelog-2026-06-17-fix-logging.md` |
 | Organisation du projet | `BUILD_GUIDE.md` (structure) |
 | Format VST3 (bundle vs fichier) | `BUILD_GUIDE.md` (notes) |
 

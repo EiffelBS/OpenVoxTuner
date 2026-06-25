@@ -9,11 +9,13 @@
 
 $ErrorActionPreference = "Stop"
 
+$repoRoot = Split-Path $PSScriptRoot -Parent
+
 # Configuration
 $buildType = "Debug"  # Changez en "Release" pour la version Release
-$vst3Source = "$PSScriptRoot\build\OpenVoxTuner_artefacts\$buildType\VST3\OpenVoxTuner.vst3"
+$vst3Source = "$repoRoot\build\OpenVoxTuner_artefacts\$buildType\VST3\OpenVoxTuner.vst3"
 $vst3Dest = "$env:CommonProgramFiles\VST3\OpenVoxTuner.vst3"
-$clapSource = "$PSScriptRoot\build\OpenVoxTuner_artefacts\$buildType\CLAP\OpenVoxTuner.clap"
+$clapSource = "$repoRoot\build\OpenVoxTuner_artefacts\$buildType\CLAP\OpenVoxTuner.clap"
 $clapDest = "$env:CommonProgramFiles\CLAP\OpenVoxTuner.clap"
 
 Write-Host "=== Installation rapide de OpenVoxTuner ===" -ForegroundColor Cyan

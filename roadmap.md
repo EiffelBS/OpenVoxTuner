@@ -17,7 +17,7 @@ Legende :
 - [x] Installer JUCE 8 dans `C:\JUCE`
 - [x] Creer la structure de dossiers (`Source/`, `docs/`, `test/`, `resources/`)
 - [x] Initialiser `roadmap.md` (ce fichier)
-- [x] Initialiser `changelog-2026-06-09.md`
+- [x] Initialiser `docs/changelogs/changelog-2026-06-09.md`
 - [x] Creer le `.gitignore`
 - [x] Creer le fichier projet Projucer (`AutotuneClone.jucer` puis supprime au profit de CMake)
 - [x] Creer le squelette `PluginProcessor` (compile)
@@ -75,7 +75,8 @@ Legende :
   - [x] `Bypass`
 - [x] FIFO d'analyse (2048 echantillons) pour la detection YIN
 - [x] Latence declaree au host (`getLatencySamples`)
-- [ ] Gestion des transitions douces (smoothing des parametres) - speed pas encore utilise
+- [x] Gestion des transitions douces : `RetargetEnvelope` lisse le ratio
+      selon le paramètre `speed` (tau = speedMs/1000, alpha = 1 - exp(-dt/tau))
 
 ## Phase 3 - Interface graphique
 
@@ -268,7 +269,7 @@ Suivi consulte lors de chaque modification du projet.
       sortie, produisant un saut d'amplitude (= click) a chaque
       frontiere de bloc. Particulierement audible a petit buffer
       (144 samples) ou le "trou" de continuite depasse la taille du
-      bloc lui-meme. Voir `changelog-2026-06-11.md` et
+      bloc lui-meme. Voir `docs/changelogs/changelog-2026-06-11.md` et
       `debug-persistent-audio-glitches.md` (FIXED).
 - [x] **Lissages temps-continus (anti-"pop")** (FAIT 2026-06-11) :
       les lissages de `currentF0` (0.85 par bloc) et de
@@ -516,21 +517,21 @@ Suivi consulte lors de chaque modification du projet.
 
 > Plan detaille : `docs/implementation-plan-curve-editor-beats-auto-scroll.md`
 
-- [ ] **Time signature infrastructure** : Lire `ARAContentTypeBarSignatures` (ARA)
+- [x] **Time signature infrastructure** : Lire `ARAContentTypeBarSignatures` (ARA)
       et `AudioPlayHead::getTimeSignature()` (VST3) dans PluginProcessor.
       Stocker la signature courante (numerateur, denominateur) dans des
       atomiques thread-safe, et les changements multiples ARA dans un vecteur
-- [ ] **Parameter `editor_measures`** : `AudioParameterInt` plage 1-8, defaut 4,
+- [x] **Parameter `editor_measures`** : `AudioParameterInt` plage 1-8, defaut 4,
       persiste automatiquement via AudioProcessorValueTreeState
-- [ ] **Ruler rewrite** : Remplacer le `for (t = 0...timeVisible step 0.5)` fixe
+- [x] **Ruler rewrite** : Remplacer le `for (t = 0...timeVisible step 0.5)` fixe
       par un calcul time-signature-aware : beatUnit = 4/den, ppqPerBar = num *
       beatUnit, labels "M1", "M2"... avec les beats en sous-divisions. Fonctionne
       en 3/4, 4/4, 6/8, 12/8, etc.
-- [ ] **ComboBox dans la toolbar** : Selecteur "Measures" (1, 2, 4, 8) visible
+- [x] **ComboBox dans la toolbar** : Selecteur "Measures" (1, 2, 4, 8) visible
       uniquement en mode Curve Editor, cote a cote avec les boutons Snap/Step
-- [ ] **ARA multi-signature** : Support des changements de signature en cours
+- [x] **ARA multi-signature** : Support des changements de signature en cours
       de morceau (ex: 4/4 -> 6/8 a la mesure 17)
-- [ ] **Persistence** : Le choix du nombre de mesures est automatiquement preserve
+- [x] **Persistence** : Le choix du nombre de mesures est automatiquement preserve
       entre les sessions via `AudioProcessorValueTreeState`
 
 ### Validation Phase 14
@@ -543,18 +544,18 @@ Suivi consulte lors de chaque modification du projet.
 
 > Plan detaille : `docs/implementation-plan-curve-editor-beats-auto-scroll.md`
 
-- [ ] **Auto-scroll algorithm** : Defilement continu et fluide maintenant le
+- [x] **Auto-scroll algorithm** : Defilement continu et fluide maintenant le
       playhead a ~75% de la largeur visible. Calcul : scrollOffset =
       jmax(0, playheadTime - timeVisible * 0.75)
-- [ ] **Coordinate update** : `timeToX()` et `xToTime()` integrent `scrollOffset`
+- [x] **Coordinate update** : `timeToX()` et `xToTime()` integrent `scrollOffset`
       pour que le drag des points, l'ajout et la suppression fonctionnent
       correctement avec le scroll actif
-- [ ] **Toggle button** : Bouton "Auto-Scroll" dans la toolbar du Curve Editor,
+- [x] **Toggle button** : Bouton "Auto-Scroll" dans la toolbar du Curve Editor,
       active par defaut en mode ARA, desactivable par l'utilisateur
-- [ ] **Parameter `auto_scroll`** : `AudioParameterBool`, persiste entre sessions
-- [ ] **Detection ARA** : Activation automatique quand `isBoundToARA_custom()`
+- [x] **Parameter `auto_scroll`** : `AudioParameterBool`, persiste entre sessions
+- [x] **Detection ARA** : Activation automatique quand `isBoundToARA_custom()`
       est vrai (mais l'utilisateur peut toujours desactiver)
-- [ ] **Arret/Re-demarrage** : Quand la lecture s'arrete, le scroll reste en
+- [x] **Arret/Re-demarrage** : Quand la lecture s'arrete, le scroll reste en
       place. Quand elle reprend, le scroll suit a nouveau
 
 ### Validation Phase 15

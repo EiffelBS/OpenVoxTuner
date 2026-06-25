@@ -77,7 +77,7 @@ Le code semble pourtant calculer le bon ratio. Le defaut reel se cache
 dans la **double evaluation du mode Graphic** : apres le `if (mode == 1)`
 le `f0_target` est initialise seulement dans la branche `if (f0_in > 0.0f)`,
 mais la **plage 144-2048 samples declenche regulierement** un `f0_in == 0`
-du fait de l'anti-octave-error (cf. `changelog-2026-06-23.md`) trop agressif.
+du fait de l'anti-octave-error (cf. `docs/changelogs/changelog-2026-06-23.md`) trop agressif.
 Dans ce cas, `targetRatio` reste a `1.0f` -> le plugin laisse passer
 l'audio sans correction (voix inchangee, l'utilisateur entend son
 "raw vocal" tel quel).
@@ -232,4 +232,4 @@ reel (chant homme ET femme) :
 Le plan de correction detaille est redige dans
 [`docs/correctif-pannes-autotune-2026-06-24.md`](correctif-pannes-autotune-2026-06-24.md).
 Le suivi est consigne dans `roadmap.md` (section "Prochaines etapes")
-et le changelog du jour `changelog-2026-06-24.md`.
+et le changelog du jour `docs/changelogs/changelog-2026-06-24.md`.

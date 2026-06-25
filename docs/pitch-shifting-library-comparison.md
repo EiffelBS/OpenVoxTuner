@@ -201,7 +201,7 @@ et tu pourras switcher plus tard en acceptant la GPL.
 
 1. **Decision utilisateur** (FAIT 2026-06-11) : Jerome a choisi
    **RubberBand (GPL)**. Voir le Round 10 du
-   `changelog-2026-06-11.md` pour le detail de l'integration.
+   `docs/changelogs/changelog-2026-06-11.md` pour le detail de l'integration.
 2. ~~Si l'utilisateur choisit RubberBand~~ : fait, voir
    `Source/dsp/RubberBandPitchShifter.h/.cpp` et le Round 10 du
    changelog.

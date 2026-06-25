@@ -2,7 +2,7 @@
 
 > Date : 2026-06-24
 > Documents lies : `diagnostic-pannes-autotune-2026-06-24.md`,
-> `roadmap.md`, `changelog-2026-06-24.md`.
+> `roadmap.md`, `docs/changelogs/changelog-2026-06-24.md`.
 > Cible de compatibilite : VST3 / Standalone / ARA2 sous Windows 11,
 > Visual Studio 2022 17.14, JUCE 8.0.12, Projucer -> CMake.
 
@@ -311,7 +311,7 @@ lancer la procedure de validation globale :
    `C:\Program Files\Common Files\VST3\`.
 3. Lancement du Standalone et test des 4 criteres du diagnostic
    (`docs/diagnostic-pannes-autotune-2026-06-24.md` section 6).
-4. Si succes, mise a jour du `changelog-2026-06-24.md` et increment
+4. Si succes, mise a jour du `docs/changelogs/changelog-2026-06-24.md` et increment
    de la version Projucer vers `0.1.2`.
 
 ## Annexes
