@@ -505,6 +505,34 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     midiToggleButton.setTooltip ("Enable MIDI Out");
     addAndMakeVisible (midiToggleButton);
 
+    // Measures selector (Feature 1) — visible only in Curve Editor mode.
+    measuresLabel.setText ("Measures", juce::dontSendNotification);
+    measuresLabel.setJustificationType (juce::Justification::centred);
+    measuresLabel.setColour (juce::Label::textColourId, kText);
+    measuresLabel.setFont (juce::Font (11.0f, juce::Font::bold));
+    addAndMakeVisible (measuresLabel);
+
+    measuresBox.addItemList ({ "1", "2", "4", "8" }, 1);
+    measuresBox.setSelectedItemIndex (2, juce::dontSendNotification);
+    measuresBox.setColour (juce::ComboBox::backgroundColourId, kBgPanel);
+    measuresBox.setColour (juce::ComboBox::textColourId, kText);
+    measuresBox.setColour (juce::ComboBox::outlineColourId, kAccentSoft);
+    measuresBox.setColour (juce::ComboBox::arrowColourId, kAccent);
+    addAndMakeVisible (measuresBox);
+
+    measuresAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        processorRef.getParameters(), "editor_measures", measuresBox);
+
+    // Auto-Scroll toggle (Feature 2) — visible only in Curve Editor mode.
+    autoScrollToggle.setButtonText ("Auto-Scroll");
+    autoScrollToggle.setColour (juce::ToggleButton::textColourId, kText);
+    autoScrollToggle.setColour (juce::ToggleButton::tickColourId, kAccent);
+    autoScrollToggle.setTooltip ("Automatically scroll the editor view during playback");
+    addAndMakeVisible (autoScrollToggle);
+
+    autoScrollAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        processorRef.getParameters(), "auto_scroll", autoScrollToggle);
+
     // Hide legacy icon buttons from top bar (kept for backward compatibility)
     bypassButton.setVisible (false);
     midiOutButton.setVisible (false);
@@ -860,7 +888,15 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto toolsArea = tabBounds.removeFromTop(30).reduced(2, 4); // height is 22
     
     int iconSize = toolsArea.getHeight(); // 22
+
+    // Left side: Measures selector + Auto-Scroll toggle (Feature 1 & 2)
+    auto leftTools = toolsArea.removeFromLeft(260);
+    measuresLabel.setBounds (leftTools.removeFromLeft (50));
+    measuresBox.setBounds (leftTools.removeFromLeft (60));
+    leftTools.removeFromLeft (8);
+    autoScrollToggle.setBounds (leftTools.removeFromLeft (100));
     
+    // Right side: existing toolbar icons
     resetTransportButton.setBounds (toolsArea.removeFromRight(iconSize));
     toolsArea.removeFromRight(8);
     clearCurveButton.setBounds (toolsArea.removeFromRight(iconSize));
@@ -1011,6 +1047,9 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     snapGridButton.setVisible (isCurveEditorMode);
     stepModeButton.setVisible (isCurveEditorMode);
     clearCurveButton.setVisible (isCurveEditorMode);
+    measuresLabel.setVisible (isCurveEditorMode);
+    measuresBox.setVisible (isCurveEditorMode);
+    autoScrollToggle.setVisible (isCurveEditorMode);
 
     // Gray out Formant slider if disabled
     bool isFormantEnabled = formantEnableButton.getToggleState();
@@ -1051,6 +1090,13 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     if (curveEditor != nullptr) {
         curveEditor->setEditorEnabled(tabIndex == 1);
         curveEditor->setPlayheadTime(processorRef.getTransportTime());
+        // Propagate time signature and measures (Feature 1)
+        int num = processorRef.getCurrentTimeSigNumerator();
+        int den = processorRef.getCurrentTimeSigDenominator();
+        curveEditor->setTimeSignature (num, den);
+        curveEditor->setMeasuresVisible (measuresBox.getSelectedId());
+        // Propagate auto-scroll state (Feature 2)
+        curveEditor->setAutoScroll (autoScrollToggle.getToggleState());
     }
 
     // Update harmony visuals: forward harmony frequencies to the visualizer

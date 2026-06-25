@@ -103,18 +103,20 @@ namespace ui
         /// editor can draw harmony traces aligned with the curve timeline.
         void addHarmonySamples (double time, const juce::Array<float>& freqs);
 
-        void setPlayheadTime (double time)
-        {
-            if (playheadTime != time)
-            {
-                playheadTime = time;
-                repaint();
-            }
-        }
+        /// Definit la position du playhead (en PPQ). Si l'auto-scroll est
+        /// active, decale la vue pour suivre le playhead.
+        void setPlayheadTime (double time);
+
+        /// Definit le nombre de mesures visibles (1, 2, 4, 8).
+        void setMeasuresVisible (int measures);
+
+        /// Definit la time signature courante (numerator/denominator).
+        void setTimeSignature (int numerator, int denominator);
+
+        /// Active/desactive le defilement automatique (auto-scroll ARA).
+        void setAutoScroll (bool enabled);
 
         /// Active/desactive l'edition (utilise pour griser en mode Auto).
-        /// En mode desactive, le composant ne repond pas a la souris et
-        /// est dessine avec une couleur grisee.
         void setEditorEnabled (bool b);
         bool isEditorEnabled() const { return editorEnabled; }
 
@@ -157,9 +159,20 @@ namespace ui
         bool editorEnabled = true;
 
         // Vue.
-        double timeVisible = 16.0; // 16 beats (4 mesures en 4/4) visibles a l'ecran.
+        double timeVisible = 16.0; // calcul automatique par recalculateTimeVisible()
         float  minHz = 50.0f;
         float  maxHz = 1000.0f;
+
+        // Measures and time signature (Feature 1).
+        int measuresVisible = 4;
+        int timeSigNum = 4;
+        int timeSigDen = 4;
+        void recalculateTimeVisible();
+
+        // Auto-scroll (Feature 2).
+        double scrollOffset = 0.0;
+        bool autoScrollEnabled = false;
+        double lastPlayheadTime = -1.0;
 
         // Harmony traces storage (per-voice time/pitch samples)
         static constexpr int maxHarmonyVoices = 8;

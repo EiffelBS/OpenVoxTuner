@@ -88,36 +88,42 @@ namespace ui
         }
 
         // === Lignes verticales (repere par Beat et Mesure) et Ruler ===
-        for (double t = 0.0; t <= timeVisible; t += 0.5) // Sous-divisions
+        const double beatUnit = 4.0 / timeSigDen;
+        const double ppqPerBar = timeSigNum * beatUnit;
+        const double rulerStart = scrollOffset;
+        const double rulerEnd = scrollOffset + timeVisible;
+        const double alignedStart = std::floor (rulerStart / beatUnit) * beatUnit;
+
+        for (double t = alignedStart; t <= rulerEnd; t += beatUnit)
         {
+            if (t < rulerStart) continue;
+
             const double x = timeToX (t);
-            bool isBeat = (std::fmod(t, 1.0) == 0.0);
-            bool isMeasure = (std::fmod(t, 4.0) == 0.0);
-            
+            bool isBarStart = (std::abs (std::fmod (t, ppqPerBar)) < 0.001)
+                           || (std::abs (std::fmod (t, ppqPerBar) - ppqPerBar) < 0.001);
+            bool isBeat = true;
+
             // Ligne verticale dans la grille
-            g.setColour (kGridColour.withAlpha (isMeasure ? 0.6f : (isBeat ? 0.3f : 0.1f)));
+            g.setColour (kGridColour.withAlpha (isBarStart ? 0.6f : (isBeat ? 0.3f : 0.1f)));
             g.drawVerticalLine (static_cast<int> (x), rulerH, static_cast<float> (b.getHeight()));
-            
+
             // Graduations dans le ruler
-            if (isBeat)
+            if (isBarStart)
             {
-                g.setColour (juce::Colours::white.withAlpha(0.8f));
+                g.setColour (juce::Colours::white.withAlpha (0.8f));
                 g.drawVerticalLine (static_cast<int> (x), rulerH - 4.0f, rulerH);
-                
-                // Texte du ruler
-                juce::String text;
-                int measure = static_cast<int>(t / 4.0) + 1;
-                int beat = static_cast<int>(std::fmod(t, 4.0)) + 1;
-                if (beat == 1) text = juce::String(measure);
-                else text = juce::String(measure) + "." + juce::String(beat);
-                
+
+                // Texte du ruler : "M1", "M2", etc.
+                double barDouble = t / ppqPerBar;
+                int bar = static_cast<int> (std::floor (barDouble)) + 1;
                 g.setFont (11.0f);
-                g.drawText (text, static_cast<int>(x) + 4, 0, 40, rulerH, juce::Justification::centredLeft);
+                g.drawText ("M" + juce::String (bar),
+                            static_cast<int> (x) + 4, 0, 40, rulerH,
+                            juce::Justification::centredLeft);
             }
             else
             {
-                // Sous-division
-                g.setColour (juce::Colours::white.withAlpha(0.4f));
+                g.setColour (juce::Colours::white.withAlpha (0.4f));
                 g.drawVerticalLine (static_cast<int> (x), rulerH - 2.0f, rulerH);
             }
         }
@@ -276,9 +282,8 @@ namespace ui
         }
 
         // === Playhead (Barre verticale de lecture) ===
-        // On boucle le playhead visuellement aussi sur 16.0 beats
-        double displayPlayhead = std::fmod(playheadTime, 16.0);
-        if (displayPlayhead >= 0.0 && displayPlayhead <= timeVisible)
+        double displayPlayhead = playheadTime;
+        if (displayPlayhead >= scrollOffset && displayPlayhead <= scrollOffset + timeVisible)
         {
             const float x = static_cast<float> (timeToX (displayPlayhead));
             g.setColour (juce::Colours::red.withAlpha (0.8f));
@@ -361,14 +366,16 @@ namespace ui
     {
         const int pianoW = pianoKeyboard.getWidth();
         const int plotW  = getWidth() - pianoW;
-        return pianoW + (t / timeVisible) * plotW;
+        const double viewT = t - scrollOffset;
+        return pianoW + (viewT / timeVisible) * plotW;
     }
     double PitchCurveEditor::xToTime (float x) const
     {
         const int pianoW = pianoKeyboard.getWidth();
         const int plotW  = juce::jmax (1, getWidth() - pianoW);
-        return juce::jlimit (0.0, timeVisible,
-                             ((x - pianoW) / plotW) * timeVisible);
+        const double viewT = ((x - pianoW) / plotW) * timeVisible;
+        return juce::jlimit (scrollOffset, scrollOffset + timeVisible,
+                             viewT + scrollOffset);
     }
     float PitchCurveEditor::pitchToY (float p) const
     {
@@ -840,5 +847,49 @@ namespace ui
     {
         if (listener != nullptr)
             listener->pitchCurveChanged();
+    }
+
+    // === Feature 1: Measures and time signature ===
+    void PitchCurveEditor::setMeasuresVisible (int measures)
+    {
+        measuresVisible = juce::jlimit (1, 8, measures);
+        recalculateTimeVisible();
+        repaint();
+    }
+
+    void PitchCurveEditor::setTimeSignature (int numerator, int denominator)
+    {
+        timeSigNum = juce::jlimit (1, 32, numerator);
+        timeSigDen = juce::jlimit (1, 32, denominator);
+        recalculateTimeVisible();
+        repaint();
+    }
+
+    void PitchCurveEditor::recalculateTimeVisible()
+    {
+        const double beatUnit = 4.0 / timeSigDen;
+        const double ppqPerBar = timeSigNum * beatUnit;
+        timeVisible = measuresVisible * ppqPerBar;
+    }
+
+    // === Feature 2: Auto-scroll ===
+    void PitchCurveEditor::setAutoScroll (bool enabled)
+    {
+        autoScrollEnabled = enabled;
+    }
+
+    void PitchCurveEditor::setPlayheadTime (double time)
+    {
+        bool isPlaying = (time != lastPlayheadTime && time >= 0.0);
+        lastPlayheadTime = time;
+        playheadTime = time;
+
+        if (autoScrollEnabled && isPlaying)
+        {
+            double targetScroll = time - timeVisible * 0.75;
+            scrollOffset = juce::jmax (0.0, targetScroll);
+        }
+
+        repaint();
     }
 }

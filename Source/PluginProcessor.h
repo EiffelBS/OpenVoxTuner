@@ -111,6 +111,10 @@ public:
     // Force-create a test grain in the pitch shifter (debug)
     void forceCreatePitchTestGrain();
 
+    // Time signature access (for the Curve Editor ruler).
+    int getCurrentTimeSigNumerator() const { return currentTimeSigNumerator.load(); }
+    int getCurrentTimeSigDenominator() const { return currentTimeSigDenominator.load(); }
+    void getTimeSignatureAt(double ppq, int& num, int& den) const;
 
     void resetTransportTime() {
         customTimeOffset.store(rawHostTime.load());
@@ -142,7 +146,8 @@ private:
     std::atomic<float>* harmonyShiftedVoicesParam = nullptr; // number of shifted voices (1..4)
     std::atomic<float>* harmonyToneParam = nullptr; // synth harmony tone (choice)
     std::atomic<float>* harmonyToneColorParam = nullptr; // synth harmony tone color (continuous)
-    std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable        
+    std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
+    std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
 
     // "Custom note on/off" parameters (12 booleans, indices 0..11).
     // Stored as 12 separate AudioParameterBool so the host can
@@ -219,6 +224,17 @@ private:
     // getLoopPoints() which can stall Reaper / FL Studio.
     std::atomic<double> cachedTransportTime { 0.0 };
     std::atomic<uint32_t> lastTransportTimeUpdateMs { 0 };
+
+    // Time signature state (for Curve Editor ruler).
+    std::atomic<int> currentTimeSigNumerator { 4 };
+    std::atomic<int> currentTimeSigDenominator { 4 };
+    struct BarSignatureEvent {
+        double ppqPosition;
+        int numerator;
+        int denominator;
+    };
+    std::vector<BarSignatureEvent> araBarSignatures;
+    juce::CriticalSection araBarSigLock;
 
     // Harmony state.
     juce::Array<float> harmonyFrequencies;
