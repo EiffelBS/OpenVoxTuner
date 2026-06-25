@@ -116,6 +116,13 @@ namespace ui
         /// Active/desactive le defilement automatique (auto-scroll ARA).
         void setAutoScroll (bool enabled);
 
+        /// Definit le nombre de mesures sans passer par le combo.
+        void setMeasuresWithoutCombo (int measures);
+
+        /// Accesseurs pour les contrôles embarqués (synchronisation PluginEditor)
+        juce::ComboBox& getMeasuresBox() { return measuresBox; }
+        juce::ToggleButton& getAutoScrollToggle() { return autoScrollToggle; }
+
         /// Active/desactive l'edition (utilise pour griser en mode Auto).
         void setEditorEnabled (bool b);
         bool isEditorEnabled() const { return editorEnabled; }
@@ -173,6 +180,13 @@ namespace ui
         double scrollOffset = 0.0;
         bool autoScrollEnabled = false;
         double lastPlayheadTime = -1.0;
+
+        // Embedded controls (Feature 1 & 2).
+        // These are child components owned by PitchCurveEditor so they are
+        // properly parented inside the tab page (not overlapping tab buttons).
+        juce::ComboBox measuresBox;
+        juce::Label    measuresLabel;
+        juce::ToggleButton autoScrollToggle;
 
         // Harmony traces storage (per-voice time/pitch samples)
         static constexpr int maxHarmonyVoices = 8;

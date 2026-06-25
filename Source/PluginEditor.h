@@ -136,13 +136,6 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>, 12> customAttachments;
 
-    // Measures ComboBox + Auto-Scroll Toggle (Feature 1 & 2).
-    juce::ComboBox measuresBox;
-    juce::Label    measuresLabel;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> measuresAttachment;
-    juce::ToggleButton autoScrollToggle;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoScrollAttachment;
-
     // Pitch visualizer + pitch curve editor.
     std::unique_ptr<ui::PitchVisualizer>     pitchVisualizer;
     std::unique_ptr<ui::PitchCurveEditor>    curveEditor;
@@ -171,6 +164,9 @@ private:
     juce::Rectangle<int> block1Bounds;
     juce::Rectangle<int> block2Bounds;
     juce::Rectangle<int> block3Bounds; // Harmony block
+
+    // One-time flag for syncing editor controls from persisted parameters
+    bool measuresSyncDone = false;
 
 public:
     // Theme colors.
