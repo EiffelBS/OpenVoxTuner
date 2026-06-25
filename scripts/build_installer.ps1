@@ -4,7 +4,7 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = $PSScriptRoot
+$ProjectRoot = Split-Path $PSScriptRoot -Parent
 $BuildDir = Join-Path $ProjectRoot "build"
 if ([string]::IsNullOrWhiteSpace($JucePath)) {
     $JucePath = "C:\JUCE"
@@ -50,7 +50,7 @@ if (-not $NoBuild) {
     }
 
     # Source the MSVC environment.
-    . (Join-Path $ProjectRoot "init_vs_env.ps1") 2>$null | Out-Null
+    . (Join-Path $PSScriptRoot "init_vs_env.ps1") 2>$null | Out-Null
 
     if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
         Write-Host "cl.exe introuvable meme apres init_vs_env.ps1" -ForegroundColor Red
@@ -82,7 +82,7 @@ if (-not $NoBuild) {
     # Run build in a cmd.exe context with the correct PATH for MSBuild custom commands.
     # MSBuild spawns child cmd.exe processes for custom build steps and they need
     # access to Windows system utilities like attrib.exe.
-    $buildScript = Join-Path $ProjectRoot "build_helper.cmd"
+    $buildScript = Join-Path $PSScriptRoot "build_helper.cmd"
     $cmakeExe = (Get-Command cmake -ErrorAction SilentlyContinue).Source
     
     # Read the MSVC environment paths from init_vs_env.ps1

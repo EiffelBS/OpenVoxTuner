@@ -32,12 +32,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = $PSScriptRoot
+$ProjectRoot = Split-Path $PSScriptRoot -Parent
 $BuildDir = Join-Path $ProjectRoot "build"
 $JucePath = "C:\JUCE"
 
 # === Source l'environnement MSVC (idempotent) ===
-. (Join-Path $ProjectRoot "init_vs_env.ps1") 2>$null | Out-Null
+. (Join-Path $PSScriptRoot "init_vs_env.ps1") 2>$null | Out-Null
 
 # Verifie que cl.exe est disponible.
 if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue))

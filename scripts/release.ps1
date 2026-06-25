@@ -12,10 +12,12 @@ function Write-Log { param($msg) Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $m
 
 Write-Log "Début de la release pour la version $Version"
 
+$repoRoot = Split-Path $PSScriptRoot -Parent
+
 # --------------------------------------------------------------------
 # 1️⃣ Mettre à jour BuildInfo.h.in (macro OVT_PROJECT_VERSION)
 # --------------------------------------------------------------------
-$inFile = Join-Path $PSScriptRoot 'Source\BuildInfo.h.in'
+$inFile = Join-Path $repoRoot 'Source\BuildInfo.h.in'
 if (-not (Test-Path $inFile)) {
     Write-Error "Fichier '$inFile' introuvable. Assurez‑vous que le projet est à jour."
     exit 1
@@ -83,9 +85,9 @@ Write-Log "Lancement de la build …"
 # --------------------------------------------------------------------
 # Packager les artefacts (optionnel)
 # --------------------------------------------------------------------
-$artifactsDir = Join-Path $PSScriptRoot 'build\OpenVoxTuner_artefacts'
+$artifactsDir = Join-Path $repoRoot 'build\OpenVoxTuner_artefacts'
 if (Test-Path $artifactsDir) {
-    $zipName = Join-Path $PSScriptRoot "OpenVoxTuner_$Version.zip"
+    $zipName = Join-Path $repoRoot "OpenVoxTuner_$Version.zip"
     Compress-Archive -Path (Join-Path $artifactsDir '*') -DestinationPath $zipName -Force
     Write-Log "Artefacts packagés : $zipName"
     # Eviter d'inclure le zip dans git

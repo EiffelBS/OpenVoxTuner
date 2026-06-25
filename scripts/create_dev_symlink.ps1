@@ -8,7 +8,9 @@ $ErrorActionPreference = "Stop"
 # Configuration : changez "Debug" en "Release" selon votre besoin
 $buildConfig = "Debug"
 
-$vst3Source = "$PSScriptRoot\build\OpenVoxTuner_artefacts\$buildConfig\VST3\OpenVoxTuner.vst3"
+$repoRoot = Split-Path $PSScriptRoot -Parent
+
+$vst3Source = "$repoRoot\build\OpenVoxTuner_artefacts\$buildConfig\VST3\OpenVoxTuner.vst3"
 $vst3Dest = "$env:CommonProgramFiles\VST3\OpenVoxTuner.vst3"
 
 Write-Host "=== Creation d'un lien symbolique pour le developpement ===" -ForegroundColor Cyan

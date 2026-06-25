@@ -4,7 +4,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = $PSScriptRoot
+$ProjectRoot = Split-Path $PSScriptRoot -Parent
 $SolutionPath = Join-Path $ProjectRoot "build\OpenVoxTuner.sln"
 
 Write-Host "=== Ouverture de Visual Studio ===" -ForegroundColor Cyan

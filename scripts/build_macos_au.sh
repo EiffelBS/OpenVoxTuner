@@ -79,7 +79,7 @@ if ! command -v cmake >/dev/null 2>&1; then
   exit 1
 fi
 
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 echo "[1/3] Configuration CMake (AU activé)..."

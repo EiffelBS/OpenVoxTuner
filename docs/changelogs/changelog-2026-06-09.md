@@ -34,7 +34,7 @@
 
 **Documentation** :
 - `roadmap.md` : suivi complet du projet avec cases a cocher par phase
-- `changelog-2026-06-09.md` (ce fichier)
+- `docs/changelogs/changelog-2026-06-09.md` (ce fichier)
 - `docs/architecture.md` : documentation complete (PSOLA, formants, retarget)
 
 **Tests unitaires** :

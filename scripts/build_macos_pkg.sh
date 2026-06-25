@@ -138,7 +138,7 @@ if [[ "$WANT_VST3" == false && "$WANT_AU" == false && "$WANT_STANDALONE" == fals
   exit 1
 fi
 
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 if [[ "$SKIP_BUILD" == false ]]; then
