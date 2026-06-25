@@ -512,3 +512,55 @@ Suivi consulte lors de chaque modification du projet.
 - [ ] Encapsulation `updateTransportTimeIfNeeded()` documentee
       "NE PAS APPELER PLUS D'UNE FOIS PAR TRANCHE DE 10 ms"
 
+## Phase 14 - Curve Editor: Customizable Measures (Time Signature Aware)
+
+> Plan detaille : `docs/implementation-plan-curve-editor-beats-auto-scroll.md`
+
+- [ ] **Time signature infrastructure** : Lire `ARAContentTypeBarSignatures` (ARA)
+      et `AudioPlayHead::getTimeSignature()` (VST3) dans PluginProcessor.
+      Stocker la signature courante (numerateur, denominateur) dans des
+      atomiques thread-safe, et les changements multiples ARA dans un vecteur
+- [ ] **Parameter `editor_measures`** : `AudioParameterInt` plage 1-8, defaut 4,
+      persiste automatiquement via AudioProcessorValueTreeState
+- [ ] **Ruler rewrite** : Remplacer le `for (t = 0...timeVisible step 0.5)` fixe
+      par un calcul time-signature-aware : beatUnit = 4/den, ppqPerBar = num *
+      beatUnit, labels "M1", "M2"... avec les beats en sous-divisions. Fonctionne
+      en 3/4, 4/4, 6/8, 12/8, etc.
+- [ ] **ComboBox dans la toolbar** : Selecteur "Measures" (1, 2, 4, 8) visible
+      uniquement en mode Curve Editor, cote a cote avec les boutons Snap/Step
+- [ ] **ARA multi-signature** : Support des changements de signature en cours
+      de morceau (ex: 4/4 -> 6/8 a la mesure 17)
+- [ ] **Persistence** : Le choix du nombre de mesures est automatiquement preserve
+      entre les sessions via `AudioProcessorValueTreeState`
+
+### Validation Phase 14
+- [ ] Tests visuels : ruler correct en 3/4, 4/4, 6/8, 12/8
+- [ ] Tests 1, 2, 4, 8 mesures : pas de chevauchement ni de coupure
+- [ ] Changement de signature en ARA : le ruler s'adapte en cours de lecture
+- [ ] Redimensionnement : le ruler reste lisible de 600 a 1920 px
+
+## Phase 15 - Curve Editor: ARA Auto-Scroll
+
+> Plan detaille : `docs/implementation-plan-curve-editor-beats-auto-scroll.md`
+
+- [ ] **Auto-scroll algorithm** : Defilement continu et fluide maintenant le
+      playhead a ~75% de la largeur visible. Calcul : scrollOffset =
+      jmax(0, playheadTime - timeVisible * 0.75)
+- [ ] **Coordinate update** : `timeToX()` et `xToTime()` integrent `scrollOffset`
+      pour que le drag des points, l'ajout et la suppression fonctionnent
+      correctement avec le scroll actif
+- [ ] **Toggle button** : Bouton "Auto-Scroll" dans la toolbar du Curve Editor,
+      active par defaut en mode ARA, desactivable par l'utilisateur
+- [ ] **Parameter `auto_scroll`** : `AudioParameterBool`, persiste entre sessions
+- [ ] **Detection ARA** : Activation automatique quand `isBoundToARA_custom()`
+      est vrai (mais l'utilisateur peut toujours desactiver)
+- [ ] **Arret/Re-demarrage** : Quand la lecture s'arrete, le scroll reste en
+      place. Quand elle reprend, le scroll suit a nouveau
+
+### Validation Phase 15
+- [ ] Test defilement continu : le playhead reste visible a l'ecran
+- [ ] Test drag pendant le scroll : les points se deplacent correctement
+- [ ] Test resize : le scroll s'adapte a la nouvelle largeur
+- [ ] Test arret/reprise : scroll stable, pas de saut visuel
+- [ ] Test ARA vs VST3 : auto-scroll ON en ARA, propose en VST3
+

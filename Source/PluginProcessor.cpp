@@ -348,6 +348,10 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           "midi_out_enable", "MIDI Out Enable", true)
                       , std::make_unique<juce::AudioParameterBool> (
                           "dbg_test_grain", "Debug Test Grain", false)
+                      , std::make_unique<juce::AudioParameterInt> (
+                            "editor_measures", "Editor Measures", 1, 8, 4)
+                      , std::make_unique<juce::AudioParameterBool> (
+                            "auto_scroll", "Auto Scroll", false)
                     })
 {
     // Ensure per-channel MIDI note state starts clean (-1 means no active note)
@@ -378,6 +382,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     harmonyToneColorParam = parameters.getRawParameterValue ("harmony_tone_color");
     midiOutEnableParam = parameters.getRawParameterValue ("midi_out_enable");
     dbgTestGrainParam = parameters.getRawParameterValue ("dbg_test_grain");
+    editorMeasuresParam = parameters.getRawParameterValue ("editor_measures");
 
     for (int i = 0; i < 12; ++i)
     {
@@ -632,6 +637,30 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                             }
                         }
 
+                    // Lire les Bar Signatures ARA (time signature) pour le Curve Editor.
+                    {
+                        ARA::PlugIn::HostContentReader<ARA::kARAContentTypeBarSignatures> barReader (contexts[0]);
+                        juce::ScopedLock lock (araBarSigLock);
+                        araBarSignatures.clear();
+                        for (int i = 0; i < barReader.getEventCount(); ++i)
+                        {
+                            auto* barSig = barReader.getDataPtrForEvent (i);
+                            if (barSig != nullptr)
+                            {
+                                araBarSignatures.push_back ({
+                                    static_cast<double> (barSig->position),
+                                    static_cast<int> (barSig->numerator),
+                                    static_cast<int> (barSig->denominator)
+                                });
+                            }
+                        }
+                        if (!araBarSignatures.empty())
+                        {
+                            currentTimeSigNumerator.store (araBarSignatures[0].numerator);
+                            currentTimeSigDenominator.store (araBarSignatures[0].denominator);
+                        }
+                    }
+
     // After mixing, if engine has finished releasing, shifted voices have ramped down
     // and there's no live pitch, clear cached notes so we don't re-trigger residual rendering.
     bool shiftedActive = false;
@@ -718,6 +747,17 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                         }
                     }
                     currentTime = ppq;
+
+                    // Lire la time signature du DAW (non-ARA).
+                    if (!isBoundToARA())
+                    {
+                        auto sig = position->getTimeSignature();
+                        if (sig.hasValue())
+                        {
+                            currentTimeSigNumerator.store (sig->numerator);
+                            currentTimeSigDenominator.store (sig->denominator);
+                        }
+                    }
                 }
                 else
                 {
@@ -1431,6 +1471,30 @@ void OpenVoxTunerAudioProcessor::syncParameters()
         retargetEnvelope->setSpeed (speedParam->load());
     
     applyLatencyMode();
+}
+
+// === Time signature lookup (for Curve Editor ruler) ===
+void OpenVoxTunerAudioProcessor::getTimeSignatureAt (double ppq, int& num, int& den) const
+{
+    juce::ScopedLock lock (const_cast<OpenVoxTunerAudioProcessor*>(this)->araBarSigLock);
+    if (!araBarSignatures.empty())
+    {
+        // Linear scan: find the last bar signature event before or at ppq
+        BarSignatureEvent best = araBarSignatures[0];
+        for (const auto& e : araBarSignatures)
+        {
+            if (e.ppqPosition <= ppq)
+                best = e;
+            else
+                break;
+        }
+        num = best.numerator;
+        den = best.denominator;
+        return;
+    }
+    // Fallback to current VST3/standalone signature
+    num = currentTimeSigNumerator.load();
+    den = currentTimeSigDenominator.load();
 }
 
 // === Detection de pitch sur le bloc courant via FIFO glissante ===
