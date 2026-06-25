@@ -30,6 +30,31 @@ namespace ui
         // Plage par defaut : C2 -> C7 (suffit pour les voix).
         pianoKeyboard.setRange (36, 96);
 
+        // Embedded controls: Measures combo + Auto-Scroll toggle.
+        // These are children of PitchCurveEditor, not PluginEditor, so they
+        // cannot be blocked by the tabbedComponent's tab buttons.
+        measuresLabel.setText ("M", juce::dontSendNotification);
+        measuresLabel.setJustificationType (juce::Justification::centred);
+        measuresLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
+        measuresLabel.setFont (juce::Font (11.0f, juce::Font::bold));
+        addAndMakeVisible (measuresLabel);
+
+        measuresBox.addItemList ({ "1", "2", "4", "8" }, 1);
+        measuresBox.setSelectedItemIndex (2, juce::dontSendNotification);
+        measuresBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
+        measuresBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
+        measuresBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
+        measuresBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
+        measuresBox.onChange = [this] { setMeasuresVisible (measuresBox.getSelectedId()); };
+        addAndMakeVisible (measuresBox);
+
+        autoScrollToggle.setButtonText ("Auto-Scroll");
+        autoScrollToggle.setColour (juce::ToggleButton::textColourId, juce::Colour (0xffcccccc));
+        autoScrollToggle.setColour (juce::ToggleButton::tickColourId, juce::Colour (0xff1A9AF0));
+        autoScrollToggle.setTooltip ("Automatically scroll the editor view during playback");
+        autoScrollToggle.onClick = [this] { autoScrollEnabled = autoScrollToggle.getToggleState(); };
+        addAndMakeVisible (autoScrollToggle);
+
         // init harmony buffers
         harmonyTimes.clear();
         harmonyPitches.clear();
@@ -329,6 +354,20 @@ namespace ui
         const int pianoW = 60;
         const int rulerH = 24;
         pianoKeyboard.setBounds (0, rulerH, pianoW, getHeight() - rulerH);
+
+        // Embedded controls: top-right corner of the editor
+        const int controlY = 2;
+        const int controlH = 20;
+        const int rightEdge = getWidth() - 4;
+
+        // Auto-Scroll toggle at the far right
+        autoScrollToggle.setBounds (rightEdge - 88, controlY, 88, controlH);
+
+        // Measures combo right before it
+        measuresBox.setBounds (rightEdge - 88 - 4 - 54, controlY, 54, controlH);
+
+        // Measures label right before the combo
+        measuresLabel.setBounds (rightEdge - 88 - 4 - 54 - 4 - 22, controlY, 22, controlH);
     }
 
     void PitchCurveEditor::timerCallback()

@@ -505,34 +505,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     midiToggleButton.setTooltip ("Enable MIDI Out");
     addAndMakeVisible (midiToggleButton);
 
-    // Measures selector (Feature 1) — visible only in Curve Editor mode.
-    measuresLabel.setText ("Measures", juce::dontSendNotification);
-    measuresLabel.setJustificationType (juce::Justification::centred);
-    measuresLabel.setColour (juce::Label::textColourId, kText);
-    measuresLabel.setFont (juce::Font (11.0f, juce::Font::bold));
-    addAndMakeVisible (measuresLabel);
-
-    measuresBox.addItemList ({ "1", "2", "4", "8" }, 1);
-    measuresBox.setSelectedItemIndex (2, juce::dontSendNotification);
-    measuresBox.setColour (juce::ComboBox::backgroundColourId, kBgPanel);
-    measuresBox.setColour (juce::ComboBox::textColourId, kText);
-    measuresBox.setColour (juce::ComboBox::outlineColourId, kAccentSoft);
-    measuresBox.setColour (juce::ComboBox::arrowColourId, kAccent);
-    addAndMakeVisible (measuresBox);
-
-    measuresAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
-        processorRef.getParameters(), "editor_measures", measuresBox);
-
-    // Auto-Scroll toggle (Feature 2) — visible only in Curve Editor mode.
-    autoScrollToggle.setButtonText ("Auto-Scroll");
-    autoScrollToggle.setColour (juce::ToggleButton::textColourId, kText);
-    autoScrollToggle.setColour (juce::ToggleButton::tickColourId, kAccent);
-    autoScrollToggle.setTooltip ("Automatically scroll the editor view during playback");
-    addAndMakeVisible (autoScrollToggle);
-
-    autoScrollAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
-        processorRef.getParameters(), "auto_scroll", autoScrollToggle);
-
     // Hide legacy icon buttons from top bar (kept for backward compatibility)
     bypassButton.setVisible (false);
     midiOutButton.setVisible (false);
@@ -889,14 +861,6 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     
     int iconSize = toolsArea.getHeight(); // 22
 
-    // Right side: Measures selector + Auto-Scroll toggle (Feature 1 & 2)
-    // Placed at the far right, before the existing icon buttons
-    autoScrollToggle.setBounds (toolsArea.removeFromRight(90));
-    toolsArea.removeFromRight(4);
-    measuresBox.setBounds (toolsArea.removeFromRight(56));
-    measuresLabel.setBounds (toolsArea.removeFromRight(54));
-    toolsArea.removeFromRight(8);
-    
     // Existing toolbar icons (from right to left)
     resetTransportButton.setBounds (toolsArea.removeFromRight(iconSize));
     toolsArea.removeFromRight(8);
@@ -1048,9 +1012,6 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     snapGridButton.setVisible (isCurveEditorMode);
     stepModeButton.setVisible (isCurveEditorMode);
     clearCurveButton.setVisible (isCurveEditorMode);
-    measuresLabel.setVisible (isCurveEditorMode);
-    measuresBox.setVisible (isCurveEditorMode);
-    autoScrollToggle.setVisible (isCurveEditorMode);
 
     // Gray out Formant slider if disabled
     bool isFormantEnabled = formantEnableButton.getToggleState();
@@ -1091,13 +1052,35 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     if (curveEditor != nullptr) {
         curveEditor->setEditorEnabled(tabIndex == 1);
         curveEditor->setPlayheadTime(processorRef.getTransportTime());
-        // Propagate time signature and measures (Feature 1)
+        // Propagate time signature (Feature 1) — read from processor
         int num = processorRef.getCurrentTimeSigNumerator();
         int den = processorRef.getCurrentTimeSigDenominator();
         curveEditor->setTimeSignature (num, den);
-        curveEditor->setMeasuresVisible (measuresBox.getSelectedId());
-        // Propagate auto-scroll state (Feature 2)
-        curveEditor->setAutoScroll (autoScrollToggle.getToggleState());
+        // Sync embedded controls with persisted parameters
+        // (controls are children of PitchCurveEditor, not PluginEditor)
+        if (!measuresSyncDone) {
+            // First time: restore ComboBox from persisted parameter
+            auto* measuresRaw = processorRef.getParameters().getRawParameterValue("editor_measures");
+            float measures = measuresRaw ? measuresRaw->load() : 4.0f;
+            curveEditor->getMeasuresBox().setSelectedId (static_cast<int> (measures), juce::dontSendNotification);
+            curveEditor->setMeasuresVisible (static_cast<int> (measures));
+            measuresSyncDone = true;
+        }
+        // Persist embedded control states -> AudioProcessor parameters
+        // (Parameters are automatically saved/loaded by the host)
+        // Measures: write back from ComboBox to parameter
+        auto* measuresParam = processorRef.getParameters().getRawParameterValue("editor_measures");
+        if (measuresParam && curveEditor->getMeasuresBox().getSelectedId() > 0) {
+            // This is a no-op if the value hasn't changed
+            const_cast<std::atomic<float>*>(measuresParam)->store(
+                static_cast<float>(curveEditor->getMeasuresBox().getSelectedId()));
+        }
+        // Auto-scroll: write back from ToggleButton to parameter
+        auto* scrollParam = processorRef.getParameters().getRawParameterValue("auto_scroll");
+        if (scrollParam) {
+            const_cast<std::atomic<float>*>(scrollParam)->store(
+                curveEditor->getAutoScrollToggle().getToggleState() ? 1.0f : 0.0f);
+        }
     }
 
     // Update harmony visuals: forward harmony frequencies to the visualizer
