@@ -789,6 +789,16 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // les VRAIS changements de registre apres ~140 ms de detection stable.
     if (f0_in > 0.0f)
     {
+        // Si YIN a detecte du silence lors de sa derniere analyse (lastRawYinPitch=0),
+        // on desarme le filtre octave pour que la nouvelle note ne soit pas bloquee.
+        // Ceci est NECESSAIRE car f0_in peut valoir 175Hz (fallback) meme quand
+        // l'utilisateur ne chante plus (F3->pause->F2 bloque).
+        if (lastRawYinPitch.load() <= 0.0f)
+        {
+            lastOctaveValidatedPitch.store (0.0f);
+            octaveJumpRejectionCount = 0;
+        }
+
         float ref = lastOctaveValidatedPitch.load();
         if (ref > 0.0f)
         {
@@ -800,29 +810,30 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 ++octaveJumpRejectionCount;
                 if (octaveJumpRejectionCount >= octaveJumpPersistenceThreshold)
                 {
-                    // Persistance depassee : vrai changement de registre,
-                    // on accepte le nouveau pitch et on reinitialise le compteur.
                     lastOctaveValidatedPitch.store (f0_in);
                     octaveJumpRejectionCount = 0;
                 }
                 else
                 {
-                    // Rejet temporaire : on conserve l'ancienne valeur
                     f0_in = ref;
                 }
             }
             else
             {
-                // Pas un saut d'octave : on accepte et on reinitialise le compteur
                 octaveJumpRejectionCount = 0;
                 lastOctaveValidatedPitch.store (f0_in);
             }
         }
-        else
+        else if (lastRawYinPitch.load() > 0.0f)
         {
+            // Pas de reference mais YIN vient de detecter un pitch :
+            // on initialise la reference avec ce nouveau pitch.
             octaveJumpRejectionCount = 0;
             lastOctaveValidatedPitch.store (f0_in);
         }
+        // Si lastRawYinPitch == 0 (silence), on NE met PAS a jour
+        // lastOctaveValidatedPitch. La reference reste a 0 pour que
+        // la prochaine note chantee passe le filtre sans blocage.
     }
     else
     {
@@ -1447,7 +1458,10 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
 
     // Si on n'a pas encore rempli la fenetre, on ne peut pas detecter le pitch.
     if (fifoFillCount < analysisWindow)
+    {
+        lastRawYinPitch.store (0.0f);
         return lastInputPitch.load();
+    }
 
     // Si on a deja analyse recemment (Hop Size), on economise le CPU.
     if (samplesSinceLastAnalysis < analysisHopSize)
@@ -1484,6 +1498,10 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
     // Lance la detection YIN sur le buffer decime.
     float newPitch = pitchDetector->detectPitch (linear, decimatedWindow);
     
+    // Memorise le resultat BRUT de YIN (0 compris) pour le filtre
+    // anti-saut-octave. Ceci est SEPARE du fallback ci-dessous.
+    lastRawYinPitch.store (newPitch);
+    
     // Si YIN trouve un pitch valide, on memorise pour reutilisation lors des
     // micro-pauses de l'anti-octave-error (evite que le ratio autotune retombe
     // a 1.0 -> perte de l'effet).
@@ -1493,9 +1511,9 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
         return newPitch;
     }
     
-    // Fallback : reutilise le dernier pitch valide detecte. Essentiel pour
-    // que le ratio injecte au PitchShifter ne passe pas a 1.0 (aucun effet)
-    // entre deux analyses YIN a cause de l'anti-octave-error trop zele.
+    // YIN n'a rien detecte. Le filtre octave utilisera lastRawYinPitch=0
+    // pour se desarmer automatiquement. On conserve le fallback pour le
+    // ratio du PitchShifter uniquement.
     float fallback = lastValidPitchForAutotune.load();
     if (fallback > 0.0f)
         return fallback;

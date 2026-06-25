@@ -191,6 +191,11 @@ private:
     // pitch is detected. Avoids the "no audible effect" regression.
     std::atomic<float> lastValidPitchForAutotune { 0.0f };
 
+    // Dernier pitch retourne par YIN (0 compris). Utilise par le filtre
+    // anti-saut-octave. Separe de lastValidPitchForAutotune qui ne descend
+    // jamais a 0 (fallback) et empecherait le reset du filtre.
+    std::atomic<float> lastRawYinPitch { 0.0f };
+
     // Last non-trivial pitch ratio passed to the PitchShifter. Used as
     // a fallback when YIN drops to 0 to avoid the autotune effect
     // collapsing to a 1.0 ratio (pass-through) for a few blocks.
