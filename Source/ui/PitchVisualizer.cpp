@@ -183,70 +183,134 @@ namespace ui
                             juce::Justification::centred);
             }
 
-            // ---- Horizontal VU-style tuning meter ----
+            // ---- LED-grid VU meter (professional DAW style) ----
             {
                 const float cents = noteInfo.valid ? noteInfo.cents : 0.0f;
-                const int meterLeft  = 275;
-                const int meterRight = W - 14;
-                const int meterW     = juce::jmax (60, meterRight - meterLeft);
-                const int meterY    = badgeY + 2;
-                const int meterH    = badgeH - 4;
 
-                if (meterW > 40 && noteInfo.valid)
+                // LED grid configuration
+                // Segments per side (excluding center), total = 2*segmentsPerSide + 1
+                constexpr int segmentsPerSide = 8;
+                constexpr int totalSegments = 2 * segmentsPerSide + 1;
+                constexpr float centsPerSegment = 50.0f / (float)segmentsPerSide; // ~6.25
+
+                // Fixed meter width for readability, centered in available space
+                constexpr int meterFixedW = 300;
+                const int availW = W - 285; // space from note+cents area
+                const int meterW = juce::jmin (meterFixedW, juce::jmax (160, availW));
+                const int meterLeft = (W - meterW) / 2 + 20; // centered
+                const int meterY = badgeY + 3;
+                const int meterH = badgeH - 6;
+
+                if (meterW > 80 && noteInfo.valid)
                 {
-                    // Meter background: dark rounded track
-                    g.setColour (juce::Colour (0x3322222a));
-                    g.fillRoundedRectangle ((float)meterLeft, (float)meterY, (float)meterW, (float)meterH, 4.0f);
-                    g.setColour (juce::Colour (0x44444466));
-                    g.drawRoundedRectangle ((float)meterLeft, (float)meterY, (float)meterW, (float)meterH, 4.0f, 1.0f);
+                    // Segment dimensions
+                    constexpr int segGap = 2;
+                    constexpr int segCount = totalSegments;
+                    const int totalGaps = (segCount - 1) * segGap;
+                    const int segW = (meterW - totalGaps) / segCount;
+                    const int segWClamped = juce::jmax (6, segW);
+                    g.setColour (juce::Colour (0x2215151b));
+                    g.fillRoundedRectangle ((float)meterLeft - 4, (float)meterY - 2,
+                                            (float)(meterW + 8), (float)(meterH + 4), 4.0f);
 
-                    const int centerX = meterLeft + meterW / 2;
+                    // Static color gradient: index from center (0 = center, +1..8 right, -1..-8 left)
+                    // Colors mapped by absolute position from center
+                    static const juce::Colour segmentColors[segmentsPerSide + 1] = {
+                        juce::Colour (0xff4caf50), // 0: center (will be overridden by distinctive style)
+                        juce::Colour (0xff66bb6a), // 1: green
+                        juce::Colour (0xff8bc34a), // 2: light green
+                        juce::Colour (0xffcddc39), // 3: yellow-green
+                        juce::Colour (0xffffeb3b), // 4: yellow
+                        juce::Colour (0xffff9800), // 5: orange
+                        juce::Colour (0xffff5722), // 6: deep orange
+                        juce::Colour (0xfff44336), // 7: red
+                        juce::Colour (0xffd32f2f)  // 8: dark red
+                    };
 
-                    // Center "0" mark — thicker green marker
-                    g.setColour (juce::Colour (0xaa4caf50));
-                    g.fillRect (centerX - 1, meterY + 2, 2, meterH - 4);
+                    // Determine which segment indices are active based on cents value
+                    // A segment at index i (0..segmentsPerSide on each side) activates
+                    // when |cents| >= i * centsPerSegment
+                    const float absCents = std::abs (cents);
 
-                    // Tick marks at ±25 cents (subtle)
-                    g.setColour (juce::Colour (0x44ffffff));
-                    const int tick25 = meterW / 4; // 25 cents = 1/4 of the meter when range is ±50
-                    g.fillRect (centerX - tick25, meterY + meterH - 8, 1, 6);
-                    g.fillRect (centerX + tick25, meterY + meterH - 8, 1, 6);
+                    for (int i = 0; i < segCount; ++i)
+                    {
+                        // Map segment index to offset from center
+                        int offset = i - segmentsPerSide; // -8..0..+8
+                        int absOffset = std::abs (offset);
 
-                    // "0" label centered below meter
+                        // Determine active state: segment is active if its threshold
+                        // is reached by the current cents value
+                        float threshold = (float)absOffset * centsPerSegment;
+                        bool isActive = (absCents >= threshold && absCents >= 0.001f);
+
+                        // Special case: center segment (offset=0) activates only when
+                        // |cents| < centsPerSegment/2
+                        if (absOffset == 0) {
+                            isActive = (absCents < centsPerSegment * 0.5f && absCents >= 0.001f);
+                        }
+
+                        // Compute segment X position
+                        int segX = meterLeft + i * (segWClamped + segGap);
+                        int segY = meterY;
+                        int sH = meterH;
+
+                        // Center segment gets extra height (10% taller)
+                        if (absOffset == 0) {
+                            segY -= 1;
+                            sH += 2;
+                        }
+
+                        juce::Colour baseCol;
+                        if (absOffset == 0) {
+                            // Center segment: distinctive bright cyan/blue
+                            baseCol = juce::Colour (0xff00bcd4);
+                        } else {
+                            int colorIdx = juce::jmin (absOffset, segmentsPerSide);
+                            baseCol = segmentColors[colorIdx];
+                        }
+
+                        if (isActive) {
+                            // Active: full brightness, slight glow via brighter variant
+                            g.setColour (baseCol);
+                            g.fillRoundedRectangle ((float)segX, (float)segY,
+                                                    (float)segWClamped, (float)sH, 2.5f);
+                            // Inner bright highlight
+                            g.setColour (baseCol.brighter (0.3f).withAlpha (0.5f));
+                            g.fillRoundedRectangle ((float)(segX + 1), (float)(segY + 1),
+                                                    (float)(segWClamped - 2), (float)(sH - 3), 1.5f);
+
+                            // Center segment extra glow
+                            if (absOffset == 0) {
+                                g.setColour (juce::Colour (0xffffffff).withAlpha (0.3f));
+                                g.fillRoundedRectangle ((float)(segX + 1), (float)(segY + 1),
+                                                        (float)(segWClamped - 2), (float)(sH - 2), 2.0f);
+                            }
+                        } else {
+                            // Inactive: dim with low opacity
+                            g.setColour (baseCol.withAlpha (0.12f));
+                            g.fillRoundedRectangle ((float)segX, (float)segY,
+                                                    (float)segWClamped, (float)sH, 2.5f);
+                        }
+
+                        // Segment border for definition
+                        g.setColour (juce::Colour (0x22ffffff));
+                        g.drawRoundedRectangle ((float)segX, (float)segY,
+                                                (float)segWClamped, (float)sH, 2.5f, 0.5f);
+
+                        // Center segment: distinctive border
+                        if (absOffset == 0) {
+                            g.setColour (juce::Colour (0x8800bcd4));
+                            g.drawRoundedRectangle ((float)(segX - 1), (float)(segY - 1),
+                                                    (float)(segWClamped + 2), (float)(sH + 2), 3.0f, 1.5f);
+                        }
+                    }
+
+                    // "0" label centered below the grid
+                    const int centerSegX = meterLeft + segmentsPerSide * (segWClamped + segGap);
                     g.setFont (juce::Font (8.0f));
-                    g.setColour (juce::Colour (0xaa4caf50));
-                    g.drawText ("0", centerX - 10, meterY + meterH + 1, 20, 10,
+                    g.setColour (juce::Colour (0xaa00bcd4));
+                    g.drawText ("0", centerSegX - 12, meterY + meterH + 2, 24, 10,
                                 juce::Justification::centred);
-
-                    // Needle position: mapped to ±50 cents range (full meter width)
-                    const float clampedCents = juce::jlimit (-50.0f, 50.0f, cents);
-                    const float centsNorm = clampedCents / 50.0f; // normalized to [-1, 1]
-                    int needleTarget = centerX + (int)(centsNorm * meterW / 2.0f);
-                    needleTarget = juce::jlimit (meterLeft + 3, meterLeft + meterW - 3, needleTarget);
-
-                    // Smooth interpolation for slow, fluid animation
-                    const float animAlpha = 0.12f; // slower for a polished feel
-                    lastNeedleX = lastNeedleX + (needleTarget - lastNeedleX) * animAlpha;
-
-                    // Needle color based on absolute cents value
-                    juce::Colour needleCol;
-                    if (std::abs (cents) < 5.0f)      needleCol = juce::Colour (0xff4caf50);
-                    else if (std::abs (cents) < 15.0f) needleCol = juce::Colour (0xffcddc39);
-                    else if (std::abs (cents) < 30.0f) needleCol = juce::Colour (0xffff9800);
-                    else                                needleCol = juce::Colour (0xffe57373);
-
-                    // Draw the VU needle as a small diamond marker
-                    const int nX = (int)juce::jlimit ((float)meterLeft + 3, (float)(meterLeft + meterW - 3), lastNeedleX);
-                    juce::Path needle;
-                    needle.addTriangle ((float)nX, (float)(meterY + 2),
-                                        (float)(nX - 4), (float)(meterY + meterH - 2),
-                                        (float)(nX + 4), (float)(meterY + meterH - 2));
-                    g.setColour (needleCol);
-                    g.fillPath (needle);
-
-                    // Small white dot at the needle tip
-                    g.setColour (juce::Colours::white);
-                    g.fillEllipse ((float)nX - 2.0f, (float)(meterY + meterH / 2) - 2.0f, 4.0f, 4.0f);
                 }
             }
         }
