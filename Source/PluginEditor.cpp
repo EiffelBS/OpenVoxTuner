@@ -889,14 +889,15 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     
     int iconSize = toolsArea.getHeight(); // 22
 
-    // Left side: Measures selector + Auto-Scroll toggle (Feature 1 & 2)
-    auto leftTools = toolsArea.removeFromLeft(260);
-    measuresLabel.setBounds (leftTools.removeFromLeft (50));
-    measuresBox.setBounds (leftTools.removeFromLeft (60));
-    leftTools.removeFromLeft (8);
-    autoScrollToggle.setBounds (leftTools.removeFromLeft (100));
+    // Right side: Measures selector + Auto-Scroll toggle (Feature 1 & 2)
+    // Placed at the far right, before the existing icon buttons
+    autoScrollToggle.setBounds (toolsArea.removeFromRight(90));
+    toolsArea.removeFromRight(4);
+    measuresBox.setBounds (toolsArea.removeFromRight(56));
+    measuresLabel.setBounds (toolsArea.removeFromRight(54));
+    toolsArea.removeFromRight(8);
     
-    // Right side: existing toolbar icons
+    // Existing toolbar icons (from right to left)
     resetTransportButton.setBounds (toolsArea.removeFromRight(iconSize));
     toolsArea.removeFromRight(8);
     clearCurveButton.setBounds (toolsArea.removeFromRight(iconSize));

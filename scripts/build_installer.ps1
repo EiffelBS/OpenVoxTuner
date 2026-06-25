@@ -144,7 +144,9 @@ if (-not (Test-Path $standalonePath)) {
 
 # 4. Generate the installer using Inno Setup
 Write-Host "`n[3/3] Generating Windows Installer (.exe)..." -ForegroundColor Cyan
+Push-Location $ProjectRoot
 & $iscc "installer\OpenVoxTuner.iss"
+Pop-Location
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`nSUCCESS! Installer generated at:" -ForegroundColor Green
