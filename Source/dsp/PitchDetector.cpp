@@ -203,6 +203,13 @@ namespace atdsp
 
         // --- Cas B : YIN a trouve une sous-harmonique -> on teste tau / 2 ---
         // (periode moitie = frequence double = un octave au-dessus)
+        // ATTENTION : on n'utilise JAMAIS la continuite d'octave ici, car
+        // elle empecherait les changements de registre legitimes.
+        // Exemple : utilisateur chante C3 (lastValidPitch=131Hz), puis C2
+        // (65Hz). YIN detecte 65Hz. tau/2 = 84 donne 131Hz (C3). La
+        // continuite dirait "131Hz est plus proche de lastValidPitch que
+        // 65Hz" et corromprait la detection. On ne corrige donc que si
+        // l'alternative a strictement meilleure clarte.
         if (!octaveCorrected && tauEstimate % 2 == 0 && tauEstimate / 2 >= minLag)
         {
             int tauHalf = tauEstimate / 2;
@@ -212,27 +219,12 @@ namespace atdsp
 
             if (halfClarity < bestClarity)
             {
+                // Alternative strictement meilleure -> on adopte
                 bestTau = tauHalf;
                 bestClarity = halfClarity;
                 octaveCorrected = true;
             }
-            else if (halfClarity < softThreshold)
-            {
-                if (lastValidPitch > 0.0f)
-                {
-                    const float halfFreq = sampleRate / (float)tauHalf;
-                    const float bestFreq = sampleRate / (float)tauEstimate;
-                    const float halfDist = std::abs(std::log2(halfFreq / lastValidPitch));
-                    const float bestDist = std::abs(std::log2(bestFreq / lastValidPitch));
-                    if (halfDist < bestDist)
-                    {
-                        bestTau = tauHalf;
-                        bestClarity = halfClarity;
-                        octaveCorrected = true;
-                    }
-                }
-                // Sans continuite, on garde la detection originale (conservateur)
-            }
+            // Sinon on garde la detection originale (conservateur)
         }
 
         if (octaveCorrected)

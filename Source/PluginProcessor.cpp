@@ -786,7 +786,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Filtre anti-saut-d'octave : si f0_in saute d'un facteur ~2 ou ~0.5
     // par rapport au dernier pitch valide, on conserve l'ancienne valeur
     // temporairement. Un compteur de persistence permet de laisser passer
-    // les VRAIS changements de registre vocal (~0.5 s de detection stable).
+    // les VRAIS changements de registre apres ~140 ms de detection stable.
     if (f0_in > 0.0f)
     {
         float ref = lastOctaveValidatedPitch.load();
