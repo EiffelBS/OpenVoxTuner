@@ -200,12 +200,13 @@ private:
     // Si le pitch detecte saute d'un facteur ~2 ou ~0.5 par rapport a
     // cette reference, on conserve l'ancienne valeur. Un compteur de
     // persistence permet de laisser passer les vrais changements de
-    // registre vocal apres ~0.5 s de detection stable.
+    // registre vocal apres ~140 ms de detection stable.
     std::atomic<float> lastOctaveValidatedPitch { 0.0f };
     // Compteur de cycles consecutifs ou le filtre a rejete un saut
     // d'octave. Apres OCTAVE_JUMP_PERSISTENCE_THRESHOLD rejets, on
     // accepte le nouveau pitch (vrai changement de registre).
-    static constexpr int octaveJumpPersistenceThreshold = 10;
+    // 3 rejets ~= 140ms a 44.1kHz (hop=2048 echantillons).
+    static constexpr int octaveJumpPersistenceThreshold = 3;
     int octaveJumpRejectionCount = 0;
 
     // Cached transport time (beats) refreshed at most every 10 ms in
