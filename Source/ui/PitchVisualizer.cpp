@@ -227,26 +227,26 @@ namespace ui
                         juce::Colour (0xffd32f2f)  // 8: dark red
                     };
 
-                    // Determine which segment indices are active based on cents value
-                    // A segment at index i (0..segmentsPerSide on each side) activates
-                    // when |cents| >= i * centsPerSegment
-                    const float absCents = std::abs (cents);
-
                     for (int i = 0; i < segCount; ++i)
                     {
                         // Map segment index to offset from center
                         int offset = i - segmentsPerSide; // -8..0..+8
                         int absOffset = std::abs (offset);
-
-                        // Determine active state: segment is active if its threshold
-                        // is reached by the current cents value
                         float threshold = (float)absOffset * centsPerSegment;
-                        bool isActive = (absCents >= threshold && absCents >= 0.001f);
 
-                        // Special case: center segment (offset=0) activates only when
-                        // |cents| < centsPerSegment/2
-                        if (absOffset == 0) {
-                            isActive = (absCents < centsPerSegment * 0.5f && absCents >= 0.001f);
+                        bool isActive = false;
+
+                        if (offset == 0) {
+                            // Center segment: only active when very close to 0 cents
+                            isActive = (std::abs (cents) < centsPerSegment * 0.5f && std::abs (cents) >= 0.001f);
+                        } else if (offset > 0) {
+                            // Right side: only active when cents is POSITIVE
+                            // Segment at position 'offset' lights up when
+                            // cents >= its threshold
+                            isActive = (cents >= threshold);
+                        } else {
+                            // Left side (offset < 0): only active when cents is NEGATIVE
+                            isActive = (cents <= -threshold);
                         }
 
                         // Compute segment X position
