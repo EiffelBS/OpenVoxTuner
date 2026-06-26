@@ -1368,7 +1368,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         int tunedMidi = -1;
         float f0_out = lastOutputPitch.load();
         if (f0_out > 0.0f)
+        {
             tunedMidi = freqToMidi(f0_out);
+            OVT_LOG ("MIDI: f0_out=" + juce::String(f0_out, 2) + "Hz midi=" + juce::String(tunedMidi));
+        }
         desired[0] = tunedMidi;
 
         // Harmony notes -> channels 2..9
