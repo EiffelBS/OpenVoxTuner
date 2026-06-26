@@ -181,6 +181,7 @@ namespace ui
         bool autoScrollEnabled = false;
         double lastPlayheadTime = -1.0;
         bool wasPlayingLastFrame = false;
+        int stoppedFrames = 999;
 
         // Embedded controls (Feature 1 & 2).
         // These are child components owned by PitchCurveEditor so they are
