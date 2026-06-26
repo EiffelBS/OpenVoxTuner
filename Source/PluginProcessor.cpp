@@ -1645,15 +1645,10 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
         {
             auto* curveXml = xmlState->getChildByName ("PITCH_CURVE");
             if (curveXml != nullptr)
+            {
                 pitchCurve->fromXml (*curveXml);
-        }
-        // Notifie l'UI (si existant) pour synchroniser le curve editor.
-        if (auto* editor = getActiveEditor())
-        {
-            // Set flag on editor for timerCallback to pick up
-            auto* myEditor = dynamic_cast<OpenVoxTunerAudioProcessorEditor*>(editor);
-            if (myEditor != nullptr)
-                myEditor->needsCurveSync = true;
+                pendingCurveRestore.store (true);
+            }
         }
     }
 }

@@ -708,8 +708,17 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     clearCurveButton.toFront(false);
     resetTransportButton.toFront(false);
 
-    // Sync curve editor from processor state (project load or first launch)
-    needsCurveSync = true;
+    // Force curve sync on first timer tick (covers both setStateInformation
+    // before/after createEditor, and editor recreation on UI show/hide).
+    processorRef.getPendingCurveRestore().store (true);
+    
+    // Sync immediately so the curve is correct on the very first paint
+    // (avoids a 33ms flash of the "default" preset).
+    if (curveEditor != nullptr)
+    {
+        curveEditor->setCurve (processorRef.getPitchCurve());
+        processorRef.getPendingCurveRestore().store (false);
+    }
     
     // Initialize tab from processor parameter
     float initialMode = processorRef.getParameters().getParameter("mode")->getValue();
@@ -1104,11 +1113,11 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
             const_cast<std::atomic<float>*>(scrollParam)->store(
                 curveEditor->getAutoScrollToggle().getToggleState() ? 1.0f : 0.0f);
         }
-        // Sync curve from processor to editor after state restore
-        if (needsCurveSync.load() && curveEditor != nullptr)
+        // Sync curve from processor to editor after state restore or editor recreation
+        if (processorRef.getPendingCurveRestore().load() && curveEditor != nullptr)
         {
             curveEditor->setCurve (processorRef.getPitchCurve());
-            needsCurveSync.store (false);
+            processorRef.getPendingCurveRestore().store (false);
         }
     }
 
