@@ -449,7 +449,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     snapButton.setTooltip ("Snap to scale");
 
     setupIconButton(snapGridButton, pathGrid, true, "Snap to grid");
-    snapGridButton.setToggleState(true, juce::dontSendNotification);
+    snapGridButton.setToggleState(false, juce::dontSendNotification);
     snapGridButton.onClick = [this] {
         if (curveEditor != nullptr) curveEditor->setSnapToGridEnabled(snapGridButton.getToggleState());
     };
@@ -1118,6 +1118,13 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         {
             curveEditor->setCurve (processorRef.getPitchCurve());
             processorRef.getPendingCurveRestore().store (false);
+        }
+        // Sync button states to match curveEditor (handles preset reset)
+        if (curveEditor != nullptr)
+        {
+            snapButton.setToggleState (curveEditor->isSnapEnabled(), juce::dontSendNotification);
+            snapGridButton.setToggleState (curveEditor->isSnapToGridEnabled(), juce::dontSendNotification);
+            stepModeButton.setToggleState (curveEditor->isStepModeEnabled(), juce::dontSendNotification);
         }
     }
 
