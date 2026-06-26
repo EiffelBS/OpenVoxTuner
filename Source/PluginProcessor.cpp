@@ -351,7 +351,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterInt> (
                             "editor_measures", "Editor Measures", 1, 8, 4)
                       , std::make_unique<juce::AudioParameterBool> (
-                            "auto_scroll", "Auto Scroll", false)
+                            "auto_scroll", "Auto Scroll", true)
                     })
 {
     // Ensure per-channel MIDI note state starts clean (-1 means no active note)

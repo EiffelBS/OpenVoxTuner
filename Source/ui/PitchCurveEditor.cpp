@@ -39,7 +39,7 @@ namespace ui
         measuresLabel.setFont (juce::Font (11.0f, juce::Font::bold));
         addAndMakeVisible (measuresLabel);
 
-        measuresBox.addItemList ({ "1", "2", "4", "8" }, 1);
+        measuresBox.addItemList ({ "1", "2", "4", "8", "16", "32" }, 1);
         measuresBox.setSelectedItemIndex (2, juce::dontSendNotification);
         measuresBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
         measuresBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
@@ -138,11 +138,11 @@ namespace ui
                 g.setColour (juce::Colours::white.withAlpha (0.8f));
                 g.drawVerticalLine (static_cast<int> (x), rulerH - 4.0f, rulerH);
 
-                // Texte du ruler : "M1", "M2", etc.
+                // Texte du ruler : bar number (1, 2, 3...)
                 double barDouble = t / ppqPerBar;
                 int bar = static_cast<int> (std::floor (barDouble)) + 1;
                 g.setFont (11.0f);
-                g.drawText ("M" + juce::String (bar),
+                g.drawText (juce::String (bar),
                             static_cast<int> (x) + 4, 0, 40, rulerH,
                             juce::Justification::centredLeft);
             }
@@ -150,6 +150,22 @@ namespace ui
             {
                 g.setColour (juce::Colours::white.withAlpha (0.4f));
                 g.drawVerticalLine (static_cast<int> (x), rulerH - 2.0f, rulerH);
+
+                // Beat subdivisions: "1.1", "1.2", "1.3"
+                // We only label beats that are not bar starts and are integer positions
+                double barDouble = t / ppqPerBar;
+                int bar = static_cast<int> (std::floor (barDouble)) + 1;
+                double beatInBar = (t - (bar - 1) * ppqPerBar) / beatUnit;
+                int beatInt = static_cast<int> (std::round (beatInBar)) + 1;
+                // Only label if this is an exact beat (not a subdivision from rounding)
+                if (std::abs (beatInBar - (beatInt - 1)) < 0.01)
+                {
+                    g.setColour (juce::Colours::white.withAlpha (0.5f));
+                    g.setFont (9.0f);
+                    g.drawText (juce::String (bar) + "." + juce::String (beatInt),
+                                static_cast<int> (x) + 2, rulerH - 10, 30, 12,
+                                juce::Justification::centredLeft);
+                }
             }
         }
 
@@ -919,13 +935,31 @@ namespace ui
 
     void PitchCurveEditor::setPlayheadTime (double time)
     {
-        bool isPlaying = (time != lastPlayheadTime && time >= 0.0);
+        // Detect playback state: if time hasn't changed at all between
+        // two consecutive calls at 30 Hz, playback is stopped.
+        // We use a small epsilon: if |time - lastPlayheadTime| < 0.001
+        // for one frame, we consider playback paused.
+        bool isPlaying = (std::abs (time - lastPlayheadTime) > 0.001);
+
+        // Detect playback restart: was stopped, now playing -> clear harmony traces
+        if (isPlaying && !wasPlayingLastFrame)
+        {
+            for (int v = 0; v < maxHarmonyVoices; ++v)
+            {
+                harmonyTimes.getReference(v).clear();
+                harmonyPitches.getReference(v).clear();
+            }
+        }
+
+        wasPlayingLastFrame = isPlaying;
         lastPlayheadTime = time;
         playheadTime = time;
 
         if (autoScrollEnabled && isPlaying)
         {
-            double targetScroll = time - timeVisible * 0.75;
+            // Continuous centered scroll: keep the playhead at 50% of view.
+            // This gives a balanced view of past and upcoming beats.
+            double targetScroll = time - timeVisible * 0.5;
             scrollOffset = juce::jmax (0.0, targetScroll);
         }
 
