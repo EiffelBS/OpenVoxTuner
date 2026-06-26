@@ -11,8 +11,11 @@ namespace ui
 
     PitchCurveEditor::PitchCurveEditor()
     {
-        // Initialise avec un preset par defaut pour que l'editeur ne soit pas vide.
-        curve.loadPreset ("default");
+        // Do NOT load the "default" preset here — the parent editor will
+        // call setCurve() from the processor's pitchCurve on the first
+        // timer tick (pendingCurveRestore flag). Loading "default" here
+        // would flash the default preset before the real curve is synced.
+        // We keep curve as an empty/zero-state object until synced.
         startTimerHz (30);
         // S'assurer que l'editeur intercepte bien les clics meme s'il est desactive
         // (l'etat editorEnabled ne bloque que la logique interne, pas les events).

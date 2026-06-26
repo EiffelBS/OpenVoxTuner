@@ -169,10 +169,7 @@ private:
     bool measuresSyncDone = false;
 
 public:
-    // Atomic flag set by processor after setStateInformation restores curve.
-    std::atomic<bool> needsCurveSync { false };
-
-    // Theme colors.
+    // Theme colors (public so LookAndFeel can access them).
     static const juce::Colour kBgDark;
     static const juce::Colour kBgPanel;
     static const juce::Colour kAccent;
