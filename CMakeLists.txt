@@ -65,7 +65,11 @@ juce_add_plugin(OpenVoxTuner
     PLUGIN_CODE OvtP
     FORMATS ${OVT_PLUGIN_FORMATS}
     NEEDS_MIDI_OUTPUT TRUE
-    NEEDS_MIDI_INPUT FALSE
+    # Studio One / Fender Studio Pro requires the MIDI input bus to be present
+    # during initial plugin scan so that it can register and persist MIDI output
+    # routing to other tracks. Without this, MIDI routes show "Missing Device"
+    # on project reload. The MIDI input is not processed by the plugin.
+    NEEDS_MIDI_INPUT TRUE
     IS_ARA_EFFECT TRUE             # Active le support ARA2 (Audio Random Access)
     PRODUCT_NAME "OpenVoxTuner"
     VERSION 0.1.1
@@ -92,14 +96,13 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Source/BuildInfo.h.in ${CMAKE_BINARY_
 target_include_directories(OpenVoxTuner PRIVATE ${CMAKE_BINARY_DIR})
 
 # Ensure the generated plugin metadata declares MIDI I/O for VST3 event buses.
-# The plugin PRODUCES MIDI (harmony note output on separate channels) but
-# does NOT consume MIDI input — pitch is received from the audio signal
-# and harmony notes from internal parameters/ARA.
-# MIDI_OUTPUT=TRUE is required for the host to expose the plugin's MIDI
-# output on track routing menus so other tracks can use it as input.
+# The plugin PRODUCES MIDI output (harmony note output on separate channels).
+# MIDI_INPUT is declared to ensure Studio One/Fender Studio Pro correctly
+# registers and persists MIDI output routing between sessions — the MIDI input
+# bus is present but not processed by the plugin.
 target_compile_definitions(OpenVoxTuner PRIVATE
     JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1
-    JUCE_PLUGIN_WANTS_MIDI_INPUT=0
+    JUCE_PLUGIN_WANTS_MIDI_INPUT=1
     OVT_UPDATE_INFO_URL="${OVT_UPDATE_INFO_URL}"
 )
 
