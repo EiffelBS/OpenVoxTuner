@@ -90,6 +90,7 @@ public:
     // Sets the transport time (from the host).
     void setTransportTime (double seconds) { transportTime.store (seconds); }   
     double getTransportTime() const { return transportTime.load(); }
+    bool getIsPlaying() const { return hostIsPlaying.load() != 0; }
     bool isTimeProvidedByHost() const { return timeProvidedByHost.load(); }     
     
     // Checks if the plugin is bound to the ARA environment (via ARADocumentController)
@@ -224,6 +225,9 @@ private:
     // getLoopPoints() which can stall Reaper / FL Studio.
     std::atomic<double> cachedTransportTime { 0.0 };
     std::atomic<uint32_t> lastTransportTimeUpdateMs { 0 };
+    // True host playback state (1 = playing, 0 = stopped).
+    // Propagated to the UI to avoid delta-based heuristics.
+    std::atomic<int> hostIsPlaying { 0 };
 
     // Time signature state (for Curve Editor ruler).
     std::atomic<int> currentTimeSigNumerator { 4 };

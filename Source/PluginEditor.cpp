@@ -1053,7 +1053,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // Update edit state and playhead
     if (curveEditor != nullptr) {
         curveEditor->setEditorEnabled(tabIndex == 1);
-        curveEditor->setPlayheadTime(processorRef.getTransportTime());
+        curveEditor->setPlayheadTime(processorRef.getTransportTime(), processorRef.getIsPlaying());
         // Propagate time signature (Feature 1) — read from processor
         int num = processorRef.getCurrentTimeSigNumerator();
         int den = processorRef.getCurrentTimeSigDenominator();
