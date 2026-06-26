@@ -58,7 +58,13 @@ namespace ui
         const atdsp::PitchCurve& getCurve() const { return curve; }
 
         /// Remplace la courbe (apres chargement de preset par exemple).
+        /// Reinitialise aussi les options d'edition (snap, grid, step) a leurs
+        /// valeurs par defaut pour eviter les conflits d'etat UI.
         void setCurve (const atdsp::PitchCurve& newCurve);
+        
+        /// Reinitialise les options d'edition aux valeurs par defaut :
+        /// snap=ON, stepMode=OFF, snapToGrid=OFF.
+        void resetEditState();
 
         /// Capture la valeur du pitch courant (fourni par le processor) comme
         /// un point sur la courbe au temps 'currentTime'. Utilise en mode
@@ -74,6 +80,7 @@ namespace ui
 
         /// Active ou desactive le magnetisme sur la grille temporelle.
         void setSnapToGridEnabled (bool b);
+        bool isSnapToGridEnabled() const { return snapToGridEnabled; }
 
         /// Active ou desactive le mode "escalier" (Step Mode) pour l'interpolation.
         void setStepModeEnabled (bool b);

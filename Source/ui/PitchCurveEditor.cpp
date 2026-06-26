@@ -818,8 +818,16 @@ namespace ui
     void PitchCurveEditor::setCurve (const atdsp::PitchCurve& newCurve)
     {
         curve = newCurve; // copie
+        resetEditState();
         repaint();
         notifyChanged();
+    }
+
+    void PitchCurveEditor::resetEditState()
+    {
+        snapEnabled = true;
+        snapToGridEnabled = false;
+        curve.setStepMode (false);
     }
 
     void PitchCurveEditor::capturePitch (float hz, double currentTime)
