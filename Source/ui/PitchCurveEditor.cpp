@@ -45,7 +45,7 @@ namespace ui
         measuresBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
         measuresBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
         measuresBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
-        measuresBox.onChange = [this] { setMeasuresVisible (measuresBox.getSelectedId()); };
+        measuresBox.onChange = [this] { setMeasuresVisible (measuresBox.getText().getIntValue()); };
         addAndMakeVisible (measuresBox);
 
         autoScrollToggle.setButtonText ("Auto-Scroll");
@@ -907,7 +907,7 @@ namespace ui
     // === Feature 1: Measures and time signature ===
     void PitchCurveEditor::setMeasuresVisible (int measures)
     {
-        measuresVisible = juce::jlimit (1, 8, measures);
+        measuresVisible = juce::jlimit (1, 32, measures);
         recalculateTimeVisible();
         repaint();
     }
@@ -935,13 +935,27 @@ namespace ui
 
     void PitchCurveEditor::setPlayheadTime (double time)
     {
-        // Detect playback state: if time hasn't changed at all between
-        // two consecutive calls at 30 Hz, playback is stopped.
-        // We use a small epsilon: if |time - lastPlayheadTime| < 0.001
-        // for one frame, we consider playback paused.
-        bool isPlaying = (std::abs (time - lastPlayheadTime) > 0.001);
+        // === Detection robuste de lecture/arret ===
+        // Un epsilon de 0.01 PPQ et un compteur de persistence evite les
+        // faux positifs quand cachedTransportTime fluctue legerement.
+        // 3 frames consecutives sans mouvement = arret confirme.
+        double dt = std::abs (time - lastPlayheadTime);
+        bool frameMoved = (dt > 0.01);
+        lastPlayheadTime = time;
+        playheadTime = time;
 
-        // Detect playback restart: was stopped, now playing -> clear harmony traces
+        if (frameMoved)
+        {
+            stoppedFrames = 0;
+        }
+        else
+        {
+            ++stoppedFrames;
+        }
+
+        bool isPlaying = (stoppedFrames < 3);
+
+        // Detect playback restart -> clear harmony traces
         if (isPlaying && !wasPlayingLastFrame)
         {
             for (int v = 0; v < maxHarmonyVoices; ++v)
@@ -950,17 +964,18 @@ namespace ui
                 harmonyPitches.getReference(v).clear();
             }
         }
-
         wasPlayingLastFrame = isPlaying;
-        lastPlayheadTime = time;
-        playheadTime = time;
 
+        // === Auto-scroll smooth (LERP + threshold gating) ===
         if (autoScrollEnabled && isPlaying)
         {
-            // Continuous centered scroll: keep the playhead at 50% of view.
-            // This gives a balanced view of past and upcoming beats.
+            // Target: keep playhead at 50% of view
             double targetScroll = time - timeVisible * 0.5;
-            scrollOffset = juce::jmax (0.0, targetScroll);
+            targetScroll = juce::jmax (0.0, targetScroll);
+
+            // LERP interpolation: only 15% of the gap per frame
+            // This provides smooth, non-jerky movement even at 30 Hz
+            scrollOffset = scrollOffset + (targetScroll - scrollOffset) * 0.15;
         }
 
         repaint();

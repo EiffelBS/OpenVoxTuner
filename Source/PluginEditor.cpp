@@ -1062,9 +1062,21 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         // (controls are children of PitchCurveEditor, not PluginEditor)
         if (!measuresSyncDone) {
             // First time: restore ComboBox and toggle from persisted parameters
+            auto& mBox = curveEditor->getMeasuresBox();
             auto* measuresRaw = processorRef.getParameters().getRawParameterValue("editor_measures");
             float measures = measuresRaw ? measuresRaw->load() : 4.0f;
-            curveEditor->getMeasuresBox().setSelectedId (static_cast<int> (measures), juce::dontSendNotification);
+            int mIdx = mBox.getText().getIntValue();
+            if (mIdx != static_cast<int>(measures))
+            {
+                for (int i = 0; i < mBox.getNumItems(); ++i)
+                {
+                    if (mBox.getItemText(i).getIntValue() == static_cast<int>(measures))
+                    {
+                        mBox.setSelectedItemIndex (i, juce::dontSendNotification);
+                        break;
+                    }
+                }
+            }
             curveEditor->setMeasuresVisible (static_cast<int> (measures));
 
             auto* scrollRaw = processorRef.getParameters().getRawParameterValue("auto_scroll");
@@ -1078,14 +1090,14 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         // (Parameters are automatically saved/loaded by the host)
         // Measures: write back from ComboBox to parameter
         auto* measuresParam = processorRef.getParameters().getRawParameterValue("editor_measures");
-        if (measuresParam && curveEditor->getMeasuresBox().getSelectedId() > 0) {
-            // This is a no-op if the value hasn't changed
-            const_cast<std::atomic<float>*>(measuresParam)->store(
-                static_cast<float>(curveEditor->getMeasuresBox().getSelectedId()));
+        if (measuresParam && curveEditor) {
+            int curVal = curveEditor->getMeasuresBox().getText().getIntValue();
+            if (curVal > 0)
+                const_cast<std::atomic<float>*>(measuresParam)->store(static_cast<float>(curVal));
         }
         // Auto-scroll: write back from ToggleButton to parameter
         auto* scrollParam = processorRef.getParameters().getRawParameterValue("auto_scroll");
-        if (scrollParam) {
+        if (scrollParam && curveEditor) {
             const_cast<std::atomic<float>*>(scrollParam)->store(
                 curveEditor->getAutoScrollToggle().getToggleState() ? 1.0f : 0.0f);
         }
