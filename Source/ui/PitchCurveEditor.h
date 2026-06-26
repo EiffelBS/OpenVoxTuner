@@ -52,6 +52,9 @@ namespace ui
         void mouseDoubleClick (const juce::MouseEvent& e) override;
         void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
 
+        // === Keyboard (copy/paste, undo/redo) ===
+        bool keyPressed (const juce::KeyPress& key) override;
+
         // === API publique ===
 
         /// Acces a la courbe (lecture seule recommande depuis l'exterieur).
@@ -212,6 +215,35 @@ namespace ui
         // Hover et Tooltip
         int hoverIndex = -1;
         juce::String getNoteName (float hz) const;
+
+        // === Copy/paste + Undo/Redo ===
+        static juce::Array<atdsp::PitchPoint> clipboard;
+        juce::UndoManager undoManager;
+
+        void performCopy();
+        void performPaste();
+        void performDeleteSelected();
+        void performUndo() { undoManager.undo(); repaint(); }
+        void performRedo() { undoManager.redo(); repaint(); }
+        void registerUndoableAction (juce::UndoableAction* action) { undoManager.beginNewTransaction(); undoManager.perform (action); }
+        void beginTransaction (const juce::String& name) { undoManager.beginNewTransaction (name); }
+
+        // Snapshot de la courbe avant une modification (pour undo)
+        atdsp::PitchCurve pendingUndoSnapshot;
+
+        // === Undoable action helper ===
+        struct CurveEditAction : public juce::UndoableAction
+        {
+            atdsp::PitchCurve before;
+            atdsp::PitchCurve after;
+            PitchCurveEditor* editor;
+
+            CurveEditAction (PitchCurveEditor* e) : editor (e) { before = e->curve; }
+            void setAfter() { after = editor->curve; }
+
+            bool perform() override;
+            bool undo() override;
+        };
 
         // Conversion temps / pitch <-> pixels.
         double timeToX (double t) const;

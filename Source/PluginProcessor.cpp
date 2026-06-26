@@ -269,7 +269,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
 
                       // Formant Shift Enable
                       std::make_unique<juce::AudioParameterBool> (
-                          "formant_enable", "Formant Enable", true),
+                          "formant_enable", "Formant Enable", false),
 
                       // Key : index de la tonique (0=C, 1=C#, ..., 11=B)
                       std::make_unique<juce::AudioParameterInt> (
@@ -345,11 +345,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           "harmony_tone_color", "Harmony Tone Color",
                           juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f),
                        std::make_unique<juce::AudioParameterBool> (
-                          "midi_out_enable", "MIDI Out Enable", true)
+                          "midi_out_enable", "MIDI Out Enable",
+                          // In standalone mode, disable MIDI out by default.
+                          ! isStandaloneWrapper())
                       , std::make_unique<juce::AudioParameterBool> (
                           "dbg_test_grain", "Debug Test Grain", false)
                       , std::make_unique<juce::AudioParameterInt> (
-                            "editor_measures", "Editor Measures", 1, 8, 4)
+                            "editor_measures", "Editor Measures", 1, 32, 4)
                       , std::make_unique<juce::AudioParameterBool> (
                             "auto_scroll", "Auto Scroll", true)
                     })

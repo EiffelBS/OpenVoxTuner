@@ -15,7 +15,7 @@
 | Parameter | ID | Type | Default | Range |
 |-----------|-----|------|---------|-------|
 | Formant Shift | `formant` | Float | **0.0** | -5.0 – +5.0 semi-tons |
-| Formant Enable | `formant_enable` | Bool | **true** | false / true |
+| Formant Enable | `formant_enable` | Bool | **false** | false / true |
 
 ## Pitch Correction (Scale)
 
@@ -59,7 +59,7 @@
 
 | Parameter | ID | Type | Default | Range |
 |-----------|-----|------|---------|-------|
-| Editor Measures | `editor_measures` | Int | **4** | 1 – 8 |
+| Editor Measures | `editor_measures` | Int | **4** | 1 – 32 |
 | Auto Scroll | `auto_scroll` | Bool | **true** | false / true |
 
 ## Curve Editor — Interactive State (not in processor parameters)
@@ -67,8 +67,8 @@
 | State | Default |
 |-------|---------|
 | Snap to scale | **ON** |
-| Snap to grid | **OFF** |
-| Step mode | **OFF** |
+| Snap to grid | **ON** |
+| Step mode | **ON** |
 
 ## Debug
 
