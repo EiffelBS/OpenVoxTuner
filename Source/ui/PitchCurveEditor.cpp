@@ -933,30 +933,10 @@ namespace ui
         autoScrollEnabled = enabled;
     }
 
-    void PitchCurveEditor::setPlayheadTime (double time)
+    void PitchCurveEditor::setPlayheadTime (double time, bool isHostPlaying)
     {
-        // === Detection robuste de lecture/arret ===
-        // Un epsilon de 0.01 PPQ et un compteur de persistence evite les
-        // faux positifs quand cachedTransportTime fluctue legerement.
-        // 3 frames consecutives sans mouvement = arret confirme.
-        double dt = std::abs (time - lastPlayheadTime);
-        bool frameMoved = (dt > 0.01);
-        lastPlayheadTime = time;
-        playheadTime = time;
-
-        if (frameMoved)
-        {
-            stoppedFrames = 0;
-        }
-        else
-        {
-            ++stoppedFrames;
-        }
-
-        bool isPlaying = (stoppedFrames < 3);
-
-        // Detect playback restart -> clear harmony traces
-        if (isPlaying && !wasPlayingLastFrame)
+        // === Detecter les transitions pour le nettoyage des traces ===
+        if (isHostPlaying && !wasPlayingLastFrame)
         {
             for (int v = 0; v < maxHarmonyVoices; ++v)
             {
@@ -964,20 +944,29 @@ namespace ui
                 harmonyPitches.getReference(v).clear();
             }
         }
-        wasPlayingLastFrame = isPlaying;
+        wasPlayingLastFrame = isHostPlaying;
 
-        // === Auto-scroll smooth (LERP + threshold gating) ===
-        if (autoScrollEnabled && isPlaying)
+        if (isHostPlaying && autoScrollEnabled)
         {
-            // Target: keep playhead at 50% of view
+            // Lecture en cours : LERP fluide, playhead reste au centre
             double targetScroll = time - timeVisible * 0.5;
             targetScroll = juce::jmax (0.0, targetScroll);
-
-            // LERP interpolation: only 15% of the gap per frame
-            // This provides smooth, non-jerky movement even at 30 Hz
             scrollOffset = scrollOffset + (targetScroll - scrollOffset) * 0.15;
         }
+        else if (!isHostPlaying)
+        {
+            // Arret : snap instantane si la position du playhead a change
+            // (seek manuel dans le DAW). Sinon, aucun mouvement.
+            if (time != stoppedPlayheadTime)
+            {
+                scrollOffset = juce::jmax (0.0, time - timeVisible * 0.5);
+                stoppedPlayheadTime = time;
+            }
+            // time == stoppedPlayheadTime: pas de mouvement (fluctuations evitees)
+        }
+        // isHostPlaying && !autoScrollEnabled: aucun scroll
 
+        playheadTime = time;
         repaint();
     }
 }

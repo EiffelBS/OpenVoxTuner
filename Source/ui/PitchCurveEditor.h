@@ -103,9 +103,9 @@ namespace ui
         /// editor can draw harmony traces aligned with the curve timeline.
         void addHarmonySamples (double time, const juce::Array<float>& freqs);
 
-        /// Definit la position du playhead (en PPQ). Si l'auto-scroll est
-        /// active, decale la vue pour suivre le playhead.
-        void setPlayheadTime (double time);
+        /// Definit la position du playhead (en PPQ) et l'etat de lecture
+        /// du DAW. L'auto-scroll n'est actif que si le DAW joue vraiment.
+        void setPlayheadTime (double time, bool isHostPlaying);
 
         /// Definit le nombre de mesures visibles (1, 2, 4, 8).
         void setMeasuresVisible (int measures);
@@ -179,9 +179,8 @@ namespace ui
         // Auto-scroll (Feature 2).
         double scrollOffset = 0.0;
         bool autoScrollEnabled = false;
-        double lastPlayheadTime = -1.0;
         bool wasPlayingLastFrame = false;
-        int stoppedFrames = 999;
+        double stoppedPlayheadTime = -1.0;
 
         // Embedded controls (Feature 1 & 2).
         // These are child components owned by PitchCurveEditor so they are

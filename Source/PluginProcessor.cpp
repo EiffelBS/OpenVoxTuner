@@ -736,6 +736,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 if (position->getIsPlaying())
                 {
                     double ppq = position->getPpqPosition().orFallback (currentTime);
+                    hostIsPlaying.store (1);
 
                     // getLoopPoints() peut bloquer sur certains hosts (Reaper).
                     // Bypass en Standalone ou si le DAW ne boucle pas.
@@ -761,6 +762,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 }
                 else
                 {
+                    hostIsPlaying.store (0);
                     currentTime = position->getPpqPosition().orFallback (currentTime);
                 }
             }
