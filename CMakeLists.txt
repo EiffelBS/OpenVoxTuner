@@ -65,7 +65,7 @@ juce_add_plugin(OpenVoxTuner
     PLUGIN_CODE OvtP
     FORMATS ${OVT_PLUGIN_FORMATS}
     NEEDS_MIDI_OUTPUT TRUE
-    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_INPUT FALSE
     IS_ARA_EFFECT TRUE             # Active le support ARA2 (Audio Random Access)
     PRODUCT_NAME "OpenVoxTuner"
     VERSION 0.1.1
@@ -92,12 +92,14 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Source/BuildInfo.h.in ${CMAKE_BINARY_
 target_include_directories(OpenVoxTuner PRIVATE ${CMAKE_BINARY_DIR})
 
 # Ensure the generated plugin metadata declares MIDI I/O for VST3 event buses.
-# The plugin receives MIDI (harmony notes, pitch input) and produces MIDI
-# (harmony notes on separate channels). Both must be TRUE for the DAW to
-# persist MIDI routing between sessions.
+# The plugin PRODUCES MIDI (harmony note output on separate channels) but
+# does NOT consume MIDI input — pitch is received from the audio signal
+# and harmony notes from internal parameters/ARA.
+# MIDI_OUTPUT=TRUE is required for the host to expose the plugin's MIDI
+# output on track routing menus so other tracks can use it as input.
 target_compile_definitions(OpenVoxTuner PRIVATE
     JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1
-    JUCE_PLUGIN_WANTS_MIDI_INPUT=1
+    JUCE_PLUGIN_WANTS_MIDI_INPUT=0
     OVT_UPDATE_INFO_URL="${OVT_UPDATE_INFO_URL}"
 )
 
