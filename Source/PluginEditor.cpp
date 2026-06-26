@@ -717,9 +717,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Default size: AFTER creating children, otherwise setSize triggers
     // resized() which accesses pitchVisualizer/curveEditor still nullptr.
+    // Min size only: no max size constraint so the plugin can use all
+    // available space in ARA mode (DAW may allocate arbitrarily large views).
     setSize (900, 650);
     setResizable (true, true);
-    setResizeLimits (920, 600, 1920, 1080);
+    setResizeLimits (920, 600, 99999, 99999);
 
     // Timer to update the visualizer (~30 fps).
     startTimerHz (30);
@@ -1059,11 +1061,17 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         // Sync embedded controls with persisted parameters
         // (controls are children of PitchCurveEditor, not PluginEditor)
         if (!measuresSyncDone) {
-            // First time: restore ComboBox from persisted parameter
+            // First time: restore ComboBox and toggle from persisted parameters
             auto* measuresRaw = processorRef.getParameters().getRawParameterValue("editor_measures");
             float measures = measuresRaw ? measuresRaw->load() : 4.0f;
             curveEditor->getMeasuresBox().setSelectedId (static_cast<int> (measures), juce::dontSendNotification);
             curveEditor->setMeasuresVisible (static_cast<int> (measures));
+
+            auto* scrollRaw = processorRef.getParameters().getRawParameterValue("auto_scroll");
+            bool scrollOn = scrollRaw ? (scrollRaw->load() > 0.5f) : true;
+            curveEditor->getAutoScrollToggle().setToggleState (scrollOn, juce::dontSendNotification);
+            curveEditor->setAutoScroll (scrollOn);
+
             measuresSyncDone = true;
         }
         // Persist embedded control states -> AudioProcessor parameters
