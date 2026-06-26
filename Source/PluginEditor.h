@@ -169,6 +169,9 @@ private:
     bool measuresSyncDone = false;
 
 public:
+    // Atomic flag set by processor after setStateInformation restores curve.
+    std::atomic<bool> needsCurveSync { false };
+
     // Theme colors.
     static const juce::Colour kBgDark;
     static const juce::Colour kBgPanel;
