@@ -707,6 +707,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     stepModeButton.toFront(false);
     clearCurveButton.toFront(false);
     resetTransportButton.toFront(false);
+
+    // Sync curve editor from processor state (project load or first launch)
+    needsCurveSync = true;
     
     // Initialize tab from processor parameter
     float initialMode = processorRef.getParameters().getParameter("mode")->getValue();
@@ -1100,6 +1103,12 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         if (scrollParam && curveEditor) {
             const_cast<std::atomic<float>*>(scrollParam)->store(
                 curveEditor->getAutoScrollToggle().getToggleState() ? 1.0f : 0.0f);
+        }
+        // Sync curve from processor to editor after state restore
+        if (needsCurveSync.load() && curveEditor != nullptr)
+        {
+            curveEditor->setCurve (processorRef.getPitchCurve());
+            needsCurveSync.store (false);
         }
     }
 

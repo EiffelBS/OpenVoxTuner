@@ -956,13 +956,15 @@ namespace ui
         else if (!isHostPlaying)
         {
             // Arret : snap instantane si la position du playhead a change
-            // (seek manuel dans le DAW). Sinon, aucun mouvement.
-            if (time != stoppedPlayheadTime)
+            // significativement (seek manuel > 0.01 PPQ). Un epsilon evite
+            // les fluctuations de cachedTransportTime (1e-12) qui feraient
+            // vibrer les lignes du ruler.
+            if (std::abs (time - stoppedPlayheadTime) > 0.01)
             {
                 scrollOffset = juce::jmax (0.0, time - timeVisible * 0.5);
                 stoppedPlayheadTime = time;
             }
-            // time == stoppedPlayheadTime: pas de mouvement (fluctuations evitees)
+            // time stable : scrollOffset est totalement gele -> pas de vibration
         }
         // isHostPlaying && !autoScrollEnabled: aucun scroll
 
