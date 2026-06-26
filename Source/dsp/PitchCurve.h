@@ -129,15 +129,19 @@ namespace atdsp
         /// @param presetName  "default", "spoken", "lyric", "rap", "robot"
         void loadPreset (const juce::String& presetName);
 
-        // === Step mode ===
+        // === Editing state (persisted alongside curve) ===
         void setStepMode (bool step) { stepMode = step; }
         bool isStepMode() const { return stepMode; }
+        void setSnapEnabled (bool b) { snapEnabled = b; }
+        bool isSnapEnabled() const { return snapEnabled; }
+        void setSnapToGridEnabled (bool b) { snapToGridEnabled = b; }
+        bool isSnapToGridEnabled() const { return snapToGridEnabled; }
 
     private:
         juce::Array<PitchPoint> points;
         bool stepMode = false;
         bool snapEnabled = true;
-        bool snapToGridEnabled = false;
+        bool snapToGridEnabled = true;
 
         void sortPoints();
     };

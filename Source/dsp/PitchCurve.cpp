@@ -266,7 +266,7 @@ namespace atdsp
         if (!xml.hasTagName ("PITCH_CURVE")) return;
         stepMode = xml.getBoolAttribute ("stepMode", false);
         snapEnabled = xml.getBoolAttribute ("snapEnabled", true);
-        snapToGridEnabled = xml.getBoolAttribute ("snapToGridEnabled", false);
+        snapToGridEnabled = xml.getBoolAttribute ("snapToGridEnabled", true);
         for (auto* p : xml.getChildWithTagNameIterator ("POINT"))
         {
             PitchPoint pt;
@@ -280,6 +280,11 @@ namespace atdsp
     void PitchCurve::loadPreset (const juce::String& presetName)
     {
         points.clear();
+
+        // Reset editing state to defaults
+        stepMode = false;
+        snapEnabled = true;
+        snapToGridEnabled = true;
 
         // Helpers
         auto makeFlat = [&](float hz) {
@@ -307,10 +312,12 @@ namespace atdsp
         else if (presetName == "robot_c3")
         {
             makeFlat(130.81f); // C3
+            stepMode = true; // flat robotique = step mode ok
         }
         else if (presetName == "robot_c4")
         {
             makeFlat(261.63f); // C4
+            stepMode = true;
         }
         else if (presetName == "spoken_male")
         {
@@ -322,33 +329,39 @@ namespace atdsp
         }
         else if (presetName == "bass")
         {
-            const float p[] = { 82.41f, 98.00f, 110.00f, 130.81f, 110.00f, 98.00f, 82.41f, 82.41f }; // E2, G2, A2, C3
+            const float p[] = { 82.41f, 98.00f, 110.00f, 130.81f, 110.00f, 98.00f, 82.41f, 82.41f };
             makeMelody(p, 8);
+            stepMode = true; // notes separees
         }
         else if (presetName == "baritone")
         {
-            const float p[] = { 110.00f, 130.81f, 146.83f, 174.61f, 146.83f, 130.81f, 110.00f, 110.00f }; // A2, C3, D3, F3
+            const float p[] = { 110.00f, 130.81f, 146.83f, 174.61f, 146.83f, 130.81f, 110.00f, 110.00f };
             makeMelody(p, 8);
+            stepMode = true;
         }
         else if (presetName == "tenor")
         {
-            const float p[] = { 130.81f, 146.83f, 164.81f, 196.00f, 164.81f, 146.83f, 130.81f, 130.81f }; // C3, D3, E3, G3
+            const float p[] = { 130.81f, 146.83f, 164.81f, 196.00f, 164.81f, 146.83f, 130.81f, 130.81f };
             makeMelody(p, 8);
+            stepMode = true;
         }
         else if (presetName == "alto")
         {
-            const float p[] = { 174.61f, 196.00f, 220.00f, 261.63f, 220.00f, 196.00f, 174.61f, 174.61f }; // F3, G3, A3, C4
+            const float p[] = { 174.61f, 196.00f, 220.00f, 261.63f, 220.00f, 196.00f, 174.61f, 174.61f };
             makeMelody(p, 8);
+            stepMode = true;
         }
         else if (presetName == "mezzo")
         {
-            const float p[] = { 220.00f, 246.94f, 261.63f, 329.63f, 261.63f, 246.94f, 220.00f, 220.00f }; // A3, B3, C4, E4
+            const float p[] = { 220.00f, 246.94f, 261.63f, 329.63f, 261.63f, 246.94f, 220.00f, 220.00f };
             makeMelody(p, 8);
+            stepMode = true;
         }
         else if (presetName == "soprano")
         {
-            const float p[] = { 261.63f, 293.66f, 329.63f, 392.00f, 329.63f, 293.66f, 261.63f, 261.63f }; // C4, D4, E4, G4
+            const float p[] = { 261.63f, 293.66f, 329.63f, 392.00f, 329.63f, 293.66f, 261.63f, 261.63f };
             makeMelody(p, 8);
+            stepMode = true;
         }
     }
 }

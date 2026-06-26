@@ -9,6 +9,9 @@ namespace ui
     const juce::Colour PitchCurveEditor::kPointColour = juce::Colour (0xffe91e63); // rose
     const juce::Colour PitchCurveEditor::kGridColour  = juce::Colour (0x40ffffff);
 
+    // Static clipboard for copy/paste across instances
+    juce::Array<atdsp::PitchPoint> PitchCurveEditor::clipboard;
+
     PitchCurveEditor::PitchCurveEditor()
     {
         // Do NOT load the "default" preset here — the parent editor will
@@ -57,6 +60,10 @@ namespace ui
         autoScrollToggle.setTooltip ("Automatically scroll the editor view during playback");
         autoScrollToggle.onClick = [this] { autoScrollEnabled = autoScrollToggle.getToggleState(); };
         addAndMakeVisible (autoScrollToggle);
+
+        // Keyboard focus for copy/paste, undo/redo
+        setWantsKeyboardFocus (true);
+        setFocusContainerType (juce::Component::FocusContainerType::none);
 
         // init harmony buffers
         harmonyTimes.clear();
@@ -482,8 +489,12 @@ namespace ui
     // === Saisie souris ===
     void PitchCurveEditor::mouseDown (const juce::MouseEvent& e)
     {
+        grabKeyboardFocus(); // pour les raccourcis clavier
         // Si l'editeur est desactive (mode Auto), on ignore tout.
         if (!editorEnabled) return;
+
+        // Snapshot pour undo
+        pendingUndoSnapshot = curve;
 
         const juce::Point<float> p (e.position.x, e.position.y);
         dragIndex = findPointAtPixel (p);
@@ -699,6 +710,10 @@ namespace ui
 
     void PitchCurveEditor::mouseUp (const juce::MouseEvent& /*e*/)
     {
+        // Verifier si une modification a eu lieu
+        bool wasModified = isDragging || isDraggingSelection;
+        bool hadPoints = (pendingUndoSnapshot.getNumPoints() > 0 || curve.getNumPoints() > 0);
+
         if (isMarqueeSelecting)
         {
             isMarqueeSelecting = false;
@@ -711,13 +726,30 @@ namespace ui
         {
             isDraggingSelection = false;
             notifyChanged();
-            return;
         }
 
         if (isDragging)
         {
             isDragging = false;
             notifyChanged();
+        }
+
+        // Enregistrer l'undo si un changement a eu lieu
+        if (wasModified && hadPoints)
+        {
+            // On compare les snapshots (evite un undo vide si le drag n'a rien change)
+            // Utilisation d'une simple comparaison de nombre de points + serialisation
+            // comme heuristique rapide pour eviter les undo vides
+            auto beforeXml = pendingUndoSnapshot.toXml();
+            auto afterXml = curve.toXml();
+            bool changed = (beforeXml->createDocument ("") != afterXml->createDocument (""));
+            if (changed)
+            {
+                auto* action = new CurveEditAction (this);
+                action->before = pendingUndoSnapshot;
+                action->after = curve;
+                registerUndoableAction (action);
+            }
         }
     }
 
@@ -817,8 +849,10 @@ namespace ui
     // === API publique ===
     void PitchCurveEditor::setCurve (const atdsp::PitchCurve& newCurve)
     {
-        curve = newCurve; // copie
-        resetEditState();
+        curve = newCurve; // copie (inclut stepMode, snapEnabled, snapToGridEnabled)
+        // Applique les parametres d'edition stockes dans la courbe
+        snapEnabled = curve.isSnapEnabled();
+        snapToGridEnabled = curve.isSnapToGridEnabled();
         repaint();
         notifyChanged();
     }
@@ -826,8 +860,8 @@ namespace ui
     void PitchCurveEditor::resetEditState()
     {
         snapEnabled = true;
-        snapToGridEnabled = false;
-        curve.setStepMode (false);
+        snapToGridEnabled = true;
+        curve.setStepMode (true);
     }
 
     void PitchCurveEditor::capturePitch (float hz, double currentTime)
@@ -981,5 +1015,135 @@ namespace ui
 
         playheadTime = time;
         repaint();
+    }
+
+    // === Copy/Paste ===
+    void PitchCurveEditor::performCopy()
+    {
+        clipboard.clearQuick();
+        if (selectedIndices.isEmpty())
+        {
+            for (int i = 0; i < curve.getNumPoints(); ++i)
+                clipboard.add (curve.getPoint (i));
+        }
+        else
+        {
+            double refTime = curve.getPoint (selectedIndices.getFirst()).time;
+            for (int idx : selectedIndices)
+                clipboard.add ({ curve.getPoint (idx).time - refTime, curve.getPoint (idx).pitch });
+        }
+    }
+
+    void PitchCurveEditor::performPaste()
+    {
+        if (clipboard.isEmpty()) return;
+
+        // Copie locale pour eviter les problemes de const sur membre static
+        auto localClip = clipboard;
+
+        // Trouver le temps de collage : playhead si disponible, sinon vue courante
+        double pasteTime = playheadTime;
+        if (pasteTime < scrollOffset) pasteTime = scrollOffset;
+        // Utiliser le temps minimum du clipboard comme reference
+        double minT = localClip.getFirst().time;
+        for (int i = 0; i < localClip.size(); ++i)
+            if (localClip[i].time < minT) minT = localClip[i].time;
+
+        auto action = new CurveEditAction (this);
+        selectedIndices.clear();
+        for (int i = 0; i < localClip.size(); ++i)
+        {
+            double t = localClip[i].time - minT + pasteTime;
+            int idx = curve.addOrUpdatePoint (t, localClip[i].pitch);
+            selectedIndices.add (idx);
+        }
+        action->setAfter();
+        registerUndoableAction (action);
+        repaint();
+        notifyChanged();
+    }
+
+    void PitchCurveEditor::performDeleteSelected()
+    {
+        if (selectedIndices.isEmpty()) return;
+        auto action = new CurveEditAction (this);
+        // Collecter les temps, puis supprimer par temps (evite les decalages)
+        juce::Array<double> timesToDelete;
+        for (int idx : selectedIndices)
+            timesToDelete.add (curve.getPoint (idx).time);
+        for (double t : timesToDelete)
+            curve.removePointNear (t, 0.001);
+        selectedIndices.clear();
+        action->setAfter();
+        registerUndoableAction (action);
+        repaint();
+        notifyChanged();
+    }
+
+    // === UndoableAction ===
+    bool PitchCurveEditor::CurveEditAction::perform()
+    {
+        editor->curve = after;
+        editor->repaint();
+        editor->notifyChanged();
+        return true;
+    }
+
+    bool PitchCurveEditor::CurveEditAction::undo()
+    {
+        editor->curve = before;
+        editor->repaint();
+        editor->notifyChanged();
+        return true;
+    }
+
+    // === Keyboard ===
+    bool PitchCurveEditor::keyPressed (const juce::KeyPress& key)
+    {
+        // Ctrl/Cmd + Z = Undo
+        if (key.getModifiers().isCommandDown() && key.getKeyCode() == 'Z')
+        {
+            performUndo();
+            return true;
+        }
+        // Ctrl/Cmd + Shift + Z ou Ctrl/Cmd + Y = Redo
+        if (key.getModifiers().isCommandDown() && key.getKeyCode() == 'Y')
+        {
+            performRedo();
+            return true;
+        }
+        if (key.getModifiers().isCommandDown() && key.getModifiers().isShiftDown() && key.getKeyCode() == 'Z')
+        {
+            performRedo();
+            return true;
+        }
+        // Ctrl/Cmd + C = Copy
+        if (key.getModifiers().isCommandDown() && key.getKeyCode() == 'C')
+        {
+            performCopy();
+            return true;
+        }
+        // Ctrl/Cmd + V = Paste
+        if (key.getModifiers().isCommandDown() && key.getKeyCode() == 'V')
+        {
+            performPaste();
+            return true;
+        }
+        // Delete/Backspace = Delete selected points
+        if (key.getKeyCode() == juce::KeyPress::deleteKey || key.getKeyCode() == juce::KeyPress::backspaceKey)
+        {
+            performDeleteSelected();
+            return true;
+        }
+        // Ctrl/Cmd + A = Select all
+        if (key.getModifiers().isCommandDown() && key.getKeyCode() == 'A')
+        {
+            selectedIndices.clear();
+            for (int i = 0; i < curve.getNumPoints(); ++i)
+                selectedIndices.add (i);
+            repaint();
+            return true;
+        }
+        return false;
     }
 }
