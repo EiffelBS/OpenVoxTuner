@@ -1118,14 +1118,10 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         {
             curveEditor->setCurve (processorRef.getPitchCurve());
             processorRef.getPendingCurveRestore().store (false);
+            syncEditButtons();
         }
-        // Sync button states to match curveEditor (handles preset reset)
-        if (curveEditor != nullptr)
-        {
-            snapButton.setToggleState (curveEditor->isSnapEnabled(), juce::dontSendNotification);
-            snapGridButton.setToggleState (curveEditor->isSnapToGridEnabled(), juce::dontSendNotification);
-            stepModeButton.setToggleState (curveEditor->isStepModeEnabled(), juce::dontSendNotification);
-        }
+        // Also sync on every timer tick for safety (e.g. model changes via capture/clear)
+        syncEditButtons();
     }
 
     // Update harmony visuals: forward harmony frequencies to the visualizer
@@ -1308,6 +1304,7 @@ void OpenVoxTunerAudioProcessorEditor::loadCustomPresetFromFile (const juce::Fil
     atdsp::PitchCurve newCurve;
     newCurve.fromXml (*curveXml);
     curveEditor->setCurve (newCurve);
+    syncEditButtons();
 
     if (root->hasTagName ("OVT_PRESET"))
         applyPresetUiStateFromXml (*root);
@@ -1522,6 +1519,7 @@ void OpenVoxTunerAudioProcessorEditor::showPresetsMenu (const juce::MouseEvent* 
             atdsp::PitchCurve newCurve;
             newCurve.loadPreset (a.name);
             curveEditor->setCurve (newCurve);
+            syncEditButtons();
         }
         else if (a.type == Action::Type::LoadCustom)
         {
