@@ -168,6 +168,17 @@ private:
     // One-time flag for syncing editor controls from persisted parameters
     bool measuresSyncDone = false;
 
+    // Sync UI button toggle states from CurveEditor state (snap, grid, step)
+    void syncEditButtons()
+    {
+        if (curveEditor != nullptr)
+        {
+            snapButton.setToggleState (curveEditor->isSnapEnabled(), juce::dontSendNotification);
+            snapGridButton.setToggleState (curveEditor->isSnapToGridEnabled(), juce::dontSendNotification);
+            stepModeButton.setToggleState (curveEditor->isStepModeEnabled(), juce::dontSendNotification);
+        }
+    }
+
 public:
     // Theme colors (public so LookAndFeel can access them).
     static const juce::Colour kBgDark;
