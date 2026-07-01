@@ -50,17 +50,25 @@ namespace atdsp
         {
             switch (harmonyType)
             {
-                case HarmonyType::ThirdBelow:      result.add (freqFromSemitoneOffset (baseFreq, -3)); break;
-                case HarmonyType::ThirdAbove:      result.add (freqFromSemitoneOffset (baseFreq,  3)); break;
-                case HarmonyType::ThirdBelowAbove: result.add (freqFromSemitoneOffset (baseFreq, -3)); result.add (freqFromSemitoneOffset (baseFreq, 3)); break;
-                case HarmonyType::FifthBelow:      result.add (freqFromSemitoneOffset (baseFreq, -7)); break;
-                case HarmonyType::FifthAbove:      result.add (freqFromSemitoneOffset (baseFreq,  7)); break;
-                case HarmonyType::FifthBelowAbove: result.add (freqFromSemitoneOffset (baseFreq, -7)); result.add (freqFromSemitoneOffset (baseFreq, 7)); break;
-                case HarmonyType::VocalStack3:     result.add (freqFromSemitoneOffset (baseFreq,  3)); result.add (freqFromSemitoneOffset (baseFreq, 7)); result.add (freqFromSemitoneOffset (baseFreq, 12)); break;
-                case HarmonyType::VocalStack4:     result.add (freqFromSemitoneOffset (baseFreq, -3)); result.add (freqFromSemitoneOffset (baseFreq, 3)); result.add (freqFromSemitoneOffset (baseFreq, 7)); result.add (freqFromSemitoneOffset (baseFreq, 12)); break;
-                case HarmonyType::PowerChord:      result.add (freqFromSemitoneOffset (baseFreq,  7)); result.add (freqFromSemitoneOffset (baseFreq, 12)); break;
-                case HarmonyType::ParallelThird:   result.add (freqFromSemitoneOffset (baseFreq,  3)); break;
-                case HarmonyType::Drone:           result.add (baseFreq); break;
+                case HarmonyType::ThirdBelow:           result.add (freqFromSemitoneOffset (baseFreq, -3)); break;
+                case HarmonyType::ThirdAbove:           result.add (freqFromSemitoneOffset (baseFreq,  3)); break;
+                case HarmonyType::ThirdBelowAbove:      result.add (freqFromSemitoneOffset (baseFreq, -3)); result.add (freqFromSemitoneOffset (baseFreq, 3)); break;
+                case HarmonyType::FourthBelow:          result.add (freqFromSemitoneOffset (baseFreq, -5)); break;
+                case HarmonyType::FourthAbove:          result.add (freqFromSemitoneOffset (baseFreq,  5)); break;
+                case HarmonyType::FourthBelowAbove:     result.add (freqFromSemitoneOffset (baseFreq, -5)); result.add (freqFromSemitoneOffset (baseFreq, 5)); break;
+                case HarmonyType::FifthBelow:           result.add (freqFromSemitoneOffset (baseFreq, -7)); break;
+                case HarmonyType::FifthAbove:           result.add (freqFromSemitoneOffset (baseFreq,  7)); break;
+                case HarmonyType::FifthBelowAbove:      result.add (freqFromSemitoneOffset (baseFreq, -7)); result.add (freqFromSemitoneOffset (baseFreq, 7)); break;
+                case HarmonyType::ThirdBelowFifthAbove: result.add (freqFromSemitoneOffset (baseFreq, -3)); result.add (freqFromSemitoneOffset (baseFreq, 7)); break;
+                case HarmonyType::FifthBelowThirdAbove: result.add (freqFromSemitoneOffset (baseFreq, -7)); result.add (freqFromSemitoneOffset (baseFreq, 3)); break;
+                case HarmonyType::OctaveBelow:          result.add (freqFromSemitoneOffset (baseFreq, -12)); break;
+                case HarmonyType::OctaveAbove:          result.add (freqFromSemitoneOffset (baseFreq,  12)); break;
+                case HarmonyType::OctaveBelowAbove:     result.add (freqFromSemitoneOffset (baseFreq, -12)); result.add (freqFromSemitoneOffset (baseFreq, 12)); break;
+                case HarmonyType::VocalStack3:          result.add (freqFromSemitoneOffset (baseFreq,  3)); result.add (freqFromSemitoneOffset (baseFreq, 7)); result.add (freqFromSemitoneOffset (baseFreq, 12)); break;
+                case HarmonyType::VocalStack4:          result.add (freqFromSemitoneOffset (baseFreq, -3)); result.add (freqFromSemitoneOffset (baseFreq, 3)); result.add (freqFromSemitoneOffset (baseFreq, 7)); result.add (freqFromSemitoneOffset (baseFreq, 12)); break;
+                case HarmonyType::PowerChord:           result.add (freqFromSemitoneOffset (baseFreq,  7)); result.add (freqFromSemitoneOffset (baseFreq, 12)); break;
+                case HarmonyType::ParallelThird:        result.add (freqFromSemitoneOffset (baseFreq,  3)); break;
+                case HarmonyType::Drone:                result.add (baseFreq); break;
                 default: break;
             }
             return result;
@@ -71,17 +79,25 @@ namespace atdsp
         const int scaleSize = scaleIntervals.size();
         switch (harmonyType)
         {
-            case HarmonyType::ThirdBelow:      degreeOffsets.add(-2); break;
-            case HarmonyType::ThirdAbove:      degreeOffsets.add( 2); break;
-            case HarmonyType::ThirdBelowAbove: degreeOffsets.add(-2); degreeOffsets.add( 2); break;
-            case HarmonyType::FifthBelow:      degreeOffsets.add(-4); break;
-            case HarmonyType::FifthAbove:      degreeOffsets.add( 4); break;
-            case HarmonyType::FifthBelowAbove: degreeOffsets.add(-4); degreeOffsets.add( 4); break;
-            case HarmonyType::VocalStack3:     degreeOffsets.add( 2); degreeOffsets.add(4); degreeOffsets.add(scaleSize); break;
-            case HarmonyType::VocalStack4:     degreeOffsets.add(-2); degreeOffsets.add(2); degreeOffsets.add(4); degreeOffsets.add(scaleSize); break;
-            case HarmonyType::PowerChord:      degreeOffsets.add( 4); degreeOffsets.add(scaleSize); break;
-            case HarmonyType::ParallelThird:   degreeOffsets.add( 1); break;
-            case HarmonyType::Drone:           degreeOffsets.add(-(scaleSize)); break;
+            case HarmonyType::ThirdBelow:           degreeOffsets.add(-2); break;
+            case HarmonyType::ThirdAbove:           degreeOffsets.add( 2); break;
+            case HarmonyType::ThirdBelowAbove:      degreeOffsets.add(-2); degreeOffsets.add( 2); break;
+            case HarmonyType::FourthBelow:          degreeOffsets.add(-3); break;
+            case HarmonyType::FourthAbove:          degreeOffsets.add( 3); break;
+            case HarmonyType::FourthBelowAbove:     degreeOffsets.add(-3); degreeOffsets.add( 3); break;
+            case HarmonyType::FifthBelow:           degreeOffsets.add(-4); break;
+            case HarmonyType::FifthAbove:           degreeOffsets.add( 4); break;
+            case HarmonyType::FifthBelowAbove:      degreeOffsets.add(-4); degreeOffsets.add( 4); break;
+            case HarmonyType::ThirdBelowFifthAbove: degreeOffsets.add(-2); degreeOffsets.add( 4); break;
+            case HarmonyType::FifthBelowThirdAbove: degreeOffsets.add(-4); degreeOffsets.add( 2); break;
+            case HarmonyType::OctaveBelow:          degreeOffsets.add(-(scaleSize)); break;
+            case HarmonyType::OctaveAbove:          degreeOffsets.add(scaleSize); break;
+            case HarmonyType::OctaveBelowAbove:     degreeOffsets.add(-(scaleSize)); degreeOffsets.add(scaleSize); break;
+            case HarmonyType::VocalStack3:          degreeOffsets.add( 2); degreeOffsets.add(4); degreeOffsets.add(scaleSize); break;
+            case HarmonyType::VocalStack4:          degreeOffsets.add(-2); degreeOffsets.add(2); degreeOffsets.add(4); degreeOffsets.add(scaleSize); break;
+            case HarmonyType::PowerChord:           degreeOffsets.add( 4); degreeOffsets.add(scaleSize); break;
+            case HarmonyType::ParallelThird:        degreeOffsets.add( 1); break;
+            case HarmonyType::Drone:                degreeOffsets.add(-(scaleSize)); break;
             default: break;
         }
 

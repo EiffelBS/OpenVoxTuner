@@ -40,7 +40,7 @@
 
 | Parameter | ID | Type | Default | Range |
 |-----------|-----|------|---------|-------|
-| Harmony Type | `harmony_type` | Choice | **0 (None)** | 0=None … 11=Drone |
+| Harmony Type | `harmony_type` | Choice | **3 (3rd Below + Above)** | 0=None, 1=3rd Below, 2=3rd Above, 3=3rd Below + Above, 4=4th Below, 5=4th Above, 6=4th Below + Above, 7=5th Below, 8=5th Above, 9=5th Below + Above, 10=3rd Below + 5th Above, 11=5th Below + 3rd Above, 12=Octave Below, 13=Octave Above, 14=Octave Below + Above, 15=Vocal Stack (3), 16=Vocal Stack (4), 17=Power Chord, 18=Parallel 3rd, 19=Drone |
 | Harmony Enable | `harmony_enable` | Bool | **false** | false / true |
 | Harmony Volume | `harmony_gain` | Float | **1.0** | 0 – 1 |
 | Harmony Blend | `harmony_blend` | Float | **0.5** | 0 – 1 |
