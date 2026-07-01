@@ -6,6 +6,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
 #include <array>
 #include "dsp/IPitchDetector.h"
 #include "dsp/YinPitchDetector.h"
@@ -16,6 +17,7 @@
 #include "dsp/PitchShifter.h"
 #include "dsp/RetargetEnvelope.h"
 #include "dsp/PitchCurve.h"
+#include "dsp/IEffect.h"
 
 /**
  * Main class of the audio processor.
@@ -153,6 +155,8 @@ private:
     std::atomic<float>* harmonyToneColorParam = nullptr; // synth harmony tone color (continuous)
     std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
+    std::atomic<float>* reverbEnableParam = nullptr; // Reverb on/off
+    std::atomic<float>* reverbMixParam = nullptr;   // Reverb wet mix (0-1)        
 
     // "Custom note on/off" parameters (12 booleans, indices 0..11).
     // Stored as 12 separate AudioParameterBool so the host can
@@ -174,7 +178,11 @@ private:
     std::unique_ptr<atdsp::HarmonyEngine>     harmonyEngine;
 
     std::unique_ptr<atdsp::RetargetEnvelope>  retargetEnvelope;
-    std::unique_ptr<atdsp::PitchCurve>        pitchCurve; // "graphic" mode     
+    std::unique_ptr<atdsp::PitchCurve>        pitchCurve; // "graphic" mode
+
+    // Post-processing effects (reverb, delay, chorus, etc.).
+    // Applied in order after the main pitch-correction + harmony pipeline.
+    std::vector<std::unique_ptr<atdsp::IEffect>> effects;     
 
     // Current correction mode.
     //   0 = auto (standard quantization)
