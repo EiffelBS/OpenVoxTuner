@@ -983,36 +983,37 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     block1Bounds = middleBlock; // Key, Scale, Keyboard
     block3Bounds = rightBlock;  // Harmony controls
 
-    // --- Block 2 : Correction Knobs (Left) ---
+    // --- Block 2 : Correction Knobs + Reverb (Left) ---
     auto b2 = block2Bounds.reduced(10);
-    // Reserve a fixed area at the top of block2 for knobs
+    // Fixed area at the top of block2 for all knobs
     const int knobsHeight = 100;
     auto knobArea = b2.removeFromTop (knobsHeight);
 
-    int knobWidth = knobArea.getWidth() / 3;
+    // 4 columns: Speed, Amount, Formant (toggle + knob), Reverb (toggle + knob)
+    int knobWidth = knobArea.getWidth() / 4;
 
+    // Column 1: Speed
     auto bSpeed = knobArea.removeFromLeft(knobWidth);
     speedLabel.setBounds(bSpeed.removeFromTop(20));
     speedSlider.setBounds(bSpeed);
 
+    // Column 2: Amount
     auto bAmount = knobArea.removeFromLeft(knobWidth);
     amountLabel.setBounds(bAmount.removeFromTop(20));
     amountSlider.setBounds(bAmount);
 
-    // The Formant button acts as On/Off and displays "Formant"
-    auto formantTop = knobArea.removeFromTop(20);
-    formantEnableButton.setBounds(formantTop); // Takes full width, centered drawing handles alignment
+    // Column 3: Formant (toggle + knob)
+    auto formantCol = knobArea.removeFromLeft(knobWidth);
+    auto formantToggleArea = formantCol.removeFromTop(20);
+    formantEnableButton.setBounds(formantToggleArea);
+    formantSlider.setBounds(formantCol);
 
-    formantSlider.setBounds(knobArea);
-
-    // Reverb controls below the Formant section
-    const int reverbTop = 20;
-    auto reverbArea = b2.removeFromTop (reverbTop);
-    reverbEnableButton.setBounds (reverbArea);
-    auto reverbKnobHeight = 40;
-    auto rkArea = b2.removeFromTop (reverbKnobHeight).reduced (10, 0);
-    reverbMixLabel.setBounds (rkArea.removeFromTop (16));
-    reverbMixSlider.setBounds (rkArea);
+    // Column 4: Reverb (toggle + knob)
+    auto reverbCol = knobArea;
+    auto reverbToggleArea = reverbCol.removeFromTop(20);
+    reverbEnableButton.setBounds(reverbToggleArea);
+    reverbMixLabel.setBounds (reverbCol.removeFromTop (14));
+    reverbMixSlider.setBounds (reverbCol);
 
     // Harmony controls block (rightmost block)
     {
