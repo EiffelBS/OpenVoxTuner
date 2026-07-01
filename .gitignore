@@ -91,3 +91,21 @@ dist/
 /build/
 
 #OpenVoxTuner_1.2.1.zip
+
+# --- Debug session config files ---
+.dbg/
+
+# --- Test output artifacts ---
+test/test_output.txt
+
+# --- Stale / duplicate source files ---
+Source/HarmonyEngine.cpp
+
+# --- Temporary diagnostic documents (not for production) ---
+debug-*.md
+DIAGNOSTIC_PITCHSHIFTER_BUFFER.md
+SUMMARY_FILES_CREATED.md
+BUILD_GUIDE.md
+DEBUG_GUIDE.md
+docs/correctif-pannes-autotune-2026-06-24.md
+docs/diagnostic-pannes-autotune-2026-06-24.md
