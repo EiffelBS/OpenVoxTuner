@@ -969,8 +969,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto bottomArea = bounds.reduced (pad);
 
     // Layout: left = knobs, middle = scale/keyboard, right = harmony controls
-    const int knobBlockWidth = 300;
-    const int scaleBlockWidth = 280; // reduced by ~30% from previous 400
+    const int knobBlockWidth = 360;
+    const int scaleBlockWidth = 260; // reduced to fit 4 columns
     const int blockSpacing = 15;
 
     auto leftBlock = bottomArea.removeFromLeft(knobBlockWidth);
@@ -990,23 +990,27 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto knobArea = b2.removeFromTop (knobsHeight);
 
     // 4 columns: Speed, Amount, Formant (toggle + knob), Reverb (toggle + knob)
-    int knobWidth = knobArea.getWidth() / 4;
+    const int knobPadding = 6;
+    int knobWidth = (knobArea.getWidth() - knobPadding * 3) / 4;
 
     // Column 1: Speed
     auto bSpeed = knobArea.removeFromLeft(knobWidth);
     speedLabel.setBounds(bSpeed.removeFromTop(20));
     speedSlider.setBounds(bSpeed);
+    knobArea.removeFromLeft(knobPadding);
 
     // Column 2: Amount
     auto bAmount = knobArea.removeFromLeft(knobWidth);
     amountLabel.setBounds(bAmount.removeFromTop(20));
     amountSlider.setBounds(bAmount);
+    knobArea.removeFromLeft(knobPadding);
 
     // Column 3: Formant (toggle + knob)
     auto formantCol = knobArea.removeFromLeft(knobWidth);
     auto formantToggleArea = formantCol.removeFromTop(20);
     formantEnableButton.setBounds(formantToggleArea);
     formantSlider.setBounds(formantCol);
+    knobArea.removeFromLeft(knobPadding);
 
     // Column 4: Reverb (toggle + knob)
     auto reverbCol = knobArea;
