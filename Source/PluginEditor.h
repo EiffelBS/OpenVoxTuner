@@ -44,6 +44,9 @@ private:
     juce::Label    keyLabel, scaleLabel;
     juce::ComboBox latencyModeBox;
     juce::Label    latencyModeLabel;
+    // Pitch detector selector (YIN / SWIPE' / PYIN).
+    juce::ComboBox detectorBox;
+    juce::Label    detectorLabel;
 
     // Bypass Button (power-style)
     juce::DrawableButton bypassButton { "Bypass", juce::DrawableButton::ImageOnButtonBackground };
@@ -53,6 +56,9 @@ private:
     juce::ToggleButton midiToggleButton;
     // Debug window toggle
     juce::TextButton debugWindowButton {"Debug"};
+
+    // Hamburger menu (gear icon button, replaces all top-bar controls).
+    juce::DrawableButton menuButton { "Options", juce::DrawableButton::ImageOnButtonBackground };
 
     // Harmony controls
     juce::ToggleButton harmonyEnableButton;
@@ -79,15 +85,39 @@ private:
     protected:
         void paint(juce::Graphics& g) override
         {
-            TextButton::paint(g);
-            if (icon)
-            {
-                int h = getHeight();
-                auto iconBounds = icon->getBounds();
-                float y = (h - iconBounds.getHeight()) * 0.5f;
-                juce::AffineTransform t = juce::AffineTransform().translated(0.0f, y);
-                icon->draw(g, 1.0f, t);
-            }
+            // Custom paint: draw icon + text as a centered group
+            auto& lf = getLookAndFeel();
+            lf.drawButtonBackground(g, *this,
+                                     findColour(getToggleState() ? juce::TextButton::buttonOnColourId
+                                                                 : juce::TextButton::buttonColourId),
+                                     getToggleState(),
+                                     isOver());
+
+            int h = getHeight();
+            int w = getWidth();
+            juce::String text = getButtonText();
+
+            float iconDrawSize = h * 0.55f;
+            auto iconBounds = icon->getBounds();
+            float scale = juce::jmin(1.0f, iconDrawSize / iconBounds.getHeight());
+            float iconW = iconBounds.getWidth() * scale;
+            float textW = g.getCurrentFont().getStringWidthFloat(text);
+            float spacing = 4.0f;
+            float totalW = iconW + spacing + textW;
+            float startX = (w - totalW) * 0.5f;
+            float iconY = (h - iconDrawSize) * 0.5f;
+
+            // Draw icon
+            juce::AffineTransform t = juce::AffineTransform()
+                .translated(startX, iconY)
+                .scaled(scale);
+            icon->draw(g, 1.0f, t);
+
+            // Draw text
+            g.setColour(findColour(juce::TextButton::textColourOffId));
+            g.drawText(text,
+                       juce::Rectangle<float>(startX + iconW + spacing, 0, textW, (float)h),
+                       juce::Justification::centredLeft);
         }
     private:
         std::unique_ptr<juce::Drawable> icon;
@@ -134,6 +164,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> detectorAttachment;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>, 12> customAttachments;
 
     // Pitch visualizer + pitch curve editor.

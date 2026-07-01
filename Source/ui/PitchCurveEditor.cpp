@@ -39,8 +39,8 @@ namespace ui
         // Embedded controls: Measures combo + Auto-Scroll toggle.
         // These are children of PitchCurveEditor, not PluginEditor, so they
         // cannot be blocked by the tabbedComponent's tab buttons.
-        measuresLabel.setText ("M", juce::dontSendNotification);
-        measuresLabel.setJustificationType (juce::Justification::centred);
+        measuresLabel.setText ("Measures", juce::dontSendNotification);
+        measuresLabel.setJustificationType (juce::Justification::left);
         measuresLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
         measuresLabel.setFont (juce::Font (11.0f, juce::Font::bold));
         addAndMakeVisible (measuresLabel);
@@ -393,7 +393,7 @@ namespace ui
         measuresBox.setBounds (rightEdge - 88 - 4 - 54, controlY, 54, controlH);
 
         // Measures label right before the combo
-        measuresLabel.setBounds (rightEdge - 88 - 4 - 54 - 4 - 22, controlY, 22, controlH);
+        measuresLabel.setBounds (rightEdge - 88 - 4 - 54 - 4 - 64, controlY, 64, controlH);
     }
 
     void PitchCurveEditor::timerCallback()
@@ -906,6 +906,20 @@ namespace ui
             notifyChanged();
             repaint();
         }
+    }
+
+    void PitchCurveEditor::clearHarmonyTraces()
+    {
+        // Clear all harmony time/pitch buffers for every voice
+        harmonyTimes.clear();
+        harmonyPitches.clear();
+        // Reinitialize with empty arrays (maxHarmonyVoices = 8)
+        for (int v = 0; v < maxHarmonyVoices; ++v)
+        {
+            harmonyTimes.add(juce::Array<double>());
+            harmonyPitches.add(juce::Array<float>());
+        }
+        repaint(); // Force redraw without harmony traces
     }
 
     void PitchCurveEditor::setEditorEnabled (bool b)
