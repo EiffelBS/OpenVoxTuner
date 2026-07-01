@@ -7,7 +7,10 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <array>
-#include "dsp/PitchDetector.h"
+#include "dsp/IPitchDetector.h"
+#include "dsp/YinPitchDetector.h"
+#include "dsp/SwipePitchDetector.h"
+//#include "dsp/PyinPitchDetector.h"
 #include "dsp/ScaleQuantizer.h"
 #include "dsp/HarmonyEngine.h"
 #include "dsp/PitchShifter.h"
@@ -156,8 +159,16 @@ private:
     // automate them individually.
     std::atomic<float>* customParam[12] = { nullptr };
 
+    // Pitch detector selection parameter (0=YIN — SWIPE'/PYIN disabled).
+    std::atomic<float>* detectorParam = nullptr;
+
     // === DSP Modules (Phase 1 + 4) ===
-    std::unique_ptr<atdsp::PitchDetector>     pitchDetector;
+    // YIN only; SWIPE' and PYIN are source-ready but disabled
+    // due to unresolved heap issues.
+    std::unique_ptr<atdsp::IPitchDetector> pitchDetectors[1];
+    std::atomic<atdsp::IPitchDetector*>    activePitchDetector { nullptr };
+    int activeDetectorMode = 0;
+    std::unique_ptr<atdsp::IPitchDetector> createDetector (int mode);
     std::unique_ptr<atdsp::ScaleQuantizer>    scaleQuantizer;
     std::unique_ptr<atdsp::PitchShifter>      pitchShifter;
     std::unique_ptr<atdsp::HarmonyEngine>     harmonyEngine;
@@ -220,6 +231,9 @@ private:
     // 3 rejets ~= 140ms a 44.1kHz (hop=2048 echantillons).
     static constexpr int octaveJumpPersistenceThreshold = 3;
     int octaveJumpRejectionCount = 0;
+
+    // SWIPE' auto-rollback counter (unused when only YIN active).
+    int swipeRollbackCounter = 0;
 
     // Cached transport time (beats) refreshed at most every 10 ms in
     // the audio thread to avoid blocking calls to getPlayHead() and

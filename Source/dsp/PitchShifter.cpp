@@ -121,9 +121,22 @@ namespace atdsp
         const int numChannels = input.getNumChannels();
         if (numSamples == 0) return;
 
+        // Defense: ensure ring buffer is properly initialized before touching it.
+        // ringBuffer.setSize(2, bufferSize) is called in prepare(), but may have
+        // been constructed yet (e.g. if prepare() wasn't called, or bufferSize == 0).
+        if (ringBuffer.getNumSamples() == 0 || ringBuffer.getNumChannels() < 2)
+        {
+            // Fallback: copy input to output silently without processing.
+            for (int ch = 0; ch < numChannels; ++ch)
+                output.copyFrom (ch, 0, input, ch, 0, numSamples);
+            return;
+        }
+
         // Ensure output layout matches input
+        // NOTE: avoidReallocating must be false for the first call (buffer is
+        // default-constructed with null data); true would skip the allocation!
         if (output.getNumChannels() != numChannels || output.getNumSamples() != numSamples)
-            output.setSize (numChannels, numSamples, false, true, true);
+            output.setSize (numChannels, numSamples, false, true, false);
 
         // Defense en profondeur : valider les ratios d'entree pour eviter
         // de propager NaN, Inf ou ratio <= 0 au pipeline de synthese.
@@ -246,9 +259,14 @@ namespace atdsp
                 }
             }
 
-            output.setSample(0, i, outL);
-            if (numChannels > 1)
-                output.setSample(1, i, outR);
+            // Defensive write: guard against output buffer corruption
+            // (0xFFFFFFFFFFFFFFFF crash). Check if output has valid data.
+            if (output.getNumSamples() == numSamples && output.getNumChannels() > 0)
+            {
+                output.setSample(0, i, outL);
+                if (numChannels > 1)
+                    output.setSample(1, i, outR);
+            }
 
             if (doLog && i == 0)
             {

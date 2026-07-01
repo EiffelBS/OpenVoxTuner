@@ -137,6 +137,9 @@ namespace ui
         void setEditorEnabled (bool b);
         bool isEditorEnabled() const { return editorEnabled; }
 
+        /// Vide les traces d'harmonie (pour cacher quand on entre en onglet Curve Editor)
+        void clearHarmonyTraces();
+
         /// Acces au clavier piano (pour le configurer depuis l'exterieur).
         PianoKeyboard& getPianoKeyboard() { return pianoKeyboard; }
 

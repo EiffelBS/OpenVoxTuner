@@ -332,6 +332,75 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     latencyModeBox.setColour (juce::ComboBox::arrowColourId, kAccent);
     addAndMakeVisible (latencyModeBox);
 
+    // === Hamburger menu button (gear icon) ===
+    menuButton.onClick = [this]
+    {
+        juce::PopupMenu menu;
+
+        // 1. Latency submenu
+        juce::PopupMenu latencyMenu;
+        latencyMenu.addItem ("Low Latency", true, latencyModeBox.getSelectedId() == 1, [this] {
+            if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
+                p->setValueNotifyingHost (0.0f);
+        });
+        latencyMenu.addItem ("Quality", true, latencyModeBox.getSelectedId() == 2, [this] {
+            if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
+                p->setValueNotifyingHost (1.0f / 2.0f);
+        });
+        latencyMenu.addItem ("Safe", true, latencyModeBox.getSelectedId() == 3, [this] {
+            if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
+                p->setValueNotifyingHost (2.0f / 2.0f);
+        });
+        menu.addSubMenu ("Latency", latencyMenu);
+
+        menu.addSeparator();
+
+        // 2. MIDI OUT toggle
+        {
+            bool midiOn = processorRef.getParameters().getParameter ("midi_out_enable")->getValue() > 0.5f;
+            menu.addItem ("MIDI Out", true, midiOn, [this] {
+                if (auto* p = processorRef.getParameters().getParameter ("midi_out_enable"))
+                    p->setValueNotifyingHost (1.0f - p->getValue());
+            });
+        }
+
+        menu.addSeparator();
+
+        // 3. Pitch Detection submenu (YIN only for now)
+        juce::PopupMenu pitchMenu;
+        pitchMenu.addItem ("YIN", false, true, nullptr);
+        pitchMenu.addColouredItem (1, "SWIPE' / PYIN (disabled)", juce::Colours::grey, false, false);
+        menu.addSubMenu ("Pitch Detection", pitchMenu);
+
+        menu.addSeparator();
+
+        // 4. Check for Updates
+        menu.addItem ("Check for Updates", [this] {
+            updateButton.onClick();
+        });
+
+        menu.addSeparator();
+
+        // 5. Bypass (standalone only)
+        if (processorRef.isStandaloneWrapper())
+        {
+            bool bypassOn = processorRef.getParameters().getParameter ("bypass")->getValue() > 0.5f;
+            menu.addItem ("Bypass", true, bypassOn, [this] {
+                if (auto* p = processorRef.getParameters().getParameter ("bypass"))
+                    p->setValueNotifyingHost (1.0f - p->getValue());
+            });
+        }
+
+       #if JUCE_DEBUG
+        menu.addItem ("Debug Window", [this] { debugWindowButton.onClick(); });
+       #endif
+
+        menu.showMenuAsync (juce::PopupMenu::Options()
+            .withTargetComponent (&menuButton)
+            .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards));
+    };
+    addAndMakeVisible (menuButton);
+
     // === Slider ranges ===
     speedSlider.setRange (0.0, 200.0, 1.0);
     speedSlider.setValue (50.0);
@@ -347,36 +416,40 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         processorRef.getParameters(), "scale", scaleBox);
     latencyModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "latency_mode", latencyModeBox);
+    detectorAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        processorRef.getParameters(), "pitch_detector", detectorBox);
 
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
 
-    // Helper for creating SVG paths for our toolbar buttons
-    auto createDrawable = [](const juce::Path& p, juce::Colour strokeColor) {
-        auto d = std::make_unique<juce::DrawablePath>();
-        d->setPath(p);
-        d->setStrokeType(juce::PathStrokeType(1.5f, juce::PathStrokeType::mitered, juce::PathStrokeType::rounded));
-        d->setStrokeFill(strokeColor);
+    // Helper for creating Drawables from full SVG XML (with viewBox).
+    // Uses a placeholder color (#010101) that gets replaced by the desired state color.
+    auto createDrawableSVG = [](const juce::String& svgXml, juce::Colour strokeColor) -> std::unique_ptr<juce::Drawable> {
+        auto baseXml = juce::XmlDocument::parse(svgXml);
+        if (baseXml == nullptr) return std::make_unique<juce::DrawablePath>();
+        auto d = juce::Drawable::createFromSVG(*baseXml);
+        if (d == nullptr) return std::make_unique<juce::DrawablePath>();
+        // Replace placeholder color with the desired state color
+        d->replaceColour(juce::Colour(0xff010101), strokeColor);
         return d;
     };
-    
-    auto setupIconButton = [&](juce::DrawableButton& btn, const juce::Path& path, bool isToggle, const juce::String& tooltip) {
-        auto normal = createDrawable(path, juce::Colours::grey);
-        auto over = createDrawable(path, juce::Colours::lightgrey);
-        auto down = createDrawable(path, juce::Colours::white);
-        
+
+    auto setupIconButton = [&](juce::DrawableButton& btn, const juce::String& svgXml, bool isToggle, const juce::String& tooltip) {
+        auto normal   = createDrawableSVG(svgXml, juce::Colours::grey);
+        auto over     = createDrawableSVG(svgXml, juce::Colours::lightgrey);
+        auto down     = createDrawableSVG(svgXml, juce::Colours::white);
+
         if (isToggle) {
-            auto normalOn = createDrawable(path, kAccent);
-            auto overOn = createDrawable(path, kAccent.brighter(0.2f));
-            auto downOn = createDrawable(path, juce::Colours::white);
+            auto normalOn = createDrawableSVG(svgXml, kAccent);
+            auto overOn   = createDrawableSVG(svgXml, kAccent.brighter(0.2f));
+            auto downOn   = createDrawableSVG(svgXml, juce::Colours::white);
             btn.setImages(normal.get(), over.get(), down.get(), nullptr,
                           normalOn.get(), overOn.get(), downOn.get(), nullptr);
             btn.setClickingTogglesState(true);
         } else {
             btn.setImages(normal.get(), over.get(), down.get());
         }
-        
+
         btn.setTooltip(tooltip);
-        // Custom background colors for DrawableButton
         btn.setColour(juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
         btn.setColour(juce::DrawableButton::backgroundOnColourId, kAccent.withAlpha(0.2f));
         btn.setColour(juce::DrawableButton::textColourId, juce::Colours::white);
@@ -384,78 +457,58 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         addAndMakeVisible(btn);
     };
 
-    // Paths definitions
-    juce::Path pathScale;
-    pathScale.addEllipse(2, 10, 4, 4);
-    pathScale.addLineSegment(juce::Line<float>(6, 12, 6, 2), 1.5f);
-    pathScale.addLineSegment(juce::Line<float>(6, 2, 14, 2), 1.5f);
-    pathScale.addLineSegment(juce::Line<float>(14, 2, 14, 8), 1.5f);
-    pathScale.addEllipse(10, 6, 4, 4);
+    // === SVG icons as full XML strings (Lucide-style, 24x24 viewBox) ===
+    // Each uses stroke="#010101" as a placeholder for per-state coloring.
 
-    juce::Path pathGrid;
-    pathGrid.addLineSegment(juce::Line<float>(4, 0, 4, 16), 1.5f);
-    pathGrid.addLineSegment(juce::Line<float>(12, 0, 12, 16), 1.5f);
-    pathGrid.addLineSegment(juce::Line<float>(0, 4, 16, 4), 1.5f);
-    pathGrid.addLineSegment(juce::Line<float>(0, 12, 16, 12), 1.5f);
+    static const char* svgPresets = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.5l-2-3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></svg>)";
 
-    juce::Path pathStep;
-    pathStep.addLineSegment(juce::Line<float>(0, 12, 8, 12), 1.5f);
-    pathStep.addLineSegment(juce::Line<float>(8, 12, 8, 4), 1.5f);
-    pathStep.addLineSegment(juce::Line<float>(8, 4, 16, 4), 1.5f);
-    pathStep.addEllipse(7, 3, 2, 2);
-    pathStep.addEllipse(7, 11, 2, 2);
+    static const char* svgScale = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="18" r="3"/><path d="M10 18V4l11-2v15"/></svg>)";
 
-    juce::Path pathClear;
-    pathClear.addLineSegment(juce::Line<float>(3, 3, 13, 13), 2.0f);
-    pathClear.addLineSegment(juce::Line<float>(3, 13, 13, 3), 2.0f);
+    static const char* svgGrid = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>)";
 
-    juce::Path pathReset;
-    pathReset.addLineSegment(juce::Line<float>(2, 2, 2, 14), 2.0f);
-    pathReset.addTriangle(14, 2, 14, 14, 4, 8);
+    static const char* svgStep = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20v-5h6v-6h6V4h4"/></svg>)";
 
-    juce::Path pathPresets;
-    pathPresets.addLineSegment (juce::Line<float> (2, 4, 14, 4), 2.0f);
-    pathPresets.addLineSegment (juce::Line<float> (2, 8, 14, 8), 2.0f);
-    pathPresets.addLineSegment (juce::Line<float> (2, 12, 14, 12), 2.0f);
+    static const char* svgClear = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>)";
+
+    static const char* svgReset = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>)";
+
+    static const char* svgPower = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/></svg>)";
+
+    static const char* svgGear = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>)";
 
     // Setup Toolbar Buttons
-    // Custom button: icon + text
+    // Custom button: icon + text (PresetsButton uses setIcon path).
 {
-    // Set up the custom PresetsButton member
-    auto normal = createDrawable(pathPresets, juce::Colours::grey);
-    auto over   = createDrawable(pathPresets, juce::Colours::lightgrey);
-    auto down   = createDrawable(pathPresets, juce::Colours::white);
+    auto normal   = createDrawableSVG(svgPresets, juce::Colours::grey);
+    auto over     = createDrawableSVG(svgPresets, juce::Colours::lightgrey);
+    auto down     = createDrawableSVG(svgPresets, juce::Colours::white);
 
-    // Assign the icon (use the first drawable for normal state)
     presetsButton.setIcon(std::move(normal));
-
-    // Ensure proper layout and appearance
 
     presetsButton.setSize(80, 22);
     addAndMakeVisible(presetsButton);
 
-    // Callbacks and tooltip
     presetsButton.onClick = [this] { showPresetsMenu(); };
     presetsButton.setTooltip ("Presets.\n"
                               "Factory: load built-in presets.\n"
                               "Custom: load/save/delete your own presets.");
 }
 
-    setupIconButton(snapButton, pathScale, true, "Snap to scale");
+    setupIconButton(snapButton, svgScale, true, "Snap to scale");
     snapButton.setToggleState(true, juce::dontSendNotification);
     snapButton.onClick = [this] {
         if (curveEditor != nullptr) curveEditor->setSnapEnabled(snapButton.getToggleState());
     };
     snapButton.setTooltip ("Snap to scale");
 
-    setupIconButton(snapGridButton, pathGrid, true, "Snap to grid");
+    setupIconButton(snapGridButton, svgGrid, true, "Snap to grid");
     snapGridButton.setToggleState(false, juce::dontSendNotification);
     snapGridButton.onClick = [this] {
         if (curveEditor != nullptr) curveEditor->setSnapToGridEnabled(snapGridButton.getToggleState());
     };
     snapGridButton.setTooltip ("Snap to grid");
 
-    setupIconButton(stepModeButton, pathStep, true, "Step mode (staircase interpolation)");
+    setupIconButton(stepModeButton, svgStep, true, "Step mode (staircase interpolation)");
     stepModeButton.setToggleState(true, juce::dontSendNotification);
     stepModeButton.onClick = [this] {
         if (curveEditor != nullptr) curveEditor->setStepModeEnabled(stepModeButton.getToggleState());
@@ -464,7 +517,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     stepModeButton.setTooltip ("Step mode.\n"
                                "Holds the pitch until the next point, then jumps vertically.");
 
-    setupIconButton(clearCurveButton, pathClear, false, "Clear all points");
+    setupIconButton(clearCurveButton, svgClear, false, "Clear all points");
     clearCurveButton.onClick = [this] {
         if (curveEditor != nullptr) curveEditor->clearCurve();
         processorRef.resetTransportTime();
@@ -472,25 +525,22 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     clearCurveButton.setTooltip ("Clear curve.\n"
                                  "Removes all points and resets the internal playhead time.");
 
-    setupIconButton(resetTransportButton, pathReset, false, "Reset playhead");
+    setupIconButton(resetTransportButton, svgReset, false, "Reset playhead");
     resetTransportButton.onClick = [this] {
         processorRef.resetTransportTime();
     };
     resetTransportButton.setTooltip ("Reset playhead.\n"
                                      "Resets the internal timeline offset (useful in Standalone / classic VST3).");
-    // Power-style icons: Bypass and MIDI Out (use same glyph, Bypass larger)
-    juce::Path pathPower;
-    pathPower.addEllipse(2, 2, 20, 20);
-    pathPower.startNewSubPath(13, 2);
-    pathPower.lineTo(13, 10);
-
-    setupIconButton(bypassButton, pathPower, true, "Bypass audio processing");
+    setupIconButton(bypassButton, svgPower, true, "Bypass audio processing");
     bypassButton.setTooltip ("Bypass audio processing.\nWhen enabled, audio passes through without correction.");
     addAndMakeVisible (bypassButton);
 
     // MIDI Out icon (clicking toggles the attached toggle button)
-    setupIconButton(midiOutButton, pathPower, true, "Enable MIDI Out");
+    setupIconButton(midiOutButton, svgPower, true, "Enable MIDI Out");
     addAndMakeVisible (midiOutButton);
+
+    // Menu button (gear icon for options)
+    setupIconButton (menuButton, svgGear, false, "OpenVoxTuner options");
 
     // Toggle buttons with text (attached to parameters)
     bypassToggleButton.setButtonText ("ByPass");
@@ -829,39 +879,25 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
 
-    // === Top banner (title + tools + bypass + midi + latency + debug) ===
+    // === Top banner (title + hamburger menu) ===
     auto titleArea = bounds.removeFromTop (50);
 
-    const bool showBypass = processorRef.isStandaloneWrapper();
-    const int toggleW = 98;
-    const int latencyW = 110;
-    const int updateW = 118;
+    // Hamburger menu button in the top-right corner.
+    const int menuW = 48;
+    auto menuArea = titleArea.removeFromRight (menuW).reduced (6, 10);
+    menuButton.setBounds (menuArea);
 
-   #if JUCE_DEBUG
-    const int debugW = 72;
-    auto rightTools = titleArea.removeFromRight (showBypass ? 540 : 450);
-    updateButton.setBounds (rightTools.removeFromRight (updateW).reduced (4, 10));
-    debugWindowButton.setBounds (rightTools.removeFromRight (debugW).reduced (4, 10));
-   #else
-    auto rightTools = titleArea.removeFromRight (showBypass ? 460 : 370);
-    updateButton.setBounds (rightTools.removeFromRight (updateW).reduced (4, 10));
-    debugWindowButton.setBounds (0, 0, 0, 0);
-   #endif
-
-    midiToggleButton.setBounds (rightTools.removeFromRight (toggleW).reduced (4, 10));
-
-    auto latencyArea = rightTools.removeFromRight (latencyW).reduced (4, 8);
+    // Hide all old top-bar controls (they still work via attachments/handlers).
     latencyModeLabel.setBounds (0, 0, 0, 0);
-    latencyModeBox.setBounds (latencyArea);
-
-    if (showBypass)
-        bypassToggleButton.setBounds (rightTools.removeFromRight (toggleW).reduced (4, 10));
-    else
-        bypassToggleButton.setBounds (0, 0, 0, 0);
-
-    // Legacy icon buttons hidden
+    latencyModeBox.setBounds (0, 0, 0, 0);
+    detectorLabel.setBounds (0, 0, 0, 0);
+    detectorBox.setBounds (0, 0, 0, 0);
+    midiToggleButton.setBounds (0, 0, 0, 0);
+    bypassToggleButton.setBounds (0, 0, 0, 0);
     bypassButton.setBounds (0, 0, 0, 0);
     midiOutButton.setBounds (0, 0, 0, 0);
+    updateButton.setBounds (0, 0, 0, 0);
+    debugWindowButton.setBounds (0, 0, 0, 0);
 
     // === Visualizer (top) and Graphic Editor (middle) ===
     const int pad = 10;
@@ -972,14 +1008,14 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     keyLabel.setBounds(bKey.removeFromTop(20));
     keyBox.setBounds(bKey);
 
-    topRow.removeFromLeft(20); // spacer
+    topRow.removeFromLeft(10); // spacer
 
-    // Right: Scale Box (fixed narrower width to match reduced block)
-    int desiredScaleWidth = juce::jmin(260, topRow.getWidth());
+    // Middle: Scale Box (fixed narrower width)
+    int desiredScaleWidth = juce::jmin(140, topRow.getWidth());
     auto bScale = topRow.removeFromLeft(desiredScaleWidth);
     scaleLabel.setBounds(bScale.removeFromTop(20));
     scaleBox.setBounds(bScale);
-    
+
     b1.removeFromTop(6); // spacer
     
     // Bottom: Keyboard
@@ -1021,6 +1057,11 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
 
     // Visibility of Curve Editor Mode specific buttons
     bool isCurveEditorMode = (tabIndex == 1);
+    
+    // When switching to Curve Editor tab, clear previous harmony traces
+    if (isCurveEditorMode && curveEditor != nullptr)
+        curveEditor->clearHarmonyTraces();
+    
     presetsButton.setVisible (isCurveEditorMode);
     snapButton.setVisible (isCurveEditorMode);
     snapGridButton.setVisible (isCurveEditorMode);
@@ -1147,11 +1188,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
             pitchVisualizer->setHarmonyFrequencies(juce::Array<float>());
         }
 
-        // Also forward harmony samples to the Curve Editor (for the Curve Editor view)
-        if (curveEditor != nullptr)
-        {
-            curveEditor->addHarmonySamples(processorRef.getTransportTime(), freqsToSend);
-        }
+
 
         // MIDI status label removed; debug window shows detailed MIDI log.
     }
