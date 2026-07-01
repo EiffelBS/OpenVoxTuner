@@ -386,14 +386,24 @@ namespace ui
         const int controlH = 20;
         const int rightEdge = getWidth() - 4;
 
-        // Auto-Scroll toggle at the far right
-        autoScrollToggle.setBounds (rightEdge - 88, controlY, 88, controlH);
+        // Auto-Scroll toggle at the far right (hidden when !autoScrollVisible)
+        if (autoScrollVisible)
+        {
+            autoScrollToggle.setBounds (rightEdge - 88, controlY, 88, controlH);
+        }
+        else
+        {
+            autoScrollToggle.setBounds (0, 0, 0, 0); // off-screen when hidden
+        }
 
-        // Measures combo right before it
-        measuresBox.setBounds (rightEdge - 88 - 4 - 54, controlY, 54, controlH);
+        // Measures combo right before the toggle (or at far right if hidden)
+        const int comboRight = autoScrollVisible ? (rightEdge - 88 - 4) : rightEdge;
+
+        // Measures combo right before the toggle
+        measuresBox.setBounds (comboRight - 54, controlY, 54, controlH);
 
         // Measures label right before the combo
-        measuresLabel.setBounds (rightEdge - 88 - 4 - 54 - 4 - 64, controlY, 64, controlH);
+        measuresLabel.setBounds (comboRight - 54 - 4 - 64, controlY, 64, controlH);
     }
 
     void PitchCurveEditor::timerCallback()
@@ -992,6 +1002,19 @@ namespace ui
         autoScrollEnabled = enabled;
     }
 
+    void PitchCurveEditor::setAutoScrollVisible (bool visible)
+    {
+        autoScrollVisible = visible;
+        autoScrollToggle.setVisible (visible);
+        if (!visible)
+        {
+            // Force disable auto-scroll when the control is hidden
+            autoScrollEnabled = false;
+            autoScrollToggle.setToggleState (false, juce::dontSendNotification);
+            resized();
+        }
+    }
+
     void PitchCurveEditor::setPlayheadTime (double time, bool isHostPlaying)
     {
         // === Detecter les transitions pour le nettoyage des traces ===
@@ -1005,14 +1028,14 @@ namespace ui
         }
         wasPlayingLastFrame = isHostPlaying;
 
-        if (isHostPlaying && autoScrollEnabled)
+        if (isHostPlaying && autoScrollEnabled && autoScrollVisible)
         {
             // Lecture en cours : LERP fluide, playhead reste au centre
             double targetScroll = time - timeVisible * 0.5;
             targetScroll = juce::jmax (0.0, targetScroll);
             scrollOffset = scrollOffset + (targetScroll - scrollOffset) * 0.15;
         }
-        else if (!isHostPlaying)
+        else if (!isHostPlaying && autoScrollVisible)
         {
             // Arret : snap instantane si la position du playhead a change
             // significativement (seek manuel > 0.01 PPQ). Un epsilon evite
@@ -1026,6 +1049,7 @@ namespace ui
             // time stable : scrollOffset est totalement gele -> pas de vibration
         }
         // isHostPlaying && !autoScrollEnabled: aucun scroll
+        // !autoScrollVisible: auto-scroll desactive (mode non-ARA)
 
         playheadTime = time;
         repaint();
