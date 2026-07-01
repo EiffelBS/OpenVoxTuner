@@ -75,6 +75,11 @@ private:
     juce::Slider      harmonyToneColorSlider;
     juce::Label       harmonyToneColorLabel;
 
+    // Reverb controls (post-processing effect)
+    juce::ToggleButton reverbEnableButton;
+    juce::Slider       reverbMixSlider;
+    juce::Label        reverbMixLabel;
+
     // Snap Toggle.
     // Custom button that draws an icon and text
     class PresetsButton : public juce::TextButton
@@ -164,6 +169,8 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> reverbEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbMixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> detectorAttachment;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>, 12> customAttachments;
 

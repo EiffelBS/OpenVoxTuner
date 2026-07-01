@@ -443,6 +443,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     detectorAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "pitch_detector", detectorBox);
 
+    // Reverb attachments
+    reverbEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "reverb_enable", reverbEnableButton);
+    reverbMixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "reverb_mix", reverbMixSlider);
+
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
 
     // Helper for creating Drawables from full SVG XML (with viewBox).
@@ -716,6 +720,19 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     formantEnableButton.setColour (juce::ToggleButton::tickColourId, kAccent);
     addAndMakeVisible (formantEnableButton);
 
+    // Reverb controls (post-processing effect, same style as Formant)
+    setupKnob (reverbMixSlider, &reverbMixLabel, "Mix");
+    reverbMixSlider.setRange (0.0, 1.0, 0.01);
+    reverbMixSlider.setValue (0.0);
+    reverbMixSlider.setEnabled (false); // disabled until reverb is toggled on
+
+    reverbEnableButton.setButtonText ("Reverb");
+    reverbEnableButton.setName ("PowerButton");
+    reverbEnableButton.setColour (juce::ToggleButton::textColourId, kText);
+    reverbEnableButton.setColour (juce::ToggleButton::tickColourId, kAccent);
+    reverbEnableButton.setTooltip ("Enable/disable reverb effect.");
+    addAndMakeVisible (reverbEnableButton);
+
     addAndMakeVisible (scaleKeyboard);
 
     // === Bidirectional attachments to AudioParameters ===
@@ -988,6 +1005,15 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     formantSlider.setBounds(knobArea);
 
+    // Reverb controls below the Formant section
+    const int reverbTop = 20;
+    auto reverbArea = b2.removeFromTop (reverbTop);
+    reverbEnableButton.setBounds (reverbArea);
+    auto reverbKnobHeight = 40;
+    auto rkArea = b2.removeFromTop (reverbKnobHeight).reduced (10, 0);
+    reverbMixLabel.setBounds (rkArea.removeFromTop (16));
+    reverbMixSlider.setBounds (rkArea);
+
     // Harmony controls block (rightmost block)
     {
         auto h = block3Bounds.reduced(10);
@@ -1095,6 +1121,10 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // Gray out Formant slider if disabled
     bool isFormantEnabled = formantEnableButton.getToggleState();
     formantSlider.setEnabled (isFormantEnabled);
+
+    // Gray out Reverb slider if disabled
+    bool isReverbEnabled = reverbEnableButton.getToggleState();
+    reverbMixSlider.setEnabled (isReverbEnabled);
 
     // Harmony controls enable/disable
     bool isHarmonyEnabled = harmonyEnableButton.getToggleState();

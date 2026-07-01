@@ -138,6 +138,9 @@ target_sources(OpenVoxTuner PRIVATE
     Source/dsp/FormantPreserver.h
     Source/dsp/PitchCurve.cpp
     Source/dsp/PitchCurve.h
+    Source/dsp/IEffect.h
+    Source/dsp/ReverbEffect.cpp
+    Source/dsp/ReverbEffect.h
     Source/dsp/NoteUtils.h
     Source/ui/PitchVisualizer.cpp
     Source/ui/PitchVisualizer.h

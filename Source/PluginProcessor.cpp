@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "dsp/NoteUtils.h"
+#include "dsp/ReverbEffect.h"
 #include "external/presonus/ipsleditcontroller.h"
 // Generated build info (created by CMake)
 #include "BuildInfo.h"
@@ -360,6 +361,11 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterChoice> (
                             "pitch_detector", "Pitch Detector",
                             juce::StringArray { "YIN", "SWIPE'/PYIN (disabled)" }, 0)
+                      , std::make_unique<juce::AudioParameterBool> (
+                            "reverb_enable", "Reverb Enable", false)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "reverb_mix", "Reverb Mix",
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
                     })
 {
     // Ensure per-channel MIDI note state starts clean (-1 means no active note)
@@ -392,6 +398,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     dbgTestGrainParam = parameters.getRawParameterValue ("dbg_test_grain");
     editorMeasuresParam = parameters.getRawParameterValue ("editor_measures");
     detectorParam = parameters.getRawParameterValue ("pitch_detector");
+    reverbEnableParam = parameters.getRawParameterValue ("reverb_enable");
+    reverbMixParam = parameters.getRawParameterValue ("reverb_mix");
 
     for (int i = 0; i < 12; ++i)
     {
@@ -412,6 +420,10 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     retargetEnvelope = std::make_unique<atdsp::RetargetEnvelope>();
     pitchCurve       = std::make_unique<atdsp::PitchCurve>();
     pitchCurve->loadPreset ("default");
+
+    // Initialize post-processing effects (reverb, etc.)
+    effects.push_back (std::make_unique<atdsp::ReverbEffect>());
+    OVT_LOG ("Effects initialized: " + juce::String (static_cast<int> (effects.size())));
 
     // Instantiation of the VST3 extension for Fender Studio Pro (Micro View)
     vst3Extensions = std::make_unique<PresonusMicroViewExtension>();
@@ -485,6 +497,10 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
 
     retargetEnvelope->prepare (sampleRate);
     harmonyEngine->prepare (sampleRate);
+
+    // Prepare post-processing effects
+    for (auto& effect : effects)
+        effect->prepare (sampleRate, samplesPerBlock);
 
     // Prepare temporary buffers for shifted voices
     shiftedVoiceBuffers.clear();
@@ -1454,6 +1470,26 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         // If MIDI out is disabled while notes were active, send a proper release.
         flushPendingMidiNotes ("MIDI OUT disabled");
+    }
+
+    // === POST-PROCESSING EFFECTS ===
+    // Apply stacked effects (reverb, etc.) to the final mixed output buffer.
+    // Each effect reads its own enable/mix parameters internally.
+    if (!effects.empty())
+    {
+        for (auto& effect : effects)
+        {
+            bool enabled = false;
+            float wetMix = 0.0f;
+
+            if (effect->getId() == "reverb")
+            {
+                enabled = (reverbEnableParam != nullptr && reverbEnableParam->load() > 0.5f);
+                wetMix = (reverbMixParam != nullptr) ? reverbMixParam->load() : 0.0f;
+            }
+
+            effect->process (buffer, enabled, wetMix);
+        }
     }
 }
 
