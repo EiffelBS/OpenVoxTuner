@@ -67,28 +67,51 @@
 │  │  ├─ RetargetEnvelope.*       # Speed envelope smoother
 │  │  ├─ FormantPreserver.*       # Formant compensation filter
 │  │  ├─ PitchCurve.*             # Curve data model
-│  │  └─ HarmonyEngine.*          # Harmony synthesis engine
-│  ├─ ui/
+│  │  ├─ HarmonyEngine.*          # Harmony synthesis engine
+│  │  ├─ PitchDetector.*          # Original YIN reference (not compiled)
+│  │  └─ NoteUtils.h / IPitchShifter.h
+│  ├─ ui/                         # UI components
 │  │  ├─ PitchCurveEditor.*       # Curve editor component
-│  │  └─ PianoKeyboard.*          # Piano keyboard widget
-│  ├─ resources/                  # Binary resources
+│  │  ├─ PitchVisualizer.*        # Pitch visualisation
+│  │  ├─ PianoKeyboard.*          # Piano keyboard widget
+│  │  ├─ ScaleKeyboardComponent.* # Scale keyboard display
+│  │  └─ LookAndFeel.*            # Custom look and feel
+│  ├─ external/presonus/          # PreSonus plugin extensions (Studio One)
+│  ├─ resources/                  # Binary resources (BuildInfo.h.in)
 │  ├─ PluginProcessor.*           # Main audio processor
 │  └─ PluginEditor.*              # Main editor UI
+├─ scripts/                       # Build and development scripts
+│  ├─ build.ps1                   # Windows build
+│  ├─ build_installer.ps1         # Windows installer (Inno Setup)
+│  ├─ build_macos_vst3.sh         # macOS VST3 build
+│  ├─ build_macos_au.sh           # macOS AU build
+│  ├─ build_macos_pkg.sh          # macOS .pkg installer
+│  ├─ build_macos.sh              # macOS universal build
+│  └─ ... (install, symlink, release helpers)
 ├─ test/                          # Unit tests (Catch2)
+│  ├─ Main.cpp
+│  └─ dsp/                        # Test suites per module
 ├─ docs/                          # Documentation and changelogs
 │  ├─ changelogs/                 # Daily changelogs
-│  ├─ releases/                   # Release notes
+│  ├─ releases/                   # Release notes (latest.json, v0.1.1.md)
 │  ├─ architecture.md
 │  ├─ default-parameters.md
 │  └─ ...
-├─ installer/                     # Windows installer assets (Inno Setup)
-├─ external/ARA_SDK/              # Celemony ARA SDK (v2.2)
+├─ installer/                     # Windows installer assets
+│  └─ OpenVoxTuner.iss            # Inno Setup script
+├─ .github/                       # CI/CD and issue templates
+│  ├─ workflows/                  # GitHub Actions (CI, release)
+│  └─ ISSUE_TEMPLATE/             # Bug report / feature request
+├─ assets/                        # Binary resources
+│  └─ icon.png
+├─ external/ARA_SDK/              # Celemony ARA SDK (v2.2, submodule)
 ├─ CMakeLists.txt
-├─ build.ps1                      # Windows build script
-├─ build_installer.ps1            # Windows installer build
-├─ build_macos_vst3.sh            # macOS VST3 build helper
-├─ build_macos_au.sh              # macOS AU build helper
-└─ build_macos_pkg.sh             # macOS .pkg installer helper
+├─ README.md
+├─ LICENSE
+├─ roadmap.md
+├─ .gitignore
+├─ .gitattributes
+└─ .gitmodules
 ```
 
 ## Build
@@ -103,13 +126,13 @@ Prerequisites:
 
 ```powershell
 # Debug build
-.\build.ps1 -Configuration Debug
+.\scripts\build.ps1 -Configuration Debug
 
 # Release build
-.\build.ps1 -Configuration Release
+.\scripts\build.ps1 -Configuration Release
 
 # Build Windows installer (requires Inno Setup)
-.\build_installer.ps1
+.\scripts\build_installer.ps1
 ```
 
 ### macOS (VST3 / AU / pkg)
@@ -124,19 +147,19 @@ brew install cmake ninja
 Build VST3:
 
 ```bash
-./build_macos_vst3.sh --juce-path ~/dev/JUCE --install
+./scripts/build_macos_vst3.sh --juce-path ~/dev/JUCE --install
 ```
 
 Build AU:
 
 ```bash
-./build_macos_au.sh --juce-path ~/dev/JUCE --install
+./scripts/build_macos_au.sh --juce-path ~/dev/JUCE --install
 ```
 
 Build macOS `.pkg` installer (VST3 + AU + Standalone):
 
 ```bash
-./build_macos_pkg.sh --juce-path ~/dev/JUCE
+./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE
 ```
 
 Detailed build guides:
