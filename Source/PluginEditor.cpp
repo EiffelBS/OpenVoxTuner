@@ -1106,6 +1106,9 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // Update edit state and playhead
     if (curveEditor != nullptr) {
         curveEditor->setEditorEnabled(tabIndex == 1);
+        // Auto-scroll toggle: visible only in ARA mode (standalone and VST3 insert
+        // don't have a meaningful project timeline for auto-scroll).
+        curveEditor->setAutoScrollVisible (processorRef.isBoundToARA_custom());
         curveEditor->setPlayheadTime(processorRef.getTransportTime(), processorRef.getIsPlaying());
         // Propagate time signature (Feature 1) — read from processor
         int num = processorRef.getCurrentTimeSigNumerator();

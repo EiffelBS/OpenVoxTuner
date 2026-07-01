@@ -126,6 +126,11 @@ namespace ui
         /// Active/desactive le defilement automatique (auto-scroll ARA).
         void setAutoScroll (bool enabled);
 
+        /// Affiche/masque le bouton Auto-Scroll. En mode non-ARA (standalone ou
+        /// VST3 insert), le toggle est invisible car il n'y a pas de timeline
+        /// projet significative. L'auto-scroll est alors forcement desactive.
+        void setAutoScrollVisible (bool visible);
+
         /// Definit le nombre de mesures sans passer par le combo.
         void setMeasuresWithoutCombo (int measures);
 
@@ -192,6 +197,7 @@ namespace ui
         // Auto-scroll (Feature 2).
         double scrollOffset = 0.0;
         bool autoScrollEnabled = false;
+        bool autoScrollVisible = false; // toggle visibility (true only in ARA)
         bool wasPlayingLastFrame = false;
         double stoppedPlayheadTime = -1.0;
 
