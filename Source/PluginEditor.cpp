@@ -384,7 +384,28 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
         menu.addSeparator();
 
-        // 5. Bypass (standalone only)
+        // 5. Reset to Default — restore all parameters to their factory defaults
+        menu.addItem ("Reset to Default", [this] {
+            juce::PopupMenu confirmMenu;
+            confirmMenu.addItem ("Cancel", []{});
+            confirmMenu.addSeparator();
+            confirmMenu.addItem ("Confirm Reset", [this] {
+                auto& paramTree = processorRef.getParameters().state;
+                for (int i = 0; i < paramTree.getNumChildren(); ++i)
+                {
+                    auto id = paramTree.getChild(i).getProperty ("id").toString();
+                    if (auto* param = processorRef.getParameters().getParameter (id))
+                        param->setValueNotifyingHost (param->getDefaultValue());
+                }
+            });
+            confirmMenu.showMenuAsync (juce::PopupMenu::Options()
+                .withTargetComponent (&menuButton)
+                .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards));
+        });
+
+        menu.addSeparator();
+
+        // 6. Bypass (standalone only)
         if (processorRef.isStandaloneWrapper())
         {
             bool bypassOn = processorRef.getParameters().getParameter ("bypass")->getValue() > 0.5f;
