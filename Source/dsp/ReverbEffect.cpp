@@ -7,12 +7,12 @@ namespace atdsp
 {
     ReverbEffect::ReverbEffect()
     {
-        // Tuned for vocal monitoring: moderate room, natural decay, gentle damping
-        params.roomSize = 0.5f;
-        params.damping = 0.4f;
+        // Tuned for vocal monitoring: medium-large room, longer tail, gentle damping
+        params.roomSize = 0.7f;
+        params.damping = 0.3f;
         params.wetLevel = 1.0f;      // We control wet/dry ourselves via mix
         params.dryLevel = 0.0f;
-        params.width = 0.8f;
+        params.width = 1.0f;
         params.freezeMode = 0.0f;
     }
 
