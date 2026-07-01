@@ -313,7 +313,10 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           juce::StringArray {
                               "None",
                               "3rd Below", "3rd Above", "3rd Below + Above",
+                              "4th Below", "4th Above", "4th Below + Above",
                               "5th Below", "5th Above", "5th Below + Above",
+                              "3rd Below + 5th Above", "5th Below + 3rd Above",
+                              "Octave Below", "Octave Above", "Octave Below + Above",
                               "Vocal Stack (3 voices)", "Vocal Stack (4 voices)",
                               "Power Chord", "Parallel 3rd", "Drone"
                           }, 3),

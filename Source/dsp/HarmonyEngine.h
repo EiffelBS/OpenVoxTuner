@@ -21,14 +21,22 @@ namespace atdsp
         ThirdBelow        = 1,  // Tierce en dessous (-2 degres)
         ThirdAbove        = 2,  // Tierce au-dessus (+2 degres)
         ThirdBelowAbove   = 3,  // Tierce en-dessous + tierce en-dessus (-2 / +2)
-        FifthBelow        = 4,  // Quinte en dessous (-4 degres)
-        FifthAbove        = 5,  // Quinte au-dessus (+4 degres)
-        FifthBelowAbove   = 6,  // Quinte en-dessous + quinte en-dessus (-4 / +4)
-        VocalStack3       = 7,  // Tierce + quinte + octave (0 +3 / +7 / +12)
-        VocalStack4       = 8,  // 3rd below + 3rd above + 5th above + octave above
-        PowerChord        = 9,  // Quinte + octave (+7 +12)
-        ParallelThird     = 10, // Tierce parallele (+1 degre)
-        Drone             = 11, // Note fixe (tonique)
+        FourthBelow       = 4,  // Quarte en dessous (-3 degres)
+        FourthAbove       = 5,  // Quarte au-dessus (+3 degres)
+        FourthBelowAbove  = 6,  // Quarte en-dessous + quarte en-dessus (-3 / +3)
+        FifthBelow        = 7,  // Quinte en dessous (-4 degres)
+        FifthAbove        = 8,  // Quinte au-dessus (+4 degres)
+        FifthBelowAbove   = 9,  // Quinte en-dessous + quinte en-dessus (-4 / +4)
+        ThirdBelowFifthAbove  = 10, // Tierce en-dessous + quinte au-dessus (-2 / +4)
+        FifthBelowThirdAbove  = 11, // Quinte en-dessous + tierce au-dessus (-4 / +2)
+        OctaveBelow       = 12, // Octave en dessous
+        OctaveAbove       = 13, // Octave au-dessus
+        OctaveBelowAbove  = 14, // Octave en-dessous + octave au-dessus
+        VocalStack3       = 15, // Tierce + quinte + octave (0 +3 / +7 / +12)
+        VocalStack4       = 16, // 3rd below + 3rd above + 5th above + octave above
+        PowerChord        = 17, // Quinte + octave (+7 +12)
+        ParallelThird     = 18, // Tierce parallele (+1 degre)
+        Drone             = 19, // Note fixe (tonique)
     };
 
     /**
@@ -74,18 +82,26 @@ namespace atdsp
         {
             switch (type)
             {
-                case HarmonyType::None            : return "None";
-                case HarmonyType::ThirdBelow      : return "3rd Below";
-                case HarmonyType::ThirdAbove      : return "3rd Above";
-                case HarmonyType::ThirdBelowAbove : return "3rd Below + Above";
-                case HarmonyType::FifthBelow      : return "5th Below";
-                case HarmonyType::FifthAbove      : return "5th Above";
-                case HarmonyType::FifthBelowAbove : return "5th Below + Above";
-                case HarmonyType::VocalStack3     : return "Vocal Stack (3 voices)";
-                case HarmonyType::VocalStack4     : return "Vocal Stack (4 voices)";
-                case HarmonyType::PowerChord      : return "Power Chord";
-                case HarmonyType::ParallelThird   : return "Parallel 3rd";
-                case HarmonyType::Drone           : return "Drone";
+                case HarmonyType::None                   : return "None";
+                case HarmonyType::ThirdBelow             : return "3rd Below";
+                case HarmonyType::ThirdAbove             : return "3rd Above";
+                case HarmonyType::ThirdBelowAbove        : return "3rd Below + Above";
+                case HarmonyType::FourthBelow            : return "4th Below";
+                case HarmonyType::FourthAbove            : return "4th Above";
+                case HarmonyType::FourthBelowAbove       : return "4th Below + Above";
+                case HarmonyType::FifthBelow             : return "5th Below";
+                case HarmonyType::FifthAbove             : return "5th Above";
+                case HarmonyType::FifthBelowAbove        : return "5th Below + Above";
+                case HarmonyType::ThirdBelowFifthAbove   : return "3rd Below + 5th Above";
+                case HarmonyType::FifthBelowThirdAbove   : return "5th Below + 3rd Above";
+                case HarmonyType::OctaveBelow            : return "Octave Below";
+                case HarmonyType::OctaveAbove            : return "Octave Above";
+                case HarmonyType::OctaveBelowAbove       : return "Octave Below + Above";
+                case HarmonyType::VocalStack3            : return "Vocal Stack (3 voices)";
+                case HarmonyType::VocalStack4            : return "Vocal Stack (4 voices)";
+                case HarmonyType::PowerChord             : return "Power Chord";
+                case HarmonyType::ParallelThird          : return "Parallel 3rd";
+                case HarmonyType::Drone                  : return "Drone";
                 default: return "Unknown";
             }
         }
