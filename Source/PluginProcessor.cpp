@@ -868,6 +868,26 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             fifoWriteIndex = (fifoWriteIndex + 1) % analysisWindow;
         }
 
+        // Apply post-processing effects (reverb) on the cleared buffer before
+        // returning, so the reverb tail can decay naturally through its internal
+        // state onto the zeroed input without abrupt cuts or clicks.
+        if (!effects.empty())
+        {
+            for (auto& effect : effects)
+            {
+                bool enabled = false;
+                float wetMix = 0.0f;
+
+                if (effect->getId() == "reverb")
+                {
+                    enabled = (reverbEnableParam != nullptr && reverbEnableParam->load() > 0.5f);
+                    wetMix = (reverbMixParam != nullptr) ? reverbMixParam->load() : 0.0f;
+                }
+
+                effect->process (buffer, enabled, wetMix);
+            }
+        }
+
         return; // CPU chute a ~1%
     }
 
