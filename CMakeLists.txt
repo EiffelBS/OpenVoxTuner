@@ -122,10 +122,8 @@ target_sources(OpenVoxTuner PRIVATE
     Source/dsp/IPitchDetector.h
     Source/dsp/YinPitchDetector.cpp
     Source/dsp/YinPitchDetector.h
-    #Source/dsp/SwipePitchDetector.cpp
-    #Source/dsp/SwipePitchDetector.h
-    #Source/dsp/PyinPitchDetector.cpp
-    #Source/dsp/PyinPitchDetector.h
+    Source/dsp/SwipePitchDetector.cpp
+    Source/dsp/SwipePitchDetector.h
     Source/dsp/ScaleQuantizer.cpp
     Source/dsp/ScaleQuantizer.h
     Source/dsp/PitchShifter.cpp

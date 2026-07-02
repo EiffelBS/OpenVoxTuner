@@ -369,11 +369,23 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
         menu.addSeparator();
 
-        // 3. Pitch Detection submenu (YIN only for now)
-        juce::PopupMenu pitchMenu;
-        pitchMenu.addItem ("YIN", false, true, nullptr);
-        pitchMenu.addColouredItem (1, "SWIPE' / PYIN (disabled)", juce::Colours::grey, false, false);
-        menu.addSubMenu ("Pitch Detection", pitchMenu);
+        // 3. Pitch Detection submenu (YIN / SWIPE') — reads and sets the
+        //    pitch_detector parameter so the menu actually changes the engine.
+        {
+            juce::PopupMenu pitchMenu;
+            auto* detParam = processorRef.getParameters().getParameter ("pitch_detector");
+            const int currentMode = (detParam != nullptr)
+                ? juce::roundToInt (detParam->getValue() * 1.0f)
+                : 0;
+
+            pitchMenu.addItem ("YIN",    true, currentMode == 0, [this, detParam] {
+                if (detParam != nullptr) detParam->setValueNotifyingHost (0.0f);
+            });
+            pitchMenu.addItem ("SWIPE'", true, currentMode == 1, [this, detParam] {
+                if (detParam != nullptr) detParam->setValueNotifyingHost (1.0f);
+            });
+            menu.addSubMenu ("Pitch Detection", pitchMenu);
+        }
 
         menu.addSeparator();
 
@@ -723,7 +735,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Reverb controls (post-processing effect, same style as Formant)
     setupKnob (reverbMixSlider, &reverbMixLabel, "Mix");
     reverbMixSlider.setRange (0.0, 1.0, 0.01);
-    reverbMixSlider.setValue (0.0);
     reverbMixSlider.setEnabled (false); // disabled until reverb is toggled on
 
     reverbEnableButton.setButtonText ("Reverb");

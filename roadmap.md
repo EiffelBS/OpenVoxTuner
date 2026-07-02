@@ -125,6 +125,8 @@ Legende :
 - [x] Algorithme PSOLA (pitch marks + OLA avec Hann 2-periodes)
 - [x] Compensation de formants (filtre biquad passe-bas, sqrt compensation)
 - [x] Retarget Envelope style Antares (IIR 1er ordre sur le ratio)
+- [x] **SWIPE' reactive et optimise** (calcul d'energie extrait de la boucle candidates, code mort supprime) - 2026-07-02
+- [-] PYIN supprime (crash memoire non resolus) - 2026-07-02
 - [ ] Detection de pitch plus robuste (MPM en complement de YIN)
 - [ ] Preservation exacte des formants (LPC + resampling non-uniforme)
 - [ ] Preservation des transitoires (onset detection -> bypass PSOLA)

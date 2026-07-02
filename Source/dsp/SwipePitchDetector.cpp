@@ -37,8 +37,9 @@ void SwipePitchDetector::prepare (double sr, int blockSize)
     fft = std::make_unique<juce::dsp::FFT> (fftOrder);
 
     // Allocate FFT buffers (HeapBlock guarantees 16-byte SIMD alignment).
+    // performRealOnlyForwardTransform requires 2 * fftSize floats (packed format + scratch).
     fftWindow.allocate (fftSize, true);
-    fftRealBuffer.allocate (fftSize, true);
+    fftRealBuffer.allocate (2 * fftSize, true);
     spectrumMag.allocate (fftSize / 2 + 1, true);
 
     // Build Hann window.
@@ -221,6 +222,12 @@ float SwipePitchDetector::detectPitch (const float* samples, int numSamples)
     }
     spectrumMag[fftSize / 2] = std::abs (fftRealBuffer[1]); // Nyquist
 
+    // Compute signal energy once (independent of candidate).
+    float signalEnergy = 0.0f;
+    for (int bin = 1; bin < halfSize; ++bin)
+        signalEnergy += spectrumMag[bin] * spectrumMag[bin];
+    const float energyFactor = juce::jmin (1.0f, signalEnergy / (float)fftSize);
+
     // Search over candidate pitches for best correlation.
     int bestIdx = -1;
     float bestCorr = -1.0f;
@@ -230,21 +237,13 @@ float SwipePitchDetector::detectPitch (const float* samples, int numSamples)
                                          kernelCachePtrs[c],
                                          halfSize);
         // Weight by signal energy coherence: penalize very low energy.
-        float energy = 0.0f;
-        for (int bin = 1; bin < halfSize; ++bin)
-        {
-            float s = spectrumMag[bin];
-            energy += s * s;
-        }
-        float energyFactor = juce::jmin (1.0f, energy / (float)fftSize);
         corr *= energyFactor;
 
         // Bias toward lower frequencies: fundamental is preferred over harmonics.
-        // Weight = 1/sqrt(freq/100). At 100Hz → 1.0, at 400Hz (4th harmonic) → 0.5.
-        float freqBias = 1.0f / std::sqrt (candidateFreqs[c] / 100.0f);
+        // Weight = 1/sqrt(freq/100). At 100Hz -> 1.0, at 400Hz (4th harmonic) -> 0.5.
+        const float freqBias = 1.0f / std::sqrt (candidateFreqs[c] / 100.0f);
         corr *= freqBias;
 
-        // Refine: find local peak among candidates (simple scan).
         if (corr > bestCorr && corr > threshold * 0.5f)
         {
             bestCorr = corr;
@@ -265,47 +264,27 @@ float SwipePitchDetector::detectPitch (const float* samples, int numSamples)
     // Refine with parabolic interpolation if neighbours exist.
     if (bestIdx > 0 && bestIdx < numCandidates - 1)
     {
-        float corrL = -1.0f, corrR = -1.0f;
-        // Recompute correlations for neighbours.
-        // For simplicity, just interpolate bin index.
-        float offset = interpolatePeak (-1.0f, 0.0f, -1.0f); // fallback
-        // Simple parabolic over the correlation peak.
-        // We'll use the three best candidate scores.
-        float y0 = 0.0f; // computeNeighbour?
-        juce::ignoreUnused (y0);
+        const int idxL = bestIdx - 1;
+        const int idxR = bestIdx + 1;
 
-        // Direct interpolation on frequency.
-        // Use the correlation scores at bestIdx-1, bestIdx, bestIdx+1.
+        // Compute correlation for neighbours (reuse cached kernel).
+        float rL = computeCorrelation (spectrumMag.getData(),
+                                       kernelCachePtrs[idxL], halfSize);
+        float rM = bestCorr;
+        float rR = computeCorrelation (spectrumMag.getData(),
+                                       kernelCachePtrs[idxR], halfSize);
+
+        // Apply the same energy weighting.
+        rL *= energyFactor;
+        rM *= energyFactor;
+        rR *= energyFactor;
+
+        const float delta = interpolatePeak (rL, rM, rR);
+        if (delta != 0.0f)
         {
-            int idxL = bestIdx - 1;
-            int idxR = bestIdx + 1;
-
-            // Compute correlation for neighbours (lightweight: reuse cached kernel).
-            float rL = computeCorrelation (spectrumMag.getData(),
-                                           kernelCachePtrs[idxL], halfSize);
-            float rM = bestCorr;
-            float rR = computeCorrelation (spectrumMag.getData(),
-                                           kernelCachePtrs[idxR], halfSize);
-
-            // Re-weight by energy.
-            float energy = 0.0f;
-            for (int bin = 1; bin < halfSize; ++bin)
-            {
-                float s = spectrumMag[bin];
-                energy += s * s;
-            }
-            float energyFactor3 = juce::jmin (1.0f, energy / (float)fftSize);
-            rL *= energyFactor3;
-            rM *= energyFactor3;
-            rR *= energyFactor3;
-
-            float delta = interpolatePeak (rL, rM, rR);
-            if (delta != 0.0f)
-            {
-                // Convert from candidate index delta to frequency delta.
-                // Candidates are logarithmically spaced: f * 2^(1/48) per step.
-                pitch *= std::pow (2.0f, delta / 48.0f);
-            }
+            // Convert from candidate index delta to frequency delta.
+            // Candidates are logarithmically spaced: f * 2^(1/48) per step.
+            pitch *= std::pow (2.0f, delta / 48.0f);
         }
     }
 

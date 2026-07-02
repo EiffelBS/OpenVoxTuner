@@ -360,7 +360,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             "auto_scroll", "Auto Scroll", true)
                       , std::make_unique<juce::AudioParameterChoice> (
                             "pitch_detector", "Pitch Detector",
-                            juce::StringArray { "YIN", "SWIPE'/PYIN (disabled)" }, 0)
+                            juce::StringArray { "YIN", "SWIPE'" }, 0)
                       , std::make_unique<juce::AudioParameterBool> (
                             "reverb_enable", "Reverb Enable", false)
                       , std::make_unique<juce::AudioParameterFloat> (
@@ -407,10 +407,10 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         customParam[i] = parameters.getRawParameterValue (id);
     }
 
-    // Instantiates DSP modules.
-    // YIN only: SWIPE' and PYIN are disabled due to heap issues
-    // that require a debugger to resolve. See docs/pitch-detection-rollback-guide.md.
-    pitchDetectors[0] = createDetector (0);
+    // Instantiates DSP modules — both YIN and SWIPE' are prepared
+    // at startup so switching is instant and lock-free.
+    pitchDetectors[0] = createDetector (0); // YIN
+    pitchDetectors[1] = createDetector (1); // SWIPE'
     activePitchDetector.store (pitchDetectors[0].get());
     activeDetectorMode = 0;
     scaleQuantizer   = std::make_unique<atdsp::ScaleQuantizer>();
@@ -626,7 +626,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // === PITCH DETECTOR SWITCHING (lock-free atomic swap) ===
     {
         int requestedMode = (detectorParam != nullptr) ? static_cast<int>(detectorParam->load()) : 0;
-        if (requestedMode > 0) requestedMode = 1; // only YIN(0) and SWIPE'(1) active
+        if (requestedMode > 0) requestedMode = 1; // clamp to 0/1 (YIN / SWIPE')
         if (requestedMode != activeDetectorMode)
         {
             auto* newDetector = pitchDetectors[requestedMode].get();
@@ -1158,6 +1158,23 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    // Save input snapshot BEFORE pitchShifter modifies buffer in-place,
+    // so shifted harmony voices can read from the original (un-formanted) signal.
+    {
+        int typeVal = static_cast<int>((harmonyTypeParam != nullptr) ? harmonyTypeParam->load() : 0);
+        bool harmonyEn = (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f);
+        bool useVoice = (harmonyUseVoiceParam != nullptr) ? (harmonyUseVoiceParam->load() > 0.5f) : false;
+        if (typeVal != 0 && harmonyEn && useVoice)
+        {
+            if (synthWorkBuffer.getNumChannels() != buffer.getNumChannels()
+                || synthWorkBuffer.getNumSamples() != buffer.getNumSamples())
+                synthWorkBuffer.setSize (buffer.getNumChannels(), buffer.getNumSamples(), false, true, true);
+            synthWorkBuffer.copyFrom (0, 0, buffer, 0, 0, buffer.getNumSamples());
+            if (buffer.getNumChannels() > 1)
+                synthWorkBuffer.copyFrom (1, 0, buffer, 1, 0, buffer.getNumSamples());
+        }
+    }
+
     pitchShifter->process (buffer, ratio, userFormantRatio, f0_in);
 
     // Read global grain event counter signaled by PitchShifter
@@ -1216,7 +1233,6 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // 1) Shift tuned voice into harmony notes for the first N voices
         if (useVoiceLocal)
         {
-            const float userFormantRatioLocal = std::pow (2.0f, ((formantEnableParam && formantParam) ? formantParam->load() : 0.0f) / 12.0f);
             uint32_t nowH = juce::Time::getMillisecondCounter();
             uint32_t lastH = lastHarmonyLogTime.load();
             if (nowH - lastH > 1000)
@@ -1243,9 +1259,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                 float ratioH = juce::jmax(0.25f, juce::jmin(4.0f, targetHz / safe_f0));
                 if (v < static_cast<int>(shiftedVoicePitchShifters.size()) && shiftedVoicePitchShifters[v] != nullptr)
-                    shiftedVoicePitchShifters[v]->process (buffer, tmp, ratioH, userFormantRatioLocal, safe_f0);
+                    shiftedVoicePitchShifters[v]->process (synthWorkBuffer, tmp, ratioH, 1.0f, safe_f0);
                 else
-                    pitchShifter->process (buffer, tmp, ratioH, userFormantRatioLocal, safe_f0);
+                    pitchShifter->process (synthWorkBuffer, tmp, ratioH, 1.0f, safe_f0);
 
                 if (v == 0)
                 {
@@ -1687,10 +1703,12 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
     return lastInputPitch.load();
 }
 
-// === Pitch detector factory (YIN only — SWIPE'/PYIN disabled) ===
+// === Pitch detector factory (YIN mode=0, SWIPE' mode=1) ===
 
-std::unique_ptr<atdsp::IPitchDetector> OpenVoxTunerAudioProcessor::createDetector (int /*mode*/)
+std::unique_ptr<atdsp::IPitchDetector> OpenVoxTunerAudioProcessor::createDetector (int mode)
 {
+    if (mode == 1)
+        return std::make_unique<atdsp::SwipePitchDetector>();
     return std::make_unique<atdsp::YinPitchDetector>();
 }
 
