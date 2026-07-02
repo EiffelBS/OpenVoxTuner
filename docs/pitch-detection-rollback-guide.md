@@ -1,5 +1,7 @@
 # Pitch Detection Rollback Guide — YIN / SWIPE' / PYIN
 
+> **Status update (2026-07-02):** PYIN has been permanently removed due to unresolved memory crashes. SWIPE' has been re-enabled and optimized (energy calculation extracted from the candidate loop, dead code removed in interpolation). See `docs/changelogs/changelog-2026-07-02.md` for details.
+
 ## Overview
 
 This document describes the pitch detection migration from **YIN** to **SWIPE' and PYIN** and provides the complete procedure to roll back to YIN if the new algorithms exhibit critical issues in production.

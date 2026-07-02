@@ -5,7 +5,7 @@
 //
 // References:
 //   YIN:  de Cheveigne & Kawahara, J. Acoust. Soc. Am. 111 (4), 2002
-//   SWIPE: Camacho & Harris, IEEE Trans. ASLP, 2008
+//   SWIPE': Camacho & Harris, IEEE Trans. ASLP, 2008
 
 #pragma once
 

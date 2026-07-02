@@ -1,6 +1,6 @@
 # OpenVoxTuner
 
-**OpenVoxTuner** is a real-time pitch correction and harmony generation VST3/AU audio plugin built with JUCE 8 (C++17). It features a graphic pitch curve editor (Melodyne-style), ARA2 integration, a modular pitch detection pipeline (YIN / SWIPE' / PYIN), and PSOLA-based pitch shifting with formant preservation.
+**OpenVoxTuner** is a real-time pitch correction and harmony generation VST3/AU audio plugin built with JUCE 8 (C++17). It features a graphic pitch curve editor (Melodyne-style), ARA2 integration, a modular pitch detection pipeline (YIN / SWIPE'), and PSOLA-based pitch shifting with formant preservation.
 
 ## Features
 
@@ -24,8 +24,8 @@
 
 - **Modular pipeline** — abstract `IPitchDetector` interface with runtime switching
 - **YIN** — time-domain autocorrelation (original, fast, low CPU)
-- **SWIPE'** — spectral algorithm (FFT-based, robust on noisy vocals) *(source-ready)*
-- **PYIN** — probabilistic YIN with HMM Viterbi smoothing *(source-ready)*
+- **SWIPE'** — spectral algorithm (FFT-based, robust on noisy vocals)
+- **PYIN** — probabilistic YIN with HMM Viterbi smoothing *(removed — see changelog 2026-07-02)*
 
 ### ARA2 Integration
 
@@ -61,7 +61,6 @@
 │  │  ├─ IPitchDetector.h         # Abstract pitch detector interface
 │  │  ├─ YinPitchDetector.*       # YIN algorithm
 │  │  ├─ SwipePitchDetector.*     # SWIPE' spectral algorithm
-│  │  ├─ PyinPitchDetector.*      # PYIN probabilistic algorithm
 │  │  ├─ ScaleQuantizer.*         # Scale quantization engine
 │  │  ├─ PitchShifter.*           # PSOLA pitch shifter
 │  │  ├─ RetargetEnvelope.*       # Speed envelope smoother

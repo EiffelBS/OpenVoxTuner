@@ -72,7 +72,7 @@ private:
     int fftOrder = 10;
     std::unique_ptr<juce::dsp::FFT> fft;
     juce::HeapBlock<float> fftWindow;   // for windowing
-    juce::HeapBlock<float> fftRealBuffer; // real-only FFT: [fftSize]
+    juce::HeapBlock<float> fftRealBuffer; // real-only FFT: [2 * fftSize] (packed + scratch)
     juce::HeapBlock<float> spectrumMag; // magnitude spectrum (halfSize + 1)
 
     // Kernel cache (rebuilt on prepare, reused per detectPitch).

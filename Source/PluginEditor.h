@@ -44,7 +44,7 @@ private:
     juce::Label    keyLabel, scaleLabel;
     juce::ComboBox latencyModeBox;
     juce::Label    latencyModeLabel;
-    // Pitch detector selector (YIN / SWIPE' / PYIN).
+    // Pitch detector selector (YIN / SWIPE').
     juce::ComboBox detectorBox;
     juce::Label    detectorLabel;
 
