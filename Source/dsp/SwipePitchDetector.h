@@ -91,6 +91,11 @@ private:
     int stableCount = 0;
     static constexpr int STABLE_THRESHOLD = 3;
 
+    // Kernel configuration: limit to first 6 harmonics (SWIPE' style).
+    // Using more harmonics causes octave-up false positives because the
+    // kernel at 2xf0 matches the voice's even harmonics.
+    static constexpr int MAX_KERNEL_HARMONICS = 6;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SwipePitchDetector)
 };
 
