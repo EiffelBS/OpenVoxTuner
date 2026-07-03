@@ -1145,9 +1145,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     b1.removeFromTop(6); // spacer
     
-    // Bottom: Keyboard
-    // Keep piano keys proportions realistically (e.g., 160px wide for 1 octave)
-    scaleKeyboard.setBounds(b1.removeFromTop(50).withSizeKeepingCentre(160, 50));
+    // Bottom: Keyboard — ensure enough height for clickable keys
+    scaleKeyboard.setBounds(b1.removeFromTop(55).withSizeKeepingCentre(180, 55));
 }
 
 void OpenVoxTunerAudioProcessorEditor::timerCallback()
