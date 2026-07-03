@@ -10,7 +10,6 @@
 #include <array>
 #include "dsp/IPitchDetector.h"
 #include "dsp/YinPitchDetector.h"
-#include "dsp/SwipePitchDetector.h"
 #include "dsp/ScaleQuantizer.h"
 #include "dsp/HarmonyEngine.h"
 #include "dsp/PitchShifter.h"
@@ -162,15 +161,15 @@ private:
     // automate them individually.
     std::atomic<float>* customParam[12] = { nullptr };
 
-    // Pitch detector selection parameter (0=YIN, 1=SWIPE').
+    // Pitch detector selection parameter (0=YIN).
     std::atomic<float>* detectorParam = nullptr;
 
     // === DSP Modules (Phase 1 + 4) ===
-    // Both YIN and SWIPE' are created at startup for instant switching.
-    std::unique_ptr<atdsp::IPitchDetector> pitchDetectors[2];
+    // YIN pitch detector.
+    std::unique_ptr<atdsp::IPitchDetector> pitchDetectors[1];
     std::atomic<atdsp::IPitchDetector*>    activePitchDetector { nullptr };
     int activeDetectorMode = 0;
-    std::unique_ptr<atdsp::IPitchDetector> createDetector (int mode);
+    std::unique_ptr<atdsp::IPitchDetector> createDetector();
     std::unique_ptr<atdsp::ScaleQuantizer>    scaleQuantizer;
     std::unique_ptr<atdsp::PitchShifter>      pitchShifter;
     std::unique_ptr<atdsp::HarmonyEngine>     harmonyEngine;

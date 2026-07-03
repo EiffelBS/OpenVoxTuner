@@ -92,49 +92,26 @@ void SwipePitchDetector::buildKernel (float freq, float* kernel, int fftSz)
 
     const int halfSize = fftSz / 2 + 1;
 
-    // Build a sawtooth-wave kernel limited to the first MAX_KERNEL_HARMONICS
-    // harmonics. This is critical: using too many harmonics lets the kernel
-    // at 2xf0 match the voice's even harmonics, causing octave-up errors.
-    // SWIPE' (Camacho & Harris) uses 4-5 harmonics for this reason.
-    for (int bin = 0; bin < halfSize; ++bin)
+    // Zero out the kernel.
+    std::memset (kernel, 0, (size_t)halfSize * sizeof (float));
+
+    // SWIPE' kernel: place sawtooth weights (1/h) at the EXACT harmonic
+    // positions. No Gaussian spread. The kernel is just a set of discrete
+    // weights at bin positions corresponding to h*f for h=1..H.
+    // This is critical: spreading kernel energy over multiple bins with
+    // Gaussians lets a wrong candidate's harmonics "catch" energy from
+    // nearby voice harmonics, artificially inflating the correlation.
+    for (int h = 1; h <= MAX_KERNEL_HARMONICS; ++h)
     {
-        float binFreq = (float)(bin * sampleRate / fftSz);
+        float harmFreq = freq * (float)h;
+        int bin = (int)std::round (harmFreq * fftSz / sampleRate);
+        if (bin >= halfSize) break;
 
-        // Find the nearest harmonic of the candidate pitch.
-        float harmIdx = binFreq / freq;
-        if (harmIdx < 0.5f)
-        {
-            // Below the fundamental: no energy expected.
-            kernel[bin] = 0.0f;
-            continue;
-        }
-
-        int nearest = std::max (1, (int)std::round (harmIdx));
-
-        // KEY FIX: limit to first few harmonics. Higher harmonics alias
-        // the kernel at 2xf0 onto the voice's even harmonics, causing
-        // octave-up false positives.
-        if (nearest > MAX_KERNEL_HARMONICS)
-        {
-            kernel[bin] = 0.0f;
-            continue;
-        }
-
-        float harmFreq = freq * nearest;
-        float binDistance = std::abs (binFreq - harmFreq) * fftSz / sampleRate;
-
-        // Gaussian-like weight around each harmonic.
-        // Width scales with harmonic number (wider at higher harmonics).
-        float spread = 0.5f + 0.25f * (float)nearest;
-        float weight = std::exp (-binDistance * binDistance / (2.0f * spread * spread));
-
-        // Amplitude = 1 / harmonic number (sawtooth envelope).
-        float amplitude = 1.0f / (float)nearest;
-
-        kernel[bin] = weight * amplitude;
+        // Sawtooth amplitude: 1/h
+        kernel[bin] = 1.0f / (float)h;
     }
 
-    // Normalize kernel to unit energy.
+    // Normalize kernel to unit energy (L2 norm = 1).
     float energy = 0.0f;
     for (int bin = 0; bin < halfSize; ++bin)
         energy += kernel[bin] * kernel[bin];
@@ -148,39 +125,41 @@ void SwipePitchDetector::buildKernel (float freq, float* kernel, int fftSz)
 
 float SwipePitchDetector::computeCorrelation (const float* spectrum,
                                                const float* kernel,
-                                               int halfSize)
+                                               int halfSize,
+                                               float signalEnergy)
 {
-    // Pearson correlation between spectrum magnitude and kernel.
-    float sumS = 0.0f, sumK = 0.0f;
-    float sumSS = 0.0f, sumKK = 0.0f, sumSK = 0.0f;
-    int count = 0;
+    // SWIPE' spectral correlation: dot product of spectrum(k) * kernel(k)
+    // normalized by total spectrum energy. The kernel is unit-normalized
+    // (L2=1) and zero everywhere except at exact harmonic positions.
+    //
+    // The numerator sum(s[k] * kernel[k]) captures energy at the candidate's
+    // harmonic positions. The denominator sqrt(signalEnergy) normalizes by
+    // the TOTAL signal energy across ALL bins. This means a candidate whose
+    // harmonics align with strong voice energy scores high, while one whose
+    // harmonics miss the voice energy scores low — even if the few bins it
+    // does hit have some residual energy from formants or spectral leakage.
+    float sumSK = 0.0f;
 
     for (int bin = 1; bin < halfSize; ++bin)
     {
-        float s = spectrum[bin];
-        float k = kernel[bin];
-
-        // Only evaluate bins where kernel has meaningful energy.
-        if (k < 0.01f) continue;
-
-        sumS  += s;     sumK  += k;
-        sumSS += s * s; sumKK += k * k;
-        sumSK += s * k;
-        ++count;
+        const float k = kernel[bin];
+        if (k == 0.0f) continue;
+        sumSK += spectrum[bin] * k;
     }
 
-    if (count < 3)
+    if (signalEnergy < 1e-10f)
         return 0.0f;
 
-    float n = (float)count;
-    float varS = sumSS - sumS * sumS / n;
-    float varK = sumKK - sumK * sumK / n;
-    float cov  = sumSK - sumS * sumK / n;
+    const float denom = std::sqrt (signalEnergy);
+    if (denom < 1e-10f || sumSK < 1e-10f)
+        return 0.0f;
 
-    float denom = std::sqrt (varS * varK);
-    if (denom < 1e-10f) return 0.0f;
+    // Normalize by total spectrum energy.
+    // At full voice level, signalEnergy ~ 500-5000, giving score in 0..~0.8.
+    // The energy scale penalty suppresses near-silence noise floors.
+    const float energyScale = juce::jmin (1.0f, signalEnergy / 100.0f);
 
-    return cov / denom;
+    return (sumSK / denom) * energyScale;
 }
 
 float SwipePitchDetector::interpolatePeak (float y1, float y2, float y3)
@@ -236,28 +215,25 @@ float SwipePitchDetector::detectPitch (const float* samples, int numSamples)
     float signalEnergy = 0.0f;
     for (int bin = 1; bin < halfSize; ++bin)
         signalEnergy += spectrumMag[bin] * spectrumMag[bin];
-    const float energyFactor = juce::jmin (1.0f, signalEnergy / (float)fftSize);
 
     // Search over candidate pitches for best correlation.
     int bestIdx = -1;
     float bestCorr = -1.0f;
     for (int c = 0; c < numCandidates; ++c)
     {
+        // computeCorrelation returns 0-1 SWIPE'-style spectral correlation.
         float corr = computeCorrelation (spectrumMag.getData(),
                                          kernelCachePtrs[c],
-                                         halfSize);
-        // Weight by signal energy coherence: penalize very low energy.
-        corr *= energyFactor;
+                                         halfSize,
+                                         signalEnergy);
 
-        // Bias toward lower frequencies: fundamental is preferred over harmonics.
-        // Using linear bias (not sqrt) to strongly suppress octave-up errors.
-        // At 100Hz -> 1.0, at 200Hz -> 0.5, at 400Hz -> 0.25, at 800Hz -> 0.125.
-        // This compensates for the fact that voice harmonics are often stronger
-        // than the fundamental.
-        const float freqBias = 100.0f / (100.0f + candidateFreqs[c]);
+        // Very mild freq bias: at 1000Hz -> *0.95, at 30Hz -> *1.0.
+        // The spectral correlation is already naturally fair, this just
+        // gives a slight nudge toward lower frequencies to break ties.
+        const float freqBias = 1.0f - 0.05f * candidateFreqs[c] / 1000.0f;
         corr *= freqBias;
 
-        if (corr > bestCorr && corr > threshold * 0.5f)
+        if (corr > bestCorr && corr > threshold)
         {
             bestCorr = corr;
             bestIdx = c;
@@ -280,17 +256,12 @@ float SwipePitchDetector::detectPitch (const float* samples, int numSamples)
         const int idxL = bestIdx - 1;
         const int idxR = bestIdx + 1;
 
-        // Compute correlation for neighbours (reuse cached kernel).
+        // computeCorrelation returns 0-1 SWIPE'-style spectral correlation.
         float rL = computeCorrelation (spectrumMag.getData(),
-                                       kernelCachePtrs[idxL], halfSize);
+                                       kernelCachePtrs[idxL], halfSize, signalEnergy);
         float rM = bestCorr;
         float rR = computeCorrelation (spectrumMag.getData(),
-                                       kernelCachePtrs[idxR], halfSize);
-
-        // Apply the same energy weighting.
-        rL *= energyFactor;
-        rM *= energyFactor;
-        rR *= energyFactor;
+                                       kernelCachePtrs[idxR], halfSize, signalEnergy);
 
         const float delta = interpolatePeak (rL, rM, rR);
         if (delta != 0.0f)
