@@ -5,7 +5,7 @@
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.22)
-project(OpenVoxTuner VERSION 0.1.1 LANGUAGES CXX)
+project(OpenVoxTuner VERSION 0.1.0 LANGUAGES CXX)
 
 # Standard C++17 (Projucer utilise ce standard pour les plugins).
 set(CMAKE_CXX_STANDARD 17)
@@ -72,7 +72,7 @@ juce_add_plugin(OpenVoxTuner
     NEEDS_MIDI_INPUT TRUE
     IS_ARA_EFFECT TRUE             # Active le support ARA2 (Audio Random Access)
     PRODUCT_NAME "OpenVoxTuner"
-    VERSION 0.1.1
+    VERSION 0.1.0
     ICON_BIG "assets/icon.png"
     ICON_SMALL "assets/icon.png")
 

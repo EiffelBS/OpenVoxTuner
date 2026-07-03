@@ -91,11 +91,11 @@ void SwipePitchDetector::buildKernel (float freq, float* kernel, int fftSz)
         return;
 
     const int halfSize = fftSz / 2 + 1;
-    const float fundamentalBin = (float)(freq * fftSz / sampleRate);
 
-    // Build a sawtooth-wave kernel in the frequency domain.
-    // A sawtooth has harmonics at k * f0 with amplitude 1/k.
-    // We compute the correlation mask up to Nyquist (halfSize bins).
+    // Build a sawtooth-wave kernel limited to the first MAX_KERNEL_HARMONICS
+    // harmonics. This is critical: using too many harmonics lets the kernel
+    // at 2xf0 match the voice's even harmonics, causing octave-up errors.
+    // SWIPE' (Camacho & Harris) uses 4-5 harmonics for this reason.
     for (int bin = 0; bin < halfSize; ++bin)
     {
         float binFreq = (float)(bin * sampleRate / fftSz);
@@ -110,6 +110,16 @@ void SwipePitchDetector::buildKernel (float freq, float* kernel, int fftSz)
         }
 
         int nearest = std::max (1, (int)std::round (harmIdx));
+
+        // KEY FIX: limit to first few harmonics. Higher harmonics alias
+        // the kernel at 2xf0 onto the voice's even harmonics, causing
+        // octave-up false positives.
+        if (nearest > MAX_KERNEL_HARMONICS)
+        {
+            kernel[bin] = 0.0f;
+            continue;
+        }
+
         float harmFreq = freq * nearest;
         float binDistance = std::abs (binFreq - harmFreq) * fftSz / sampleRate;
 
@@ -240,8 +250,11 @@ float SwipePitchDetector::detectPitch (const float* samples, int numSamples)
         corr *= energyFactor;
 
         // Bias toward lower frequencies: fundamental is preferred over harmonics.
-        // Weight = 1/sqrt(freq/100). At 100Hz -> 1.0, at 400Hz (4th harmonic) -> 0.5.
-        const float freqBias = 1.0f / std::sqrt (candidateFreqs[c] / 100.0f);
+        // Using linear bias (not sqrt) to strongly suppress octave-up errors.
+        // At 100Hz -> 1.0, at 200Hz -> 0.5, at 400Hz -> 0.25, at 800Hz -> 0.125.
+        // This compensates for the fact that voice harmonics are often stronger
+        // than the fundamental.
+        const float freqBias = 100.0f / (100.0f + candidateFreqs[c]);
         corr *= freqBias;
 
         if (corr > bestCorr && corr > threshold * 0.5f)
