@@ -761,6 +761,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     humanizeSlider.setRange (0.0, 50.0, 1.0);
     humanizeSlider.setTooltip ("Random pitch fluctuations in cents, added when correction is applied.");
 
+    // FlexTune and Humanize: no textbox, smaller inline labels
+    flexTuneLabel.setText ("Flex", juce::dontSendNotification);
+    flexTuneSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    humanizeLabel.setText ("Human", juce::dontSendNotification);
+    humanizeSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+
     // Correction Mode toggle button
     correctionModeButton.setButtonText ("Modern");
     correctionModeButton.setClickingTogglesState (true);
@@ -986,8 +992,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // === Visualizer (top) and Graphic Editor (middle) ===
     const int pad = 10;
-    // Reserve 155 px for the bottom area (controls + scale keyboard)
-    auto centerArea = bounds.removeFromTop (bounds.getHeight() - 155);
+    // Reserve 170 px for the bottom area (controls + scale keyboard)
+    auto centerArea = bounds.removeFromTop (bounds.getHeight() - 170);
     tabbedComponent.setBounds (centerArea.reduced (pad));
     
     // Graphic Mode specific tools aligned to the right of the tab bar
@@ -1033,40 +1039,40 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // --- Block 2 : Correction Knobs (Left) ---
     auto b2 = block2Bounds.reduced(10);
-    // Top row: 2 big knobs (Speed, Amount)
-    const int bigKnobsHeight = 65;
+    // Top row: 2 big knobs (Speed, Amount) — 3x bigger than before
+    const int bigKnobsHeight = 90;
     auto bigArea = b2.removeFromTop (bigKnobsHeight);
 
-    const int knobPadding = 6;
+    const int knobPadding = 8;
     int bigKnobWidth = (bigArea.getWidth() - knobPadding) / 2;
 
     // Speed (big)
     auto bSpeed = bigArea.removeFromLeft(bigKnobWidth);
-    speedLabel.setBounds(bSpeed.removeFromTop(16));
+    speedLabel.setBounds(bSpeed.removeFromTop(18));
     speedSlider.setBounds(bSpeed);
     bigArea.removeFromLeft(knobPadding);
 
     // Amount (big)
     auto bAmount = bigArea;
-    amountLabel.setBounds(bAmount.removeFromTop(16));
+    amountLabel.setBounds(bAmount.removeFromTop(18));
     amountSlider.setBounds(bAmount);
 
-    // Bottom row: 2 smaller knobs (FlexTune, Humanize)
+    // Bottom row: FlexTune + Humanize on one line, no textbox, label + knob side by side
     b2.removeFromTop (4);
-    const int smallKnobsHeight = 40;
-    auto smallArea = b2.removeFromTop (smallKnobsHeight);
-    int smallKnobWidth = (smallArea.getWidth() - knobPadding) / 2;
+    const int smallRowHeight = 50;
+    auto smallArea = b2.removeFromTop (smallRowHeight);
+    int smallHalf = (smallArea.getWidth() - knobPadding) / 2;
 
-    // FlexTune (small)
-    auto bFlex = smallArea.removeFromLeft(smallKnobWidth);
-    flexTuneLabel.setBounds(bFlex.removeFromTop(14));
-    flexTuneSlider.setBounds(bFlex);
+    // FlexTune: label "Flex" + knob on same line
+    auto flexCol = smallArea.removeFromLeft(smallHalf);
+    flexTuneLabel.setBounds (flexCol.removeFromLeft(30));
+    flexTuneSlider.setBounds (flexCol);
     smallArea.removeFromLeft(knobPadding);
 
-    // Humanize (small)
-    auto bHuman = smallArea;
-    humanizeLabel.setBounds(bHuman.removeFromTop(14));
-    humanizeSlider.setBounds(bHuman);
+    // Humanize: label + knob on same line
+    auto humanCol = smallArea;
+    humanizeLabel.setBounds (humanCol.removeFromLeft(50));
+    humanizeSlider.setBounds (humanCol);
 
     // --- Block 4 : Effects (Formant + Reverb, side by side) ---
     auto b4 = block4Bounds.reduced(10);
