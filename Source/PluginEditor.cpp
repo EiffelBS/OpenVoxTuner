@@ -966,8 +966,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // === Visualizer (top) and Graphic Editor (middle) ===
     const int pad = 10;
-    // Reserve 140 px for the bottom area (controls + scale keyboard)
-    auto centerArea = bounds.removeFromTop (bounds.getHeight() - 140);
+    // Reserve 180 px for the bottom area (controls + scale keyboard)
+    auto centerArea = bounds.removeFromTop (bounds.getHeight() - 180);
     tabbedComponent.setBounds (centerArea.reduced (pad));
     
     // Graphic Mode specific tools aligned to the right of the tab bar
