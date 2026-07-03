@@ -285,6 +285,7 @@ private:
     // Random generator for Humanize effect.
     juce::Random random;
     float currentHumanizeCents = 0.0f;
+    float currentFlexTuneAmount = 1.0f;
 
     // Debug: remember previous bypass state to log changes
     std::atomic<int> prevBypassState { 0 };
