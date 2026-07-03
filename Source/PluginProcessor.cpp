@@ -1024,42 +1024,44 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         // FlexTune: gradual blend between correction and pass-through.
         // When the input pitch is within the FlexTune range (cents) of the
-        // target, the correction amount is smoothly reduced. At 0 cents
-        // from target, no correction. At FlexTune cents or more, full
-        // correction. This preserves natural microtonal expression while
-        // still providing autotune when the singer strays.
+        // target note, the correction intensity (Amount) is smoothly reduced.
+        // At 0 cents from target, Amount drops to 0 (no correction).
+        // At FlexTune cents or more, full Amount is applied.
+        // This preserves natural microtonal expression while still
+        // providing autotune when the singer strays significantly.
         float flexTuneCents = (flexTuneParam != nullptr) ? flexTuneParam->load() : 0.0f;
+        // Store the flexTune multiplier for later use in Amount calculation.
+        // Default: 1.0 = full correction. Reduced to 0.0 when input is
+        // perfectly on the target note.
+        currentFlexTuneAmount = 1.0f;
         if (flexTuneCents > 1.0f && f0_in > 0.0f && f0_target > 0.0f)
         {
             float centsDiff = 12.0f * std::abs (std::log2 (f0_in / f0_target));
-            // Blend factor: 0 = fully corrected, 1 = fully uncorrected
-            float blend = 1.0f - juce::jmin (1.0f, centsDiff / flexTuneCents);
-            // Blend towards the input pitch: at blend=1 (centsDiff=0),
-            // f0_target = f0_in (pass-through). At blend=0 (centsDiff >= flexTuneCents),
-            // f0_target stays quantized (full correction).
-            f0_target = f0_target + blend * (f0_in - f0_target);
+            // Factor: 0 = no correction (perfectly on target), 1 = full correction
+            // Smooth transition: linearly ramps from 0 at centsDiff=0 to 1 at centsDiff>=flexTuneCents
+            currentFlexTuneAmount = juce::jmin (1.0f, centsDiff / flexTuneCents);
         }
 
         f0_out = f0_target;
         targetRatio = f0_target / f0_in;
 
         // Humanize: add subtle, smoothed pitch fluctuations (in cents).
-        // Max range is 0-8 cents (about 1/6 of a semitone) to keep it
-        // natural. The random value is smoothed via a low-pass filter
-        // to avoid harsh per-frame jumps.
+        // Max range is 0-8 cents (about 1/6 of a semitone) at max setting.
+        // The random value is heavily smoothed via a low-pass filter
+        // (~100ms time constant) to avoid harsh per-frame jumps.
         float humanizeAmt = (humanizeParam != nullptr) ? humanizeParam->load() : 0.0f;
-        if (humanizeAmt > 0.5f && f0_target > 0.0f && f0_target != f0_in)
+        if (humanizeAmt > 1.0f && f0_target > 0.0f && f0_target != f0_in)
         {
-            float targetCents = (random.nextFloat() - 0.5f) * 2.0f * humanizeAmt * 0.16f;
-            // Smooth the random variation (80% previous, 20% new)
-            currentHumanizeCents = currentHumanizeCents * 0.8f + targetCents * 0.2f;
+            float targetCents = (random.nextFloat() - 0.5f) * 2.0f * humanizeAmt * 0.08f;
+            // Smooth the random variation (95% previous, 5% new)
+            currentHumanizeCents = currentHumanizeCents * 0.95f + targetCents * 0.05f;
             f0_target *= std::pow (2.0f, currentHumanizeCents / 12.0f);
             targetRatio = f0_target / f0_in;
         }
         else
         {
             // Decay the humanize smoothly when not active
-            currentHumanizeCents *= 0.9f;
+            currentHumanizeCents *= 0.95f;
         }
 
         // Calcul de l'offset en cents between pitch d'entree et pitch quantife.
@@ -1148,8 +1150,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         // === END HARMONY PROCESSING ===
 
-        // Application de l'intensite (Amount), modulated by correction mode.
+        // Application de l'intensite (Amount), modulated by FlexTune and correction mode.
         float amount = (amountParam != nullptr) ? amountParam->load() : 1.0f;
+        // FlexTune modulates Amount: when on-target, Amount is reduced.
+        amount *= currentFlexTuneAmount;
         int modeCorr = (correctionModeParam != nullptr) ? static_cast<int>(correctionModeParam->load()) : 0;
         if (modeCorr == 1) // Transparent: 20% less correction
             amount *= 0.8f;
