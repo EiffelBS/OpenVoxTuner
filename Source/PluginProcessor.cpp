@@ -1022,33 +1022,44 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             f0_target = scaleQuantizer->quantize (f0_in);
         }
 
-        // FlexTune: deadband around the target note (cents).
-        // If the input pitch is within the deadband of the target, no
-        // correction is applied — preserves natural microtonal expression
-        // while still snapping to the target when the singer strays farther.
+        // FlexTune: gradual blend between correction and pass-through.
+        // When the input pitch is within the FlexTune range (cents) of the
+        // target, the correction amount is smoothly reduced. At 0 cents
+        // from target, no correction. At FlexTune cents or more, full
+        // correction. This preserves natural microtonal expression while
+        // still providing autotune when the singer strays.
         float flexTuneCents = (flexTuneParam != nullptr) ? flexTuneParam->load() : 0.0f;
-        if (flexTuneCents > 0.5f && f0_in > 0.0f && f0_target > 0.0f)
+        if (flexTuneCents > 1.0f && f0_in > 0.0f && f0_target > 0.0f)
         {
             float centsDiff = 12.0f * std::abs (std::log2 (f0_in / f0_target));
-            if (centsDiff < flexTuneCents)
-                f0_target = f0_in; // pass-through within deadband
+            // Blend factor: 0 = fully corrected, 1 = fully uncorrected
+            float blend = 1.0f - juce::jmin (1.0f, centsDiff / flexTuneCents);
+            // Blend towards the input pitch: at blend=1 (centsDiff=0),
+            // f0_target = f0_in (pass-through). At blend=0 (centsDiff >= flexTuneCents),
+            // f0_target stays quantized (full correction).
+            f0_target = f0_target + blend * (f0_in - f0_target);
         }
 
         f0_out = f0_target;
         targetRatio = f0_target / f0_in;
 
-        // Humanize: add small random pitch fluctuations (in cents) to
-        // simulate the natural instability of a human voice. This is
-        // applied AFTER FlexTune so the deadband is respected, but only
-        // when actual correction occurs (f0_target differs from f0_in).
-        // When FlexTune passes through (f0_target == f0_in), no humanize
-        // is needed — the singer's own micro-variations are preserved.
+        // Humanize: add subtle, smoothed pitch fluctuations (in cents).
+        // Max range is 0-8 cents (about 1/6 of a semitone) to keep it
+        // natural. The random value is smoothed via a low-pass filter
+        // to avoid harsh per-frame jumps.
         float humanizeAmt = (humanizeParam != nullptr) ? humanizeParam->load() : 0.0f;
         if (humanizeAmt > 0.5f && f0_target > 0.0f && f0_target != f0_in)
         {
-            float randomCents = (random.nextFloat() - 0.5f) * 2.0f * humanizeAmt;
-            f0_target *= std::pow (2.0f, randomCents / 12.0f);
+            float targetCents = (random.nextFloat() - 0.5f) * 2.0f * humanizeAmt * 0.16f;
+            // Smooth the random variation (80% previous, 20% new)
+            currentHumanizeCents = currentHumanizeCents * 0.8f + targetCents * 0.2f;
+            f0_target *= std::pow (2.0f, currentHumanizeCents / 12.0f);
             targetRatio = f0_target / f0_in;
+        }
+        else
+        {
+            // Decay the humanize smoothly when not active
+            currentHumanizeCents *= 0.9f;
         }
 
         // Calcul de l'offset en cents between pitch d'entree et pitch quantife.
@@ -1137,8 +1148,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         // === END HARMONY PROCESSING ===
 
-        // Application de l'intensite (Amount).
-        const float amount = amountParam->load();
+        // Application de l'intensite (Amount), modulated by correction mode.
+        float amount = (amountParam != nullptr) ? amountParam->load() : 1.0f;
+        int modeCorr = (correctionModeParam != nullptr) ? static_cast<int>(correctionModeParam->load()) : 0;
+        if (modeCorr == 1) // Transparent: 20% less correction
+            amount *= 0.8f;
         targetRatio = 1.0f + (targetRatio - 1.0f) * amount;
         targetRatio = juce::jlimit (0.25f, 4.0f, targetRatio);
     }
@@ -1609,9 +1623,9 @@ void OpenVoxTunerAudioProcessor::syncParameters()
     int modeVal = (correctionModeParam != nullptr) ? static_cast<int>(correctionModeParam->load()) : 0;
     if (modeVal == 1) // Transparent
     {
-        // Transparent mode: ensure minimum speed of 30ms so transitions
-        // between notes are never harsh. The user can still go higher,
-        // but the floor prevents the "robot-T-Pain" effect.
+        // Transparent mode: speed floor at 30ms + reduce effective Amount
+        // by 20% so the correction is gentler and more natural-sounding
+        // even at default settings.
         speed = juce::jmax (30.0f, speed);
     }
     // Mode Modern (0): no restriction — user speed is applied as-is.
