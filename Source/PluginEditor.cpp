@@ -451,7 +451,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // FlexTune / Humanize / Correction Mode attachments
     flexTuneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "flex_tune", flexTuneSlider);
     humanizeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "humanize", humanizeSlider);
-    correctionModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getParameters(), "correction_mode", correctionModeBox);
+    correctionModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "correction_mode", correctionModeButton);
 
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
 
@@ -738,7 +738,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     reverbEnableButton.setTooltip ("Enable/disable reverb effect.");
     addAndMakeVisible (reverbEnableButton);
 
-    // FlexTune / Humanize / Correction Mode
+    // FlexTune / Humanize knobs
     setupKnob (flexTuneSlider, &flexTuneLabel, "FlexTune");
     flexTuneSlider.setRange (0.0, 100.0, 1.0);
     flexTuneSlider.setTooltip ("Deadband in cents: input pitch within this range of the target is left uncorrected.");
@@ -747,15 +747,19 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     humanizeSlider.setRange (0.0, 50.0, 1.0);
     humanizeSlider.setTooltip ("Random pitch fluctuations in cents, added when correction is applied.");
 
-    correctionModeLabel.setText ("Mode", juce::dontSendNotification);
-    correctionModeLabel.setJustificationType (juce::Justification::centredLeft);
-    correctionModeLabel.setColour (juce::Label::textColourId, kText);
-    correctionModeLabel.setFont (juce::Font (13.0f, juce::Font::bold));
-    correctionModeBox.addItem ("Modern", 1);
-    correctionModeBox.addItem ("Transparent", 2);
-    correctionModeBox.setTooltip ("Modern = aggressive correction. Transparent = gentler, preserves transitions.");
-    addAndMakeVisible (correctionModeLabel);
-    addAndMakeVisible (correctionModeBox);
+    // Correction Mode toggle button
+    correctionModeButton.setButtonText ("Modern");
+    correctionModeButton.setClickingTogglesState (true);
+    correctionModeButton.setColour (juce::TextButton::buttonColourId, kAccentSoft);
+    correctionModeButton.setColour (juce::TextButton::buttonOnColourId, kAccent);
+    correctionModeButton.setColour (juce::TextButton::textColourOffId, kText);
+    correctionModeButton.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+    correctionModeButton.setTooltip ("Modern = aggressive correction. Transparent = gentler, preserves transitions.");
+    correctionModeButton.onClick = [this] {
+        bool isTransparent = correctionModeButton.getToggleState();
+        correctionModeButton.setButtonText (isTransparent ? "Transparent" : "Modern");
+    };
+    addAndMakeVisible (correctionModeButton);
 
     addAndMakeVisible (scaleKeyboard);
 
@@ -995,8 +999,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto bottomArea = bounds.reduced (pad);
 
     // Layout: Correction (knobs) | Effects (Formant+Reverb) | Scale/Keyboard | Harmony
-    const int knobBlockWidth = 320;
-    const int effectBlockWidth = 160;
+    const int knobBlockWidth = 280;
+    const int effectBlockWidth = 200;
     const int scaleBlockWidth = 260;
     const int blockSpacing = 10;
 
@@ -1045,27 +1049,25 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     humanizeLabel.setBounds(bHuman.removeFromTop(18));
     humanizeSlider.setBounds(bHuman);
 
-    // Correction Mode combo below the knobs — no label, compact height like Scale combo
+    // Correction Mode toggle button below the knobs
     auto modeArea = b2;
-    correctionModeBox.setBounds (modeArea.removeFromTop (26));
+    correctionModeButton.setBounds (modeArea.removeFromTop (26).reduced (0, 2));
 
     // --- Block 4 : Effects (Formant + Reverb, side by side) ---
     auto b4 = block4Bounds.reduced(10);
-    const int effectPadding = 6;
-    int effectHalf = (b4.getWidth() - effectPadding) / 2;
+    int effectHalf = (b4.getWidth() - 6) / 2;
 
     // Formant: toggle + knob (left half)
     auto formantCol = b4.removeFromLeft(effectHalf);
     auto formantToggleArea = formantCol.removeFromTop(20);
     formantEnableButton.setBounds(formantToggleArea);
     formantSlider.setBounds(formantCol);
-    b4.removeFromLeft(effectPadding);
+    b4.removeFromLeft(6);
 
-    // Reverb: toggle + knob (right half)
+    // Reverb: toggle + knob (right half, no label)
     auto reverbCol = b4;
     auto reverbToggleArea = reverbCol.removeFromTop(20);
     reverbEnableButton.setBounds(reverbToggleArea);
-    reverbMixLabel.setBounds (reverbCol.removeFromTop (14));
     reverbMixSlider.setBounds (reverbCol);
 
     // Harmony controls block (rightmost block)
