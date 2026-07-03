@@ -764,7 +764,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // FlexTune and Humanize: no textbox, smaller inline labels
     flexTuneLabel.setText ("Flex", juce::dontSendNotification);
     flexTuneSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-    humanizeLabel.setText ("Human", juce::dontSendNotification);
+    humanizeLabel.setText ("Humanize", juce::dontSendNotification);
     humanizeSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
 
     // Correction Mode toggle button
@@ -1063,28 +1063,28 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto smallArea = b2.removeFromTop (smallRowHeight);
     int smallHalf = (smallArea.getWidth() - knobPadding) / 2;
 
-    // FlexTune: label "Flex" + knob on same line
+    // FlexTune: label "Flex" tight to the left, then knob fills the rest
     auto flexCol = smallArea.removeFromLeft(smallHalf);
-    flexTuneLabel.setBounds (flexCol.removeFromLeft(30));
+    flexTuneLabel.setBounds (flexCol.removeFromLeft(28));
     flexTuneSlider.setBounds (flexCol);
     smallArea.removeFromLeft(knobPadding);
 
-    // Humanize: label + knob on same line
+    // Humanize: label "Humanize" tight to the left, then knob fills the rest
     auto humanCol = smallArea;
-    humanizeLabel.setBounds (humanCol.removeFromLeft(50));
+    humanizeLabel.setBounds (humanCol.removeFromLeft(52));
     humanizeSlider.setBounds (humanCol);
 
-    // --- Block 4 : Effects (Formant + Reverb, side by side) ---
+    // --- Block 4 : Effects (Formant + Reverb, side by side, same big size as Speed/Amount) ---
     auto b4 = block4Bounds.reduced(10);
     int effectHalf = (b4.getWidth() - 6) / 2;
 
-    // Formant: toggle + knob (left half, compact)
+    // Formant: toggle + big knob (left half)
     auto formantCol = b4.removeFromLeft(effectHalf);
     formantEnableButton.setBounds(formantCol.removeFromTop(18));
     formantSlider.setBounds(formantCol);
     b4.removeFromLeft(6);
 
-    // Reverb: toggle + knob (right half, compact, no label)
+    // Reverb: toggle + big knob (right half, no label)
     auto reverbCol = b4;
     reverbEnableButton.setBounds(reverbCol.removeFromTop(18));
     reverbMixSlider.setBounds (reverbCol);
