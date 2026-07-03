@@ -85,8 +85,7 @@ private:
     juce::Label       flexTuneLabel;
     juce::Slider      humanizeSlider;
     juce::Label       humanizeLabel;
-    juce::ComboBox    correctionModeBox;
-    juce::Label       correctionModeLabel;
+    juce::TextButton  correctionModeButton;
 
     // Snap Toggle.
     // Custom button that draws an icon and text
@@ -181,7 +180,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbMixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> flexTuneAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> humanizeAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> correctionModeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> correctionModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> detectorAttachment;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>, 12> customAttachments;
 
@@ -213,6 +212,7 @@ private:
     juce::Rectangle<int> block1Bounds;
     juce::Rectangle<int> block2Bounds;
     juce::Rectangle<int> block3Bounds; // Harmony block
+    juce::Rectangle<int> block4Bounds; // Effects block (Formant + Reverb)
 
     // One-time flag for syncing editor controls from persisted parameters
     bool measuresSyncDone = false;

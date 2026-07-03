@@ -374,10 +374,9 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterFloat> (
                             "humanize", "Humanize",
                             juce::NormalisableRange<float> (0.0f, 50.0f, 1.0f), 0.0f)
-                      // Correction mode: Modern (aggressive) or Transparent (gentle)
-                      , std::make_unique<juce::AudioParameterChoice> (
-                            "correction_mode", "Correction Mode",
-                            juce::StringArray { "Modern", "Transparent" }, 0)
+                      // Correction mode: Modern (false) / Transparent (true)
+                      , std::make_unique<juce::AudioParameterBool> (
+                            "correction_mode", "Correction Mode", false)
                     })
 {
     // Ensure per-channel MIDI note state starts clean (-1 means no active note)

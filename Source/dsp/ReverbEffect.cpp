@@ -10,7 +10,7 @@ namespace atdsp
         // Tuned for vocal monitoring: medium-large room, longer tail, gentle damping
         params.roomSize = 0.7f;
         params.damping = 0.3f;
-        params.wetLevel = 1.0f;      // We control wet/dry ourselves via mix
+        params.wetLevel = 0.5f;      // Internal wet gain reduced to avoid volume boost
         params.dryLevel = 0.0f;
         params.width = 1.0f;
         params.freezeMode = 0.0f;
