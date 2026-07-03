@@ -155,6 +155,9 @@ private:
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
     std::atomic<float>* reverbEnableParam = nullptr; // Reverb on/off
     std::atomic<float>* reverbMixParam = nullptr;   // Reverb wet mix (0-1)        
+    std::atomic<float>* flexTuneParam = nullptr;    // FlexTune deadband (0-100 cents)
+    std::atomic<float>* humanizeParam = nullptr;    // Humanize random cents (0-50)
+    std::atomic<float>* correctionModeParam = nullptr; // 0=Modern, 1=Transparent        
 
     // "Custom note on/off" parameters (12 booleans, indices 0..11).
     // Stored as 12 separate AudioParameterBool so the host can
@@ -278,6 +281,9 @@ private:
     std::array<juce::LinearSmoothedValue<float>, maxShiftedVoices> shiftedVoiceGains;
     // MIDI out state (per-channel last note sent, channels 1..16 mapped to index 0..15)
     int lastSentMidiNote[16] = { -1 };
+
+    // Random generator for Humanize effect.
+    juce::Random random;
 
     // Debug: remember previous bypass state to log changes
     std::atomic<int> prevBypassState { 0 };

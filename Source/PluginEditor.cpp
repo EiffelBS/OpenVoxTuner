@@ -448,6 +448,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     reverbEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "reverb_enable", reverbEnableButton);
     reverbMixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "reverb_mix", reverbMixSlider);
 
+    // FlexTune / Humanize / Correction Mode attachments
+    flexTuneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "flex_tune", flexTuneSlider);
+    humanizeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "humanize", humanizeSlider);
+    correctionModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getParameters(), "correction_mode", correctionModeBox);
+
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
 
     // Helper for creating Drawables from full SVG XML (with viewBox).
@@ -733,6 +738,25 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     reverbEnableButton.setTooltip ("Enable/disable reverb effect.");
     addAndMakeVisible (reverbEnableButton);
 
+    // FlexTune / Humanize / Correction Mode
+    setupKnob (flexTuneSlider, &flexTuneLabel, "FlexTune");
+    flexTuneSlider.setRange (0.0, 100.0, 1.0);
+    flexTuneSlider.setTooltip ("Deadband in cents: input pitch within this range of the target is left uncorrected.");
+
+    setupKnob (humanizeSlider, &humanizeLabel, "Humanize");
+    humanizeSlider.setRange (0.0, 50.0, 1.0);
+    humanizeSlider.setTooltip ("Random pitch fluctuations in cents, added when correction is applied.");
+
+    correctionModeLabel.setText ("Mode", juce::dontSendNotification);
+    correctionModeLabel.setJustificationType (juce::Justification::centredLeft);
+    correctionModeLabel.setColour (juce::Label::textColourId, kText);
+    correctionModeLabel.setFont (juce::Font (13.0f, juce::Font::bold));
+    correctionModeBox.addItem ("Modern", 1);
+    correctionModeBox.addItem ("Transparent", 2);
+    correctionModeBox.setTooltip ("Modern = aggressive correction. Transparent = gentler, preserves transitions.");
+    addAndMakeVisible (correctionModeLabel);
+    addAndMakeVisible (correctionModeBox);
+
     addAndMakeVisible (scaleKeyboard);
 
     // === Bidirectional attachments to AudioParameters ===
@@ -985,39 +1009,61 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // --- Block 2 : Correction Knobs + Reverb (Left) ---
     auto b2 = block2Bounds.reduced(10);
-    // Fixed area at the top of block2 for all knobs
-    const int knobsHeight = 100;
-    auto knobArea = b2.removeFromTop (knobsHeight);
+    // Two rows of knobs: top row = Speed, Amount, FlexTune, Humanize; bottom row = Formant, Reverb
+    const int knobsHeightTop = 80;
+    const int knobsHeightBottom = 80;
+    auto knobAreaTop = b2.removeFromTop (knobsHeightTop);
 
-    // 4 columns: Speed, Amount, Formant (toggle + knob), Reverb (toggle + knob)
-    const int knobPadding = 6;
-    int knobWidth = (knobArea.getWidth() - knobPadding * 3) / 4;
+    // Top row: 4 knobs (Speed, Amount, FlexTune, Humanize) — no toggles
+    const int knobPadding = 4;
+    int knobWidthTop = (knobAreaTop.getWidth() - knobPadding * 3) / 4;
 
     // Column 1: Speed
-    auto bSpeed = knobArea.removeFromLeft(knobWidth);
-    speedLabel.setBounds(bSpeed.removeFromTop(20));
+    auto bSpeed = knobAreaTop.removeFromLeft(knobWidthTop);
+    speedLabel.setBounds(bSpeed.removeFromTop(18));
     speedSlider.setBounds(bSpeed);
-    knobArea.removeFromLeft(knobPadding);
+    knobAreaTop.removeFromLeft(knobPadding);
 
     // Column 2: Amount
-    auto bAmount = knobArea.removeFromLeft(knobWidth);
-    amountLabel.setBounds(bAmount.removeFromTop(20));
+    auto bAmount = knobAreaTop.removeFromLeft(knobWidthTop);
+    amountLabel.setBounds(bAmount.removeFromTop(18));
     amountSlider.setBounds(bAmount);
-    knobArea.removeFromLeft(knobPadding);
+    knobAreaTop.removeFromLeft(knobPadding);
 
-    // Column 3: Formant (toggle + knob)
-    auto formantCol = knobArea.removeFromLeft(knobWidth);
+    // Column 3: FlexTune
+    auto bFlex = knobAreaTop.removeFromLeft(knobWidthTop);
+    flexTuneLabel.setBounds(bFlex.removeFromTop(18));
+    flexTuneSlider.setBounds(bFlex);
+    knobAreaTop.removeFromLeft(knobPadding);
+
+    // Column 4: Humanize
+    auto bHuman = knobAreaTop;
+    humanizeLabel.setBounds(bHuman.removeFromTop(18));
+    humanizeSlider.setBounds(bHuman);
+
+    // Bottom row: 2 columns (Formant, Reverb) — each with toggle + knob
+    b2.removeFromTop (6); // spacing
+    auto knobAreaBottom = b2.removeFromTop (knobsHeightBottom);
+    int knobWidthBottom = (knobAreaBottom.getWidth() - knobPadding) / 2;
+
+    // Column 5: Formant (toggle + knob)
+    auto formantCol = knobAreaBottom.removeFromLeft(knobWidthBottom);
     auto formantToggleArea = formantCol.removeFromTop(20);
     formantEnableButton.setBounds(formantToggleArea);
     formantSlider.setBounds(formantCol);
-    knobArea.removeFromLeft(knobPadding);
+    knobAreaBottom.removeFromLeft(knobPadding);
 
-    // Column 4: Reverb (toggle + knob)
-    auto reverbCol = knobArea;
+    // Column 6: Reverb (toggle + knob + correction mode below)
+    auto reverbCol = knobAreaBottom;
     auto reverbToggleArea = reverbCol.removeFromTop(20);
     reverbEnableButton.setBounds(reverbToggleArea);
     reverbMixLabel.setBounds (reverbCol.removeFromTop (14));
     reverbMixSlider.setBounds (reverbCol);
+
+    // Correction Mode combo below the knobs
+    auto modeArea = b2;
+    correctionModeLabel.setBounds (modeArea.removeFromTop (16));
+    correctionModeBox.setBounds (modeArea);
 
     // Harmony controls block (rightmost block)
     {

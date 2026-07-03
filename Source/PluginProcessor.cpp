@@ -366,6 +366,18 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterFloat> (
                             "reverb_mix", "Reverb Mix",
                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
+                      // FlexTune: deadband around the target note (0-100 cents)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "flex_tune", "FlexTune",
+                            juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f)
+                      // Humanize: random pitch fluctuations (0-50 cents)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "humanize", "Humanize",
+                            juce::NormalisableRange<float> (0.0f, 50.0f, 1.0f), 0.0f)
+                      // Correction mode: Modern (aggressive) or Transparent (gentle)
+                      , std::make_unique<juce::AudioParameterChoice> (
+                            "correction_mode", "Correction Mode",
+                            juce::StringArray { "Modern", "Transparent" }, 0)
                     })
 {
     // Ensure per-channel MIDI note state starts clean (-1 means no active note)
@@ -400,6 +412,9 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     detectorParam = parameters.getRawParameterValue ("pitch_detector");
     reverbEnableParam = parameters.getRawParameterValue ("reverb_enable");
     reverbMixParam = parameters.getRawParameterValue ("reverb_mix");
+    flexTuneParam = parameters.getRawParameterValue ("flex_tune");
+    humanizeParam = parameters.getRawParameterValue ("humanize");
+    correctionModeParam = parameters.getRawParameterValue ("correction_mode");
 
     for (int i = 0; i < 12; ++i)
     {
@@ -1008,8 +1023,34 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             f0_target = scaleQuantizer->quantize (f0_in);
         }
 
+        // FlexTune: deadband around the target note (cents).
+        // If the input pitch is within the deadband of the target, no
+        // correction is applied — preserves natural microtonal expression
+        // while still snapping to the target when the singer strays farther.
+        float flexTuneCents = (flexTuneParam != nullptr) ? flexTuneParam->load() : 0.0f;
+        if (flexTuneCents > 0.5f && f0_in > 0.0f && f0_target > 0.0f)
+        {
+            float centsDiff = 12.0f * std::abs (std::log2 (f0_in / f0_target));
+            if (centsDiff < flexTuneCents)
+                f0_target = f0_in; // pass-through within deadband
+        }
+
         f0_out = f0_target;
         targetRatio = f0_target / f0_in;
+
+        // Humanize: add small random pitch fluctuations (in cents) to
+        // simulate the natural instability of a human voice. This is
+        // applied AFTER FlexTune so the deadband is respected, but only
+        // when actual correction occurs (f0_target differs from f0_in).
+        // When FlexTune passes through (f0_target == f0_in), no humanize
+        // is needed — the singer's own micro-variations are preserved.
+        float humanizeAmt = (humanizeParam != nullptr) ? humanizeParam->load() : 0.0f;
+        if (humanizeAmt > 0.5f && f0_target > 0.0f && f0_target != f0_in)
+        {
+            float randomCents = (random.nextFloat() - 0.5f) * 2.0f * humanizeAmt;
+            f0_target *= std::pow (2.0f, randomCents / 12.0f);
+            targetRatio = f0_target / f0_in;
+        }
 
         // Calcul de l'offset en cents between pitch d'entree et pitch quantife.
         // Positif = entree trop haute, Negatif = entree trop basse.
@@ -1564,9 +1605,18 @@ void OpenVoxTunerAudioProcessor::syncParameters()
         scaleQuantizer->setCustomIntervals (customNotes);
     }
 
-    // Vitesse de retargeting.
-    if (speedParam != nullptr)
-        retargetEnvelope->setSpeed (speedParam->load());
+    // Vitesse de retargeting — modulée par le mode de correction.
+    float speed = (speedParam != nullptr) ? speedParam->load() : 50.0f;
+    int modeVal = (correctionModeParam != nullptr) ? static_cast<int>(correctionModeParam->load()) : 0;
+    if (modeVal == 1) // Transparent
+    {
+        // Transparent mode: ensure minimum speed of 30ms so transitions
+        // between notes are never harsh. The user can still go higher,
+        // but the floor prevents the "robot-T-Pain" effect.
+        speed = juce::jmax (30.0f, speed);
+    }
+    // Mode Modern (0): no restriction — user speed is applied as-is.
+    retargetEnvelope->setSpeed (speed);
     
     applyLatencyMode();
 }

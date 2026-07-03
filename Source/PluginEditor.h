@@ -80,6 +80,14 @@ private:
     juce::Slider       reverbMixSlider;
     juce::Label        reverbMixLabel;
 
+    // FlexTune / Humanize / Correction Mode
+    juce::Slider      flexTuneSlider;
+    juce::Label       flexTuneLabel;
+    juce::Slider      humanizeSlider;
+    juce::Label       humanizeLabel;
+    juce::ComboBox    correctionModeBox;
+    juce::Label       correctionModeLabel;
+
     // Snap Toggle.
     // Custom button that draws an icon and text
     class PresetsButton : public juce::TextButton
@@ -171,6 +179,9 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> reverbEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbMixAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> flexTuneAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> humanizeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> correctionModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> detectorAttachment;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>, 12> customAttachments;
 
