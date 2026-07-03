@@ -813,11 +813,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
         scaleKeyboard.getButton(i).onUserInteraction = [this] {
             auto* rawScale = processorRef.getParameters().getRawParameterValue("scale");
-            // Switch to custom scale if not already
-            if (rawScale != nullptr && static_cast<int>(std::round(rawScale->load())) != 15) {
+            // Scale has 14 choices (0-13), Custom = index 13, normalized = 13/13 = 1.0
+            constexpr float customNormalized = 1.0f;
+            if (rawScale != nullptr && std::abs(rawScale->load() - customNormalized) > 0.01f) {
                 auto* scaleParam = processorRef.getParameters().getParameter("scale");
                 if (scaleParam != nullptr)
-                    scaleParam->setValueNotifyingHost(15.0f / 15.0f); // 15 is Custom (1.0 normalized)
+                    scaleParam->setValueNotifyingHost(customNormalized);
             }
         };
     }
