@@ -26,9 +26,12 @@ namespace ui
 
         void mouseDown (const juce::MouseEvent& e) override
         {
-            juce::ToggleButton::mouseDown(e);
+            // Switch to Custom mode FIRST, then toggle silently.
+            // This avoids a feedback loop where setValueNotifyingHost on the
+            // scale parameter causes a parameter sync that resets the button state.
             if (onUserInteraction)
                 onUserInteraction();
+            setToggleState(!getToggleState(), juce::sendNotification);
         }
 
     private:
