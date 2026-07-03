@@ -57,14 +57,14 @@ private:
     /** Build a sawtooth-wave kernel for a given candidate frequency. */
     void buildKernel (float freq, float* kernel, int fftSize);
 
-    /** Compute Pearson correlation between spectrum magnitude and kernel. */
-    float computeCorrelation (const float* spectrum, const float* kernel, int halfSize);
+    /** Compute SWIPE' harmonic correlation between spectrum magnitude and kernel. */
+    float computeCorrelation (const float* spectrum, const float* kernel, int halfSize, float signalEnergy);
 
     /** Parabolic interpolation around a peak. */
     float interpolatePeak (float y1, float y2, float y3);
 
     double sampleRate = 44100.0;
-    float threshold = 0.15f;
+    float threshold = 0.12f;
 
     // FFT engine (JUCE) — HeapBlock guarantees 16-byte alignment needed by
     // performRealOnlyForwardTransform (SIMD). std::vector does NOT guarantee this.

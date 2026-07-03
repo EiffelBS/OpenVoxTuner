@@ -369,21 +369,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
         menu.addSeparator();
 
-        // 3. Pitch Detection submenu (YIN / SWIPE') — reads and sets the
-        //    pitch_detector parameter so the menu actually changes the engine.
+        // 3. Pitch Detection submenu (YIN only)
         {
             juce::PopupMenu pitchMenu;
-            auto* detParam = processorRef.getParameters().getParameter ("pitch_detector");
-            const int currentMode = (detParam != nullptr)
-                ? juce::roundToInt (detParam->getValue() * 1.0f)
-                : 0;
-
-            pitchMenu.addItem ("YIN",    true, currentMode == 0, [this, detParam] {
-                if (detParam != nullptr) detParam->setValueNotifyingHost (0.0f);
-            });
-            pitchMenu.addItem ("SWIPE'", true, currentMode == 1, [this, detParam] {
-                if (detParam != nullptr) detParam->setValueNotifyingHost (1.0f);
-            });
+            pitchMenu.addItem ("YIN (active)", false, true, nullptr);
             menu.addSubMenu ("Pitch Detection", pitchMenu);
         }
 

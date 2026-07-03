@@ -360,7 +360,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             "auto_scroll", "Auto Scroll", true)
                       , std::make_unique<juce::AudioParameterChoice> (
                             "pitch_detector", "Pitch Detector",
-                            juce::StringArray { "YIN", "SWIPE'" }, 0)
+                            juce::StringArray { "YIN" }, 0)
                       , std::make_unique<juce::AudioParameterBool> (
                             "reverb_enable", "Reverb Enable", false)
                       , std::make_unique<juce::AudioParameterFloat> (
@@ -407,10 +407,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         customParam[i] = parameters.getRawParameterValue (id);
     }
 
-    // Instantiates DSP modules — both YIN and SWIPE' are prepared
-    // at startup so switching is instant and lock-free.
-    pitchDetectors[0] = createDetector (0); // YIN
-    pitchDetectors[1] = createDetector (1); // SWIPE'
+    // Instantiates DSP modules — YIN pitch detector.
+    pitchDetectors[0] = std::make_unique<atdsp::YinPitchDetector>();
     activePitchDetector.store (pitchDetectors[0].get());
     activeDetectorMode = 0;
     scaleQuantizer   = std::make_unique<atdsp::ScaleQuantizer>();
@@ -480,15 +478,9 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     prepareToPlayForARA (sampleRate, samplesPerBlock, getMainBusNumOutputChannels(), getProcessingPrecision());
 
     // Initialize DSP modules with the current sample rate.
-    // Prepare both detectors so switching is instant and safe.
-    for (int i = 0; i < 2; ++i)
-    {
-        if (pitchDetectors[i] != nullptr)
-        {
-            int detDecimation = (pitchDetectors[i]->getName() == "SWIPE'") ? 1 : 4;
-            pitchDetectors[i]->prepare (sampleRate / detDecimation, samplesPerBlock);
-        }
-    }
+    // Prepare the YIN pitch detector.
+    if (pitchDetectors[0] != nullptr)
+        pitchDetectors[0]->prepare (sampleRate / 4.0, samplesPerBlock);
     applyLatencyMode();
     pitchShifter->prepare (sampleRate, samplesPerBlock);
     
@@ -623,20 +615,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         return;
     }
 
-    // === PITCH DETECTOR SWITCHING (lock-free atomic swap) ===
-    {
-        int requestedMode = (detectorParam != nullptr) ? static_cast<int>(detectorParam->load()) : 0;
-        if (requestedMode > 0) requestedMode = 1; // clamp to 0/1 (YIN / SWIPE')
-        if (requestedMode != activeDetectorMode)
-        {
-            auto* newDetector = pitchDetectors[requestedMode].get();
-            if (newDetector != nullptr)
-            {
-                activePitchDetector.store (newDetector);
-                activeDetectorMode = requestedMode;
-            }
-        }
-    }
+    // === PITCH DETECTOR SWITCHING (YIN only — single mode) ===
+    // The pitch_detector parameter is read-only (single choice "YIN").
+    // No switching needed — always use index 0.
 
     // === LECTURE DES METADONNEES ARA ===
     // Si ARA est actif, on extrait la tonalite (Key) du projet.
@@ -1703,12 +1684,9 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
     return lastInputPitch.load();
 }
 
-// === Pitch detector factory (YIN mode=0, SWIPE' mode=1) ===
-
-std::unique_ptr<atdsp::IPitchDetector> OpenVoxTunerAudioProcessor::createDetector (int mode)
+// Detector factory — YIN only.
+std::unique_ptr<atdsp::IPitchDetector> OpenVoxTunerAudioProcessor::createDetector()
 {
-    if (mode == 1)
-        return std::make_unique<atdsp::SwipePitchDetector>();
     return std::make_unique<atdsp::YinPitchDetector>();
 }
 
