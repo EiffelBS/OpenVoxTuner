@@ -367,9 +367,23 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             });
         }
 
+        // 3. Tuning Type submenu (Modern / Transparent)
+        {
+            juce::PopupMenu tuningMenu;
+            auto* modeParam = processorRef.getParameters().getParameter ("correction_mode");
+            const bool isTransparent = (modeParam != nullptr) ? (modeParam->getValue() > 0.5f) : false;
+            tuningMenu.addItem ("Modern",      true, !isTransparent, [modeParam] {
+                if (modeParam != nullptr) modeParam->setValueNotifyingHost (0.0f);
+            });
+            tuningMenu.addItem ("Transparent", true,  isTransparent, [modeParam] {
+                if (modeParam != nullptr) modeParam->setValueNotifyingHost (1.0f);
+            });
+            menu.addSubMenu ("Tuning Type", tuningMenu);
+        }
+
         menu.addSeparator();
 
-        // 3. Pitch Detection submenu (YIN only)
+        // 4. Pitch Detection submenu (YIN only)
         {
             juce::PopupMenu pitchMenu;
             pitchMenu.addItem ("YIN (active)", false, true, nullptr);
@@ -378,14 +392,14 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
         menu.addSeparator();
 
-        // 4. Check for Updates
+        // 5. Check for Updates
         menu.addItem ("Check for Updates", [this] {
             updateButton.onClick();
         });
 
         menu.addSeparator();
 
-        // 5. Reset to Default — restore all parameters to their factory defaults
+        // 6. Reset to Default — restore all parameters to their factory defaults
         menu.addItem ("Reset to Default", [this] {
             juce::PopupMenu confirmMenu;
             confirmMenu.addItem ("Cancel", []{});
@@ -972,8 +986,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // === Visualizer (top) and Graphic Editor (middle) ===
     const int pad = 10;
-    // Reserve 180 px for the bottom area (controls + scale keyboard)
-    auto centerArea = bounds.removeFromTop (bounds.getHeight() - 180);
+    // Reserve 155 px for the bottom area (controls + scale keyboard)
+    auto centerArea = bounds.removeFromTop (bounds.getHeight() - 155);
     tabbedComponent.setBounds (centerArea.reduced (pad));
     
     // Graphic Mode specific tools aligned to the right of the tab bar
@@ -1012,62 +1026,61 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     bottomArea.removeFromLeft(blockSpacing);
     auto rightBlock = bottomArea; // remaining area
 
-    block2Bounds = leftBlock;     // Correction: Speed, Amount, FlexTune, Humanize + Mode
+    block2Bounds = leftBlock;     // Correction: Speed, Amount, FlexTune, Humanize
     block4Bounds = effectBlock;   // Effects: Formant (toggle+knob), Reverb (toggle+knob)
     block1Bounds = middleBlock;   // Key, Scale, Keyboard
     block3Bounds = rightBlock;    // Harmony controls
 
     // --- Block 2 : Correction Knobs (Left) ---
     auto b2 = block2Bounds.reduced(10);
-    // Top row: 4 knobs (Speed, Amount, FlexTune, Humanize)
-    const int knobsHeight = 80;
-    auto knobArea = b2.removeFromTop (knobsHeight);
+    // Top row: 2 big knobs (Speed, Amount)
+    const int bigKnobsHeight = 65;
+    auto bigArea = b2.removeFromTop (bigKnobsHeight);
 
-    const int knobPadding = 4;
-    int knobWidth = (knobArea.getWidth() - knobPadding * 3) / 4;
+    const int knobPadding = 6;
+    int bigKnobWidth = (bigArea.getWidth() - knobPadding) / 2;
 
-    // Speed
-    auto bSpeed = knobArea.removeFromLeft(knobWidth);
-    speedLabel.setBounds(bSpeed.removeFromTop(18));
+    // Speed (big)
+    auto bSpeed = bigArea.removeFromLeft(bigKnobWidth);
+    speedLabel.setBounds(bSpeed.removeFromTop(16));
     speedSlider.setBounds(bSpeed);
-    knobArea.removeFromLeft(knobPadding);
+    bigArea.removeFromLeft(knobPadding);
 
-    // Amount
-    auto bAmount = knobArea.removeFromLeft(knobWidth);
-    amountLabel.setBounds(bAmount.removeFromTop(18));
+    // Amount (big)
+    auto bAmount = bigArea;
+    amountLabel.setBounds(bAmount.removeFromTop(16));
     amountSlider.setBounds(bAmount);
-    knobArea.removeFromLeft(knobPadding);
 
-    // FlexTune
-    auto bFlex = knobArea.removeFromLeft(knobWidth);
-    flexTuneLabel.setBounds(bFlex.removeFromTop(18));
+    // Bottom row: 2 smaller knobs (FlexTune, Humanize)
+    b2.removeFromTop (4);
+    const int smallKnobsHeight = 40;
+    auto smallArea = b2.removeFromTop (smallKnobsHeight);
+    int smallKnobWidth = (smallArea.getWidth() - knobPadding) / 2;
+
+    // FlexTune (small)
+    auto bFlex = smallArea.removeFromLeft(smallKnobWidth);
+    flexTuneLabel.setBounds(bFlex.removeFromTop(14));
     flexTuneSlider.setBounds(bFlex);
-    knobArea.removeFromLeft(knobPadding);
+    smallArea.removeFromLeft(knobPadding);
 
-    // Humanize
-    auto bHuman = knobArea;
-    humanizeLabel.setBounds(bHuman.removeFromTop(18));
+    // Humanize (small)
+    auto bHuman = smallArea;
+    humanizeLabel.setBounds(bHuman.removeFromTop(14));
     humanizeSlider.setBounds(bHuman);
-
-    // Correction Mode toggle button below the knobs
-    auto modeArea = b2;
-    correctionModeButton.setBounds (modeArea.removeFromTop (26).reduced (0, 2));
 
     // --- Block 4 : Effects (Formant + Reverb, side by side) ---
     auto b4 = block4Bounds.reduced(10);
     int effectHalf = (b4.getWidth() - 6) / 2;
 
-    // Formant: toggle + knob (left half)
+    // Formant: toggle + knob (left half, compact)
     auto formantCol = b4.removeFromLeft(effectHalf);
-    auto formantToggleArea = formantCol.removeFromTop(20);
-    formantEnableButton.setBounds(formantToggleArea);
+    formantEnableButton.setBounds(formantCol.removeFromTop(18));
     formantSlider.setBounds(formantCol);
     b4.removeFromLeft(6);
 
-    // Reverb: toggle + knob (right half, no label)
+    // Reverb: toggle + knob (right half, compact, no label)
     auto reverbCol = b4;
-    auto reverbToggleArea = reverbCol.removeFromTop(20);
-    reverbEnableButton.setBounds(reverbToggleArea);
+    reverbEnableButton.setBounds(reverbCol.removeFromTop(18));
     reverbMixSlider.setBounds (reverbCol);
 
     // Harmony controls block (rightmost block)
