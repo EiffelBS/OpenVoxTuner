@@ -1074,18 +1074,20 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     humanizeLabel.setBounds (humanCol.removeFromLeft(52));
     humanizeSlider.setBounds (humanCol);
 
-    // --- Block 4 : Effects (Formant + Reverb, side by side, same big size as Speed/Amount) ---
+    // --- Block 4 : Effects (Formant + Reverb, side by side, same size as Speed/Amount) ---
     auto b4 = block4Bounds.reduced(10);
-    int effectHalf = (b4.getWidth() - 6) / 2;
+    // Force knob height to match Speed/Amount (90px)
+    auto effectKnobArea = b4.removeFromTop (90);
+    int effectHalf = (effectKnobArea.getWidth() - 6) / 2;
 
-    // Formant: toggle + big knob (left half)
-    auto formantCol = b4.removeFromLeft(effectHalf);
+    // Formant: toggle + knob (left half)
+    auto formantCol = effectKnobArea.removeFromLeft(effectHalf);
     formantEnableButton.setBounds(formantCol.removeFromTop(18));
     formantSlider.setBounds(formantCol);
-    b4.removeFromLeft(6);
+    effectKnobArea.removeFromLeft(6);
 
-    // Reverb: toggle + big knob (right half, no label)
-    auto reverbCol = b4;
+    // Reverb: toggle + knob (right half, no label)
+    auto reverbCol = effectKnobArea;
     reverbEnableButton.setBounds(reverbCol.removeFromTop(18));
     reverbMixSlider.setBounds (reverbCol);
 
