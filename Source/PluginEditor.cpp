@@ -209,8 +209,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         s.setColour (juce::Slider::rotarySliderOutlineColourId, kAccentSoft);
         s.setColour (juce::Slider::thumbColourId,               juce::Colours::white);
         s.setColour (juce::Slider::textBoxTextColourId,         kText);
-        s.setColour (juce::Slider::textBoxOutlineColourId,      kAccentSoft);
-        s.setColour (juce::Slider::textBoxBackgroundColourId,   kBgPanel);
+        s.setColour (juce::Slider::textBoxOutlineColourId,      juce::Colours::transparentBlack);
+        s.setColour (juce::Slider::textBoxBackgroundColourId,   juce::Colours::transparentBlack);
         addAndMakeVisible (s);
 
         if (l != nullptr)
@@ -848,7 +848,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // available space in ARA mode (DAW may allocate arbitrarily large views).
     setSize (900, 650);
     setResizable (true, true);
-    setResizeLimits (920, 600, 99999, 99999);
+    setResizeLimits (1100, 600, 99999, 99999);
 
     // Timer to update the visualizer (~30 fps).
     startTimerHz (30);
@@ -882,11 +882,13 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillRoundedRectangle (block1Bounds.toFloat(), 6.0f);
     g.fillRoundedRectangle (block2Bounds.toFloat(), 6.0f);
     g.fillRoundedRectangle (block3Bounds.toFloat(), 6.0f);
+    g.fillRoundedRectangle (block4Bounds.toFloat(), 6.0f);
 
     g.setColour (kAccentSoft.withAlpha(0.3f));
     g.drawRoundedRectangle (block1Bounds.toFloat(), 6.0f, 1.0f);
     g.drawRoundedRectangle (block2Bounds.toFloat(), 6.0f, 1.0f);
     g.drawRoundedRectangle (block3Bounds.toFloat(), 6.0f, 1.0f);
+    g.drawRoundedRectangle (block4Bounds.toFloat(), 6.0f, 1.0f);
 
     // Top banner with title.
     g.setColour (kBgPanel.withAlpha(0.8f));
@@ -989,81 +991,82 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     toolsArea.removeFromRight(8);
     presetsButton.setBounds (toolsArea.removeFromRight(80));
 
-    // === Bottom bar: 3 blocks ===
+    // === Bottom bar: 4 blocks ===
     auto bottomArea = bounds.reduced (pad);
 
-    // Layout: left = knobs, middle = scale/keyboard, right = harmony controls
-    const int knobBlockWidth = 360;
-    const int scaleBlockWidth = 260; // reduced to fit 4 columns
-    const int blockSpacing = 15;
+    // Layout: Correction (knobs) | Effects (Formant+Reverb) | Scale/Keyboard | Harmony
+    const int knobBlockWidth = 320;
+    const int effectBlockWidth = 160;
+    const int scaleBlockWidth = 260;
+    const int blockSpacing = 10;
 
     auto leftBlock = bottomArea.removeFromLeft(knobBlockWidth);
+    bottomArea.removeFromLeft(blockSpacing);
+    auto effectBlock = bottomArea.removeFromLeft(effectBlockWidth);
     bottomArea.removeFromLeft(blockSpacing);
     auto middleBlock = bottomArea.removeFromLeft(scaleBlockWidth);
     bottomArea.removeFromLeft(blockSpacing);
     auto rightBlock = bottomArea; // remaining area
 
-    block2Bounds = leftBlock;   // Speed, Amount, Formant
-    block1Bounds = middleBlock; // Key, Scale, Keyboard
-    block3Bounds = rightBlock;  // Harmony controls
+    block2Bounds = leftBlock;     // Correction: Speed, Amount, FlexTune, Humanize + Mode
+    block4Bounds = effectBlock;   // Effects: Formant (toggle+knob), Reverb (toggle+knob)
+    block1Bounds = middleBlock;   // Key, Scale, Keyboard
+    block3Bounds = rightBlock;    // Harmony controls
 
-    // --- Block 2 : Correction Knobs + Reverb (Left) ---
+    // --- Block 2 : Correction Knobs (Left) ---
     auto b2 = block2Bounds.reduced(10);
-    // Two rows of knobs: top row = Speed, Amount, FlexTune, Humanize; bottom row = Formant, Reverb
-    const int knobsHeightTop = 80;
-    const int knobsHeightBottom = 80;
-    auto knobAreaTop = b2.removeFromTop (knobsHeightTop);
+    // Top row: 4 knobs (Speed, Amount, FlexTune, Humanize)
+    const int knobsHeight = 80;
+    auto knobArea = b2.removeFromTop (knobsHeight);
 
-    // Top row: 4 knobs (Speed, Amount, FlexTune, Humanize) — no toggles
     const int knobPadding = 4;
-    int knobWidthTop = (knobAreaTop.getWidth() - knobPadding * 3) / 4;
+    int knobWidth = (knobArea.getWidth() - knobPadding * 3) / 4;
 
-    // Column 1: Speed
-    auto bSpeed = knobAreaTop.removeFromLeft(knobWidthTop);
+    // Speed
+    auto bSpeed = knobArea.removeFromLeft(knobWidth);
     speedLabel.setBounds(bSpeed.removeFromTop(18));
     speedSlider.setBounds(bSpeed);
-    knobAreaTop.removeFromLeft(knobPadding);
+    knobArea.removeFromLeft(knobPadding);
 
-    // Column 2: Amount
-    auto bAmount = knobAreaTop.removeFromLeft(knobWidthTop);
+    // Amount
+    auto bAmount = knobArea.removeFromLeft(knobWidth);
     amountLabel.setBounds(bAmount.removeFromTop(18));
     amountSlider.setBounds(bAmount);
-    knobAreaTop.removeFromLeft(knobPadding);
+    knobArea.removeFromLeft(knobPadding);
 
-    // Column 3: FlexTune
-    auto bFlex = knobAreaTop.removeFromLeft(knobWidthTop);
+    // FlexTune
+    auto bFlex = knobArea.removeFromLeft(knobWidth);
     flexTuneLabel.setBounds(bFlex.removeFromTop(18));
     flexTuneSlider.setBounds(bFlex);
-    knobAreaTop.removeFromLeft(knobPadding);
+    knobArea.removeFromLeft(knobPadding);
 
-    // Column 4: Humanize
-    auto bHuman = knobAreaTop;
+    // Humanize
+    auto bHuman = knobArea;
     humanizeLabel.setBounds(bHuman.removeFromTop(18));
     humanizeSlider.setBounds(bHuman);
 
-    // Bottom row: 2 columns (Formant, Reverb) — each with toggle + knob
-    b2.removeFromTop (6); // spacing
-    auto knobAreaBottom = b2.removeFromTop (knobsHeightBottom);
-    int knobWidthBottom = (knobAreaBottom.getWidth() - knobPadding) / 2;
+    // Correction Mode combo below the knobs — no label, compact height like Scale combo
+    auto modeArea = b2;
+    correctionModeBox.setBounds (modeArea.removeFromTop (26));
 
-    // Column 5: Formant (toggle + knob)
-    auto formantCol = knobAreaBottom.removeFromLeft(knobWidthBottom);
+    // --- Block 4 : Effects (Formant + Reverb, side by side) ---
+    auto b4 = block4Bounds.reduced(10);
+    const int effectPadding = 6;
+    int effectHalf = (b4.getWidth() - effectPadding) / 2;
+
+    // Formant: toggle + knob (left half)
+    auto formantCol = b4.removeFromLeft(effectHalf);
     auto formantToggleArea = formantCol.removeFromTop(20);
     formantEnableButton.setBounds(formantToggleArea);
     formantSlider.setBounds(formantCol);
-    knobAreaBottom.removeFromLeft(knobPadding);
+    b4.removeFromLeft(effectPadding);
 
-    // Column 6: Reverb (toggle + knob + correction mode below)
-    auto reverbCol = knobAreaBottom;
+    // Reverb: toggle + knob (right half)
+    auto reverbCol = b4;
     auto reverbToggleArea = reverbCol.removeFromTop(20);
     reverbEnableButton.setBounds(reverbToggleArea);
     reverbMixLabel.setBounds (reverbCol.removeFromTop (14));
     reverbMixSlider.setBounds (reverbCol);
-
-    // Correction Mode combo below the knobs
-    auto modeArea = b2;
-    correctionModeLabel.setBounds (modeArea.removeFromTop (16));
-    correctionModeBox.setBounds (modeArea);
 
     // Harmony controls block (rightmost block)
     {
