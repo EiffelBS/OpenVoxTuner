@@ -26,12 +26,21 @@ namespace ui
 
         void mouseDown (const juce::MouseEvent& e) override
         {
-            // Toggle first — ButtonAttachment writes the custom param.
-            juce::ToggleButton::mouseDown(e);
-            // Then switch to Custom mode — uses setValue (no notification)
-            // to avoid triggering a parameter re-sync that would revert the toggle.
+            // Toggle immediately here (don't wait for mouseUp/clicked).
+            // JUCE's ToggleButton::mouseDown does NOT toggle — it only records
+            // the down state. The actual toggle happens in mouseUp -> clicked().
+            // We need the toggle BEFORE onUserInteraction switches to Custom,
+            // so the parameter re-sync reads the CORRECT new state.
+            setToggleState(!getToggleState(), juce::sendNotification);
             if (onUserInteraction)
                 onUserInteraction();
+        }
+
+        void mouseUp (const juce::MouseEvent& e) override
+        {
+            // Only clean up visual state — do NOT call clicked() which would
+            // toggle the button again (undoing the mouseDown toggle).
+            setState (juce::Button::buttonNormal);
         }
 
     private:
