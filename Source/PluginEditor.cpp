@@ -808,24 +808,25 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     for (int i = 0; i < 12; ++i)
     {
         const juce::String id = "custom" + juce::String (i);
+        customAttachments[i] =
+            std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, id, scaleKeyboard.getButton(i));
 
-        // Use onClick to write the parameter + switch to Custom mode, instead
-        // of ButtonAttachment. This avoids feedback loops: ButtonAttachment +
-        // setValueNotifyingHost on the scale parameter caused the toggle to
-        // be reverted by parameter sync.
-        scaleKeyboard.getButton(i).onClick = [this, i] {
-            // Write the custom parameter first
-            auto* param = processorRef.getParameters().getParameter ("custom" + juce::String (i));
-            bool newState = scaleKeyboard.getButton(i).getToggleState();
-            if (param != nullptr)
-                param->setValueNotifyingHost (newState ? 1.0f : 0.0f);
-
-            // Switch to Custom mode if not already there
+        scaleKeyboard.getButton(i).onUserInteraction = [this] {
+            // Switch to Custom mode using setValue (no host notification) to
+            // avoid a parameter re-sync that would revert the button toggle.
+            // The ComboBox is updated separately so the UI reflects the change.
             auto* rawScale = processorRef.getParameters().getRawParameterValue ("scale");
             constexpr float customNormalized = 1.0f; // Custom = index 13/13
             if (rawScale != nullptr && std::abs (rawScale->load() - customNormalized) > 0.01f)
             {
-                int customIdx = scaleBox.getNumItems() - 1; // Last item = Custom
+                // Update parameter silently (no host notification)
+                auto* scaleParam = processorRef.getParameters().getParameter ("scale");
+                if (scaleParam != nullptr)
+                    scaleParam->setValue (customNormalized);
+                // Update the UI combo box — this notifies the host via
+                // ComboBoxAttachment, but by now the ButtonAttachment has
+                // already written the custom param value.
+                int customIdx = scaleBox.getNumItems() - 1;
                 scaleBox.setSelectedItemIndex (customIdx, juce::sendNotification);
             }
         };
