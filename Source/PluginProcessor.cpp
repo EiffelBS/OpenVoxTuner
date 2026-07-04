@@ -1605,13 +1605,15 @@ void OpenVoxTunerAudioProcessor::syncParameters()
 
     // Gamme musicale.
     const int keyIdx = static_cast<int> (keyParam->load());
-    const int scaleIdx = static_cast<int> (scaleParam->load());
+    // scaleParam->load() returns normalized value (0.0 ~ 1.0). Convert to index.
+    // Scale has 14 choices (0-13), so normalized = index / 13.
+    const int scaleIdx = static_cast<int> (std::round (scaleParam->load() * 13.0f));
     scaleQuantizer->setKey (keyIdx);
     scaleQuantizer->setScale (static_cast<atdsp::Scale> (juce::jlimit (0, 15, scaleIdx)));
 
-    // Si on est en mode "Custom" (scaleIdx == 15), on pousse la liste
+    // Si on est en mode "Custom" (scaleIdx == 13), on pousse la liste
     // des notes cochees vers le quantifier.
-    if (scaleIdx == 15)
+    if (scaleIdx == 13)
     {
         juce::Array<int> customNotes;
         for (int i = 0; i < 12; ++i)
