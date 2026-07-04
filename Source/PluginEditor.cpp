@@ -812,13 +812,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, id, scaleKeyboard.getButton(i));
 
         scaleKeyboard.getButton(i).onUserInteraction = [this] {
+            // Switch to Custom mode via the ComboBox, not the raw parameter.
+            // ComboBoxAttachment handles the parameter notification cleanly and
+            // avoids interfering with ButtonAttachments for the custom params.
             auto* rawScale = processorRef.getParameters().getRawParameterValue("scale");
-            // Scale has 14 choices (0-13), Custom = index 13, normalized = 13/13 = 1.0
+            // Scale: 14 choices (0-13), Custom = index 13, normalized = 13/13 = 1.0
             constexpr float customNormalized = 1.0f;
             if (rawScale != nullptr && std::abs(rawScale->load() - customNormalized) > 0.01f) {
-                auto* scaleParam = processorRef.getParameters().getParameter("scale");
-                if (scaleParam != nullptr)
-                    scaleParam->setValueNotifyingHost(customNormalized);
+                int customIdx = scaleBox.getNumItems() - 1; // Last item = Custom
+                scaleBox.setSelectedItemIndex(customIdx, juce::sendNotification);
             }
         };
     }
