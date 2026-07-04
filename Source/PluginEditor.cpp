@@ -450,9 +450,40 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Using ComboBoxAttachment for perfect sync with the host
     keyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "key", keyBox);
+    // When the user selects a new key, update the piano keys for the current preset scale.
+    keyBox.onChange = [this] {
+        const int scaleIdx = scaleBox.getSelectedItemIndex();
+        if (scaleIdx >= 0 && scaleIdx != 13)
+            scaleBox.onChange(); // Re-run the scale onChange to recompute intervals with the new key
+    };
         
     scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "scale", scaleBox);
+    // When the user selects a preset scale, update the piano keys immediately.
+    scaleBox.onChange = [this] {
+        const int idx = scaleBox.getSelectedItemIndex();
+        if (idx >= 0 && idx != 13) // Not Custom
+        {
+            auto* rawKey = processorRef.getParameters().getRawParameterValue ("key");
+            const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load())) : 0;
+
+            atdsp::ScaleQuantizer tempQuantizer;
+            tempQuantizer.setKey (keyIdx);
+            tempQuantizer.setScale (static_cast<atdsp::Scale> (juce::jlimit (0, 13, idx)));
+            auto intervals = tempQuantizer.getScaleIntervals ();
+
+            for (int i = 0; i < 12; ++i)
+            {
+                auto* p = processorRef.getParameters().getParameter ("custom" + juce::String (i));
+                if (p != nullptr)
+                {
+                    float targetVal = intervals.contains (i) ? 1.0f : 0.0f;
+                    if (p->getValue() != targetVal)
+                        p->setValueNotifyingHost (targetVal);
+                }
+            }
+        }
+    };
     latencyModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "latency_mode", latencyModeBox);
     detectorAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
@@ -811,30 +842,18 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         customAttachments[i] =
             std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, id, scaleKeyboard.getButton(i));
 
-        scaleKeyboard.getButton(i).onUserInteraction = [this, i] {
-            // Switch to Custom mode using setValue (no host notification) to
-            // avoid a parameter re-sync that would revert the button toggle.
-            // The ComboBox is updated separately so the UI reflects the change.
+        scaleKeyboard.getButton(i).onUserInteraction = [this] {
+            // Switch to Custom mode silently: write the atomic value and
+            // update the combo box display without triggering any JUCE
+            // notification cascade. The ButtonAttachment's setValueNotifyingHost
+            // on custom_i already happened during setToggleState, and that
+            // host re-sync read the old scale value (harmless). Now we just
+            // store the new scale value for the next audio callback.
             auto* rawScale = processorRef.getParameters().getRawParameterValue ("scale");
-            constexpr float customNormalized = 1.0f; // Custom = index 13/13
-            if (rawScale != nullptr && std::abs (rawScale->load() - customNormalized) > 0.01f)
+            if (rawScale != nullptr && std::abs (rawScale->load() - 1.0f) > 0.01f)
             {
-                // Update parameter silently (no host notification)
-                auto* scaleParam = processorRef.getParameters().getParameter ("scale");
-                if (scaleParam != nullptr)
-                    scaleParam->setValue (customNormalized);
-                // Update the UI combo box — this notifies the host via
-                // ComboBoxAttachment. The notification may re-sync parameters,
-                // undoing the toggle. So we re-apply the custom param AFTER.
-                int customIdx = scaleBox.getNumItems() - 1;
-                scaleBox.setSelectedItemIndex (customIdx, juce::sendNotification);
-
-                // Re-apply the custom parameter after the scale switch, in case
-                // the host re-sync reverted the ButtonAttachment's write.
-                auto* customParam = processorRef.getParameters().getParameter ("custom" + juce::String (i));
-                bool newState = scaleKeyboard.getButton(i).getToggleState();
-                if (customParam != nullptr)
-                    customParam->setValueNotifyingHost (newState ? 1.0f : 0.0f);
+                rawScale->store (1.0f);
+                scaleBox.setSelectedItemIndex (scaleBox.getNumItems() - 1, juce::dontSendNotification);
             }
         };
     }
@@ -1342,30 +1361,6 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
 
         // MIDI status label removed; debug window shows detailed MIDI log.
     }
-
-    // Sync custom parameters if we are not in Custom mode
-    auto* rawScale = processorRef.getParameters().getRawParameterValue("scale");
-    const int scaleIdx = rawScale ? static_cast<int>(std::round(rawScale->load())) : scaleBox.getSelectedItemIndex();
-
-    if (scaleIdx != 15) {
-        auto* rawKey = processorRef.getParameters().getRawParameterValue("key");
-        const int keyIdx = rawKey ? static_cast<int>(std::round(rawKey->load())) : keyBox.getSelectedItemIndex();
-
-        atdsp::ScaleQuantizer tempQuantizer;
-        tempQuantizer.setKey(keyIdx);
-        tempQuantizer.setScale(static_cast<atdsp::Scale>(juce::jlimit(0, 15, scaleIdx)));
-        auto intervals = tempQuantizer.getScaleIntervals();
-        
-        for (int i = 0; i < 12; ++i) {
-            auto* p = processorRef.getParameters().getParameter("custom" + juce::String(i));
-            if (p != nullptr) {
-                float targetVal = intervals.contains(i) ? 1.0f : 0.0f;
-                if (p->getValue() != targetVal) {
-                    p->setValueNotifyingHost(targetVal);
-                }
-            }
-        }
-    }
 }
 
 void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
@@ -1396,7 +1391,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
         auto* rawKey = processorRef.getParameters().getRawParameterValue ("key");
         auto* rawScale = processorRef.getParameters().getRawParameterValue ("scale");
         const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load())) : keyBox.getSelectedItemIndex();
-        const int scaleIdx = rawScale ? static_cast<int> (std::round (rawScale->load())) : scaleBox.getSelectedItemIndex();
+        const int scaleIdx = rawScale ? static_cast<int> (std::round (rawScale->load() * 13.0f)) : scaleBox.getSelectedItemIndex();
         juce::Array<int> intervals;
 
         if (scaleIdx == 13)
