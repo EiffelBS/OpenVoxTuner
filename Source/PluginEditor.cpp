@@ -808,19 +808,25 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     for (int i = 0; i < 12; ++i)
     {
         const juce::String id = "custom" + juce::String (i);
-        customAttachments[i] =
-            std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, id, scaleKeyboard.getButton(i));
 
-        scaleKeyboard.getButton(i).onUserInteraction = [this] {
-            // Switch to Custom mode via the ComboBox, not the raw parameter.
-            // ComboBoxAttachment handles the parameter notification cleanly and
-            // avoids interfering with ButtonAttachments for the custom params.
-            auto* rawScale = processorRef.getParameters().getRawParameterValue("scale");
-            // Scale: 14 choices (0-13), Custom = index 13, normalized = 13/13 = 1.0
-            constexpr float customNormalized = 1.0f;
-            if (rawScale != nullptr && std::abs(rawScale->load() - customNormalized) > 0.01f) {
+        // Use onClick to write the parameter + switch to Custom mode, instead
+        // of ButtonAttachment. This avoids feedback loops: ButtonAttachment +
+        // setValueNotifyingHost on the scale parameter caused the toggle to
+        // be reverted by parameter sync.
+        scaleKeyboard.getButton(i).onClick = [this, i] {
+            // Write the custom parameter first
+            auto* param = processorRef.getParameters().getParameter ("custom" + juce::String (i));
+            bool newState = scaleKeyboard.getButton(i).getToggleState();
+            if (param != nullptr)
+                param->setValueNotifyingHost (newState ? 1.0f : 0.0f);
+
+            // Switch to Custom mode if not already there
+            auto* rawScale = processorRef.getParameters().getRawParameterValue ("scale");
+            constexpr float customNormalized = 1.0f; // Custom = index 13/13
+            if (rawScale != nullptr && std::abs (rawScale->load() - customNormalized) > 0.01f)
+            {
                 int customIdx = scaleBox.getNumItems() - 1; // Last item = Custom
-                scaleBox.setSelectedItemIndex(customIdx, juce::sendNotification);
+                scaleBox.setSelectedItemIndex (customIdx, juce::sendNotification);
             }
         };
     }

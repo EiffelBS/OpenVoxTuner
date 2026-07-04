@@ -22,15 +22,11 @@ namespace ui
 
         void paintButton (juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
 
-        std::function<void()> onUserInteraction;
-
         void mouseDown (const juce::MouseEvent& e) override
         {
-            // Toggle first, then switch to Custom mode via the ComboBox
-            // (which handles parameter notification cleanly via ComboBoxAttachment).
-            juce::ToggleButton::mouseDown(e);
-            if (onUserInteraction)
-                onUserInteraction();
+            // Toggle state — onClick handler in PluginEditor will write
+            // the parameter and switch to Custom mode.
+            setToggleState(!getToggleState(), juce::sendNotification);
         }
 
     private:
