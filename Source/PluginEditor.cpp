@@ -811,7 +811,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         customAttachments[i] =
             std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, id, scaleKeyboard.getButton(i));
 
-        scaleKeyboard.getButton(i).onUserInteraction = [this] {
+        scaleKeyboard.getButton(i).onUserInteraction = [this, i] {
             // Switch to Custom mode using setValue (no host notification) to
             // avoid a parameter re-sync that would revert the button toggle.
             // The ComboBox is updated separately so the UI reflects the change.
@@ -824,10 +824,17 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 if (scaleParam != nullptr)
                     scaleParam->setValue (customNormalized);
                 // Update the UI combo box — this notifies the host via
-                // ComboBoxAttachment, but by now the ButtonAttachment has
-                // already written the custom param value.
+                // ComboBoxAttachment. The notification may re-sync parameters,
+                // undoing the toggle. So we re-apply the custom param AFTER.
                 int customIdx = scaleBox.getNumItems() - 1;
                 scaleBox.setSelectedItemIndex (customIdx, juce::sendNotification);
+
+                // Re-apply the custom parameter after the scale switch, in case
+                // the host re-sync reverted the ButtonAttachment's write.
+                auto* customParam = processorRef.getParameters().getParameter ("custom" + juce::String (i));
+                bool newState = scaleKeyboard.getButton(i).getToggleState();
+                if (customParam != nullptr)
+                    customParam->setValueNotifyingHost (newState ? 1.0f : 0.0f);
             }
         };
     }
