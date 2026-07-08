@@ -69,6 +69,7 @@ namespace atdsp
                 case HarmonyType::PowerChord:           result.add (freqFromSemitoneOffset (baseFreq,  7)); result.add (freqFromSemitoneOffset (baseFreq, 12)); break;
                 case HarmonyType::ParallelThird:        result.add (freqFromSemitoneOffset (baseFreq,  3)); break;
                 case HarmonyType::Drone:                result.add (baseFreq); break;
+                case HarmonyType::Unison2:             result.add (baseFreq); result.add (baseFreq); break;
                 default: break;
             }
             return result;
@@ -98,6 +99,7 @@ namespace atdsp
             case HarmonyType::PowerChord:           degreeOffsets.add( 4); degreeOffsets.add(scaleSize); break;
             case HarmonyType::ParallelThird:        degreeOffsets.add( 1); break;
             case HarmonyType::Drone:                degreeOffsets.add(-(scaleSize)); break;
+            case HarmonyType::Unison2:             degreeOffsets.add(0); degreeOffsets.add(0); break;
             default: break;
         }
 

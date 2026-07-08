@@ -319,7 +319,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                               "3rd Below + 5th Above", "5th Below + 3rd Above",
                               "Octave Below", "Octave Above", "Octave Below + Above",
                               "Vocal Stack (3 voices)", "Vocal Stack (4 voices)",
-                              "Power Chord", "Parallel 3rd", "Drone"
+                              "Power Chord", "Parallel 3rd", "Drone",
+                              "Unison (2 voices)"
                           }, 3),
 
                       // Harmony Enable : master on/off — disabled by default

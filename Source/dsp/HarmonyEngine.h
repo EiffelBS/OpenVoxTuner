@@ -37,6 +37,7 @@ namespace atdsp
         PowerChord        = 17, // Quinte + octave (+7 +12)
         ParallelThird     = 18, // Tierce parallele (+1 degre)
         Drone             = 19, // Note fixe (tonique)
+        Unison2           = 20, // Unisson (2 voix identiques)
     };
 
     /**

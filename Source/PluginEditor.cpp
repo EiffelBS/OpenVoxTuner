@@ -1844,11 +1844,12 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
             ovt::Keys::kHarmonyOctaveBelow, ovt::Keys::kHarmonyOctaveAbove,
             ovt::Keys::kHarmonyOctaveBelowAbove, ovt::Keys::kHarmonyVocalStack3,
             ovt::Keys::kHarmonyVocalStack4, ovt::Keys::kHarmonyPowerChord,
-            ovt::Keys::kHarmonyParallel3rd, ovt::Keys::kHarmonyDrone
+            ovt::Keys::kHarmonyParallel3rd, ovt::Keys::kHarmonyDrone,
+            ovt::Keys::kHarmonyUnison2
         };
         const int currentHarmony = harmonyTypeBox.getSelectedItemIndex();
         harmonyTypeBox.clear (juce::dontSendNotification);
-        for (int i = 0; i < 20; ++i)
+        for (int i = 0; i < 21; ++i)
             harmonyTypeBox.addItem (ovt::tr (harmonyKeys[i]), i + 1);
         if (currentHarmony >= 0)
             harmonyTypeBox.setSelectedItemIndex (juce::jmin (currentHarmony, 19), juce::dontSendNotification);
