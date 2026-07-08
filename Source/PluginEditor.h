@@ -265,7 +265,7 @@ private:
     ABState slotA, slotB;
     bool isSlotAActive = true;  // currently active slot
 
-    void saveSlot (ABState& slot);
+    void saveSlot (ABState& slot, int slotIndex);
     void loadSlot (const ABState& slot);
     void toggleAB();
 

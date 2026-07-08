@@ -715,8 +715,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     abButton.onClick = [this] { toggleAB(); };
     abButton.onRightClick = [this] {
         juce::PopupMenu menu;
-        menu.addItem ("Save to Slot A", [this] { saveSlot (slotA); });
-        menu.addItem ("Save to Slot B", [this] { saveSlot (slotB); });
+        menu.addItem ("Save to Slot A", [this] { saveSlot (slotA, 0); });
+        menu.addItem ("Save to Slot B", [this] { saveSlot (slotB, 1); });
 
         applyMenuLookAndFeel (menu, customLookAndFeel);
         menu.showMenuAsync (juce::PopupMenu::Options());
@@ -1180,6 +1180,23 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     {
         curveEditor->setCurve (processorRef.getPitchCurve());
         processorRef.getPendingCurveRestore().store (false);
+    }
+    // Restore A/B slots from the processor (persisted across project reload).
+    {
+        auto* slotAxml = processorRef.getAbSlotXml (0);
+        if (slotAxml != nullptr)
+        {
+            slotA.state = std::make_unique<juce::XmlElement> (*slotAxml);
+            slotA.hasData = true;
+            slotA.name = "filled";
+        }
+        auto* slotBxml = processorRef.getAbSlotXml (1);
+        if (slotBxml != nullptr)
+        {
+            slotB.state = std::make_unique<juce::XmlElement> (*slotBxml);
+            slotB.hasData = true;
+            slotB.name = "filled";
+        }
     }
     
     // Initialize tab from processor parameter
@@ -2058,15 +2075,18 @@ void OpenVoxTunerAudioProcessorEditor::deleteCustomPresetFile (const juce::File&
 }
 
 // === A/B Comparison ===
-void OpenVoxTunerAudioProcessorEditor::saveSlot (ABState& slot)
+void OpenVoxTunerAudioProcessorEditor::saveSlot (ABState& slot, int slotIndex)
 {
     juce::MemoryBlock block;
     processorRef.getStateInformation (block);
     // Store the binary plugin state as a base64-encoded XML attribute
     slot.state = std::make_unique<juce::XmlElement> ("AB_SLOT");
+    slot.state->setAttribute ("slot", slotIndex);
     slot.state->setAttribute ("data", block.toBase64Encoding());
     slot.hasData = true;
     slot.name = "filled";
+    // Also persist to the processor so it survives project reload.
+    processorRef.setAbSlotXml (slotIndex, std::make_unique<juce::XmlElement> (*slot.state));
 }
 
 void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
@@ -2083,14 +2103,14 @@ void OpenVoxTunerAudioProcessorEditor::toggleAB()
 {
     if (isSlotAActive)
     {
-        saveSlot (slotA);
+        saveSlot (slotA, 0);
         loadSlot (slotB);
         isSlotAActive = false;
         abButton.setButtonText ("B");
     }
     else
     {
-        saveSlot (slotB);
+        saveSlot (slotB, 1);
         loadSlot (slotA);
         isSlotAActive = true;
         abButton.setButtonText ("A");

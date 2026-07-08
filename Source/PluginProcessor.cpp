@@ -1849,6 +1849,11 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         if (xml != nullptr && curveXml != nullptr)
             xml->addChildElement (curveXml.release());
     }
+    // Sauvegarde les slots A/B si disponibles.
+    if (abSlotAxml != nullptr)
+        xml->addChildElement (new juce::XmlElement (*abSlotAxml));
+    if (abSlotBxml != nullptr)
+        xml->addChildElement (new juce::XmlElement (*abSlotBxml));
     copyXmlToBinary (*xml, destData);
 }
 
@@ -1859,6 +1864,17 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
     {
         parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
         waveformDisplayType = xmlState->getIntAttribute ("waveformDisplayType", 1);
+        // Restaure les slots A/B si presents.
+        for (int i = 0; i < xmlState->getNumChildElements(); ++i)
+        {
+            auto* child = xmlState->getChildElement (i);
+            if (child != nullptr && child->hasTagName ("AB_SLOT"))
+            {
+                const int slotIdx = child->getIntAttribute ("slot", -1);
+                if (slotIdx == 0 || slotIdx == 1)
+                    setAbSlotXml (slotIdx, std::make_unique<juce::XmlElement> (*child));
+            }
+        }
         // Restaure la pitch curve si presente dans le XML.
         if (pitchCurve != nullptr)
         {

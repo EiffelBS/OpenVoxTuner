@@ -129,6 +129,17 @@ public:
     int getWaveformDisplayType() const { return waveformDisplayType; }
     void setWaveformDisplayType (int type) { waveformDisplayType = type; }
 
+    // A/B slot persistence (called by Editor during state save/load).
+    void setAbSlotXml (int slot, std::unique_ptr<juce::XmlElement> xml)
+    {
+        if (slot == 0) abSlotAxml = std::move (xml);
+        else           abSlotBxml = std::move (xml);
+    }
+    const juce::XmlElement* getAbSlotXml (int slot) const
+    {
+        return slot == 0 ? abSlotAxml.get() : abSlotBxml.get();
+    }
+
     // CPU usage meter (0.0 - 1.0) for the editor header display.
     float getCpuUsage() const { return cpuUsage.load(); }
     void getTimeSignatureAt(double ppq, int& num, int& den) const;
@@ -226,6 +237,10 @@ private:
     // Cents offset between input pitch and quantized pitch.
     // Positive = input note too high, Negative = too low.
     std::atomic<float> lastCentsOffset { 0.0f };
+
+    // A/B comparison slots (persisted in project state).
+    std::unique_ptr<juce::XmlElement> abSlotAxml;
+    std::unique_ptr<juce::XmlElement> abSlotBxml;
 
     std::atomic<float> lastValidF0 { 0.0f };
 
