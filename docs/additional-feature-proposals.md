@@ -76,6 +76,9 @@ without relying solely on auditory feedback.
 parameters. Add a "morph slider" that smoothly transitions between the
 current settings and a target preset.
 
+**Status**: Technical strategy documented in
+[docs/preset-morphing-technical-strategy.md](preset-morphing-technical-strategy.md).
+
 **Use Case**: The user has two vocal presets (one for verses, one for choruses)
 and wants to smoothly transition between them during a song.
 
