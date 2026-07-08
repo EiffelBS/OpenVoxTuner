@@ -118,6 +118,7 @@ namespace ovt
         static const char* kHarmonyPowerChord      = "harmony.power_chord";
         static const char* kHarmonyParallel3rd     = "harmony.parallel_3rd";
         static const char* kHarmonyDrone           = "harmony.drone";
+        static const char* kHarmonyUnison2         = "harmony.unison2";
         static const char* kTooltipSnapToScale = "tooltip.snap_to_scale";
         static const char* kTooltipSnapToGrid  = "tooltip.snap_to_grid";
         static const char* kTooltipStepMode    = "tooltip.step_mode";
@@ -229,6 +230,7 @@ namespace ovt
             { kHarmonyPowerChord,      "Power Chord" },
             { kHarmonyParallel3rd,     "Parallel 3rd" },
             { kHarmonyDrone,           "Drone" },
+            { kHarmonyUnison2,         "Unison (2 voices)" },
             { kTooltipSnapToScale,    "Snap curve points to scale notes" },
             { kTooltipSnapToGrid,     "Snap curve points to beat grid" },
             { kTooltipStepMode,       "Staircase interpolation between notes" },
@@ -335,6 +337,7 @@ namespace ovt
             { kHarmonyPowerChord,      "Power Chord" },
             { kHarmonyParallel3rd,     "Tierce parallele" },
             { kHarmonyDrone,           "Drone" },
+            { kHarmonyUnison2,         "Unisson (2 voix)" },
             { kTooltipSnapToScale,    "Aligner les points sur les notes de la gamme" },
             { kTooltipSnapToGrid,     "Aligner les points sur la grille rythmique" },
             { kTooltipStepMode,       "Interpolation en escalier entre les notes" },
@@ -441,6 +444,7 @@ namespace ovt
             { kHarmonyPowerChord,      "Power Chord" },
             { kHarmonyParallel3rd,     "Terz parallel" },
             { kHarmonyDrone,           "Drone" },
+            { kHarmonyUnison2,         "Unisono (2 Stimmen)" },
             { kTooltipSnapToScale,    "Kurvenpunkte an Tonleiter einrasten" },
             { kTooltipSnapToGrid,     "Kurvenpunkte am Raster einrasten" },
             { kTooltipStepMode,       "Treppen-Interpolation" },
@@ -547,6 +551,7 @@ namespace ovt
             { kHarmonyPowerChord,      "Power Chord" },
             { kHarmonyParallel3rd,     "Tercia paralela" },
             { kHarmonyDrone,           "Drone" },
+            { kHarmonyUnison2,         "Unisono (2 voces)" },
             { kTooltipSnapToScale,    "Ajustar puntos a la escala" },
             { kTooltipSnapToGrid,     "Ajustar puntos a la cuadricula" },
             { kTooltipStepMode,       "Interpolacion escalonada" },
@@ -653,6 +658,7 @@ namespace ovt
             { kHarmonyPowerChord,      "パワーコード" },
             { kHarmonyParallel3rd,     "並行3度" },
             { kHarmonyDrone,           "ドローン" },
+            { kHarmonyUnison2,         "ユニゾン (2声)" },
             { kTooltipSnapToScale,    "スケールにスナップ" },
             { kTooltipSnapToGrid,     "グリッドにスナップ" },
             { kTooltipStepMode,       "ステップモード" },
