@@ -1845,11 +1845,11 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
             ovt::Keys::kHarmonyOctaveBelowAbove, ovt::Keys::kHarmonyVocalStack3,
             ovt::Keys::kHarmonyVocalStack4, ovt::Keys::kHarmonyPowerChord,
             ovt::Keys::kHarmonyParallel3rd, ovt::Keys::kHarmonyDrone,
-            ovt::Keys::kHarmonyUnison2
+            ovt::Keys::kHarmonyUnison2, ovt::Keys::kHarmonyUnisonOctaves4
         };
         const int currentHarmony = harmonyTypeBox.getSelectedItemIndex();
         harmonyTypeBox.clear (juce::dontSendNotification);
-        for (int i = 0; i < 21; ++i)
+        for (int i = 0; i < 22; ++i)
             harmonyTypeBox.addItem (ovt::tr (harmonyKeys[i]), i + 1);
         if (currentHarmony >= 0)
             harmonyTypeBox.setSelectedItemIndex (juce::jmin (currentHarmony, 19), juce::dontSendNotification);

@@ -38,6 +38,7 @@ namespace atdsp
         ParallelThird     = 18, // Tierce parallele (+1 degre)
         Drone             = 19, // Note fixe (tonique)
         Unison2           = 20, // Unisson (2 voix identiques)
+        UnisonOctaves4    = 21, // Unisson + octave dessous + octave dessus (4 voix)
     };
 
     /**
