@@ -102,7 +102,12 @@ public:
     bool isStandaloneWrapper() const { return wrapperType == juce::AudioProcessor::wrapperType_Standalone; }
 
     // Parameter tree access (for the editor).
-    juce::AudioProcessorValueTreeState& getParameters() { return parameters; }  
+    juce::AudioProcessorValueTreeState& getParameters() { return parameters; }
+
+    /// Get the current scale intervals from the processor's ScaleQuantizer.
+    /// These are the definitive intervals (key + scale or custom) used for
+    /// pitch quantization, background lines, and piano keyboard highlighting.
+    const juce::Array<int>& getScaleIntervals() const;
 
     // VST3 Extension (Micro View, etc.)
     juce::VST3ClientExtensions* getVST3ClientExtensions() override;
@@ -119,12 +124,24 @@ public:
     // Time signature access (for the Curve Editor ruler).
     int getCurrentTimeSigNumerator() const { return currentTimeSigNumerator.load(); }
     int getCurrentTimeSigDenominator() const { return currentTimeSigDenominator.load(); }
+
+    // Waveform display type preference (persisted across sessions).
+    int getWaveformDisplayType() const { return waveformDisplayType; }
+    void setWaveformDisplayType (int type) { waveformDisplayType = type; }
+
+    // CPU usage meter (0.0 - 1.0) for the editor header display.
+    float getCpuUsage() const { return cpuUsage.load(); }
     void getTimeSignatureAt(double ppq, int& num, int& den) const;
 
     void resetTransportTime() {
         customTimeOffset.store(rawHostTime.load());
         transportTime.store(0.0);
     }
+
+    // ARA2 waveform overlay accessors (for the editor).
+    bool isAraWaveformReady() const { return araWaveformReady; }
+    /// Copy the cached waveform into the provided buffer (thread-safe).
+    void copyAraWaveform (juce::AudioBuffer<float>& dest, double& sr);
 
 private:
     // === User parameters (JUCE parameter tree) ===
@@ -139,7 +156,8 @@ private:
     std::atomic<float>* formantParam = nullptr; // Formant shift (-12 to 12)    
     std::atomic<float>* formantEnableParam = nullptr; // Formant On/Off
     std::atomic<float>* keyParam     = nullptr; // Tonic index (0-11)
-    std::atomic<float>* scaleParam   = nullptr; // Mode index (0-5, 5=custom)   
+    std::atomic<float>* scaleParam   = nullptr; // Mode index (0-5, 5=custom)
+    juce::AudioParameterChoice* scaleChoiceParam = nullptr; // Direct accessor for getIndex()   
     std::atomic<float>* bypassParam  = nullptr; // Bypass on/off
     std::atomic<float>* modeParam    = nullptr; // Auto/graphic mode
     std::atomic<float>* engineParam  = nullptr; // Audio engine (0=RubberBand, 1=SoundTouch, 2=PSOLA)
@@ -253,6 +271,15 @@ private:
     // so this works regardless of createEditor() ordering.
     std::atomic<bool> pendingCurveRestore { false };
 
+    // Waveform display type preference (persisted across sessions).
+    int waveformDisplayType = 1; // 0=Line, 1=Mirror (default)
+
+    // === ARA2 Waveform overlay cache ===
+    juce::AudioBuffer<float> araWaveformBuffer;
+    double araWaveformSampleRate = 44100.0;
+    bool araWaveformReady = false;
+    juce::CriticalSection araWaveformLock;
+
     // Time signature state (for Curve Editor ruler).
     std::atomic<int> currentTimeSigNumerator { 4 };
     std::atomic<int> currentTimeSigDenominator { 4 };
@@ -298,6 +325,9 @@ private:
     std::atomic<uint32_t> lastProcessLogTime { 0 };
     std::atomic<uint32_t> lastHarmonyLogTime { 0 };
     int appliedLatencyMode = -1;
+
+    // CPU usage tracking (smoothed ratio of processBlock time to available time).
+    std::atomic<float> cpuUsage { 0.0f };
 
     // Silence counter for Sleep mode (CPU saving).
     int silenceSamples = 0;

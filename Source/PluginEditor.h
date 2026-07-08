@@ -27,9 +27,17 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseDown (const juce::MouseEvent& event) override;
+    bool keyPressed (const juce::KeyPress& key) override;
 
     // === PitchCurveEditor::Listener ===
     void pitchCurveChanged() override;
+
+    /** Re-apply all component colours after a theme change. */
+    void applyThemeToAllComponents();
+
+    /** Refresh DrawableButton SVG icons for the current theme. */
+    void refreshDrawableButtonIcons();
 
 private:
     // === GUI Components ===
@@ -56,6 +64,30 @@ private:
     juce::ToggleButton midiToggleButton;
     // Debug window toggle
     juce::TextButton debugWindowButton {"Debug"};
+
+    // === Keyboard shortcuts help overlay (separate component for correct z-order) ===
+    bool helpOverlayVisible = false;
+    bool showWaveform = true; // Waveform overlay toggle (active by default)
+    void toggleHelpOverlay();
+
+    class HelpOverlayComponent : public juce::Component
+    {
+    public:
+        HelpOverlayComponent (OpenVoxTunerAudioProcessorEditor& editor);
+        void paint (juce::Graphics& g) override;
+        void mouseDown (const juce::MouseEvent& e) override;
+    private:
+        OpenVoxTunerAudioProcessorEditor& owner;
+    };
+    HelpOverlayComponent helpOverlay { *this };
+
+    // === i18n label refresh ===
+    struct TranslatableLabel { juce::Label* label; const char* key; };
+    std::vector<TranslatableLabel> translatableLabels;
+    void refreshLabels();
+
+    // === Export image file chooser ===
+    std::unique_ptr<juce::FileChooser> exportFileChooser;
 
     // Hamburger menu (gear icon button, replaces all top-bar controls).
     juce::DrawableButton menuButton { "Options", juce::DrawableButton::ImageOnButtonBackground };
@@ -196,10 +228,14 @@ private:
 
     void timerCallback() override;
 
+    // CPU usage display
+    float currentCpuUsage = 0.0f;
+
     // Updates the visualizer with the current pitch from the processor.
     void refreshVisualizer();
 
     void showPresetsMenu (const juce::MouseEvent* mouseEvent = nullptr);
+    void setWaveformDisplayType (int type);
     void loadCustomPresetFromFile (const juce::File& file);
     void promptSaveCustomPreset();
     void writeCustomPresetFile (const juce::String& name, const juce::File& file);
@@ -216,6 +252,53 @@ private:
 
     // One-time flag for syncing editor controls from persisted parameters
     bool measuresSyncDone = false;
+
+    // Last waveform display type synced to visualizer/curve editor.
+    int lastWaveformDisplayType = -1;
+
+    // === A/B Comparison ===
+    struct ABState {
+        juce::String name;
+        std::unique_ptr<juce::XmlElement> state;
+        bool hasData = false;
+    };
+    ABState slotA, slotB;
+    bool isSlotAActive = true;  // currently active slot
+
+    void saveSlot (ABState& slot);
+    void loadSlot (const ABState& slot);
+    void toggleAB();
+
+    // A/B toggle button (with right-click support)
+    class ABTextButton : public juce::TextButton {
+    public:
+        using TextButton::TextButton;
+        std::function<void()> onRightClick;
+        void mouseDown (const juce::MouseEvent& e) override {
+            if (e.mods.isRightButtonDown() && onRightClick)
+                onRightClick();
+            else
+                TextButton::mouseDown (e);
+        }
+    };
+    ABTextButton abButton { "A" };
+
+    // === MIDI Learn ===
+    struct MidiLearnState {
+        bool isLearning = false;
+        juce::String parameterId;
+        int assignedCc = -1;
+    };
+    MidiLearnState learnState;
+
+    /** Enter MIDI CC learn mode for the given parameter.
+     *  A dialog prompts the user to move a MIDI controller; the first
+     *  CC message received is bound to the parameter. */
+    void startMidiLearn (const juce::String& parameterId);
+
+    /** Called when a MIDI CC message arrives (e.g. from the processor).
+     *  If learn mode is active, assigns the CC to the pending parameter. */
+    void handleMidiMessage (const juce::MidiMessage& message);
 
     // Sync UI button toggle states from CurveEditor state (snap, grid, step)
     void syncEditButtons()

@@ -2,6 +2,9 @@
 // Implementation de l'editeur de pitch curve.
 
 #include "PitchCurveEditor.h"
+#include "OVTFonts.h"
+#include "OVTTheme.h"
+#include "../dsp/NoteUtils.h"
 
 namespace ui
 {
@@ -42,7 +45,7 @@ namespace ui
         measuresLabel.setText ("Measures", juce::dontSendNotification);
         measuresLabel.setJustificationType (juce::Justification::left);
         measuresLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
-        measuresLabel.setFont (juce::Font (11.0f, juce::Font::bold));
+        measuresLabel.setFont (ovt::fontMeasuresLabel());
         addAndMakeVisible (measuresLabel);
 
         measuresBox.addItemList ({ "1", "2", "4", "8", "16", "32" }, 1);
@@ -51,12 +54,16 @@ namespace ui
         measuresBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
         measuresBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
         measuresBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
+        measuresBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
+        measuresBox.setColour (juce::PopupMenu::textColourId, juce::Colour (0xffcccccc));
         measuresBox.onChange = [this] { setMeasuresVisible (measuresBox.getText().getIntValue()); };
         addAndMakeVisible (measuresBox);
 
         autoScrollToggle.setButtonText ("Auto-Scroll");
+        // Force dark mode colours (curve editor is always dark regardless of theme)
         autoScrollToggle.setColour (juce::ToggleButton::textColourId, juce::Colour (0xffcccccc));
         autoScrollToggle.setColour (juce::ToggleButton::tickColourId, juce::Colour (0xff1A9AF0));
+        autoScrollToggle.setColour (juce::ToggleButton::tickDisabledColourId, juce::Colour (0xff555555));
         autoScrollToggle.setTooltip ("Automatically scroll the editor view during playback");
         autoScrollToggle.onClick = [this] { autoScrollEnabled = autoScrollToggle.getToggleState(); };
         addAndMakeVisible (autoScrollToggle);
@@ -78,6 +85,20 @@ namespace ui
         snapEnabled = true;
         snapToGridEnabled = true;
         setStepModeEnabled(true);
+
+        // Undo/Redo buttons
+        auto setupUndoBtn = [this] (juce::TextButton& btn, const juce::String& tip)
+        {
+            btn.setColour (juce::TextButton::buttonColourId, juce::Colour (0x331A9AF0));
+            btn.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffcccccc));
+            btn.setTooltip (tip);
+            addAndMakeVisible (btn);
+        };
+        setupUndoBtn (undoButton, "Undo (Ctrl+Z)");
+        setupUndoBtn (redoButton, "Redo (Ctrl+Y)");
+
+        undoButton.onClick = [this] { performUndo(); };
+        redoButton.onClick = [this] { performRedo(); };
     }
 
     PitchCurveEditor::~PitchCurveEditor() { stopTimer(); }
@@ -101,15 +122,25 @@ namespace ui
         g.reduceClipRegion (juce::Rectangle<int>(pianoW, 0, b.getWidth() - pianoW, b.getHeight()));
 
         // === Fond de la regle (Ruler) ===
-        g.setColour (juce::Colour (0xff1a1a1a));
+        g.setColour (ovt::rulerBg());
         g.fillRect (pianoW, 0, b.getWidth() - pianoW, rulerH);
         
         // Bordure inferieure de la regle
-        g.setColour (kGridColour);
+        g.setColour (ovt::curveGrid());
         g.drawHorizontalLine (rulerH, static_cast<float> (pianoW), static_cast<float> (b.getWidth()));
 
+        // === Waveform overlay ===
+        if (hasWaveform && waveformBuffer.getNumSamples() > 0)
+        {
+            const auto waveformArea = juce::Rectangle<int> (pianoW, rulerH,
+                                                             b.getWidth() - pianoW, b.getHeight() - rulerH);
+            ovt::drawWaveformOverlay (g, waveformBuffer.getReadPointer (0),
+                                       waveformBuffer.getNumSamples(), waveformArea,
+                                       static_cast<ovt::WaveformDisplayType> (currentDisplayType));
+        }
+
         // === Grille : lignes horizontales pour les octaves C2, C3, C4, C5, C6 ===
-        g.setColour (kGridColour);
+        g.setColour (ovt::curveGrid());
         const float refFreqs[] = { 65.4f, 130.8f, 261.6f, 523.3f, 1046.5f };
         const char* labels[]    = { "C2",   "C3",   "C4",   "C5",   "C6" };
         for (int i = 0; i < 5; ++i)
@@ -117,9 +148,30 @@ namespace ui
             const float y = pitchToY (refFreqs[i]);
             g.drawHorizontalLine (static_cast<int> (y), static_cast<float> (pianoW), static_cast<float> (b.getWidth()));
             // On decale le texte vers la droite pour eviter la superposition
-            // g.setColour (kGridColour.withAlpha (0.7f));
+            // g.setColour (ovt::curveGrid().withAlpha (0.7f));
             // g.drawText (labels[i], pianoW + 4, static_cast<int> (y) - 7, 28, 14, juce::Justification::left);
-            g.setColour (kGridColour);
+            g.setColour (ovt::curveGrid());
+        }
+
+        // === Scale note lines (horizontal lines for notes in the current scale) ===
+        if (! scaleIntervals.isEmpty())
+        {
+            g.setColour (ovt::scaleLine());
+            const float lowestHz = minHz;
+            const float highestHz = maxHz;
+            const int lowestMidi = static_cast<int> (std::ceil (atdsp::hzToMidiFloat (lowestHz)));
+            const int highestMidi = static_cast<int> (std::floor (atdsp::hzToMidiFloat (highestHz)));
+            for (int midi = lowestMidi; midi <= highestMidi; ++midi)
+            {
+                const int noteInOct = atdsp::midiToNoteInOctave (midi);
+                if (noteInOct == 0) continue; // skip C (already drawn as octave grid)
+                if (! scaleIntervals.contains (noteInOct)) continue;
+                const float hz = atdsp::midiToHz (static_cast<float> (midi));
+                const float y = pitchToY (hz);
+                g.drawHorizontalLine (static_cast<int> (y),
+                                      static_cast<float> (pianoW),
+                                      static_cast<float> (b.getWidth()));
+            }
         }
 
         // === Lignes verticales (repere par Beat et Mesure) et Ruler ===
@@ -139,7 +191,7 @@ namespace ui
             bool isBeat = true;
 
             // Ligne verticale dans la grille
-            g.setColour (kGridColour.withAlpha (isBarStart ? 0.6f : (isBeat ? 0.3f : 0.1f)));
+            g.setColour (ovt::curveGrid().withAlpha (isBarStart ? 0.6f : (isBeat ? 0.3f : 0.1f)));
             g.drawVerticalLine (static_cast<int> (x), rulerH, static_cast<float> (b.getHeight()));
 
             // Graduations dans le ruler
@@ -151,7 +203,7 @@ namespace ui
                 // Texte du ruler : bar number (1, 2, 3...)
                 double barDouble = t / ppqPerBar;
                 int bar = static_cast<int> (std::floor (barDouble)) + 1;
-                g.setFont (11.0f);
+                g.setFont (ovt::fontRuler());
                 g.drawText (juce::String (bar),
                             static_cast<int> (x) + 4, 0, 40, rulerH,
                             juce::Justification::centredLeft);
@@ -171,7 +223,7 @@ namespace ui
                 if (std::abs (beatInBar - (beatInt - 1)) < 0.01)
                 {
                     g.setColour (juce::Colours::white.withAlpha (0.5f));
-                    g.setFont (9.0f);
+                    g.setFont (ovt::fontOctaveLabel());
                     g.drawText (juce::String (bar) + "." + juce::String (beatInt),
                                 static_cast<int> (x) + 2, rulerH - 10, 30, 12,
                                 juce::Justification::centredLeft);
@@ -327,7 +379,7 @@ namespace ui
                 g.fillRoundedRectangle(tooltipBounds, 4.0f);
                 
                 g.setColour (juce::Colours::white);
-                g.setFont (12.0f);
+                g.setFont (ovt::fontVersion());
                 g.drawText (noteStr, tooltipBounds, juce::Justification::centred, false);
             }
         }
@@ -343,7 +395,7 @@ namespace ui
 
         // === Label aide (coin bas-droit) ===
         g.setColour (juce::Colours::grey.withAlpha(0.6f));
-        g.setFont (11.0f);
+        g.setFont (ovt::fontRuler());
         const juce::String modifierName =
 #if JUCE_MAC
             "Cmd";
@@ -357,8 +409,40 @@ namespace ui
 
         g.restoreState();
 
+        // === Hover cursor (horizontal line + note/Hz readout) ===
+        if (isMouseOverPlot && hoverMouseY >= (float) rulerH)
+        {
+            // Horizontal cursor line
+            g.setColour (juce::Colour (0x44ffffff));
+            g.drawHorizontalLine (static_cast<int> (hoverMouseY),
+                                  static_cast<float> (pianoW), static_cast<float> (b.getWidth()));
+
+            // Readout box with note name and Hz
+            const float hz = yToPitch (hoverMouseY);
+            if (hz > 0.0f)
+            {
+                const juce::String noteName = getNoteName (hz);
+                const juce::String hzText = juce::String (static_cast<int> (std::round (hz))) + " Hz";
+                const juce::String readout = noteName + "  " + hzText;
+                g.setFont (ovt::fontReadout());
+                const int textW = g.getCurrentFont().getStringWidth (readout);
+                const int boxW = textW + 10;
+                const int boxH = 16;
+                int boxX = b.getWidth() - boxW - 8;
+                int boxY = static_cast<int> (hoverMouseY) - boxH - 4;
+                if (boxY < rulerH) boxY = static_cast<int> (hoverMouseY) + 4;
+                g.setColour (juce::Colour (0xcc15151e));
+                g.fillRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 3.0f);
+                g.setColour (juce::Colour (0x661A9AF0));
+                g.drawRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 3.0f, 0.5f);
+                g.setColour (juce::Colours::white);
+                g.drawText (readout, boxX + 5, boxY, boxW - 10, boxH,
+                            juce::Justification::centredLeft);
+            }
+        }
+
         // Separateur vertical entre le piano et la zone d'edition.
-        g.setColour (juce::Colour (0xff2a2a36));
+        g.setColour (ovt::isDark() ? juce::Colour (0xff2a2a36) : juce::Colour (0xff8a8a96));
         g.drawVerticalLine (pianoW, rulerH, static_cast<float> (b.getHeight()));
 
         // === Overlay gris si l'editeur est desactive (mode Live) ===
@@ -367,7 +451,7 @@ namespace ui
             g.setColour (juce::Colours::black.withAlpha (0.55f));
             g.fillRect (plotArea);
             g.setColour (juce::Colours::white.withAlpha (0.7f));
-            g.setFont (14.0f);
+            g.setFont (ovt::fontComboBox());
             g.drawText ("Live Mode : switch to Curve Editor to edit",
                         plotArea.getX(), plotArea.getY(), plotArea.getWidth(), plotArea.getHeight(),
                         juce::Justification::centred);
@@ -404,6 +488,13 @@ namespace ui
 
         // Measures label right before the combo
         measuresLabel.setBounds (comboRight - 54 - 4 - 64, controlY, 64, controlH);
+
+        // Undo/Redo buttons (bottom-left, below piano keyboard)
+        const int btnSize = 22;
+        const int btnGap = 4;
+        const int btnY = pianoKeyboard.getBottom() + 4;
+        undoButton.setBounds (2, btnY, btnSize, btnSize);
+        redoButton.setBounds (2 + btnSize + btnGap, btnY, btnSize, btnSize);
     }
 
     void PitchCurveEditor::timerCallback()
@@ -765,7 +856,24 @@ namespace ui
 
     void PitchCurveEditor::mouseMove (const juce::MouseEvent& e)
     {
-        if (!editorEnabled) return;
+        const int rulerH = 24;
+        const int pianoW = pianoKeyboard.getWidth() > 0 ? pianoKeyboard.getWidth() : 60;
+        const auto plotArea = juce::Rectangle<int> (pianoW, rulerH,
+                                                     getWidth() - pianoW, getHeight() - rulerH);
+
+        auto pos = e.getPosition();
+        if (plotArea.contains (pos))
+        {
+            isMouseOverPlot = true;
+            hoverMouseX = static_cast<float> (pos.x);
+            hoverMouseY = static_cast<float> (pos.y);
+        }
+        else
+        {
+            isMouseOverPlot = false;
+        }
+
+        if (! editorEnabled) return;
 
         const juce::Point<float> p (e.position.x, e.position.y);
         int newHover = findPointAtPixel (p);
@@ -775,6 +883,12 @@ namespace ui
             hoverIndex = newHover;
             repaint();
         }
+    }
+
+    void PitchCurveEditor::mouseExit (const juce::MouseEvent&)
+    {
+        isMouseOverPlot = false;
+        repaint();
     }
 
     void PitchCurveEditor::mouseDoubleClick (const juce::MouseEvent& e)
@@ -964,6 +1078,7 @@ namespace ui
 
     void PitchCurveEditor::setScaleIntervals (const juce::Array<int>& intervals)
     {
+        scaleIntervals = intervals;
         pianoKeyboard.setScaleIntervals (intervals);
     }
 
@@ -1011,14 +1126,28 @@ namespace ui
             // Force disable auto-scroll when the control is hidden
             autoScrollEnabled = false;
             autoScrollToggle.setToggleState (false, juce::dontSendNotification);
-            resized();
         }
+        resized();
     }
 
-    void PitchCurveEditor::setPlayheadTime (double time, bool isHostPlaying)
+    void PitchCurveEditor::setWaveformOverlay (const float* samples, int numSamples, double /*sampleRate*/)
     {
-        // === Detecter les transitions pour le nettoyage des traces ===
-        if (isHostPlaying && !wasPlayingLastFrame)
+        if (samples == nullptr || numSamples <= 0)
+        {
+            hasWaveform = false;
+            return;
+        }
+        waveformBuffer.setSize (1, numSamples, false, false, true);
+        waveformBuffer.copyFrom (0, 0, samples, numSamples);
+        hasWaveform = true;
+        repaint();
+    }
+
+    void PitchCurveEditor::setPlayheadTime (double time, bool /*isHostPlaying*/)
+    {
+        // === Detect playing transitions for trace cleanup ===
+        const bool playing = (time != playheadTime); // transport is advancing
+        if (playing && ! wasPlayingLastFrame)
         {
             for (int v = 0; v < maxHarmonyVoices; ++v)
             {
@@ -1026,30 +1155,24 @@ namespace ui
                 harmonyPitches.getReference(v).clear();
             }
         }
-        wasPlayingLastFrame = isHostPlaying;
+        wasPlayingLastFrame = playing;
 
-        if (isHostPlaying && autoScrollEnabled && autoScrollVisible)
+        if (autoScrollEnabled && autoScrollVisible)
         {
-            // Lecture en cours : LERP fluide, playhead reste au centre
+            // Auto-scroll: LERP fluide, playhead reste au centre
             double targetScroll = time - timeVisible * 0.5;
             targetScroll = juce::jmax (0.0, targetScroll);
             scrollOffset = scrollOffset + (targetScroll - scrollOffset) * 0.15;
         }
-        else if (!isHostPlaying && autoScrollVisible)
+        else if (autoScrollVisible)
         {
-            // Arret : snap instantane si la position du playhead a change
-            // significativement (seek manuel > 0.01 PPQ). Un epsilon evite
-            // les fluctuations de cachedTransportTime (1e-12) qui feraient
-            // vibrer les lignes du ruler.
+            // Stopped: snap instantane si seek manuel
             if (std::abs (time - stoppedPlayheadTime) > 0.01)
             {
                 scrollOffset = juce::jmax (0.0, time - timeVisible * 0.5);
                 stoppedPlayheadTime = time;
             }
-            // time stable : scrollOffset est totalement gele -> pas de vibration
         }
-        // isHostPlaying && !autoScrollEnabled: aucun scroll
-        // !autoScrollVisible: auto-scroll desactive (mode non-ARA)
 
         playheadTime = time;
         repaint();

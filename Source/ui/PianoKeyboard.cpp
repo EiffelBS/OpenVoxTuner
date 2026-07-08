@@ -7,6 +7,8 @@
 // Les touches de la gamme courante sont mises en surbrillance.
 
 #include "PianoKeyboard.h"
+#include "OVTFonts.h"
+#include "OVTTheme.h"
 
 namespace ui
 {
@@ -164,15 +166,18 @@ namespace ui
             }
 
             // Label : nom de note (C, D, E, F, G, A, B) + octave.
+            // Show labels only when keys are tall enough (>= 20px) to avoid clutter.
             const int note = atdsp::midiToNoteInOctave (midi);
             const int oct  = atdsp::midiToOctave (midi);
-            // On n'affiche le label que pour les C (plus lisible).
-            if (note == 0)
+            if (keyRect.getHeight() >= 20.0f)
             {
                 g.setColour (kText.withAlpha(0.8f));
-                g.setFont (juce::Font (11.0f, juce::Font::bold));
-                // On decale legerement a gauche pour ne pas ecraser l'indicateur bleu
-                g.drawText ("C " + juce::String (oct),
+                g.setFont (ovt::fontPianoKey());
+                const juce::String noteName = juce::String (atdsp::noteInOctaveName (note));
+                const bool isC = (note == 0);
+                const juce::String label = isC ? (noteName + " " + juce::String (oct))
+                                               : noteName;
+                g.drawText (label,
                             1.0f, keyRect.getY() + keyRect.getHeight() * 0.5f - 7.0f, whiteW - 8.0f, 14.0f,
                             juce::Justification::centredRight);
             }

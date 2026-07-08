@@ -8,17 +8,44 @@
 //   - les lignes horizontales des notes de la gamme courante
 
 #include "PitchVisualizer.h"
+#include "OVTFonts.h"
+#include <cmath>
+#include "OVTTheme.h"
+#include "OVTLanguages.h"
 
 namespace ui
 {
     // === Couleurs du theme ===
-    // Fond plus moderne et transparent.
     const juce::Colour PitchVisualizer::kBg              = juce::Colour (0x4015151b);
     const juce::Colour PitchVisualizer::kGrid            = juce::Colour (0x20ffffff);
     const juce::Colour PitchVisualizer::kInputColour     = juce::Colour (0xffe91e63).withAlpha (0.4f);
     const juce::Colour PitchVisualizer::kOutputColour    = juce::Colour (0xff00e676);
     const juce::Colour PitchVisualizer::kScaleLineColour = juce::Colour (0x10ffffff);
-    const juce::Colour PitchVisualizer::kHarmonyColour   = juce::Colour (0xff1A9AF0).withAlpha (0.7f); // bleu spec
+    const juce::Colour PitchVisualizer::kHarmonyColour   = juce::Colour (0xff1A9AF0).withAlpha (0.7f);
+
+    // === SVG icons (Lucide-style, 24x24 viewBox) ===
+    // Placeholder colour #010101 is replaced at setup time for each state.
+    static const char* svgZoomIn = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>)";
+
+    static const char* svgZoomOut = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>)";
+
+    static const char* svgScrollUp = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>)";
+
+    static const char* svgScrollDown = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>)";
+
+    static const char* svgReset = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>)";
+
+    // Helper: create a Drawable from SVG XML, replacing placeholder colour.
+    static std::unique_ptr<juce::Drawable> createDrawableFromSVG (
+        const char* svgXml, juce::Colour colour)
+    {
+        auto xml = juce::XmlDocument::parse (svgXml);
+        if (xml == nullptr) return std::make_unique<juce::DrawablePath>();
+        auto d = juce::Drawable::createFromSVG (*xml);
+        if (d == nullptr) return std::make_unique<juce::DrawablePath>();
+        d->replaceColour (juce::Colour (0xff010101), colour);
+        return d;
+    }
 
     PitchVisualizer::PitchVisualizer()
     {
@@ -29,7 +56,6 @@ namespace ui
             inputHistory.add (0.0f);
             outputHistory.add (0.0f);
         }
-        // initialize harmony history buffers (maxHarmonyVoices x historySize)
         harmonyHistory.clear();
         for (int v = 0; v < maxHarmonyVoices; ++v)
         {
@@ -37,15 +63,45 @@ namespace ui
             for (int i = 0; i < historySize; ++i) h.add (0.0f);
             harmonyHistory.add (h);
         }
-        
-        addAndMakeVisible(pianoKeyboard);
-        pianoKeyboard.setRange(static_cast<int>(atdsp::hzToMidiFloat(fMin)), 
-                               static_cast<int>(atdsp::hzToMidiFloat(fMax)));
-        
+
+        addAndMakeVisible (pianoKeyboard);
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (fMin)),
+                                static_cast<int> (atdsp::hzToMidiFloat (fMax)));
+
+        // === SVG icon buttons (order: zoom, scroll, reset) ===
+        setupIconBtn (zoomInButton,    svgZoomIn,    ovt::tr(ovt::Keys::kTooltipZoomIn));
+        setupIconBtn (zoomOutButton,   svgZoomOut,   ovt::tr(ovt::Keys::kTooltipZoomOut));
+        setupIconBtn (scrollUpButton,  svgScrollUp,  ovt::tr(ovt::Keys::kTooltipScrollUp));
+        setupIconBtn (scrollDownButton,svgScrollDown,ovt::tr(ovt::Keys::kTooltipScrollDown));
+        setupIconBtn (resetViewButton, svgReset,     ovt::tr(ovt::Keys::kTooltipResetView));
+
+        zoomInButton.onClick     = [this] { zoomIn(); };
+        zoomOutButton.onClick    = [this] { zoomOut(); };
+        scrollUpButton.onClick   = [this] { scrollUp(); };
+        scrollDownButton.onClick = [this] { scrollDown(); };
+        resetViewButton.onClick  = [this] { resetView(); };
+
+        targetFMin = fMin;
+        targetFMax = fMax;
+
         startTimerHz (30);
     }
 
     PitchVisualizer::~PitchVisualizer() { stopTimer(); }
+
+    void PitchVisualizer::setupIconBtn (juce::DrawableButton& btn, const char* svgXml,
+                                         const juce::String& tooltip, bool /*isToggle*/)
+    {
+        auto normal = createDrawableFromSVG (svgXml, juce::Colour (0xffcccccc));
+        auto over   = createDrawableFromSVG (svgXml, juce::Colours::white);
+        auto down   = createDrawableFromSVG (svgXml, juce::Colour (0xff1A9AF0));
+        btn.setImages (normal.get(), over.get(), down.get());
+        btn.setTooltip (tooltip);
+        btn.setColour (juce::DrawableButton::backgroundColourId,     juce::Colour (0x331A9AF0));
+        btn.setColour (juce::DrawableButton::backgroundOnColourId,   juce::Colour (0x661A9AF0));
+        btn.setColour (juce::DrawableButton::textColourId,           juce::Colours::white);
+        addAndMakeVisible (btn);
+    }
 
     void PitchVisualizer::pushInputPitch (float hz)
     {
@@ -74,28 +130,85 @@ namespace ui
 
     void PitchVisualizer::setHarmonyFrequencies (const juce::Array<float>& freqs)
     {
-        // Push latest harmony frequencies into per-voice history buffers.
         for (int v = 0; v < maxHarmonyVoices; ++v)
         {
             float value = 0.0f;
             if (v < freqs.size()) value = freqs[v];
-
-            auto& h = harmonyHistory.getReference(v);
+            auto& h = harmonyHistory.getReference (v);
             if (h.size() >= historySize) h.remove (0);
             h.add (value);
         }
     }
 
+    void PitchVisualizer::setWaveformOverlay (const float* samples, int numSamples, double sampleRate)
+    {
+        if (samples == nullptr || numSamples <= 0)
+        {
+            hasWaveform = false;
+            return;
+        }
+        waveformBuffer.setSize (1, numSamples);
+        waveformBuffer.copyFrom (0, 0, samples, numSamples);
+        waveformSampleRate = sampleRate;
+        hasWaveform = true;
+    }
+
+    void PitchVisualizer::paintWaveformOverlay (juce::Graphics& g, juce::Rectangle<int> plotArea)
+    {
+        if (! hasWaveform || waveformBuffer.getNumSamples() == 0) return;
+
+        ovt::drawWaveformOverlay (g, waveformBuffer.getReadPointer (0),
+                                   waveformBuffer.getNumSamples(), plotArea,
+                                   static_cast<ovt::WaveformDisplayType> (currentDisplayType));
+    }
+
     float PitchVisualizer::hzToY (float hz, int height) const
     {
         if (hz <= 0.0f) return static_cast<float> (height);
-        // Utilise la meme echelle que le piano keyboard
-        const float midiF = atdsp::hzToMidiFloat(hz);
+        const float midiF = atdsp::hzToMidiFloat (hz);
         const int lowestMidi = pianoKeyboard.getLowestMidi();
         const int highestMidi = pianoKeyboard.getHighestMidi();
-        const int range = juce::jmax(1, highestMidi - lowestMidi);
-        const float t = (midiF - static_cast<float>(lowestMidi)) / static_cast<float>(range);
-        return height * (1.0f - juce::jlimit(0.0f, 1.0f, t));
+        const int range = juce::jmax (1, highestMidi - lowestMidi);
+        const float t = (midiF - static_cast<float> (lowestMidi)) / static_cast<float> (range);
+        return height * (1.0f - juce::jlimit (0.0f, 1.0f, t));
+    }
+
+    float PitchVisualizer::yToHz (float y, int height) const
+    {
+        if (height <= 0) return 0.0f;
+        const float t = 1.0f - juce::jlimit (0.0f, 1.0f, y / static_cast<float> (height));
+        const int lowestMidi = pianoKeyboard.getLowestMidi();
+        const int highestMidi = pianoKeyboard.getHighestMidi();
+        const int range = juce::jmax (1, highestMidi - lowestMidi);
+        const float midiF = static_cast<float> (lowestMidi) + t * static_cast<float> (range);
+        return atdsp::midiToHz (midiF);
+    }
+
+    void PitchVisualizer::mouseMove (const juce::MouseEvent& e)
+    {
+        const int headerH = juce::jmin (50, getHeight() / 4);
+        const int pianoW = pianoKeyboard.getWidth() > 0 ? pianoKeyboard.getWidth() : 60;
+        const auto plotArea = juce::Rectangle<int> (pianoW, headerH, getWidth() - pianoW, getHeight() - headerH);
+
+        auto pos = e.getPosition();
+        if (plotArea.contains (pos))
+        {
+            isMouseOverPlot = true;
+            hoverHz = yToHz (static_cast<float> (pos.y - plotArea.getY()), plotArea.getHeight());
+        }
+        else
+        {
+            isMouseOverPlot = false;
+            hoverHz = 0.0f;
+        }
+        repaint();
+    }
+
+    void PitchVisualizer::mouseExit (const juce::MouseEvent&)
+    {
+        isMouseOverPlot = false;
+        hoverHz = 0.0f;
+        repaint();
     }
 
     void PitchVisualizer::paint (juce::Graphics& g)
@@ -104,67 +217,52 @@ namespace ui
         const int W = b.getWidth();
         const int H = b.getHeight();
 
-        // === Layout ===
-        // Modern header strip (50px): integrated note display + tuning meter
-        // Piano on the left (60px)
-        // Plot area fills the rest
         const int headerH = juce::jmin (50, H / 4);
-        const int pianoW  = pianoKeyboard.getWidth() > 0 ? pianoKeyboard.getWidth() : 60;
-
+        const int pianoW = pianoKeyboard.getWidth() > 0 ? pianoKeyboard.getWidth() : 60;
         const auto plotArea = juce::Rectangle<int> (pianoW, headerH, W - pianoW, H - headerH);
 
         // === Background ===
-        g.fillAll (kBg);
+        g.fillAll (ovt::vizBg());
 
         // === Modern header strip ===
         {
-            // Dark glass-panel background
-            g.setColour (juce::Colour (0xff15151e));
+            g.setColour (ovt::vizHeaderBg());
             g.fillRect (0, 0, W, headerH);
-
-            // Bottom border accent line
-            g.setColour (juce::Colour (0x331A9AF0));
+            g.setColour (ovt::vizHeaderAccent());
             g.fillRect (0, headerH - 2, W, 2);
 
             const int badgeH = headerH - 12;
             const int badgeY = (headerH - badgeH) / 2;
 
-            // ---- Note badge (center-aligned text) ----
             const juce::String noteDisplay = noteInfo.valid ? noteInfo.name : "--";
-
-            // Note name on the left side, centered in its area
             const int noteAreaW = 90;
             const int noteAreaX = 14;
 
-            // Subtle background glow for the note area
             juce::Colour badgeCol = noteInfo.valid
-                ? juce::Colour (0x221A9AF0)
-                : juce::Colour (0x11ffffff);
+                ? juce::Colour (0x221A9AF0) : juce::Colour (0x11ffffff);
             g.setColour (badgeCol);
-            g.fillRoundedRectangle ((float)noteAreaX, (float)badgeY, (float)noteAreaW, (float)badgeH, 6.0f);
+            g.fillRoundedRectangle ((float) noteAreaX, (float) badgeY,
+                                    (float) noteAreaW, (float) badgeH, 6.0f);
             g.setColour (juce::Colour (0x441A9AF0));
-            g.drawRoundedRectangle ((float)noteAreaX, (float)badgeY, (float)noteAreaW, (float)badgeH, 6.0f, 1.0f);
+            g.drawRoundedRectangle ((float) noteAreaX, (float) badgeY,
+                                    (float) noteAreaW, (float) badgeH, 6.0f, 1.0f);
 
-            // Current sung note, CENTERED in its badge zone
             g.setColour (juce::Colours::white);
-            g.setFont (juce::Font (24.0f, juce::Font::bold));
-            g.drawText (noteDisplay,
-                        noteAreaX, badgeY, noteAreaW, badgeH,
+            g.setFont (ovt::fontNoteLarge());
+            g.drawText (noteDisplay, noteAreaX, badgeY, noteAreaW, badgeH,
                         juce::Justification::centred);
 
-            // Target note arrow + name (right of the note badge), centered vertically
             const juce::String targetDisplay = (noteInfo.valid && noteInfo.targetName != noteInfo.name)
-                                                 ? noteInfo.targetName : juce::String();
+                                                   ? noteInfo.targetName : juce::String();
             if (targetDisplay.isNotEmpty())
             {
                 g.setColour (juce::Colour (0xff8bc34a));
-                g.setFont (juce::Font (13.0f, juce::Font::bold));
+                g.setFont (ovt::fontTarget());
                 g.drawText ("> " + targetDisplay,
                             noteAreaX + noteAreaW + 4, badgeY, 80, badgeH,
                             juce::Justification::centredLeft);
             }
 
-            // ---- Cents value (inline, with color) ----
             if (noteInfo.valid)
             {
                 const float cents = noteInfo.cents;
@@ -175,139 +273,101 @@ namespace ui
                 else                                centsCol = juce::Colour (0xffe57373);
 
                 g.setColour (centsCol);
-                g.setFont (juce::Font (18.0f, juce::Font::bold));
+                g.setFont (ovt::fontCents());
                 const juce::String centsStr = (cents >= 0.0f ? "+" : "")
                     + juce::String (static_cast<int> (std::round (cents))) + "\xc2\xa2";
-                g.drawText (centsStr,
-                            185, badgeY, 72, badgeH,
-                            juce::Justification::centred);
+                g.drawText (centsStr, 185, badgeY, 72, badgeH, juce::Justification::centred);
             }
 
-            // ---- LED-grid VU meter (professional DAW style) ----
+            // ---- LED-grid VU meter ----
             {
                 const float cents = noteInfo.valid ? noteInfo.cents : 0.0f;
-
-                // LED grid configuration
-                // Segments per side (excluding center), total = 2*segmentsPerSide + 1
                 constexpr int segmentsPerSide = 8;
                 constexpr int totalSegments = 2 * segmentsPerSide + 1;
-                constexpr float centsPerSegment = 50.0f / (float)segmentsPerSide; // ~6.25
-
-                // Fixed meter width for readability, centered in available space
+                constexpr float centsPerSegment = 50.0f / (float) segmentsPerSide;
                 constexpr int meterFixedW = 300;
-                const int availW = W - 285; // space from note+cents area
+                const int availW = W - 285;
                 const int meterW = juce::jmin (meterFixedW, juce::jmax (160, availW));
-                const int meterLeft = (W - meterW) / 2 + 20; // centered
+                const int meterLeft = (W - meterW) / 2 + 20;
                 const int meterY = badgeY + 3;
                 const int meterH = badgeH - 6;
 
                 if (meterW > 80 && noteInfo.valid)
                 {
-                    // Segment dimensions
                     constexpr int segGap = 2;
                     constexpr int segCount = totalSegments;
                     const int totalGaps = (segCount - 1) * segGap;
                     const int segW = (meterW - totalGaps) / segCount;
                     const int segWClamped = juce::jmax (6, segW);
                     g.setColour (juce::Colour (0x2215151b));
-                    g.fillRoundedRectangle ((float)meterLeft - 4, (float)meterY - 2,
-                                            (float)(meterW + 8), (float)(meterH + 4), 4.0f);
+                    g.fillRoundedRectangle ((float) meterLeft - 4, (float) meterY - 2,
+                                            (float) (meterW + 8), (float) (meterH + 4), 4.0f);
 
-                    // Static color gradient: index from center (0 = center, +1..8 right, -1..-8 left)
-                    // Colors mapped by absolute position from center
                     static const juce::Colour segmentColors[segmentsPerSide + 1] = {
-                        juce::Colour (0xff4caf50), // 0: center (will be overridden by distinctive style)
-                        juce::Colour (0xff66bb6a), // 1: green
-                        juce::Colour (0xff8bc34a), // 2: light green
-                        juce::Colour (0xffcddc39), // 3: yellow-green
-                        juce::Colour (0xffffeb3b), // 4: yellow
-                        juce::Colour (0xffff9800), // 5: orange
-                        juce::Colour (0xffff5722), // 6: deep orange
-                        juce::Colour (0xfff44336), // 7: red
-                        juce::Colour (0xffd32f2f)  // 8: dark red
+                        juce::Colour (0xff4caf50),
+                        juce::Colour (0xff66bb6a), juce::Colour (0xff8bc34a),
+                        juce::Colour (0xffcddc39), juce::Colour (0xffffeb3b),
+                        juce::Colour (0xffff9800), juce::Colour (0xffff5722),
+                        juce::Colour (0xfff44336), juce::Colour (0xffd32f2f)
                     };
 
                     for (int i = 0; i < segCount; ++i)
                     {
-                        // Map segment index to offset from center
-                        int offset = i - segmentsPerSide; // -8..0..+8
+                        int offset = i - segmentsPerSide;
                         int absOffset = std::abs (offset);
-                        float threshold = (float)absOffset * centsPerSegment;
-
+                        float threshold = (float) absOffset * centsPerSegment;
                         bool isActive = false;
-
-                        if (offset == 0) {
-                            // Center segment: only active when very close to 0 cents
+                        if (offset == 0)
                             isActive = (std::abs (cents) < centsPerSegment * 0.5f && std::abs (cents) >= 0.001f);
-                        } else if (offset > 0) {
-                            // Right side: only active when cents is POSITIVE
-                            // Segment at position 'offset' lights up when
-                            // cents >= its threshold
+                        else if (offset > 0)
                             isActive = (cents >= threshold);
-                        } else {
-                            // Left side (offset < 0): only active when cents is NEGATIVE
+                        else
                             isActive = (cents <= -threshold);
-                        }
 
-                        // Compute segment X position
                         int segX = meterLeft + i * (segWClamped + segGap);
                         int segY = meterY;
                         int sH = meterH;
+                        if (absOffset == 0) { segY -= 1; sH += 2; }
 
-                        // Center segment gets extra height (10% taller)
-                        if (absOffset == 0) {
-                            segY -= 1;
-                            sH += 2;
-                        }
+                        juce::Colour baseCol = (absOffset == 0)
+                            ? juce::Colour (0xff00bcd4)
+                            : segmentColors[juce::jmin (absOffset, segmentsPerSide)];
 
-                        juce::Colour baseCol;
-                        if (absOffset == 0) {
-                            // Center segment: distinctive bright cyan/blue
-                            baseCol = juce::Colour (0xff00bcd4);
-                        } else {
-                            int colorIdx = juce::jmin (absOffset, segmentsPerSide);
-                            baseCol = segmentColors[colorIdx];
-                        }
-
-                        if (isActive) {
-                            // Active: full brightness, slight glow via brighter variant
+                        if (isActive)
+                        {
                             g.setColour (baseCol);
-                            g.fillRoundedRectangle ((float)segX, (float)segY,
-                                                    (float)segWClamped, (float)sH, 2.5f);
-                            // Inner bright highlight
+                            g.fillRoundedRectangle ((float) segX, (float) segY,
+                                                    (float) segWClamped, (float) sH, 2.5f);
                             g.setColour (baseCol.brighter (0.3f).withAlpha (0.5f));
-                            g.fillRoundedRectangle ((float)(segX + 1), (float)(segY + 1),
-                                                    (float)(segWClamped - 2), (float)(sH - 3), 1.5f);
-
-                            // Center segment extra glow
-                            if (absOffset == 0) {
+                            g.fillRoundedRectangle ((float) (segX + 1), (float) (segY + 1),
+                                                    (float) (segWClamped - 2), (float) (sH - 3), 1.5f);
+                            if (absOffset == 0)
+                            {
                                 g.setColour (juce::Colour (0xffffffff).withAlpha (0.3f));
-                                g.fillRoundedRectangle ((float)(segX + 1), (float)(segY + 1),
-                                                        (float)(segWClamped - 2), (float)(sH - 2), 2.0f);
+                                g.fillRoundedRectangle ((float) (segX + 1), (float) (segY + 1),
+                                                        (float) (segWClamped - 2), (float) (sH - 2), 2.0f);
                             }
-                        } else {
-                            // Inactive: dim with low opacity
+                        }
+                        else
+                        {
                             g.setColour (baseCol.withAlpha (0.12f));
-                            g.fillRoundedRectangle ((float)segX, (float)segY,
-                                                    (float)segWClamped, (float)sH, 2.5f);
+                            g.fillRoundedRectangle ((float) segX, (float) segY,
+                                                    (float) segWClamped, (float) sH, 2.5f);
                         }
 
-                        // Segment border for definition
                         g.setColour (juce::Colour (0x22ffffff));
-                        g.drawRoundedRectangle ((float)segX, (float)segY,
-                                                (float)segWClamped, (float)sH, 2.5f, 0.5f);
-
-                        // Center segment: distinctive border
-                        if (absOffset == 0) {
+                        g.drawRoundedRectangle ((float) segX, (float) segY,
+                                                (float) segWClamped, (float) sH, 2.5f, 0.5f);
+                        if (absOffset == 0)
+                        {
                             g.setColour (juce::Colour (0x8800bcd4));
-                            g.drawRoundedRectangle ((float)(segX - 1), (float)(segY - 1),
-                                                    (float)(segWClamped + 2), (float)(sH + 2), 3.0f, 1.5f);
+                            g.drawRoundedRectangle ((float) (segX - 1), (float) (segY - 1),
+                                                    (float) (segWClamped + 2), (float) (sH + 2), 3.0f, 1.5f);
                         }
                     }
 
-                    // "0" label centered below the grid
                     const int centerSegX = meterLeft + segmentsPerSide * (segWClamped + segGap);
-                    g.setFont (juce::Font (8.0f));
+                    g.setFont (ovt::fontMeter0());
                     g.setColour (juce::Colour (0xaa00bcd4));
                     g.drawText ("0", centerSegX - 12, meterY + meterH + 2, 24, 10,
                                 juce::Justification::centred);
@@ -319,26 +379,60 @@ namespace ui
         g.saveState();
         g.reduceClipRegion (plotArea);
 
-        // Base grid (C2..C6)
-        g.setColour (kGrid);
-        const float refFreqs[] = { 65.4f, 130.8f, 261.6f, 523.3f, 1046.5f };
-        for (int i = 0; i < 5; ++i)
+        // --- Y-axis frequency labels (Hz) ---
         {
-            const float y = plotArea.getY() + hzToY (refFreqs[i], plotArea.getHeight());
-            g.drawHorizontalLine (static_cast<int> (y),
-                                  static_cast<float> (plotArea.getX()),
-                                  static_cast<float> (plotArea.getRight()));
+            const int lowestMidi  = static_cast<int> (std::ceil (atdsp::hzToMidiFloat (fMin)));
+            const int highestMidi = static_cast<int> (std::floor (atdsp::hzToMidiFloat (fMax)));
+            g.setFont (ovt::fontYAxis());
+            g.setColour (juce::Colour (0x44ffffff));
+            // Draw labels for C notes on the right edge of the plot
+            const int firstC = (lowestMidi % 12 == 0)
+                                 ? lowestMidi
+                                 : lowestMidi + (12 - lowestMidi % 12);
+            for (int midi = firstC; midi <= highestMidi; midi += 12)
+            {
+                const float hz = atdsp::midiToHz (static_cast<float> (midi));
+                const float y = plotArea.getY() + hzToY (hz, plotArea.getHeight());
+                const int yi = static_cast<int> (y);
+                const juce::String hzLabel = juce::String (static_cast<int> (std::round (hz)));
+                g.drawText (hzLabel + " Hz", plotArea.getRight() - 50, yi - 10, 48, 12,
+                            juce::Justification::centredRight);
+            }
         }
 
-        // Scale note lines
-        g.setColour (kScaleLineColour);
-        for (int oct = 2; oct <= 5; ++oct)
+        // --- Dynamic octave reference lines (C notes) ---
         {
-            for (int n = 0; n < scaleIntervals.size(); ++n)
+            const int lowestMidi  = static_cast<int> (std::ceil (atdsp::hzToMidiFloat (fMin)));
+            const int highestMidi = static_cast<int> (std::floor (atdsp::hzToMidiFloat (fMax)));
+            const int firstC = (lowestMidi % 12 == 0)
+                                 ? lowestMidi
+                                 : lowestMidi + (12 - lowestMidi % 12);
+
+            g.setColour (kGrid.brighter (0.15f));
+            for (int midi = firstC; midi <= highestMidi; midi += 12)
             {
-                const int semi = scaleIntervals[n];
-                if (semi == 0) continue;
-                const int midi = (oct + 1) * 12 + semi;
+                const float hz = atdsp::midiToHz (static_cast<float> (midi));
+                const float y = plotArea.getY() + hzToY (hz, plotArea.getHeight());
+                const int yi = static_cast<int> (y);
+                g.drawHorizontalLine (yi,
+                                      static_cast<float> (plotArea.getX()),
+                                      static_cast<float> (plotArea.getRight()));
+                const int oct = atdsp::midiToOctave (midi);
+                const juce::String label = "C" + juce::String (oct);
+                g.setFont (ovt::fontOctaveLabel());
+                g.setColour (ovt::isDark() ? juce::Colour (0x55ffffff) : juce::Colour (0x55000000));
+                g.drawText (label, plotArea.getX() + 2, yi - 10, 28, 12,
+                            juce::Justification::centredLeft);
+                g.setColour (kGrid.brighter (0.15f));
+            }
+
+            // Scale note lines
+            g.setColour (ovt::scaleLine());
+            for (int midi = lowestMidi; midi <= highestMidi; ++midi)
+            {
+                const int noteInOct = atdsp::midiToNoteInOctave (midi);
+                if (noteInOct == 0) continue;
+                if (! scaleIntervals.contains (noteInOct)) continue;
                 const float hz = atdsp::midiToHz (static_cast<float> (midi));
                 const float y = plotArea.getY() + hzToY (hz, plotArea.getHeight());
                 g.drawHorizontalLine (static_cast<int> (y),
@@ -346,6 +440,9 @@ namespace ui
                                       static_cast<float> (plotArea.getRight()));
             }
         }
+
+        // ARA2 waveform overlay (if available)
+        paintWaveformOverlay (g, plotArea);
 
         // Input pitch curve (red)
         if (inputHistory.size() > 1)
@@ -399,7 +496,7 @@ namespace ui
                     const float x = plotArea.getX() + dx * (historySize - h.size() + i);
                     if (hz <= 0.0f) { segmentOpen = false; continue; }
                     const float y = plotArea.getY() + hzToY (hz, plotArea.getHeight());
-                    if (!segmentOpen) { p.startNewSubPath (x, y); segmentOpen = true; hasAny = true; }
+                    if (! segmentOpen) { p.startNewSubPath (x, y); segmentOpen = true; hasAny = true; }
                     else p.lineTo (x, y);
                 }
                 if (hasAny)
@@ -412,77 +509,275 @@ namespace ui
 
         g.restoreState();
 
-        // Legend at bottom-right of plot area
-        g.setFont (10.0f);
-        g.setColour (kInputColour);
-        g.drawText ("Input", plotArea.getRight() - 110, plotArea.getBottom() - 18, 50, 14, juce::Justification::centredRight);
-        g.setColour (kOutputColour);
-        g.drawText ("Output", plotArea.getRight() - 60, plotArea.getBottom() - 18, 50, 14, juce::Justification::centredRight);
+        // --- Hover cursor (crosshair + Hz/note readout) ---
+        if (isMouseOverPlot && hoverHz > 0.0f)
+        {
+            const int hoverY = plotArea.getY() + static_cast<int> (hzToY (hoverHz, plotArea.getHeight()));
+            // Horizontal crosshair line
+            g.setColour (juce::Colour (0x44ffffff));
+            g.drawHorizontalLine (hoverY,
+                                  static_cast<float> (plotArea.getX()),
+                                  static_cast<float> (plotArea.getRight()));
+            // Readout box
+            const juce::String noteName = atdsp::hzToNoteName (hoverHz);
+            const juce::String hzText = juce::String (static_cast<int> (std::round (hoverHz))) + " Hz";
+            const juce::String readout = noteName + "  " + hzText;
+            g.setFont (ovt::fontReadout());
+            const int textW = g.getCurrentFont().getStringWidth (readout);
+            const int boxW = textW + 10;
+            const int boxH = 16;
+            int boxX = plotArea.getX() + 4;
+            int boxY = hoverY - boxH - 4;
+            if (boxY < plotArea.getY()) boxY = hoverY + 4;
+            g.setColour (juce::Colour (0xcc15151e));
+            g.fillRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 3.0f);
+            g.setColour (juce::Colour (0x661A9AF0));
+            g.drawRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 3.0f, 0.5f);
+            g.setColour (juce::Colours::white);
+            g.drawText (readout, boxX + 5, boxY, boxW - 10, boxH,
+                        juce::Justification::centredLeft);
+        }
 
-        g.setColour (juce::Colours::grey.withAlpha(0.6f));
-        g.setFont (11.0f);
-        const juce::String modifierName =
-#if JUCE_MAC
-            "Cmd";
-#else
-            "Ctrl";
-#endif
-        g.drawText ("MouseWheel: Scroll | " + modifierName + "+MouseWheel: Zoom",
-                    plotArea.getRight() - 210, plotArea.getBottom() - 32, 200, 14, juce::Justification::bottomRight);
+        // === Legend + Stats panel (bottom-right of plot area) ===
+        {
+            const int panelW = 160;
+            const int panelH = 68;
+            const int panelX = plotArea.getRight() - panelW - 4;
+            const int panelY = plotArea.getBottom() - panelH - 4;
+
+            // Background (semi-translucent)
+            g.setColour (ovt::vizLegendBg().withAlpha (0.85f));
+            g.fillRoundedRectangle ((float) panelX, (float) panelY,
+                                    (float) panelW, (float) panelH, 4.0f);
+
+            // Row 1: Curve legend
+            g.setFont (ovt::fontLegend());
+            int ly = panelY + 4;
+            g.setColour (kInputColour);
+            g.drawText ("Input", panelX + 4, ly, 38, 10, juce::Justification::centredLeft);
+            g.setColour (kOutputColour);
+            g.drawText ("Output", panelX + 44, ly, 40, 10, juce::Justification::centredLeft);
+            g.setColour (kHarmonyColour);
+            g.drawText ("Harm.", panelX + 88, ly, 26, 10, juce::Justification::centredLeft);
+            ly += 12;
+
+            // Row 2: Shortcut hints
+            g.setColour (juce::Colours::grey.withAlpha (0.7f));
+            g.setFont (ovt::fontLegendHint());
+            g.drawText ("Wheel: Scroll", panelX + 4, ly, 72, 10, juce::Justification::centredLeft);
+            g.drawText ("Ctrl+Whl: Zoom", panelX + 80, ly, 76, 10, juce::Justification::centredLeft);
+            ly += 12;
+
+            // Row 3: Tuning statistics
+            g.setFont (ovt::fontLegendHint());
+            const int inTunePct = static_cast<int> (percentInTune);
+            const juce::String statsText = juce::String (inTunePct) + "% " + ovt::tr (ovt::Keys::kLegendInTune);
+            juce::Colour statsColour;
+            if (inTunePct >= 80)      statsColour = juce::Colour (0xff4caf50);
+            else if (inTunePct >= 50) statsColour = juce::Colour (0xffffc107);
+            else                      statsColour = juce::Colour (0xffff9800);
+            g.setColour (statsColour);
+            g.drawText (statsText, panelX + 4, ly, 72, 10, juce::Justification::centredLeft);
+
+            if (centsHistory.size() > 0)
+            {
+                g.setColour (juce::Colour (0x88ffffff));
+                const juce::String avgText = "avg:" + juce::String (static_cast<int> (avgCents)) + "c";
+                g.drawText (avgText, panelX + 80, ly, 76, 10, juce::Justification::centredLeft);
+            }
+        }
     }
 
     void PitchVisualizer::resized()
     {
         const int headerH = juce::jmin (50, getHeight() / 4);
         pianoKeyboard.setBounds (0, headerH, 60, getHeight() - headerH);
+
+        // SVG icon buttons: top-right corner of the header.
+        // Order: zoom in, zoom out, scroll up, scroll down, reset
+        const int btnSize = 20;
+        const int btnGap = 3;
+        const int totalW = 5 * btnSize + 4 * btnGap;
+        int bx = getWidth() - totalW - 8;
+        const int by = (headerH - btnSize) / 2;
+
+        zoomInButton.setBounds    (bx, by, btnSize, btnSize); bx += btnSize + btnGap;
+        zoomOutButton.setBounds   (bx, by, btnSize, btnSize); bx += btnSize + btnGap;
+        scrollUpButton.setBounds  (bx, by, btnSize, btnSize); bx += btnSize + btnGap;
+        scrollDownButton.setBounds(bx, by, btnSize, btnSize); bx += btnSize + btnGap;
+        resetViewButton.setBounds (bx, by, btnSize, btnSize);
+    }
+
+    void PitchVisualizer::updateStatistics()
+    {
+        if (centsHistory.size() < 2) return;
+
+        // Calculate average
+        float sum = 0.0f;
+        for (int i = 0; i < centsHistory.size(); ++i)
+            sum += centsHistory[i];
+        avgCents = sum / static_cast<float> (centsHistory.size());
+
+        // Calculate standard deviation
+        float sumSq = 0.0f;
+        for (int i = 0; i < centsHistory.size(); ++i)
+        {
+            float diff = centsHistory[i] - avgCents;
+            sumSq += diff * diff;
+        }
+        stdDevCents = std::sqrt (sumSq / static_cast<float> (centsHistory.size()));
+
+        // Calculate in-tune percentage (within +/- 15 cents)
+        int inTune = 0;
+        for (int i = 0; i < centsHistory.size(); ++i)
+            if (std::abs (centsHistory[i]) <= 15.0f) ++inTune;
+        percentInTune = (centsHistory.size() > 0)
+            ? (100.0f * static_cast<float> (inTune) / static_cast<float> (centsHistory.size()))
+            : 0.0f;
     }
 
     void PitchVisualizer::timerCallback()
     {
-        pianoKeyboard.setCurrentPitches(latestInputHz, latestOutputHz);
+        pianoKeyboard.setCurrentPitches (latestInputHz, latestOutputHz);
+
+        // Track cents for statistics
+        if (noteInfo.valid)
+        {
+            if (centsHistory.size() >= statsWindowSize) centsHistory.remove (0);
+            centsHistory.add (noteInfo.cents);
+            updateStatistics();
+        }
+
+        // Smooth animated zoom/scroll transitions.
+        if (animating)
+        {
+            const float lerp = 0.25f;
+            fMin += (targetFMin - fMin) * lerp;
+            fMax += (targetFMax - fMax) * lerp;
+            if (std::abs (fMin - targetFMin) < 0.1f && std::abs (fMax - targetFMax) < 0.1f)
+            {
+                fMin = targetFMin;
+                fMax = targetFMax;
+                animating = false;
+            }
+            pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (fMin)),
+                                    static_cast<int> (atdsp::hzToMidiFloat (fMax)));
+        }
+
         repaint();
     }
 
     void PitchVisualizer::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
     {
-        // Facteur de zoom/scroll
         float scrollAmount = wheel.deltaY;
-        
-        // Si Ctrl est enfonce, on zoome/dezoome
+
         if (e.mods.isCtrlDown() || e.mods.isCommandDown())
         {
             float zoomFactor = 1.0f - scrollAmount * 2.0f;
             if (zoomFactor < 0.1f) zoomFactor = 0.1f;
             if (zoomFactor > 10.0f) zoomFactor = 10.0f;
-            
-            float centerPitch = std::exp(std::log(fMin) + (std::log(fMax) - std::log(fMin)) * 0.5f);
-            float currentRangeCents = 1200.0f * std::log2(fMax / fMin);
+
+            float centerPitch = std::exp (std::log (fMin) + (std::log (fMax) - std::log (fMin)) * 0.5f);
+            float currentRangeCents = 1200.0f * std::log2 (fMax / fMin);
             float newRangeCents = currentRangeCents * zoomFactor;
-            
+
             if (newRangeCents < 1200.0f) newRangeCents = 1200.0f;
             if (newRangeCents > 1200.0f * 8.0f) newRangeCents = 1200.0f * 8.0f;
-            
-            float halfRangeLog = (newRangeCents / 1200.0f) * std::log(2.0f) / 2.0f;
-            float centerLog = std::log(centerPitch);
-            
-            fMin = std::exp(centerLog - halfRangeLog);
-            fMax = std::exp(centerLog + halfRangeLog);
+
+            float halfRangeLog = (newRangeCents / 1200.0f) * std::log (2.0f) / 2.0f;
+            float centerLog = std::log (centerPitch);
+
+            targetFMin = std::exp (centerLog - halfRangeLog);
+            targetFMax = std::exp (centerLog + halfRangeLog);
         }
         else
         {
-            // Scroll (pan) vers le haut/bas
-            float currentRangeLog = std::log(fMax / fMin);
+            float currentRangeLog = std::log (fMax / fMin);
             float shiftLog = scrollAmount * currentRangeLog * 0.5f;
-            fMin = std::exp(std::log(fMin) + shiftLog);
-            fMax = std::exp(std::log(fMax) + shiftLog);
+            targetFMin = std::exp (std::log (fMin) + shiftLog);
+            targetFMax = std::exp (std::log (fMax) + shiftLog);
         }
-        
-        // Limites absolues
-        if (fMin < 16.35f) { float r = fMax/fMin; fMin = 16.35f; fMax = fMin * r; }
-        if (fMax > 8372.0f) { float r = fMax/fMin; fMax = 8372.0f; fMin = fMax / r; }
-        
-        pianoKeyboard.setRange(static_cast<int>(atdsp::hzToMidiFloat(fMin)), 
-                               static_cast<int>(atdsp::hzToMidiFloat(fMax)));
-        repaint();
+
+        if (targetFMin < 16.35f) { float r = targetFMax / targetFMin; targetFMin = 16.35f; targetFMax = targetFMin * r; }
+        if (targetFMax > 8372.0f) { float r = targetFMax / targetFMin; targetFMax = 8372.0f; targetFMin = targetFMax / r; }
+
+        animating = true;
+    }
+
+    void PitchVisualizer::scrollUp()
+    {
+        float currentRangeLog = std::log (fMax / fMin);
+        float shiftLog = currentRangeLog * 0.15f;
+        targetFMin = std::exp (std::log (fMin) + shiftLog);
+        targetFMax = std::exp (std::log (fMax) + shiftLog);
+        if (targetFMax > 8372.0f) { float r = targetFMax / targetFMin; targetFMax = 8372.0f; targetFMin = targetFMax / r; }
+        animating = true;
+    }
+
+    void PitchVisualizer::scrollDown()
+    {
+        float currentRangeLog = std::log (fMax / fMin);
+        float shiftLog = currentRangeLog * 0.15f;
+        targetFMin = std::exp (std::log (fMin) - shiftLog);
+        targetFMax = std::exp (std::log (fMax) - shiftLog);
+        if (targetFMin < 16.35f) { float r = targetFMax / targetFMin; targetFMin = 16.35f; targetFMax = targetFMin * r; }
+        animating = true;
+    }
+
+    void PitchVisualizer::zoomIn()
+    {
+        float centerPitch = std::exp (std::log (fMin) + (std::log (fMax) - std::log (fMin)) * 0.5f);
+        float currentRangeCents = 1200.0f * std::log2 (fMax / fMin);
+        float newRangeCents = currentRangeCents * 0.7f;
+        if (newRangeCents < 1200.0f) newRangeCents = 1200.0f;
+        float halfRangeLog = (newRangeCents / 1200.0f) * std::log (2.0f) / 2.0f;
+        float centerLog = std::log (centerPitch);
+        targetFMin = std::exp (centerLog - halfRangeLog);
+        targetFMax = std::exp (centerLog + halfRangeLog);
+        animating = true;
+    }
+
+    void PitchVisualizer::zoomOut()
+    {
+        float centerPitch = std::exp (std::log (fMin) + (std::log (fMax) - std::log (fMin)) * 0.5f);
+        float currentRangeCents = 1200.0f * std::log2 (fMax / fMin);
+        float newRangeCents = currentRangeCents * 1.4f;
+        if (newRangeCents > 1200.0f * 8.0f) newRangeCents = 1200.0f * 8.0f;
+        float halfRangeLog = (newRangeCents / 1200.0f) * std::log (2.0f) / 2.0f;
+        float centerLog = std::log (centerPitch);
+        targetFMin = std::exp (centerLog - halfRangeLog);
+        targetFMax = std::exp (centerLog + halfRangeLog);
+        if (targetFMin < 16.35f) { float r = targetFMax / targetFMin; targetFMin = 16.35f; targetFMax = targetFMin * r; }
+        if (targetFMax > 8372.0f) { float r = targetFMax / targetFMin; targetFMax = 8372.0f; targetFMin = targetFMax / r; }
+        animating = true;
+    }
+
+    void PitchVisualizer::resetView()
+    {
+        targetFMin = kDefaultFMin;
+        targetFMax = kDefaultFMax;
+        animating = true;
+    }
+
+    bool PitchVisualizer::exportAsImage (const juce::File& filePath)
+    {
+        // Render the component to a high-quality image at 2x resolution.
+        const int scale = 2;
+        const int w = getWidth() * scale;
+        const int h = getHeight() * scale;
+        if (w <= 0 || h <= 0) return false;
+
+        // Create an opaque image (no alpha) to avoid transparency issues
+        juce::Image image (juce::Image::RGB, w, h, true);
+        {
+            juce::Graphics g (image);
+            g.addTransform (juce::AffineTransform::scale ((float) scale));
+            paint (g);
+        }
+
+        juce::PNGImageFormat png;
+        juce::FileOutputStream stream (filePath);
+        if (stream.failedToOpen()) return false;
+        return png.writeImageToStream (image, stream);
     }
 }
