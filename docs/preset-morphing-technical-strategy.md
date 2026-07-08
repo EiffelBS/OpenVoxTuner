@@ -144,16 +144,43 @@ is visible, the selected preset becomes the **target** state. The morph
 slider resets to 0.0 (source) and the user can drag to morph toward the
 target.
 
-### 3.4 Standalone vs Plugin
+### 3.4 DAW Automation (Priority)
+
+The morph slider is exposed as a **standard automatable parameter**
+(`AudioParameterFloat`, ID: `morph_amount`, range 0.0-1.0). This enables:
+
+- **Timeline automation**: draw morph curves in the DAW playlist to
+  automate transitions between song sections (verse → chorus)
+- **Real-time control**: map to a MIDI CC for live performance
+- **Project persistence**: morph position is saved in the DAW project
+  automatically (standard parameter behavior)
+
+**Implementation**: Use `parameters.addParameterListener()` and
+`setValue()` (not `setValueNotifyingHost()`) so the host can record
+and play back automation. The morph parameter appears in the DAW's
+parameter list alongside speed, amount, formant, etc.
+
+### 3.5 Standalone vs Plugin
 
 | Aspect | Plugin (VST3/AU) | Standalone |
 |--------|-------------------|------------|
-| Parameter automation | Host can automate the morph slider | No automation |
-| State persistence | Morph position saved in project state | Saved in user preferences |
+| Parameter automation | **Full DAW automation** (draw curves, MIDI CC) | MIDI CC only (no timeline) |
+| State persistence | Saved in DAW project (automatic) | Saved in user preferences |
 | Target preset loading | From plugin preset menu | From file browser |
 | A/B integration | Morph between A and B slots | Same |
+| **Primary use case** | **Song arrangement** (automate over time) | **Live performance** (real-time control) |
 
-### 3.5 Ergonomic Constraints
+### 3.6 ARA2 Considerations
+
+ARA2 provides per-region parameter control natively, which makes the morph
+less critical in this context. However, the morph can still be useful for:
+- Transitioning between correction styles within a long ARA region
+- Creative effects (morph from "natural" to "robotic" during a phrase)
+
+The morph parameter works the same way in ARA2 — it's just a standard
+automatable parameter.
+
+### 3.7 Ergonomic Constraints
 
 1. **No modal dialogs** — morphing is always non-destructive and reversible
 2. **Visual feedback** — the morph slider position is reflected in real-time
