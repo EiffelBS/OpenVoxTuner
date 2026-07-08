@@ -42,7 +42,35 @@
 - Measures selector (1, 2, 4, 8, 16, 32)
 - Copy/paste and undo/redo
 - Harmony trace overlay visualization
-- Auto-scroll in ARA mode
+- Horizontal cursor line with note name and Hz readout
+- Scale note reference lines (same as live visualizer)
+- Waveform overlay (Line or Mirror display, synced with live visualizer)
+- Auto-scroll toggle (works in all modes)
+
+### Live Visualizer
+
+- Real-time pitch visualization with input/output/harmony traces
+- Piano keyboard with automatic note highlighting
+- Horizontal cursor line with note name and Hz readout
+- Waveform overlay (Line or Mirror display types)
+- Legend block with statistics (in-tune %, average cents)
+- Export as PNG image (2x resolution)
+
+### Waveform Overlay
+
+- Audio waveform captured from input in all modes (plugin, standalone, ARA)
+- Two display types selectable from the menu:
+  - **Line** — simple waveform outline (40% opacity)
+  - **Mirror** — mirrored bars symmetric around center (default)
+- Display type applies uniformly to both live visualizer and curve editor
+- Preference persisted across sessions
+
+### Theme System
+
+- Dark and Light themes with unified color palette
+- Automatic theme switching with full UI refresh
+- Consistent popup menu colors (hamburger menu, presets, combos)
+- Fixed tooltips with clean rectangular rendering
 
 ### Additional
 
@@ -74,7 +102,10 @@
 │  │  ├─ PitchVisualizer.*        # Pitch visualisation
 │  │  ├─ PianoKeyboard.*          # Piano keyboard widget
 │  │  ├─ ScaleKeyboardComponent.* # Scale keyboard display
-│  │  └─ LookAndFeel.*            # Custom look and feel
+│  │  ├─ LookAndFeel.*            # Custom look and feel
+│  │  ├─ OVTTheme.h               # Theme colours and shared waveform renderer
+│  │  ├─ OVTFonts.h               # Font helpers
+│  │  └─ OVTLanguages.h           # Multi-language translations
 │  ├─ external/presonus/          # PreSonus plugin extensions (Studio One)
 │  ├─ resources/                  # Binary resources (BuildInfo.h.in)
 │  ├─ PluginProcessor.*           # Main audio processor

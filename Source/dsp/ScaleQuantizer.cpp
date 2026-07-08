@@ -103,7 +103,10 @@ namespace atdsp
             case Scale::Lydian:          base = lydian;          size = 7; break;
             case Scale::Mixolydian:      base = mixolydian;      size = 7; break;
             case Scale::Locrian:         base = locrian;         size = 7; break;
-            case Scale::Custom:          return; 
+            case Scale::Custom:          return;
+            default:
+                // Safety net: fall back to Chromatic for unexpected enum values.
+                base = chromatic; size = 12; break; 
         }
 
         if (base != nullptr)

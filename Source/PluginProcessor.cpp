@@ -360,7 +360,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             "auto_scroll", "Auto Scroll", true)
                       , std::make_unique<juce::AudioParameterChoice> (
                             "pitch_detector", "Pitch Detector",
-                            juce::StringArray { "YIN" }, 0)
+                            juce::StringArray { "YIN", "Reserved" }, 0)
                       , std::make_unique<juce::AudioParameterBool> (
                             "reverb_enable", "Reverb Enable", false)
                       , std::make_unique<juce::AudioParameterFloat> (
@@ -377,6 +377,12 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       // Correction mode: Modern (false) / Transparent (true)
                       , std::make_unique<juce::AudioParameterBool> (
                             "correction_mode", "Correction Mode", false)
+                      // UI Theme: 0 = Dark (default), 1 = Light
+                      , std::make_unique<juce::AudioParameterInt> (
+                            "ui_theme", "UI Theme", 0, 1, 0)
+                      // UI Language: 0 = English (default), 1 = French, 2 = German, 3 = Spanish, 4 = Japanese
+                      , std::make_unique<juce::AudioParameterInt> (
+                            "ui_language", "UI Language", 0, 4, 0)
                     })
 {
     // Ensure per-channel MIDI note state starts clean (-1 means no active note)
@@ -394,6 +400,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     formantEnableParam = parameters.getRawParameterValue ("formant_enable");
     keyParam     = parameters.getRawParameterValue ("key");
     scaleParam   = parameters.getRawParameterValue ("scale");
+    scaleChoiceParam = dynamic_cast<juce::AudioParameterChoice*>(parameters.getParameter("scale"));
     bypassParam = parameters.getRawParameterValue ("bypass");
     modeParam   = parameters.getRawParameterValue ("mode");
 
@@ -591,6 +598,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                                juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals;
+    const auto blockStartTime = juce::Time::getHighResolutionTicks();
     // MIDI out may be produced below if enabled by parameter.
 
     auto flushPendingMidiNotes = [&midiMessages, this] (const juce::String& reason)
@@ -632,6 +640,25 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // === PITCH DETECTOR SWITCHING (YIN only — single mode) ===
     // The pitch_detector parameter is read-only (single choice "YIN").
     // No switching needed — always use index 0.
+
+    // === WAVEFORM CAPTURE ===
+    // Cache a mono downmix of the input audio for the visualizer overlay.
+    // Captured before DSP processing modifies the buffer. Works in all modes.
+    {
+        const int numSamples = buffer.getNumSamples();
+        const int numCh = buffer.getNumChannels();
+        if (numSamples > 0 && numCh > 0)
+        {
+            const juce::CriticalSection::ScopedLockType sl (araWaveformLock);
+            araWaveformBuffer.setSize (1, numSamples, false, false, true);
+            araWaveformBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
+            for (int ch = 1; ch < numCh; ++ch)
+                araWaveformBuffer.addFrom (0, 0, buffer, ch, 0, numSamples);
+            araWaveformBuffer.applyGain (0, 0, numSamples, 1.0f / (float) numCh);
+            araWaveformSampleRate = currentSampleRate;
+            araWaveformReady = true;
+        }
+    }
 
     // === LECTURE DES METADONNEES ARA ===
     // Si ARA est actif, on extrait la tonalite (Key) du projet.
@@ -1566,6 +1593,21 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             effect->process (buffer, enabled, wetMix);
         }
     }
+
+    // CPU usage: ratio of time spent in processBlock to available block time.
+    const auto blockEndTime = juce::Time::getHighResolutionTicks();
+    const double blockElapsedSec = juce::Time::highResolutionTicksToSeconds (blockEndTime - blockStartTime);
+    const double availableSec = (double) buffer.getNumSamples() / currentSampleRate;
+    const float instantCpu = (availableSec > 0.0) ? (float) juce::jlimit (0.0, 1.0, blockElapsedSec / availableSec) : 0.0f;
+    // Exponential moving average to smooth the meter.
+    cpuUsage.store (cpuUsage.load() * 0.9f + instantCpu * 0.1f);
+}
+
+void OpenVoxTunerAudioProcessor::copyAraWaveform (juce::AudioBuffer<float>& dest, double& sr)
+{
+    const juce::CriticalSection::ScopedLockType sl (araWaveformLock);
+    dest.makeCopyOf (araWaveformBuffer);
+    sr = araWaveformSampleRate;
 }
 
 void OpenVoxTunerAudioProcessor::applyLatencyMode()
@@ -1605,9 +1647,12 @@ void OpenVoxTunerAudioProcessor::syncParameters()
 
     // Gamme musicale.
     const int keyIdx = static_cast<int> (keyParam->load());
-    // scaleParam->load() returns normalized value (0.0 ~ 1.0). Convert to index.
-    // Scale has 14 choices (0-13), so normalized = index / 13.
-    const int scaleIdx = static_cast<int> (std::round (scaleParam->load() * 13.0f));
+    // Use AudioParameterChoice::getIndex() for reliable conversion,
+    // avoiding fragile round(load() * 13.0f) arithmetic that can fail
+    // after setStateInformation restores a non-normalized stored value.
+    const int scaleIdx = (scaleChoiceParam != nullptr)
+        ? scaleChoiceParam->getIndex()
+        : static_cast<int> (std::round (scaleParam->load() * 13.0f));
     scaleQuantizer->setKey (keyIdx);
     scaleQuantizer->setScale (static_cast<atdsp::Scale> (juce::jlimit (0, 15, scaleIdx)));
 
@@ -1812,7 +1857,8 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
     if (xmlState != nullptr && xmlState->hasTagName (parameters.state.getType()))
     {
         parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
-        // Restaure la pitch curve si présente dans le XML.
+        waveformDisplayType = xmlState->getIntAttribute ("waveformDisplayType", 1);
+        // Restaure la pitch curve si presente dans le XML.
         if (pitchCurve != nullptr)
         {
             auto* curveXml = xmlState->getChildByName ("PITCH_CURVE");
@@ -1858,6 +1904,13 @@ juce::Array<juce::String> OpenVoxTunerAudioProcessor::getScaleNoteNames
         result.add (chroma[noteIdx]);
     }
     return result;
+}
+
+// === Public accessor for scale intervals ===
+const juce::Array<int>& OpenVoxTunerAudioProcessor::getScaleIntervals() const
+{
+    static const juce::Array<int> empty;
+    return scaleQuantizer != nullptr ? scaleQuantizer->getScaleIntervals() : empty;
 }
 
 // === Creation du plugin (point d'entree JUCE) ===

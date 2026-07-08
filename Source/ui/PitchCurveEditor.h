@@ -49,6 +49,7 @@ namespace ui
         void mouseDrag (const juce::MouseEvent& e) override;
         void mouseUp (const juce::MouseEvent& e) override;
         void mouseMove (const juce::MouseEvent& e) override;
+        void mouseExit (const juce::MouseEvent& e) override;
         void mouseDoubleClick (const juce::MouseEvent& e) override;
         void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
 
@@ -130,12 +131,17 @@ namespace ui
         /// VST3 insert), le toggle est invisible car il n'y a pas de timeline
         /// projet significative. L'auto-scroll est alors forcement desactive.
         void setAutoScrollVisible (bool visible);
+        void setWaveformOverlay (const float* samples, int numSamples, double sampleRate);
+
+        /// Set the waveform display type (0=Bars, 1=Filled, 2=Line, 3=Mirror).
+        void setDisplayType (int type) { currentDisplayType = type; repaint(); }
 
         /// Definit le nombre de mesures sans passer par le combo.
         void setMeasuresWithoutCombo (int measures);
 
         /// Accesseurs pour les contrôles embarqués (synchronisation PluginEditor)
         juce::ComboBox& getMeasuresBox() { return measuresBox; }
+        juce::Label& getMeasuresLabel() { return measuresLabel; }
         juce::ToggleButton& getAutoScrollToggle() { return autoScrollToggle; }
 
         /// Active/desactive l'edition (utilise pour griser en mode Auto).
@@ -147,6 +153,10 @@ namespace ui
 
         /// Acces au clavier piano (pour le configurer depuis l'exterieur).
         PianoKeyboard& getPianoKeyboard() { return pianoKeyboard; }
+
+        /// Undo/Redo button access (for PluginEditor to position them)
+        juce::TextButton& getUndoButton() { return undoButton; }
+        juce::TextButton& getRedoButton() { return redoButton; }
 
         // Listener (un seul pour MVP).
         void addListener (Listener* l) { listener = l; }
@@ -179,6 +189,7 @@ namespace ui
         int  keyIdx = 0;
         atdsp::Scale currentScale = atdsp::Scale::Major;
         juce::Array<int> customIntervalsCache; // copie locale des notes (mode Custom)
+        juce::Array<int> scaleIntervals; // notes de la gamme pour les lignes de reference
 
         // Etat d'activation (false en mode Auto -> lecture seule).
         bool editorEnabled = true;
@@ -215,6 +226,16 @@ namespace ui
 
         // Position du playhead (secondes). 0 par defaut.
         double playheadTime = 0.0;
+
+        // Hover cursor (horizontal line + note/Hz readout).
+        float hoverMouseX = 0.0f;
+        float hoverMouseY = 0.0f;
+        bool isMouseOverPlot = false;
+
+        // Waveform overlay (same data as PitchVisualizer).
+        juce::AudioBuffer<float> waveformBuffer;
+        bool hasWaveform = false;
+        int currentDisplayType = 0;
 
         // Couleurs.
         static const juce::Colour kCurveColour;
@@ -267,6 +288,10 @@ namespace ui
         void notifyChanged();
 
         Listener* listener = nullptr;
+
+        // Undo/Redo buttons (positioned by parent)
+        juce::TextButton undoButton { "\xe2\x86\xb6" };  // Undo arrow symbol
+        juce::TextButton redoButton { "\xe2\x86\xb7" };  // Redo arrow symbol
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PitchCurveEditor)
     };

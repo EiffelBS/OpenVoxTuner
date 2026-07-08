@@ -9,6 +9,10 @@ namespace ui
     public:
         AutotuneLookAndFeel();
 
+        /** Refresh all LookAndFeel colours to match the current theme. 
+            Call this whenever ovt::currentTheme() changes. */
+        void refreshThemeColours();
+
         void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
                                float sliderPos, const float rotaryStartAngle, const float rotaryEndAngle,
                                juce::Slider& slider) override;
@@ -29,5 +33,14 @@ namespace ui
         juce::Rectangle<int> getTooltipBounds (const juce::String& tipText,
                                               juce::Point<int> screenPos,
                                               juce::Rectangle<int> parentArea) override;
+
+        // Modern tab drawing
+        void drawTabbedButtonBarBackground (juce::TabbedButtonBar& bar, juce::Graphics& g) override;
+        void drawTabButton (juce::TabBarButton& button, juce::Graphics& g,
+                            bool isMouseOver, bool isMouseDown) override;
+        void drawTabButtonText (juce::TabBarButton& button, juce::Graphics& g,
+                                bool isMouseOver, bool isMouseDown) override;
+
+        void drawPopupMenuBackground (juce::Graphics& g, int width, int height) override;
     };
 }

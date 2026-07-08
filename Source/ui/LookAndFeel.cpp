@@ -1,5 +1,7 @@
 // LookAndFeel.cpp
 #include "LookAndFeel.h"
+#include "OVTFonts.h"
+#include "OVTTheme.h"
 #include "../PluginEditor.h"
 #include <cmath>
 
@@ -8,20 +10,49 @@ namespace ui
     AutotuneLookAndFeel::AutotuneLookAndFeel()
     {
         // Setup colors for general UI elements
-        setColour (juce::Slider::textBoxTextColourId, OpenVoxTunerAudioProcessorEditor::kText);
+        setColour (juce::Slider::textBoxTextColourId, ovt::text());
         setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
         setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
-        setColour (juce::Slider::textBoxHighlightColourId, OpenVoxTunerAudioProcessorEditor::kAccentSoft);
+        setColour (juce::Slider::textBoxHighlightColourId, ovt::accentSoft());
         
-        setColour (juce::ComboBox::backgroundColourId, OpenVoxTunerAudioProcessorEditor::kBgPanel);
-        setColour (juce::ComboBox::outlineColourId, OpenVoxTunerAudioProcessorEditor::kBgPanel.brighter(0.1f));
-        setColour (juce::ComboBox::textColourId, OpenVoxTunerAudioProcessorEditor::kText);
-        setColour (juce::ComboBox::arrowColourId, OpenVoxTunerAudioProcessorEditor::kAccent);
+        setColour (juce::ComboBox::backgroundColourId, ovt::bgDark());
+        setColour (juce::ComboBox::outlineColourId, ovt::bgPanel());
+        setColour (juce::ComboBox::textColourId, ovt::text());
+        setColour (juce::ComboBox::arrowColourId, ovt::accent());
         
-        setColour (juce::PopupMenu::backgroundColourId, OpenVoxTunerAudioProcessorEditor::kBgPanel);
-        setColour (juce::PopupMenu::textColourId, OpenVoxTunerAudioProcessorEditor::kText);
-        setColour (juce::PopupMenu::highlightedBackgroundColourId, OpenVoxTunerAudioProcessorEditor::kAccentSoft);
+        // Tooltip: transparent background so our drawTooltip rounded rect is the only fill
+        setColour (juce::TooltipWindow::backgroundColourId, juce::Colours::transparentBlack);
+        setColour (juce::TooltipWindow::textColourId, ovt::text());
+
+        // Popup menus (combo dropdowns, hamburger menu, presets menu)
+        setColour (juce::PopupMenu::backgroundColourId, ovt::bgDark());
+        setColour (juce::PopupMenu::textColourId, ovt::text());
+        setColour (juce::PopupMenu::highlightedBackgroundColourId, ovt::accentSoft());
         setColour (juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
+    }
+
+    void AutotuneLookAndFeel::refreshThemeColours()
+    {
+        setColour (juce::Slider::textBoxTextColourId, ovt::text());
+        setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+        setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+        setColour (juce::Slider::textBoxHighlightColourId, ovt::accentSoft());
+        setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
+        setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
+        setColour (juce::Slider::thumbColourId, juce::Colours::white);
+        
+        setColour (juce::ComboBox::backgroundColourId, ovt::bgDark());
+        setColour (juce::ComboBox::outlineColourId, ovt::bgPanel());
+        setColour (juce::ComboBox::textColourId, ovt::text());
+        setColour (juce::ComboBox::arrowColourId, ovt::accent());
+        
+        // Popup menus (combo dropdowns, hamburger menu, presets menu)
+        setColour (juce::PopupMenu::backgroundColourId, ovt::bgDark());
+        setColour (juce::PopupMenu::textColourId, ovt::text());
+        setColour (juce::PopupMenu::highlightedBackgroundColourId, ovt::accentSoft());
+        setColour (juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
+
+        setColour (juce::Label::textColourId, ovt::text());
     }
 
     void AutotuneLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
@@ -38,7 +69,7 @@ namespace ui
         auto angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
         // Draw track background
-        g.setColour (OpenVoxTunerAudioProcessorEditor::kBgPanel.darker(0.5f));
+        g.setColour (ovt::bgPanel().darker(0.5f));
         juce::Path backgroundArc;
         backgroundArc.addCentredArc (centreX, centreY, radius, radius, 0.0f, rotaryStartAngle, rotaryEndAngle, true);
         g.strokePath (backgroundArc, juce::PathStrokeType (6.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
@@ -46,15 +77,17 @@ namespace ui
         // Draw active track
         if (slider.isEnabled())
         {
-            g.setColour (OpenVoxTunerAudioProcessorEditor::kAccent);
+            g.setColour (ovt::accent());
             juce::Path valueArc;
             valueArc.addCentredArc (centreX, centreY, radius, radius, 0.0f, rotaryStartAngle, angle, true);
             g.strokePath (valueArc, juce::PathStrokeType (6.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
 
         // Draw knob center (dark gradient)
-        juce::ColourGradient grad (juce::Colour::fromString("#FF303030"), centreX, centreY - radius,
-                                   juce::Colour::fromString("#FF151515"), centreX, centreY + radius, false);
+        const auto knobLight = ovt::isDark() ? juce::Colour::fromString("#FF303030") : juce::Colour::fromString("#FF505050");
+        const auto knobDark  = ovt::isDark() ? juce::Colour::fromString("#FF151515") : juce::Colour::fromString("#FF383838");
+        juce::ColourGradient grad (knobLight, centreX, centreY - radius,
+                                   knobDark, centreX, centreY + radius, false);
         g.setGradientFill (grad);
         g.fillEllipse (rx + 4.0f, ry + 4.0f, rw - 8.0f, rw - 8.0f);
 
@@ -107,12 +140,12 @@ namespace ui
     
     juce::Font AutotuneLookAndFeel::getComboBoxFont (juce::ComboBox& box)
     {
-        return juce::Font (14.0f, juce::Font::plain);
+        return ovt::fontComboBox();
     }
     
     juce::Font AutotuneLookAndFeel::getLabelFont (juce::Label& label)
     {
-        return juce::Font (14.0f, juce::Font::plain);
+        return ovt::fontComboBox();
     }
 
     void AutotuneLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& button,
@@ -134,7 +167,7 @@ namespace ui
             float textWidth = 0.0f;
             if (hasText)
             {
-                g.setFont(juce::Font(13.0f, juce::Font::bold));
+                g.setFont(ovt::fontLabel());
                 textWidth = g.getCurrentFont().getStringWidthFloat(text) + 8.0f; // 8px spacing
             }
 
@@ -145,7 +178,7 @@ namespace ui
 
             // Colors based on state
             juce::Colour glowColor = juce::Colour(0xFFE8D050); // Yellow/Gold
-            juce::Colour offColor = OpenVoxTunerAudioProcessorEditor::kText.withAlpha(0.3f);
+            juce::Colour offColor = ovt::text().withAlpha(0.3f);
             juce::Colour activeColor = isOn ? glowColor : offColor;
 
             // Draw Glow if ON
@@ -172,24 +205,24 @@ namespace ui
             // Draw Text
             if (hasText)
             {
-                g.setColour(isOn ? OpenVoxTunerAudioProcessorEditor::kText : OpenVoxTunerAudioProcessorEditor::kText.withAlpha(0.5f));
+                g.setColour(isOn ? ovt::text() : ovt::text().withAlpha(0.5f));
                 g.drawText(text, startX + iconWidth + 8.0f, 0.0f, textWidth, bounds.getHeight(), juce::Justification::centredLeft, true);
             }
         }
         else
         {
-            // Standard Checkbox style
+            // Standard Checkbox style (always dark: used in curve editor)
             auto size = juce::jmin(16.0f, bounds.getHeight() * 0.7f);
             auto rect = juce::Rectangle<float>(0.0f, (bounds.getHeight() - size) * 0.5f, size, size);
             
-            g.setColour(OpenVoxTunerAudioProcessorEditor::kBgPanel.darker(0.2f));
+            g.setColour(juce::Colour (0xff191b1e));
             g.fillRoundedRectangle(rect, 3.0f);
             
-            g.setColour(OpenVoxTunerAudioProcessorEditor::kBgPanel.brighter(0.2f));
+            g.setColour(juce::Colour (0xff555555));
             g.drawRoundedRectangle(rect, 3.0f, 1.0f);
             
             if (isOn) {
-                g.setColour(OpenVoxTunerAudioProcessorEditor::kAccent);
+                g.setColour(ovt::accent());
                 juce::Path check;
                 check.startNewSubPath(rect.getX() + size * 0.2f, rect.getY() + size * 0.5f);
                 check.lineTo(rect.getX() + size * 0.4f, rect.getY() + size * 0.7f);
@@ -197,26 +230,25 @@ namespace ui
                 g.strokePath(check, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
             }
             
-            g.setColour(OpenVoxTunerAudioProcessorEditor::kText);
-            g.setFont(14.0f);
+            g.setColour(button.findColour(juce::ToggleButton::textColourId));
+            g.setFont(ovt::fontToggleButton());
             g.drawText(button.getButtonText(), bounds.withTrimmedLeft(size + 6.0f), juce::Justification::centredLeft);
         }
     }
 
     void AutotuneLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text, int width, int height)
     {
-        const auto bg = OpenVoxTunerAudioProcessorEditor::kBgPanel.withAlpha (0.95f);
-        const auto outline = OpenVoxTunerAudioProcessorEditor::kAccentSoft.withAlpha (0.8f);
-        const auto fg = OpenVoxTunerAudioProcessorEditor::kText;
+        const auto fg = ovt::text();
 
-        g.setColour (bg);
-        g.fillRoundedRectangle (juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height), 6.0f);
-        g.setColour (outline);
-        g.drawRoundedRectangle (juce::Rectangle<float> (0.5f, 0.5f, (float) width - 1.0f, (float) height - 1.0f), 6.0f, 1.0f);
+        g.setColour (ovt::bgDark());
+        g.fillRect (0, 0, width, height);
+
+        g.setColour (ovt::accentSoft());
+        g.drawRect (0, 0, width, height, 1);
 
         juce::AttributedString s;
         s.setJustification (juce::Justification::centredLeft);
-        s.append (text, juce::Font (13.0f), fg);
+        s.append (text, ovt::fontTooltip(), fg);
 
         juce::TextLayout layout;
         layout.createLayout (s, (float) width - 16.0f);
@@ -234,13 +266,13 @@ namespace ui
         juce::StringArray lines;
         lines.addLines (tipText);
         for (const auto& line : lines)
-            widestLine = juce::jmax (widestLine, juce::Font (13.0f).getStringWidth (line));
+            widestLine = juce::jmax (widestLine, ovt::fontTooltip().getStringWidth (line));
 
         int width = juce::jlimit (minWidth, maxWidth, widestLine + 16);
 
         juce::AttributedString s;
         s.setJustification (juce::Justification::centredLeft);
-        s.append (tipText, juce::Font (13.0f), OpenVoxTunerAudioProcessorEditor::kText);
+        s.append (tipText, ovt::fontTooltip(), ovt::text());
 
         juce::TextLayout layout;
         layout.createLayout (s, (float) width - 16.0f);
@@ -256,5 +288,67 @@ namespace ui
         y = juce::jlimit (parentArea.getY(), parentArea.getBottom() - height, y);
 
         return { x, y, width, height };
+    }
+
+    void AutotuneLookAndFeel::drawTabbedButtonBarBackground (juce::TabbedButtonBar& bar, juce::Graphics& g)
+    {
+        auto barBounds = bar.getLocalBounds().toFloat();
+
+        // Tab bar background matching the plugin background
+        g.setColour (ovt::bgDark());
+        g.fillRect (barBounds);
+
+        // Subtle bottom line
+        g.setColour (ovt::accentSoft().withAlpha (0.3f));
+        g.drawHorizontalLine (barBounds.getBottom() - 1.0f, 0.0f, barBounds.getWidth());
+    }
+
+    void AutotuneLookAndFeel::drawTabButton (juce::TabBarButton& button, juce::Graphics& g,
+                                              bool isMouseOver, bool isMouseDown)
+    {
+        auto tabBounds = button.getLocalBounds().toFloat();
+        const float indent = 2.0f;
+        const float tabHeight = tabBounds.getHeight();
+        const bool isFrontTab = (button.getToggleState());
+
+        if (isFrontTab)
+        {
+            // Active tab: filled with accent color, rounded top
+            g.setColour (ovt::accent());
+            auto activeTab = tabBounds.reduced (indent, 0.0f).removeFromTop (tabHeight - 1.0f);
+            g.fillRoundedRectangle (activeTab, 4.0f);
+        }
+        else if (isMouseOver || isMouseDown)
+        {
+            // Inactive tab hover: subtle highlight
+            g.setColour (ovt::accentSoft().withAlpha (0.15f));
+            auto hoverTab = tabBounds.reduced (indent, 0.0f).removeFromTop (tabHeight - 1.0f);
+            g.fillRoundedRectangle (hoverTab, 4.0f);
+        }
+
+        // IMPORTANT: Draw the tab text (delegates to drawTabButtonText)
+        drawTabButtonText (button, g, isMouseOver, isMouseDown);
+    }
+
+    void AutotuneLookAndFeel::drawTabButtonText (juce::TabBarButton& button, juce::Graphics& g,
+                                                  bool /*isMouseOver*/, bool /*isMouseDown*/)
+    {
+        auto tabBounds = button.getLocalBounds();
+        const bool isFrontTab = (button.getToggleState());
+
+        g.setFont (ovt::fontComboBox());
+        g.setColour (isFrontTab ? juce::Colours::white : ovt::textDim());
+        g.drawText (button.getButtonText(), tabBounds, juce::Justification::centred, false);
+    }
+
+    void AutotuneLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int width, int height)
+    {
+        // Force the dark plugin background for all popup menus
+        g.setColour (ovt::bgDark());
+        g.fillRect (0, 0, width, height);
+
+        // Subtle border
+        g.setColour (ovt::bgPanel());
+        g.drawRect (0, 0, width, height, 1);
     }
 }
