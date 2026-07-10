@@ -351,4 +351,49 @@ namespace ui
         g.setColour (ovt::bgPanel());
         g.drawRect (0, 0, width, height, 1);
     }
+
+    void AutotuneLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                                                 float sliderPos, float minSliderPos, float maxSliderPos,
+                                                 const juce::Slider::SliderStyle style, juce::Slider& slider)
+    {
+        // Custom rendering only for the morph slider (name "Morph").
+        // All other LinearHorizontal sliders use the default rendering.
+        if (style != juce::Slider::LinearHorizontal || slider.getName() != "Morph")
+        {
+            LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos,
+                                               minSliderPos, maxSliderPos, style, slider);
+            return;
+        }
+
+        const float trackHeight = 4.0f;
+        const float thumbWidth = 12.0f;
+        const float trackRadius = trackHeight * 0.5f;
+
+        auto trackTop = (float) y + ((float) height - trackHeight) * 0.5f;
+        auto trackLeft = (float) x + thumbWidth * 0.5f;
+        auto trackRight = (float) x + (float) width - thumbWidth * 0.5f;
+        auto trackWidth = trackRight - trackLeft;
+
+        juce::Rectangle<float> trackBounds (trackLeft, trackTop, trackWidth, trackHeight);
+
+        // Full track background (both filled and unfilled portions)
+        g.setColour (slider.findColour (juce::Slider::backgroundColourId)
+                         .brighter (0.15f));
+        g.fillRoundedRectangle (trackBounds, trackRadius);
+
+        // Filled portion (from start to thumb position)
+        const float fillWidth = juce::jmax (0.0f, sliderPos - trackLeft);
+        if (fillWidth > 0.0f)
+        {
+            g.setColour (slider.findColour (juce::Slider::trackColourId));
+            g.fillRoundedRectangle (juce::Rectangle<float> (trackLeft, trackTop, fillWidth, trackHeight),
+                                    trackRadius);
+        }
+
+        // Thumb
+        auto thumbCentreY = trackTop + trackHeight * 0.5f;
+        g.setColour (slider.findColour (juce::Slider::thumbColourId));
+        g.fillEllipse (sliderPos - thumbWidth * 0.5f, thumbCentreY - thumbWidth * 0.5f,
+                        thumbWidth, thumbWidth);
+    }
 }

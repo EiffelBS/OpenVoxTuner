@@ -42,5 +42,9 @@ namespace ui
                                 bool isMouseOver, bool isMouseDown) override;
 
         void drawPopupMenuBackground (juce::Graphics& g, int width, int height) override;
+
+        void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                               float sliderPos, float minSliderPos, float maxSliderPos,
+                               const juce::Slider::SliderStyle style, juce::Slider& slider) override;
     };
 }

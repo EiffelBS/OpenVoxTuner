@@ -16,6 +16,8 @@
 #include "dsp/RetargetEnvelope.h"
 #include "dsp/PitchCurve.h"
 #include "dsp/IEffect.h"
+#include "dsp/NoiseGate.h"
+#include "dsp/PresetMorpher.h"
 
 /**
  * Main class of the audio processor.
@@ -85,7 +87,8 @@ public:
 
     // Pitch curve access (for the editor).
     atdsp::PitchCurve& getPitchCurve() { return *pitchCurve; }
-    const atdsp::PitchCurve& getPitchCurve() const { return *pitchCurve; }      
+    const atdsp::PitchCurve& getPitchCurve() const { return *pitchCurve; }
+    bool hasPitchCurve() const { return pitchCurve != nullptr; }      
 
     // Access sent note for UI
     int getLastSentMidiNoteForChannel (int channel) const;
@@ -129,16 +132,22 @@ public:
     int getWaveformDisplayType() const { return waveformDisplayType; }
     void setWaveformDisplayType (int type) { waveformDisplayType = type; }
 
+    // Morph slider amount accessors.
+    float getMorphAmount() const { return morphAmount.load(); }
+    void setMorphAmount (float v) { morphAmount.store (v); }
+
     // A/B slot persistence (called by Editor during state save/load).
-    void setAbSlotXml (int slot, std::unique_ptr<juce::XmlElement> xml)
+    void setAbSlotMorphState (int slot, atdsp::MorphState ms)
     {
-        if (slot == 0) abSlotAxml = std::move (xml);
-        else           abSlotBxml = std::move (xml);
+        if (slot == 0) abSlotAMorph = std::move (ms);
+        else           abSlotBMorph = std::move (ms);
+        abSlotHasData[slot] = true;
     }
-    const juce::XmlElement* getAbSlotXml (int slot) const
+    const atdsp::MorphState* getAbSlotMorphState (int slot) const
     {
-        return slot == 0 ? abSlotAxml.get() : abSlotBxml.get();
+        return abSlotHasData[slot] ? (slot == 0 ? &abSlotAMorph : &abSlotBMorph) : nullptr;
     }
+    bool hasAbSlotData (int slot) const { return abSlotHasData[slot]; }
 
     // CPU usage meter (0.0 - 1.0) for the editor header display.
     float getCpuUsage() const { return cpuUsage.load(); }
@@ -183,7 +192,9 @@ private:
     std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
     std::atomic<float>* reverbEnableParam = nullptr; // Reverb on/off
-    std::atomic<float>* reverbMixParam = nullptr;   // Reverb wet mix (0-1)        
+    std::atomic<float>* reverbMixParam = nullptr;   // Reverb wet mix (0-1)
+    std::atomic<float>* noiseGateEnableParam = nullptr;    // Noise gate on/off
+    std::atomic<float>* noiseGateThresholdParam = nullptr; // Noise gate threshold (dB)        
     std::atomic<float>* flexTuneParam = nullptr;    // FlexTune deadband (0-100 cents)
     std::atomic<float>* humanizeParam = nullptr;    // Humanize random cents (0-50)
     std::atomic<float>* correctionModeParam = nullptr; // 0=Modern, 1=Transparent        
@@ -205,6 +216,7 @@ private:
     std::unique_ptr<atdsp::ScaleQuantizer>    scaleQuantizer;
     std::unique_ptr<atdsp::PitchShifter>      pitchShifter;
     std::unique_ptr<atdsp::HarmonyEngine>     harmonyEngine;
+    atdsp::NoiseGate                           noiseGate;
 
     std::unique_ptr<atdsp::RetargetEnvelope>  retargetEnvelope;
     std::unique_ptr<atdsp::PitchCurve>        pitchCurve; // "graphic" mode
@@ -239,8 +251,9 @@ private:
     std::atomic<float> lastCentsOffset { 0.0f };
 
     // A/B comparison slots (persisted in project state).
-    std::unique_ptr<juce::XmlElement> abSlotAxml;
-    std::unique_ptr<juce::XmlElement> abSlotBxml;
+    atdsp::MorphState abSlotAMorph;
+    atdsp::MorphState abSlotBMorph;
+    bool abSlotHasData[2] = { false, false };
 
     std::atomic<float> lastValidF0 { 0.0f };
 
@@ -288,6 +301,9 @@ private:
 
     // Waveform display type preference (persisted across sessions).
     int waveformDisplayType = 1; // 0=Line, 1=Mirror (default)
+
+    // Morph slider amount (persisted across sessions).
+    std::atomic<float> morphAmount { 0.0f };
 
     // === ARA2 Waveform overlay cache ===
     juce::AudioBuffer<float> araWaveformBuffer;

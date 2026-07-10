@@ -14,6 +14,7 @@
 #include "ui/ScaleKeyboardComponent.h"
 #include "dsp/NoteUtils.h"
 #include "ui/LookAndFeel.h"
+#include "dsp/PresetMorpher.h"
 
 struct OpenVoxTunerUpdateCheckState;
 
@@ -43,6 +44,10 @@ private:
     // === GUI Components ===
     juce::Slider speedSlider, amountSlider, formantSlider;
     juce::Label  speedLabel, amountLabel;
+
+    // Morph slider (visible only when A and B are both filled)
+    juce::Slider morphSlider { "Morph" };
+    juce::Label morphSliderLabel;
 
     // Formant Toggle
     juce::ToggleButton formantEnableButton;
@@ -111,6 +116,13 @@ private:
     juce::ToggleButton reverbEnableButton;
     juce::Slider       reverbMixSlider;
     juce::Label        reverbMixLabel;
+
+    // Noise Gate
+    juce::ToggleButton noiseGateEnableButton;
+    juce::Slider noiseGateThresholdSlider;
+    juce::Label noiseGateThresholdLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> noiseGateEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> noiseGateThresholdAttachment;
 
     // FlexTune / Humanize / Correction Mode
     juce::Slider      flexTuneSlider;
@@ -259,15 +271,32 @@ private:
     // === A/B Comparison ===
     struct ABState {
         juce::String name;
-        std::unique_ptr<juce::XmlElement> state;
+        std::unique_ptr<juce::XmlElement> state; // for full state restore
+        std::unique_ptr<atdsp::MorphState> morphState; // direct snapshot for morphing
         bool hasData = false;
     };
     ABState slotA, slotB;
     bool isSlotAActive = true;  // currently active slot
+    bool suppressAutoSave = false; // skip one auto-save cycle after loadSlot
+    bool switchingSlot = false; // true while loadSlot is executing (suppresses morph callback)
 
     void saveSlot (ABState& slot, int slotIndex);
     void loadSlot (const ABState& slot);
-    void toggleAB();
+    void updateABButtonStates();
+
+    // === Preset Morphing ===
+    std::unique_ptr<atdsp::MorphState> morphSource;
+    std::unique_ptr<atdsp::MorphState> morphTarget;
+    bool morphActive = false;
+    float lastMorphValue = 0.0f;
+    juce::String morphSourceName = "Source";
+    juce::String morphTargetName = "Target";
+    std::unique_ptr<atdsp::MorphState> morphUndoState; // pre-morph snapshot for undo
+
+    void onMorphSliderChanged (float value);
+    void showMorphContextMenu();
+    void resetMorph();
+    void undoMorph();
 
     // A/B toggle button (with right-click support)
     class ABTextButton : public juce::TextButton {
@@ -280,8 +309,34 @@ private:
             else
                 TextButton::mouseDown (e);
         }
+        void paint (juce::Graphics& g) override
+        {
+            auto bounds = getLocalBounds().toFloat();
+            if (isActive)
+            {
+                // Active slot: solid accent background + bright text
+                g.setColour (juce::Colour (0xff1A9AF0));
+                g.fillRoundedRectangle (bounds.reduced (1.0f), 3.0f);
+                g.setColour (juce::Colours::white);
+            }
+            else
+            {
+                // Inactive slot: dark background + green border if filled
+                g.setColour (juce::Colour (0xff2a2a36));
+                g.fillRoundedRectangle (bounds.reduced (1.0f), 3.0f);
+                g.setColour (hasValidData ? juce::Colour (0xff4CAF50) : juce::Colour (0xff555555));
+                g.drawRoundedRectangle (bounds.reduced (0.5f), 3.0f, 1.5f);
+                g.setColour (juce::Colour (0xffaaaaaa));
+            }
+            // Text
+            g.setFont (getHeight() * 0.55f);
+            g.drawText (getButtonText(), bounds, juce::Justification::centred);
+        }
+        bool hasValidData = false;
+        bool isActive = false;
     };
-    ABTextButton abButton { "A" };
+    ABTextButton buttonA { "A" };
+    ABTextButton buttonB { "B" };
 
     // === MIDI Learn ===
     struct MidiLearnState {

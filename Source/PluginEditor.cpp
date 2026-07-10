@@ -219,7 +219,7 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
     // Title
     g.setColour (juce::Colours::white);
     g.setFont (ovt::fontLabel());
-    g.drawText ("Keyboard Shortcuts & Mouse Controls", boxX + 16, boxY + 12, boxW - 32, 24,
+    g.drawText (ovt::tr(ovt::Keys::kHelpTitle), boxX + 16, boxY + 12, boxW - 32, 24,
                 juce::Justification::centred);
 
     // Divider
@@ -227,20 +227,20 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
     g.fillRect ((float) (boxX + 16), (float) (boxY + 40), (float) (boxW - 32), 1.0f);
 
     // Shortcuts list
-    struct Shortcut { const char* key; const char* desc; };
+    struct Shortcut { const char* key; const char* descKey; };
     const Shortcut shortcuts[] = {
-        { "Mouse Wheel",           "Scroll vertically (pitch)" },
-        { "Ctrl / Cmd + Wheel",    "Zoom in/out" },
-        { "Click + Drag",          "Move curve points" },
-        { "Double-click",          "Add new curve point" },
-        { "Right-click / Alt+Click","Delete curve point" },
-        { "Ctrl / Cmd + C",        "Copy selected points" },
-        { "Ctrl / Cmd + V",        "Paste copied points" },
-        { "Delete / Backspace",    "Delete selected points" },
-        { "Ctrl / Cmd + Z",        "Undo" },
-        { "Ctrl / Cmd + Y",        "Redo" },
-        { "Ctrl / Cmd + Shift + Z","Redo" },
-        { "?",                     "Toggle this help overlay" },
+        { "Mouse Wheel",            ovt::Keys::kHelpMouseWheel },
+        { "Ctrl / Cmd + Wheel",     ovt::Keys::kHelpCtrlWheel },
+        { "Click + Drag",           ovt::Keys::kHelpClickDrag },
+        { "Double-click",           ovt::Keys::kHelpDoubleClick },
+        { "Right-click / Alt+Click",ovt::Keys::kHelpRightClick },
+        { "Ctrl / Cmd + C",         ovt::Keys::kHelpCopy },
+        { "Ctrl / Cmd + V",         ovt::Keys::kHelpPaste },
+        { "Delete / Backspace",     ovt::Keys::kHelpDelete },
+        { "Ctrl / Cmd + Z",         ovt::Keys::kHelpUndo },
+        { "Ctrl / Cmd + Y",         ovt::Keys::kHelpRedo },
+        { "Ctrl / Cmd + Shift + Z", ovt::Keys::kHelpRedo },
+        { "?",                      ovt::Keys::kHelpToggleHelp },
     };
 
     g.setFont (ovt::fontLegend());
@@ -256,13 +256,13 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
         g.setColour (ovt::accent());
         g.drawText (shortcuts[i].key, x, y, colW / 2 - 8, 18, juce::Justification::centredLeft);
         g.setColour (ovt::text());
-        g.drawText (shortcuts[i].desc, x + colW / 2, y, colW / 2 - 8, 18, juce::Justification::centredLeft);
+        g.drawText (ovt::tr(shortcuts[i].descKey), x + colW / 2, y, colW / 2 - 8, 18, juce::Justification::centredLeft);
     }
 
     // Close hint
     g.setColour (ovt::textDim());
     g.setFont (ovt::fontLegendHint());
-    g.drawText ("Click anywhere to close", boxX, boxY + boxH - 24, boxW, 20,
+    g.drawText (ovt::tr(ovt::Keys::kHelpCloseHint), boxX, boxY + boxH - 24, boxW, 20,
                 juce::Justification::centred);
 }
 
@@ -297,8 +297,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 100);
     tooltipWindow->setLookAndFeel (&customLookAndFeel);
 
-    updateButton.setButtonText ("Check updates");
-    updateButton.setTooltip ("Check the latest OpenVoxTuner release on GitHub.");
+    updateButton.setButtonText (ovt::tr(ovt::Keys::kLabelUpdates));
+    updateButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCheckUpdates));
     updateButton.onClick = [this]
     {
         if (updateCheckState != nullptr && updateCheckState->updateAvailable.load())
@@ -349,11 +349,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // === Harmony UI ===
     // Harmony enable toggle (use same visual style as Formant)
-    harmonyEnableButton.setButtonText ("Harmony");
+    harmonyEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyBtn));
     harmonyEnableButton.setName ("PowerButton");
     harmonyEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
     harmonyEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
-    harmonyEnableButton.setTooltip ("Enable/disable harmony generation.");
+    harmonyEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyEn));
     addAndMakeVisible (harmonyEnableButton);
 
     // Harmony type combo — index 3 = "3rd Below + Above" (default)
@@ -385,7 +385,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyBlendSlider.setValue (0.5);
 
     // Use Voice controls
-    useVoiceButton.setButtonText ("Use Voice");
+    useVoiceButton.setButtonText (ovt::tr(ovt::Keys::kLabelUseVoice));
     useVoiceButton.setColour (juce::ToggleButton::textColourId, ovt::text());
     useVoiceButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
     addAndMakeVisible (useVoiceButton);
@@ -417,7 +417,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyToneColorSlider.setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
     harmonyToneColorSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
     harmonyToneColorSlider.setColour (juce::Slider::thumbColourId, juce::Colours::white);
-    harmonyToneColorSlider.setTooltip ("Tone color for synth harmonies.");
+    harmonyToneColorSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipToneColor));
     addAndMakeVisible (harmonyToneColorSlider);
 
     // Key and Scale are discrete values -> ComboBox.
@@ -451,8 +451,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     latencyModeLabel.setFont (ovt::fontVersion());
     latencyModeLabel.setVisible (false);
 
-    latencyModeBox.addItemList ({ "Low Latency", "Quality", "Safe" }, 1);
-    latencyModeBox.setSelectedItemIndex (1, juce::dontSendNotification);
+    latencyModeBox.addItemList ({ "Direct Monitoring", "Low Latency", "Quality", "Safe" }, 1);
+    latencyModeBox.setSelectedItemIndex (2, juce::dontSendNotification);
     latencyModeBox.setColour (juce::ComboBox::backgroundColourId, ovt::bgPanel());
     latencyModeBox.setColour (juce::ComboBox::textColourId, ovt::text());
     latencyModeBox.setColour (juce::ComboBox::outlineColourId, ovt::accentSoft());
@@ -464,19 +464,23 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     {
         juce::PopupMenu menu;
 
-        // 1. Latency submenu
+        // 1. Latency submenu (4 modes: Direct Monitoring / Low Latency / Quality / Safe)
         juce::PopupMenu latencyMenu;
-        latencyMenu.addItem ("Low Latency", true, latencyModeBox.getSelectedId() == 1, [this] {
+        latencyMenu.addItem (ovt::tr(ovt::Keys::kMenuDirectMonitoring), true, latencyModeBox.getSelectedId() == 1, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
                 p->setValueNotifyingHost (0.0f);
         });
-        latencyMenu.addItem ("Quality", true, latencyModeBox.getSelectedId() == 2, [this] {
+        latencyMenu.addItem (ovt::tr(ovt::Keys::kMenuLowLatency), true, latencyModeBox.getSelectedId() == 2, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
-                p->setValueNotifyingHost (1.0f / 2.0f);
+                p->setValueNotifyingHost (1.0f / 3.0f);
         });
-        latencyMenu.addItem ("Safe", true, latencyModeBox.getSelectedId() == 3, [this] {
+        latencyMenu.addItem (ovt::tr(ovt::Keys::kMenuQuality), true, latencyModeBox.getSelectedId() == 3, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
-                p->setValueNotifyingHost (2.0f / 2.0f);
+                p->setValueNotifyingHost (2.0f / 3.0f);
+        });
+        latencyMenu.addItem (ovt::tr(ovt::Keys::kMenuSafe), true, latencyModeBox.getSelectedId() == 4, [this] {
+            if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
+                p->setValueNotifyingHost (3.0f / 3.0f);
         });
         menu.addSubMenu (ovt::tr(ovt::Keys::kMenuLatency), latencyMenu);
 
@@ -510,7 +514,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         // 4. Pitch Detection submenu (YIN only)
         {
             juce::PopupMenu pitchMenu;
-            pitchMenu.addItem ("YIN (active)", false, true, nullptr);
+            pitchMenu.addItem (ovt::tr(ovt::Keys::kMenuYinActive), false, true, nullptr);
             menu.addSubMenu (ovt::tr(ovt::Keys::kMenuPitchDetection), pitchMenu);
         }
 
@@ -562,7 +566,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         menu.addSeparator();
 
         // Waveform overlay toggle
-        menu.addItem ("Show Waveform", true, showWaveform, [this] {
+        menu.addItem (ovt::tr(ovt::Keys::kMenuShowWaveform), true, showWaveform, [this] {
             showWaveform = ! showWaveform;
             if (! showWaveform)
             {
@@ -577,9 +581,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         {
             juce::PopupMenu waveformMenu;
             const int currentType = processorRef.getWaveformDisplayType();
-            waveformMenu.addItem ("Line", true, currentType == 0, [this] { setWaveformDisplayType (0); });
-            waveformMenu.addItem ("Mirror", true, currentType == 1, [this] { setWaveformDisplayType (1); });
-            menu.addSubMenu ("Waveform Display", waveformMenu, true);
+            waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformLine), true, currentType == 0, [this] { setWaveformDisplayType (0); });
+            waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformMirror), true, currentType == 1, [this] { setWaveformDisplayType (1); });
+            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuWaveformDisplay), waveformMenu, true);
         }
 
         menu.addSeparator();
@@ -592,7 +596,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             if (pitchViz == nullptr)
             {
                 juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
-                    "Export", "Could not find the visualizer component.");
+                    ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgExportNotFound));
                 return;
             }
 
@@ -605,7 +609,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 defaultDir = downloadsDir;
 
             auto chooserPtr = std::make_shared<juce::FileChooser>(
-                "Export Visualizer as PNG",
+                ovt::tr(ovt::Keys::kDlgExportPng),
                 defaultDir,
                 "*.png");
             chooserPtr->launchAsync (
@@ -620,10 +624,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
                         if (pitchViz->exportAsImage (file))
                             juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::InfoIcon,
-                                "Export", "Image saved to:\n" + file.getFullPathName());
+                                ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgImageSaved) + file.getFullPathName());
                         else
                             juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
-                                "Export", "Failed to save image.");
+                                ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgImageFailed));
                     }
                 });
         });
@@ -633,12 +637,17 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         // 7b. MIDI Learn submenu
         {
             juce::PopupMenu midiLearnMenu;
-            struct ParamEntry { const char* id; const char* name; };
+            struct ParamEntry { const char* id; std::string name; };
             const ParamEntry params[] = {
-                {"speed", "Speed"}, {"amount", "Amount"}, {"formant", "Formant"},
-                {"reverb_mix", "Reverb Mix"}, {"flex_tune", "FlexTune"},
-                {"humanize", "Humanize"}, {"harmony_gain", "Harmony Gain"},
-                {"harmony_blend", "Harmony Blend"}, {"harmony_tone_color", "Harmony Tone"}
+                {"speed", ovt::tr(ovt::Keys::kMidiLearnSpeed).toStdString()},
+                {"amount", ovt::tr(ovt::Keys::kMidiLearnAmount).toStdString()},
+                {"formant", ovt::tr(ovt::Keys::kMidiLearnFormant).toStdString()},
+                {"reverb_mix", ovt::tr(ovt::Keys::kMidiLearnReverbMix).toStdString()},
+                {"flex_tune", ovt::tr(ovt::Keys::kMidiLearnFlexTune).toStdString()},
+                {"humanize", ovt::tr(ovt::Keys::kMidiLearnHumanize).toStdString()},
+                {"harmony_gain", ovt::tr(ovt::Keys::kMidiLearnHarmonyGain).toStdString()},
+                {"harmony_blend", ovt::tr(ovt::Keys::kMidiLearnHarmonyBlend).toStdString()},
+                {"harmony_tone_color", ovt::tr(ovt::Keys::kMidiLearnHarmonyTone).toStdString()}
             };
             for (const auto& p : params)
             {
@@ -646,13 +655,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                     startMidiLearn (id);
                 });
             }
-            menu.addSubMenu ("MIDI Learn", midiLearnMenu);
+            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuMidiLearn), midiLearnMenu);
         }
 
         menu.addSeparator();
 
         // Help overlay
-        menu.addItem ("Keyboard Shortcuts (?)", [this] { toggleHelpOverlay(); });
+        menu.addItem (ovt::tr(ovt::Keys::kMenuKeyboardShortcuts), [this] { toggleHelpOverlay(); });
 
         menu.addSeparator();
 
@@ -666,9 +675,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         // 6. Reset to Default — restore all parameters to their factory defaults
         menu.addItem (ovt::tr(ovt::Keys::kMenuResetDefault), [this] {
             juce::PopupMenu confirmMenu;
-            confirmMenu.addItem ("Cancel", []{});
+            confirmMenu.addItem (ovt::tr(ovt::Keys::kMenuCancel), []{});
             confirmMenu.addSeparator();
-            confirmMenu.addItem ("Confirm Reset", [this] {
+            confirmMenu.addItem (ovt::tr(ovt::Keys::kMenuConfirmReset), [this] {
                 auto& paramTree = processorRef.getParameters().state;
                 for (int i = 0; i < paramTree.getNumChildren(); ++i)
                 {
@@ -697,7 +706,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         }
 
        #if JUCE_DEBUG
-        menu.addItem ("Debug Window", [this] { debugWindowButton.onClick(); });
+        menu.addItem (ovt::tr(ovt::Keys::kMenuDebugWindow), [this] { debugWindowButton.onClick(); });
        #endif
 
 
@@ -708,20 +717,82 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     };
     addAndMakeVisible (menuButton);
 
-    // === A/B Comparison button ===
-    abButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0x331A9AF0));
-    abButton.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffcccccc));
-    abButton.setTooltip ("A/B: Click to toggle between slot A and B. Right-click to save current state.");
-    abButton.onClick = [this] { toggleAB(); };
-    abButton.onRightClick = [this] {
-        juce::PopupMenu menu;
-        menu.addItem ("Save to Slot A", [this] { saveSlot (slotA, 0); });
-        menu.addItem ("Save to Slot B", [this] { saveSlot (slotB, 1); });
+    // === A/B Comparison buttons ===
+    auto setupABButton = [this] (ABTextButton& btn, const juce::String& label, int slotIdx) {
+        btn.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffcccccc));
+        btn.setTooltip (label == "A" ? ovt::tr(ovt::Keys::kTooltipAbSlotA) : ovt::tr(ovt::Keys::kTooltipAbSlotB));
+        btn.onClick = [this, slotIdx] {
+            auto& clickedSlot = (slotIdx == 0) ? slotA : slotB;
 
-        applyMenuLookAndFeel (menu, customLookAndFeel);
-        menu.showMenuAsync (juce::PopupMenu::Options());
+            // Auto-save the CURRENT slot before loading the other one.
+            // Only save if the current state matches this slot's original state
+            // (morph slider at the correct endpoint), not a morphed blend.
+            const float morphPos = (float) morphSlider.getValue();
+            const bool atOwnEndpoint = isSlotAActive ? (morphPos < 0.01f) : (morphPos > 0.99f);
+            if (atOwnEndpoint)
+            {
+                auto& currentSlot = isSlotAActive ? slotA : slotB;
+                const int currentIdx = isSlotAActive ? 0 : 1;
+                saveSlot (currentSlot, currentIdx);
+            }
+
+            // Initialize the clicked slot if empty (first click)
+            if (! clickedSlot.hasData)
+                saveSlot (clickedSlot, slotIdx);
+
+            // Clear old morph state before loading
+            morphSource.reset();
+            morphTarget.reset();
+            morphUndoState.reset();
+
+            // Load the clicked slot
+            loadSlot (clickedSlot);
+            isSlotAActive = (slotIdx == 0);
+
+            // Set up morph state: source = A (slider left), target = B (slider right).
+            // This is always the same regardless of which slot is active.
+            if (slotA.morphState != nullptr && slotB.morphState != nullptr)
+            {
+                morphSource = std::make_unique<atdsp::MorphState> (*slotA.morphState);
+                morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
+            }
+
+            // Position slider: A=left (0), B=right (1)
+            morphSlider.setValue (slotIdx == 0 ? 0.0 : 1.0, juce::dontSendNotification);
+            lastMorphValue = (float) slotIdx;
+
+            updateABButtonStates();
+        };
+        addAndMakeVisible (btn);
     };
-    addAndMakeVisible (abButton);
+    setupABButton (buttonA, "A", 0);
+    setupABButton (buttonB, "B", 1);
+    // Right-click on A/B saves the current state into that slot
+    buttonA.onRightClick = [this] { saveSlot (slotA, 0); updateABButtonStates(); };
+    buttonB.onRightClick = [this] { saveSlot (slotB, 1); updateABButtonStates(); };
+    // Button A always has valid data (it's the default state)
+    buttonA.hasValidData = true;
+    buttonA.isActive = true;
+
+    // === Morph Slider ===
+    morphSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    morphSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    morphSlider.setRange (0.0, 1.0, 0.01);
+    morphSlider.setValue (0.0, juce::dontSendNotification);
+    morphSlider.setColour (juce::Slider::thumbColourId, ovt::accent());
+    morphSlider.setColour (juce::Slider::trackColourId, ovt::accent().withAlpha (0.7f));
+    morphSlider.setColour (juce::Slider::backgroundColourId, ovt::bgPanel());
+    morphSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipMorphDrag));
+    morphSlider.onValueChange = [this] { onMorphSliderChanged ((float) morphSlider.getValue()); };
+    addAndMakeVisible (morphSlider);
+    morphSlider.addMouseListener (this, false); // for right-click context menu
+
+    morphSliderLabel.setText (ovt::tr(ovt::Keys::kLabelMorph), juce::dontSendNotification);
+    morphSliderLabel.setFont (ovt::fontLegendHint());
+    morphSliderLabel.setColour (juce::Label::textColourId, ovt::textDim());
+    morphSliderLabel.setTooltip (ovt::tr(ovt::Keys::kTooltipMorphLabel));
+    morphSliderLabel.setJustificationType (juce::Justification::centred);
+    addAndMakeVisible (morphSliderLabel);
 
     // === Slider ranges ===
     speedSlider.setRange (0.0, 200.0, 1.0);
@@ -775,6 +846,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Reverb attachments
     reverbEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "reverb_enable", reverbEnableButton);
     reverbMixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "reverb_mix", reverbMixSlider);
+
+    noiseGateEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        processorRef.getParameters(), "noise_gate_enable", noiseGateEnableButton);
+    noiseGateThresholdAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        processorRef.getParameters(), "noise_gate_threshold", noiseGateThresholdSlider);
 
     // FlexTune / Humanize / Correction Mode attachments
     flexTuneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "flex_tune", flexTuneSlider);
@@ -886,10 +962,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     resetTransportButton.onClick = [this] {
         processorRef.resetTransportTime();
     };
-    resetTransportButton.setTooltip ("Reset playhead.\n"
-                                     "Resets the internal timeline offset (useful in Standalone / classic VST3).");
+    resetTransportButton.setTooltip (ovt::tr(ovt::Keys::kTooltipResetTransportDetail));
     setupIconButton(bypassButton, svgPower, true, "Bypass audio processing");
-    bypassButton.setTooltip ("Bypass audio processing.\nWhen enabled, audio passes through without correction.");
+    bypassButton.setTooltip (ovt::tr(ovt::Keys::kTooltipBypassIcon));
     addAndMakeVisible (bypassButton);
 
     // MIDI Out icon (clicking toggles the attached toggle button)
@@ -900,16 +975,16 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     setupIconButton (menuButton, svgGear, false, "OpenVoxTuner options");
 
     // Toggle buttons with text (attached to parameters)
-    bypassToggleButton.setButtonText ("ByPass");
+    bypassToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelBypassBtn));
     bypassToggleButton.setColour (juce::ToggleButton::textColourId, ovt::text());
     bypassToggleButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
-    bypassToggleButton.setTooltip ("Bypass audio processing.");
+    bypassToggleButton.setTooltip (ovt::tr(ovt::Keys::kTooltipBypass));
     addAndMakeVisible (bypassToggleButton);
 
-    midiToggleButton.setButtonText ("MIDI OUT");
+    midiToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelMidiOutBtn));
     midiToggleButton.setColour (juce::ToggleButton::textColourId, ovt::text());
     midiToggleButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
-    midiToggleButton.setTooltip ("Enable MIDI Out");
+    midiToggleButton.setTooltip (ovt::tr(ovt::Keys::kTooltipMidiOutIcon));
     addAndMakeVisible (midiToggleButton);
 
     // Hide legacy icon buttons from top bar (kept for backward compatibility)
@@ -918,8 +993,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Debug window button near bypass
    #if JUCE_DEBUG
-    debugWindowButton.setButtonText ("Debug");
-    debugWindowButton.setTooltip ("Open debug window: MIDI log, attack/release testing");
+    debugWindowButton.setButtonText (ovt::tr(ovt::Keys::kLabelDebug));
+    debugWindowButton.setTooltip (ovt::tr(ovt::Keys::kTooltipDebugWindow));
     addAndMakeVisible (debugWindowButton);
     debugWindowButton.onClick = [this]() {
         // Create a simple modeless window if not already
@@ -1043,7 +1118,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     debugWindowButton.setEnabled (false);
    #endif
 
-    formantEnableButton.setButtonText ("Formant");
+    formantEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelFormantBtn));
     formantEnableButton.setName ("PowerButton");
     formantEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
     formantEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
@@ -1054,23 +1129,50 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     reverbMixSlider.setRange (0.0, 1.0, 0.01);
     reverbMixSlider.setEnabled (false); // disabled until reverb is toggled on
 
-    reverbEnableButton.setButtonText ("Reverb");
+    reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
     reverbEnableButton.setName ("PowerButton");
     reverbEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
     reverbEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
-    reverbEnableButton.setTooltip ("Enable/disable reverb effect.");
+    reverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbEn));
     addAndMakeVisible (reverbEnableButton);
+
+    // Noise Gate
+    noiseGateEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelNoiseGate));
+    noiseGateEnableButton.setName ("PowerButton");
+    noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
+    noiseGateEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
+    noiseGateEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    addAndMakeVisible (noiseGateEnableButton);
+
+    noiseGateThresholdSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+    noiseGateThresholdSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 16);
+    noiseGateThresholdSlider.setRange (-80.0, 0.0, 1.0);
+    noiseGateThresholdSlider.setValue (-40.0, juce::dontSendNotification);
+    noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
+    noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
+    noiseGateThresholdSlider.setColour (juce::Slider::thumbColourId, juce::Colours::white);
+    noiseGateThresholdSlider.setColour (juce::Slider::textBoxTextColourId, ovt::text());
+    noiseGateThresholdSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    noiseGateThresholdSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+    noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
+    addAndMakeVisible (noiseGateThresholdSlider);
+
+    noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
+    noiseGateThresholdLabel.setColour (juce::Label::textColourId, ovt::text());
+    noiseGateThresholdLabel.setJustificationType (juce::Justification::centred);
+    noiseGateThresholdLabel.setFont (11.0f);
+    noiseGateThresholdLabel.setVisible (false); // Hidden — same style as Formant/Reverb (no label)
 
     // FlexTune / Humanize knobs
     setupKnob (flexTuneSlider, &flexTuneLabel, "FlexTune");
     translatableLabels.push_back ({ &flexTuneLabel, ovt::Keys::kLabelFlex });
     flexTuneSlider.setRange (0.0, 100.0, 1.0);
-    flexTuneSlider.setTooltip ("Deadband in cents: input pitch within this range of the target is left uncorrected.");
+    flexTuneSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipFlexTune));
 
     setupKnob (humanizeSlider, &humanizeLabel, "Humanize");
     translatableLabels.push_back ({ &humanizeLabel, ovt::Keys::kLabelHumanize });
     humanizeSlider.setRange (0.0, 50.0, 1.0);
-    humanizeSlider.setTooltip ("Random pitch fluctuations in cents, added when correction is applied.");
+    humanizeSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipHumanize));
 
     // FlexTune and Humanize: no textbox, smaller inline labels
     flexTuneLabel.setText ("Flex", juce::dontSendNotification);
@@ -1079,16 +1181,16 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     humanizeSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
 
     // Correction Mode toggle button
-    correctionModeButton.setButtonText ("Modern");
+    correctionModeButton.setButtonText (ovt::tr(ovt::Keys::kLabelModernBtn));
     correctionModeButton.setClickingTogglesState (true);
     correctionModeButton.setColour (juce::TextButton::buttonColourId, ovt::accentSoft());
     correctionModeButton.setColour (juce::TextButton::buttonOnColourId, ovt::accent());
     correctionModeButton.setColour (juce::TextButton::textColourOffId, ovt::text());
     correctionModeButton.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
-    correctionModeButton.setTooltip ("Modern = aggressive correction. Transparent = gentler, preserves transitions.");
+    correctionModeButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCorrection));
     correctionModeButton.onClick = [this] {
         bool isTransparent = correctionModeButton.getToggleState();
-        correctionModeButton.setButtonText (isTransparent ? "Transparent" : "Modern");
+        correctionModeButton.setButtonText (isTransparent ? ovt::tr(ovt::Keys::kLabelTransparentBtn) : ovt::tr(ovt::Keys::kLabelModernBtn));
     };
     addAndMakeVisible (correctionModeButton);
 
@@ -1153,11 +1255,21 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
       tabbedComponent.setOutline(0);
       // Tab content areas always use dark background regardless of theme
       const juce::Colour tabContentColour = juce::Colour (0xff14151c);
-      tabbedComponent.addTab("Live", tabContentColour, pitchVisualizer.get(), false);
-      tabbedComponent.addTab("Curve Editor", tabContentColour, curveEditor.get(), false);
+      tabbedComponent.addTab(ovt::tr(ovt::Keys::kTabLive), tabContentColour, pitchVisualizer.get(), false);
+      tabbedComponent.addTab(ovt::tr(ovt::Keys::kTabCurveEditor), tabContentColour, curveEditor.get(), false);
     addAndMakeVisible(tabbedComponent);
     tabbedComponent.setColour (juce::TabbedComponent::backgroundColourId, ovt::bgDark());
     tabbedComponent.setColour (juce::TabbedComponent::outlineColourId, ovt::accentSoft());
+
+    // Initialize piano keyboards with chromatic intervals so they display
+    // all keys on first paint, before the first timerCallback fires.
+    {
+        juce::Array<int> chromatic;
+        for (int i = 0; i < 12; ++i) chromatic.add (i);
+        pitchVisualizer->setScaleIntervals (chromatic);
+        curveEditor->setScaleIntervals (chromatic);
+        scaleKeyboard.setActiveScaleIntervals (chromatic);
+    }
 
     // Make sure tools are drawn over the tabbed component
     presetsButton.toFront(false);
@@ -1183,20 +1295,19 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     }
     // Restore A/B slots from the processor (persisted across project reload).
     {
-        auto* slotAxml = processorRef.getAbSlotXml (0);
-        if (slotAxml != nullptr)
+        auto restoreSlot = [this] (ABState& slot, int slotIdx)
         {
-            slotA.state = std::make_unique<juce::XmlElement> (*slotAxml);
-            slotA.hasData = true;
-            slotA.name = "filled";
-        }
-        auto* slotBxml = processorRef.getAbSlotXml (1);
-        if (slotBxml != nullptr)
-        {
-            slotB.state = std::make_unique<juce::XmlElement> (*slotBxml);
-            slotB.hasData = true;
-            slotB.name = "filled";
-        }
+            if (! processorRef.hasAbSlotData (slotIdx)) return;
+            const auto* ms = processorRef.getAbSlotMorphState (slotIdx);
+            if (ms == nullptr) return;
+
+            slot.morphState = std::make_unique<atdsp::MorphState> (*ms);
+            slot.hasData = true;
+            slot.name = "filled";
+        };
+
+        restoreSlot (slotA, 0);
+        restoreSlot (slotB, 1);
     }
     
     // Initialize tab from processor parameter
@@ -1303,17 +1414,17 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("v0.1.1", 60 + openVoxWidth + tunerWidth + 8, 8, 120, 36, juce::Justification::centredLeft);
 #endif
 
-    // CPU usage meter (top-right of header)
+    // CPU usage meter (top-right of header, left of A/B morph area)
     {
         const juce::Rectangle<int> headerArea (0, 0, getWidth(), 50);
         const int cpuW = 64;
         const int cpuH = 16;
-        // Position to the left of the A/B button (which is at menuX - 38)
-        const int cpuX = headerArea.getRight() - cpuW - 86;
+        // Position left of the morph area to avoid overlap
+        const int cpuX = headerArea.getRight() - cpuW - 195;
         const int cpuY = headerArea.getY() + (headerArea.getHeight() - cpuH) / 2;
 
         const int cpuPct = static_cast<int> (currentCpuUsage * 100.0f);
-        const juce::String cpuText = "CPU " + juce::String (cpuPct) + "%";
+        const juce::String cpuText = ovt::tr(ovt::Keys::kLabelCpu) + juce::String (cpuPct) + "%";
 
         // Background
         g.setColour (ovt::cpuBg());
@@ -1348,7 +1459,20 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int menuW = 48;
     auto menuArea = titleArea.removeFromRight (menuW).reduced (6, 10);
     menuButton.setBounds (menuArea);
-    abButton.setBounds (menuArea.getX() - 38, 10, 30, 30);
+
+    // Layout: [buttonA] [morphSlider] [buttonB] [menuButton] in the top-right
+    const int btnSize = 28;
+    const int btnGap = 4;
+    const int morphW = 80;
+
+    // Position from right to left: menu, B, morph, A
+    int x = menuArea.getX() - btnSize - btnGap; // buttonB
+    buttonB.setBounds (x, 11, btnSize, btnSize);
+    x -= morphW + btnGap;
+    morphSlider.setBounds (x, 13, morphW, btnSize - 4);
+    morphSliderLabel.setBounds (x, 2, morphW, 10);
+    x -= btnSize + btnGap;
+    buttonA.setBounds (x, 11, btnSize, btnSize);
 
     // Hide all old top-bar controls (they still work via attachments/handlers).
     latencyModeLabel.setBounds (0, 0, 0, 0);
@@ -1448,20 +1572,25 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // --- Block 4 : Effects (Formant + Reverb, side by side, same size as Speed/Amount) ---
     auto b4 = block4Bounds.reduced(10);
-    // Force knob height to match Speed/Amount (90px)
+    // Effects: Formant / Reverb / Gate — 3 columns, toggle + knob each
     auto effectKnobArea = b4.removeFromTop (90);
-    int effectHalf = (effectKnobArea.getWidth() - 6) / 2;
+    int effectThird = (effectKnobArea.getWidth() - 12) / 3;
 
-    // Formant: toggle + knob (left half)
-    auto formantCol = effectKnobArea.removeFromLeft(effectHalf);
+    // Formant (column 1)
+    auto formantCol = effectKnobArea.removeFromLeft(effectThird);
     formantEnableButton.setBounds(formantCol.removeFromTop(18));
     formantSlider.setBounds(formantCol);
     effectKnobArea.removeFromLeft(6);
 
-    // Reverb: toggle + knob (right half, no label)
-    auto reverbCol = effectKnobArea;
+    // Reverb (column 2)
+    auto reverbCol = effectKnobArea.removeFromLeft(effectThird);
     reverbEnableButton.setBounds(reverbCol.removeFromTop(18));
     reverbMixSlider.setBounds (reverbCol);
+    effectKnobArea.removeFromLeft(6);
+
+    // Noise Gate (column 3) — same style: toggle + knob, no separate label
+    noiseGateEnableButton.setBounds(effectKnobArea.removeFromTop(18));
+    noiseGateThresholdSlider.setBounds(effectKnobArea);
 
     // Harmony controls block (rightmost block)
     {
@@ -1560,7 +1689,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     {
         if (! updateCheckState->finished.load())
         {
-            updateButton.setButtonText ("Checking...");
+            updateButton.setButtonText (ovt::tr(ovt::Keys::kStatusChecking));
             updateButton.setEnabled (false);
         }
         else
@@ -1568,15 +1697,15 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
             updateButton.setEnabled (true);
             if (updateCheckState->updateAvailable.load())
             {
-                updateButton.setButtonText ("Update " + updateCheckState->latestVersion);
+                updateButton.setButtonText (ovt::tr(ovt::Keys::kStatusUpdatePrefix) + updateCheckState->latestVersion);
                 updateButton.setColour (juce::TextButton::buttonColourId, ovt::accent().darker (0.2f));
-                updateButton.setTooltip ("Open the latest OpenVoxTuner release.");
+                updateButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUpdateAvailable));
             }
             else
             {
-                updateButton.setButtonText ("Up to date");
+                updateButton.setButtonText (ovt::tr(ovt::Keys::kStatusUpToDate));
                 updateButton.setColour (juce::TextButton::buttonColourId, ovt::bgPanel());
-                updateButton.setTooltip (updateCheckState->statusText.isNotEmpty() ? updateCheckState->statusText : "Open the OpenVoxTuner releases page.");
+                updateButton.setTooltip (updateCheckState->statusText.isNotEmpty() ? updateCheckState->statusText : ovt::tr(ovt::Keys::kTooltipUpdateReleases));
             }
         }
     }
@@ -1695,6 +1824,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
             curveEditor->setCurve (processorRef.getPitchCurve());
             processorRef.getPendingCurveRestore().store (false);
             syncEditButtons();
+            resetMorph(); // state changed — invalidate any active morph
         }
         // Also sync on every timer tick for safety (e.g. model changes via capture/clear)
         syncEditButtons();
@@ -1763,6 +1893,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
         const auto& intervals = processorRef.getScaleIntervals();
         pitchVisualizer->setScaleIntervals (intervals);
         curveEditor->setScaleIntervals (intervals);
+        scaleKeyboard.setActiveScaleIntervals (intervals);
 
         auto* rawKey = processorRef.getParameters().getRawParameterValue ("key");
         auto* rawScale = processorRef.getParameters().getRawParameterValue ("scale");
@@ -1803,6 +1934,182 @@ void OpenVoxTunerAudioProcessorEditor::toggleHelpOverlay()
     repaint();
 }
 
+// === Preset Morphing ===
+
+void OpenVoxTunerAudioProcessorEditor::resetMorph()
+{
+    if (morphSource != nullptr)
+    {
+        atdsp::applyInterpolatedState (processorRef.getParameters(),
+                                        *morphSource, *morphSource, 0.0f);
+        auto resetCurve = morphSource->curve;
+        if (curveEditor != nullptr)
+        {
+            curveEditor->setCurve (resetCurve);
+            curveEditor->setGhostCurve (nullptr);
+        }
+    }
+    morphSlider.setValue (0.0, juce::dontSendNotification);
+    lastMorphValue = 0.0f;
+    morphSource.reset();
+    morphTarget.reset();
+    morphUndoState.reset();
+}
+
+void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
+{
+    // Ignore morph application during slot switching — the caller manages state.
+    if (switchingSlot)
+    {
+        lastMorphValue = value;
+        return;
+    }
+
+    // Auto-capture source on first movement if not set
+    if (morphSource == nullptr)
+    {
+        morphSource = std::make_unique<atdsp::MorphState> (
+            atdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Current"));
+        morphSourceName = "Current";
+    }
+    // Auto-capture target from Slot B (or Slot A if B is empty) on first movement
+    if (morphTarget == nullptr)
+    {
+        if (slotB.hasData && slotB.morphState != nullptr)
+        {
+            morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
+            morphTargetName = "Slot B";
+        }
+        else if (slotA.hasData && slotA.morphState != nullptr)
+        {
+            morphTarget = std::make_unique<atdsp::MorphState> (*slotA.morphState);
+            morphTargetName = "Slot A";
+        }
+        else
+        {
+            morphTarget = std::make_unique<atdsp::MorphState> (
+                atdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Target"));
+            morphTargetName = "Target";
+        }
+    }
+
+    // Capture pre-morph state on first movement (for undo)
+    if (lastMorphValue < 0.01f && value > 0.01f && morphUndoState == nullptr)
+    {
+        morphUndoState = std::make_unique<atdsp::MorphState> (
+            atdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Pre-morph"));
+    }
+
+    // Apply interpolated state
+    atdsp::applyInterpolatedState (processorRef.getParameters(),
+                                    *morphSource, *morphTarget, value);
+
+    // Interpolate the pitch curve
+    auto morphedCurve = atdsp::interpolateCurves (morphSource->curve, morphTarget->curve, value);
+    if (curveEditor != nullptr)
+    {
+        curveEditor->setCurve (morphedCurve);
+        // Show ghost curve (target) when morphing, clear when at source
+        curveEditor->setGhostCurve (value > 0.01f ? &morphTarget->curve : nullptr);
+    }
+
+    lastMorphValue = value;
+}
+
+void OpenVoxTunerAudioProcessorEditor::undoMorph()
+{
+    if (morphUndoState == nullptr) return;
+
+    // Restore the pre-morph state
+    atdsp::applyInterpolatedState (processorRef.getParameters(),
+                                    *morphUndoState, *morphUndoState, 0.0f);
+    if (curveEditor != nullptr)
+    {
+        curveEditor->setCurve (morphUndoState->curve);
+        curveEditor->setGhostCurve (nullptr);
+    }
+    morphSlider.setValue (0.0, juce::dontSendNotification);
+    lastMorphValue = 0.0f;
+    morphUndoState.reset();
+}
+
+void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
+{
+    juce::PopupMenu menu;
+
+    menu.addItem (ovt::tr(ovt::Keys::kMenuMorphSetSource), [this] {
+        morphSource = std::make_unique<atdsp::MorphState> (
+            atdsp::captureState (processorRef.getParameters(),
+                                 processorRef.getPitchCurve(), "Current"));
+        morphSourceName = "Current";
+        morphSlider.setValue (0.0, juce::dontSendNotification);
+        lastMorphValue = 0.0f;
+    });
+
+    menu.addSeparator();
+
+    menu.addItem (ovt::tr(ovt::Keys::kMenuMorphSetTargetA), [this] {
+        if (slotA.hasData && slotA.morphState != nullptr)
+        {
+            morphTarget = std::make_unique<atdsp::MorphState> (*slotA.morphState);
+            morphTargetName = "Slot A";
+            morphSlider.setValue (0.0, juce::dontSendNotification);
+            lastMorphValue = 0.0f;
+        }
+    });
+
+    menu.addItem (ovt::tr(ovt::Keys::kMenuMorphSetTargetB), [this] {
+        if (slotB.hasData && slotB.morphState != nullptr)
+        {
+            morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
+            morphTargetName = "Slot B";
+            morphSlider.setValue (0.0, juce::dontSendNotification);
+            lastMorphValue = 0.0f;
+        }
+    });
+
+    menu.addSeparator();
+
+    menu.addItem (ovt::tr(ovt::Keys::kMenuMorphAtoB), [this] {
+        if (slotA.hasData && slotA.morphState != nullptr && slotB.hasData && slotB.morphState != nullptr)
+        {
+            morphSource = std::make_unique<atdsp::MorphState> (*slotA.morphState);
+            morphSourceName = "Slot A";
+
+            morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
+            morphTargetName = "Slot B";
+
+            morphSlider.setValue (0.0, juce::dontSendNotification);
+            lastMorphValue = 0.0f;
+        }
+    });
+
+    menu.addSeparator();
+
+    menu.addItem (ovt::tr(ovt::Keys::kMenuMorphUndo), morphUndoState != nullptr, false, [this] {
+        undoMorph();
+    });
+
+    menu.addItem (ovt::tr(ovt::Keys::kMenuMorphReset), [this] {
+        if (morphSource != nullptr)
+        {
+            atdsp::applyInterpolatedState (processorRef.getParameters(),
+                                            *morphSource, *morphSource, 0.0f);
+            auto resetCurve = morphSource->curve;
+            if (curveEditor != nullptr)
+            {
+                curveEditor->setCurve (resetCurve);
+                curveEditor->setGhostCurve (nullptr);
+            }
+        }
+        morphSlider.setValue (0.0, juce::dontSendNotification);
+        lastMorphValue = 0.0f;
+    });
+
+    applyMenuLookAndFeel (menu, customLookAndFeel);
+    menu.showMenuAsync (juce::PopupMenu::Options());
+}
+
 void OpenVoxTunerAudioProcessorEditor::refreshDrawableButtonIcons()
 {
     // The DrawableButton colour IDs are already re-applied in
@@ -1817,8 +2124,26 @@ bool OpenVoxTunerAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
     return false;
 }
 
-void OpenVoxTunerAudioProcessorEditor::mouseDown (const juce::MouseEvent&)
+void OpenVoxTunerAudioProcessorEditor::mouseDown (const juce::MouseEvent& event)
 {
+    // Right-click on morph slider opens context menu
+    if (event.mods.isRightButtonDown())
+    {
+        auto* source = event.eventComponent;
+        if (source == &morphSlider)
+        {
+            showMorphContextMenu();
+        }
+    }
+    // Double-click on morph slider snaps to center (0.5)
+    else if (event.getNumberOfClicks() >= 2)
+    {
+        auto* source = event.eventComponent;
+        if (source == &morphSlider)
+        {
+            morphSlider.setValue (0.5, juce::sendNotificationSync);
+        }
+    }
 }
 
 void OpenVoxTunerAudioProcessorEditor::refreshLabels()
@@ -1875,19 +2200,40 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     // Update "Use Voice" toggle button text
     useVoiceButton.setButtonText (ovt::tr (ovt::Keys::kLabelUseVoice));
 
+    // Update button text
+    updateButton.setButtonText (ovt::tr(ovt::Keys::kLabelUpdates));
+    harmonyEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyBtn));
+    formantEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelFormantBtn));
+    reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
+    bypassToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelBypassBtn));
+    midiToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelMidiOutBtn));
+    correctionModeButton.setButtonText (correctionModeButton.getToggleState() ? ovt::tr(ovt::Keys::kLabelTransparentBtn) : ovt::tr(ovt::Keys::kLabelModernBtn));
+    harmonyToneColorLabel.setText (ovt::tr(ovt::Keys::kLabelTone), juce::dontSendNotification);
+    noiseGateEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelNoiseGate));
+    noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
+
     // Refresh all translatable tooltips
-    bypassButton.setTooltip (ovt::tr (ovt::Keys::kTooltipBypass));
+    updateButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCheckUpdates));
+    menuButton.setTooltip (ovt::tr(ovt::Keys::kTooltipMenuOptions));
+    bypassButton.setTooltip (ovt::tr (ovt::Keys::kTooltipBypassIcon));
+    midiOutButton.setTooltip (ovt::tr(ovt::Keys::kTooltipMidiOutIcon));
     bypassToggleButton.setTooltip (ovt::tr (ovt::Keys::kTooltipBypass));
-    midiToggleButton.setTooltip (ovt::tr (ovt::Keys::kTooltipMidiOut));
+    midiToggleButton.setTooltip (ovt::tr (ovt::Keys::kTooltipMidiOutIcon));
     correctionModeButton.setTooltip (ovt::tr (ovt::Keys::kTooltipCorrection));
     harmonyEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyEn));
     reverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn));
     formantEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant));
+    noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
+    noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
     flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune));
     humanizeSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHumanize));
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
-    abButton.setTooltip (ovt::tr (ovt::Keys::kTooltipAB));
-    resetTransportButton.setTooltip (ovt::tr (ovt::Keys::kTooltipReset));
+    buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
+    buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));
+    resetTransportButton.setTooltip (ovt::tr (ovt::Keys::kTooltipResetTransportDetail));
+    morphSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipMorphDrag));
+    morphSliderLabel.setTooltip (ovt::tr(ovt::Keys::kTooltipMorphLabel));
+    morphSliderLabel.setText (ovt::tr(ovt::Keys::kLabelMorph), juce::dontSendNotification);
 
     // Refresh drawable button tooltips (already use ovt::tr but need refresh)
     presetsButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPresets));
@@ -1895,6 +2241,16 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     snapGridButton.setTooltip (ovt::tr (ovt::Keys::kTooltipSnapToGrid));
     stepModeButton.setTooltip (ovt::tr (ovt::Keys::kTooltipStepMode));
     clearCurveButton.setTooltip (ovt::tr (ovt::Keys::kTooltipClearAll));
+
+    // Update tab names
+    tabbedComponent.setTabName (0, ovt::tr(ovt::Keys::kTabLive));
+    tabbedComponent.setTabName (1, ovt::tr(ovt::Keys::kTabCurveEditor));
+
+    // Refresh curve editor embedded labels
+    if (curveEditor != nullptr)
+        curveEditor->refreshTranslations();
+
+    repaint();
 }
 
 void OpenVoxTunerAudioProcessorEditor::applyPresetUiStateFromXml (const juce::XmlElement& xml)
@@ -1925,6 +2281,8 @@ void OpenVoxTunerAudioProcessorEditor::loadCustomPresetFromFile (const juce::Fil
     if (curveEditor == nullptr) return;
     if (! file.existsAsFile()) return;
 
+    resetMorph(); // cancel any active morph when loading a preset
+
     std::unique_ptr<juce::XmlElement> xml (juce::XmlDocument (file).getDocumentElement());
     if (xml == nullptr) return;
 
@@ -1953,12 +2311,12 @@ void OpenVoxTunerAudioProcessorEditor::promptSaveCustomPreset()
 {
     if (curveEditor == nullptr) return;
 
-    auto* w = new juce::AlertWindow ("Save Preset",
-                                     "Save the current Curve Editor configuration as a custom preset.",
+    auto* w = new juce::AlertWindow (ovt::tr(ovt::Keys::kDlgSavePreset),
+                                     ovt::tr(ovt::Keys::kDlgSavePresetDesc),
                                      juce::AlertWindow::NoIcon);
     w->addTextEditor ("name", "", "Name:");
-    w->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    w->addButton (ovt::tr(ovt::Keys::kDlgSave), 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton (ovt::tr(ovt::Keys::kMenuCancel), 0, juce::KeyPress (juce::KeyPress::escapeKey));
 
     w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w] (int result)
     {
@@ -1970,8 +2328,8 @@ void OpenVoxTunerAudioProcessorEditor::promptSaveCustomPreset()
         if (name.isEmpty())
         {
             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                                                         "Invalid name",
-                                                         "Preset name can't be empty.",
+                                                         ovt::tr(ovt::Keys::kDlgInvalidName),
+                                                         ovt::tr(ovt::Keys::kDlgEmptyName),
                                                          this);
             return;
         }
@@ -1983,9 +2341,9 @@ void OpenVoxTunerAudioProcessorEditor::promptSaveCustomPreset()
         if (file.existsAsFile())
         {
             auto opts = juce::MessageBoxOptions::makeOptionsYesNo (juce::MessageBoxIconType::WarningIcon,
-                                                                   "Overwrite preset?",
-                                                                   "A preset with this name already exists.\nOverwrite it?",
-                                                                   "Cancel", "Overwrite",
+                                                                   ovt::tr(ovt::Keys::kDlgOverwrite),
+                                                                   ovt::tr(ovt::Keys::kDlgOverwriteDesc),
+                                                                   ovt::tr(ovt::Keys::kMenuCancel), ovt::tr(ovt::Keys::kDlgOverwriteBtn),
                                                                    this);
 
             juce::NativeMessageBox::showAsync (opts, [this, file, name] (int result)
@@ -2022,15 +2380,15 @@ void OpenVoxTunerAudioProcessorEditor::writeCustomPresetFile (const juce::String
     if (ok)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-                                                     "Preset saved",
-                                                     "Saved custom preset:\n" + name,
+                                                     ovt::tr(ovt::Keys::kDlgPresetSaved),
+                                                     ovt::tr(ovt::Keys::kDlgPresetSavedDesc) + name,
                                                      this);
     }
     else
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                                                     "Save failed",
-                                                     "Couldn't write the preset file.",
+                                                     ovt::tr(ovt::Keys::kDlgSaveFailed),
+                                                     ovt::tr(ovt::Keys::kDlgSaveFailedDesc),
                                                      this);
     }
 }
@@ -2040,9 +2398,9 @@ void OpenVoxTunerAudioProcessorEditor::deleteCustomPresetFile (const juce::File&
     if (! file.existsAsFile()) return;
 
     auto opts = juce::MessageBoxOptions::makeOptionsYesNo (juce::MessageBoxIconType::WarningIcon,
-                                                           "Delete preset?",
-                                                           "Delete this custom preset permanently?\n" + file.getFileNameWithoutExtension(),
-                                                           "Cancel", "Delete",
+                                                           ovt::tr(ovt::Keys::kDlgDeletePreset),
+                                                           ovt::tr(ovt::Keys::kDlgDeletePresetDesc) + file.getFileNameWithoutExtension(),
+                                                           ovt::tr(ovt::Keys::kMenuCancel), ovt::tr(ovt::Keys::kDlgDelete),
                                                            this);
 
     juce::NativeMessageBox::showAsync (opts, [this, file] (int result)
@@ -2058,15 +2416,15 @@ void OpenVoxTunerAudioProcessorEditor::deleteCustomPresetFile (const juce::File&
         if (!deleted || file.existsAsFile())
         {
             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                                                             "Delete failed",
-                                                             "Couldn't delete the preset file. Check permissions.",
+                                                             ovt::tr(ovt::Keys::kDlgDeleteFailed),
+                                                             ovt::tr(ovt::Keys::kDlgDeleteFailedDesc),
                                                              this);
         }
         else
         {
             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-                                                             "Preset deleted",
-                                                             "Deleted custom preset:\n" + file.getFileNameWithoutExtension(),
+                                                             ovt::tr(ovt::Keys::kDlgPresetDeleted),
+                                                             ovt::tr(ovt::Keys::kDlgPresetDeletedDesc) + file.getFileNameWithoutExtension(),
                                                              this);
             // Refresh the presets menu immediately so the entry disappears
             showPresetsMenu();
@@ -2075,45 +2433,110 @@ void OpenVoxTunerAudioProcessorEditor::deleteCustomPresetFile (const juce::File&
 }
 
 // === A/B Comparison ===
+
+/**
+ * Saves the current plugin state into an A/B slot using a direct MorphState
+ * snapshot. Persists the MorphState to the processor for project reload.
+ */
 void OpenVoxTunerAudioProcessorEditor::saveSlot (ABState& slot, int slotIndex)
 {
-    juce::MemoryBlock block;
-    processorRef.getStateInformation (block);
-    // Store the binary plugin state as a base64-encoded XML attribute
-    slot.state = std::make_unique<juce::XmlElement> ("AB_SLOT");
-    slot.state->setAttribute ("slot", slotIndex);
-    slot.state->setAttribute ("data", block.toBase64Encoding());
+    // Use a safe curve reference — pitchCurve may be null during init.
+    const atdsp::PitchCurve emptyCurve;
+    const auto& curve = processorRef.hasPitchCurve() ? processorRef.getPitchCurve() : emptyCurve;
+
+    slot.morphState = std::make_unique<atdsp::MorphState> (
+        atdsp::captureState (processorRef.getParameters(), curve,
+                             slotIndex == 0 ? "Slot A" : "Slot B"));
     slot.hasData = true;
     slot.name = "filled";
-    // Also persist to the processor so it survives project reload.
-    processorRef.setAbSlotXml (slotIndex, std::make_unique<juce::XmlElement> (*slot.state));
+
+    processorRef.setAbSlotMorphState (slotIndex, *slot.morphState);
 }
 
+/**
+ * Loads a saved A/B slot by setting UI sliders directly, which triggers
+ * the SliderAttachment to update the processor parameter.
+ * This "slider-first" approach works reliably because SliderAttachment
+ * listens to slider changes (Slider::Listener) and syncs them to params.
+ * For discrete/boolean params without sliders, we use setValueNotifyingHost.
+ */
 void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
 {
-    if (! slot.hasData || slot.state == nullptr) return;
-    const auto dataStr = slot.state->getStringAttribute ("data");
-    if (dataStr.isEmpty()) return;
-    juce::MemoryBlock block;
-    block.fromBase64Encoding (dataStr);
-    processorRef.setStateInformation (block.getData(), static_cast<int> (block.getSize()));
+    if (! slot.hasData || slot.morphState == nullptr) return;
+
+    switchingSlot = true;
+
+    auto& params = processorRef.getParameters();
+    const auto& saved = *slot.morphState;
+
+    // Set continuous parameter sliders directly. The SliderAttachment will
+    // see the value change and call param->setValueNotifyingHost to sync.
+    auto setSlider = [&params] (const juce::String& id, float normValue, juce::Slider& slider)
+    {
+        if (auto* p = params.getParameter (id))
+            slider.setValue (p->convertFrom0to1 (normValue), juce::sendNotificationSync);
+    };
+    setSlider ("speed",              saved.speed,              speedSlider);
+    setSlider ("amount",             saved.amount,             amountSlider);
+    setSlider ("formant",            saved.formant,            formantSlider);
+    setSlider ("harmony_gain",       saved.harmonyGain,        harmonyGainSlider);
+    setSlider ("harmony_blend",      saved.harmonyBlend,       harmonyBlendSlider);
+    setSlider ("harmony_tone_color", saved.harmonyToneColor,   harmonyToneColorSlider);
+    setSlider ("reverb_mix",         saved.reverbMix,          reverbMixSlider);
+    setSlider ("noise_gate_threshold", saved.noiseGateThreshold, noiseGateThresholdSlider);
+    setSlider ("flex_tune",          saved.flexTune,           flexTuneSlider);
+    setSlider ("humanize",           saved.humanize,           humanizeSlider);
+
+    // Discrete parameters: use setValueNotifyingHost (ComboBox attachments sync)
+    auto setChoice = [&params] (const juce::String& id, float normValue)
+    {
+        if (auto* p = params.getParameter (id))
+            p->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, normValue));
+    };
+    setChoice ("key",                      (float) saved.key / 11.0f);
+    setChoice ("scale",                    (float) saved.scale / 13.0f);
+    setChoice ("harmony_type",             (float) saved.harmonyType / 21.0f);
+    setChoice ("harmony_tone",             (float) saved.harmonyTone / 5.0f);
+    setChoice ("harmony_shifted_voices",   (float) (saved.harmonyShiftedVoices - 1) / 3.0f);
+    setChoice ("latency_mode",             (float) saved.latencyMode / 3.0f);
+    setChoice ("editor_measures",          (float) (saved.editorMeasures - 1) / 31.0f);
+
+    // Boolean parameters: use setValueNotifyingHost (Button attachments sync)
+    setChoice ("formant_enable",    saved.formantEnable ? 1.0f : 0.0f);
+    setChoice ("bypass",            saved.bypass ? 1.0f : 0.0f);
+    setChoice ("harmony_enable",    saved.harmonyEnable ? 1.0f : 0.0f);
+    setChoice ("harmony_use_voice", saved.harmonyUseVoice ? 1.0f : 0.0f);
+    setChoice ("reverb_enable",     saved.reverbEnable ? 1.0f : 0.0f);
+    setChoice ("noise_gate_enable", saved.noiseGateEnable ? 1.0f : 0.0f);
+    setChoice ("correction_mode",   saved.correctionMode ? 1.0f : 0.0f);
+
+    // Restore the pitch curve
+    if (curveEditor != nullptr)
+        curveEditor->setCurve (saved.curve);
+
+    switchingSlot = false;
 }
 
-void OpenVoxTunerAudioProcessorEditor::toggleAB()
+/** Update A/B button visual states and morph slider visibility. */
+void OpenVoxTunerAudioProcessorEditor::updateABButtonStates()
 {
-    if (isSlotAActive)
+    buttonA.hasValidData = true; // A is always valid (default state)
+    buttonB.hasValidData = slotB.hasData;
+    buttonA.isActive = isSlotAActive;
+    buttonB.isActive = ! isSlotAActive;
+    buttonA.repaint();
+    buttonB.repaint();
+
+    const bool bothFilled = slotA.hasData && slotB.hasData;
+    morphSlider.setVisible (bothFilled);
+    morphSliderLabel.setVisible (bothFilled);
+    if (! bothFilled && morphSource != nullptr)
     {
-        saveSlot (slotA, 0);
-        loadSlot (slotB);
-        isSlotAActive = false;
-        abButton.setButtonText ("B");
-    }
-    else
-    {
-        saveSlot (slotB, 1);
-        loadSlot (slotA);
-        isSlotAActive = true;
-        abButton.setButtonText ("A");
+        morphSlider.setValue (0.0, juce::dontSendNotification);
+        lastMorphValue = 0.0f;
+        morphSource.reset();
+        morphTarget.reset();
+        morphUndoState.reset();
     }
 }
 
@@ -2127,9 +2550,9 @@ void OpenVoxTunerAudioProcessorEditor::startMidiLearn (const juce::String& param
     // Show a brief dialog prompting the user to move a MIDI controller.
     juce::AlertWindow::showMessageBoxAsync (
         juce::AlertWindow::InfoIcon,
-        "MIDI Learn",
-        "Move a MIDI controller to assign it to this parameter.\nPress Escape to cancel.",
-        "OK");
+        ovt::tr(ovt::Keys::kDlgMidiLearn),
+        ovt::tr(ovt::Keys::kDlgMidiLearnDesc),
+        ovt::tr(ovt::Keys::kDlgOk));
 }
 
 void OpenVoxTunerAudioProcessorEditor::handleMidiMessage (const juce::MidiMessage& message)
@@ -2190,17 +2613,17 @@ void OpenVoxTunerAudioProcessorEditor::showPresetsMenu (const juce::MouseEvent* 
         addAction (custom, { Action::Type::LoadCustom, {}, f }, f.getFileNameWithoutExtension(), true);
 
     custom.addSeparator();
-    addAction (custom, { Action::Type::SaveCustom, {}, {} }, "Save Preset As...", true);
+    addAction (custom, { Action::Type::SaveCustom, {}, {} }, ovt::tr(ovt::Keys::kMenuSavePresetAs).toStdString(), true);
 
     juce::PopupMenu deleteMenu;
     for (const auto& f : files)
         addAction (deleteMenu, { Action::Type::DeleteCustom, {}, f }, f.getFileNameWithoutExtension(), true);
 
-    custom.addSubMenu ("Delete...", deleteMenu, ! files.isEmpty());
+    custom.addSubMenu (ovt::tr(ovt::Keys::kMenuDeletePreset), deleteMenu, ! files.isEmpty());
 
     juce::PopupMenu menu;
-    menu.addSubMenu ("Factory", factory);
-    menu.addSubMenu ("Custom", custom);
+    menu.addSubMenu (ovt::tr(ovt::Keys::kMenuFactory), factory);
+    menu.addSubMenu (ovt::tr(ovt::Keys::kMenuCustom), custom);
 
     auto opts = juce::PopupMenu::Options();
     if (mouseEvent != nullptr)
@@ -2227,6 +2650,7 @@ void OpenVoxTunerAudioProcessorEditor::showPresetsMenu (const juce::MouseEvent* 
         const auto& a = actions.getReference (result - 1);
         if (a.type == Action::Type::LoadFactory)
         {
+            resetMorph(); // cancel any active morph when loading a preset
             atdsp::PitchCurve newCurve;
             newCurve.loadPreset (a.name);
             curveEditor->setCurve (newCurve);
@@ -2265,6 +2689,7 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applySliderColours (amountSlider);
     applySliderColours (formantSlider);
     applySliderColours (reverbMixSlider);
+    applySliderColours (noiseGateThresholdSlider);
     applySliderColours (flexTuneSlider);
     applySliderColours (humanizeSlider);
     applySliderColours (harmonyGainSlider);
@@ -2279,6 +2704,7 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (flexTuneLabel);
     applyLabelColours (humanizeLabel);
     applyLabelColours (reverbMixLabel);
+    applyLabelColours (noiseGateThresholdLabel);
     applyLabelColours (harmonyGainLabel);
     applyLabelColours (harmonyBlendLabel);
     applyLabelColours (harmonyToneColorLabel);
@@ -2314,6 +2740,7 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyToggleColours (useVoiceButton);
     applyToggleColours (formantEnableButton);
     applyToggleColours (reverbEnableButton);
+    applyToggleColours (noiseGateEnableButton);
 
     // Re-apply to other buttons
     updateButton.setColour (juce::TextButton::buttonColourId,   ovt::bgPanel());
@@ -2322,8 +2749,10 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     midiToggleButton.setColour (juce::ToggleButton::textColourId, ovt::text());
     correctionModeButton.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
     correctionModeButton.setColour (juce::TextButton::textColourOffId, ovt::text());
-    abButton.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
-    abButton.setColour (juce::TextButton::textColourOffId, ovt::text());
+    buttonA.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
+    buttonA.setColour (juce::TextButton::textColourOffId, ovt::text());
+    buttonB.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
+    buttonB.setColour (juce::TextButton::textColourOffId, ovt::text());
 
     // Re-apply to curve editor buttons (only presetsButton is a TextButton)
     presetsButton.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());

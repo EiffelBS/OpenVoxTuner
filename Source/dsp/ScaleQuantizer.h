@@ -81,7 +81,7 @@ namespace atdsp
 
     private:
         int key = 0;       // 0-11
-        Scale currentScale = Scale::Major;
+        Scale currentScale = Scale::Chromatic;
         juce::Array<int> intervals;        // demi-tons relatifs a C appartenant a la gamme
         juce::Array<int> customIntervals;  // gamme custom (sans decalage de key)
 

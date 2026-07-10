@@ -10,7 +10,19 @@
 - **Graphic mode** — draw your own pitch curve (Melodyne-style editor with snap, grid, copy/paste, undo/redo)
 - **Speed control** — retarget envelope for natural or robotic correction response
 - **Amount control** — blend between corrected and dry signal
+### Effects
+
 - **Formant shift** — independent formant preservation/transposition (-12 to +12 semitones)
+- **Reverb** — built-in reverb effect with adjustable mix level
+- **Noise Gate** — input noise gate with threshold control (-80 to 0 dB), applied before pitch detection for cleaner results
+
+### A/B Comparison & Morphing
+
+- **A/B slots** — save and recall two complete plugin states (A and B)
+- **Morph slider** — continuously interpolate between A and B states
+- **Auto-save** — current slot is automatically saved when switching
+- All parameters morph smoothly (continuous lerp for sliders, step at 50% for toggles)
+- A/B state persisted across sessions
 
 ### Harmony Engine
 
@@ -93,7 +105,9 @@
 │  │  ├─ PitchShifter.*           # PSOLA pitch shifter
 │  │  ├─ RetargetEnvelope.*       # Speed envelope smoother
 │  │  ├─ FormantPreserver.*       # Formant compensation filter
+│  │  ├─ NoiseGate.h              # Input noise gate (RMS-based, hysteresis)
 │  │  ├─ PitchCurve.*             # Curve data model
+│  │  ├─ PresetMorpher.h          # A/B morphing engine
 │  │  ├─ HarmonyEngine.*          # Harmony synthesis engine
 │  │  ├─ PitchDetector.*          # Original YIN reference (not compiled)
 │  │  └─ NoteUtils.h / IPitchShifter.h
