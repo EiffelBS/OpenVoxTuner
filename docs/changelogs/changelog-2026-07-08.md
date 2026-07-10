@@ -36,6 +36,14 @@
 ### ARA2
 - **Implemented ARA2 Waveform Overlay**: Captures input audio from processBlock when running in ARA mode, caches a mono downmix, and displays it as a semi-transparent background overlay in the Live visualizer. Toggle via "Show Waveform" menu item (visible only in ARA mode). Thread-safe double-buffering with CriticalSection lock.
 
+### PresetMorpher Interpolation Engine
+- **Added `PresetMorpher.h` header-only interpolation engine** in the `atdsp` namespace. Captures snapshots of all interpolable plugin parameters (continuous, discrete, boolean) and the PitchCurve into a `MorphState` struct.
+- **Continuous parameter interpolation**: Linear interpolation for speed, amount, formant, harmony gain/blend/tone color, reverb mix, flex tune, and humanize.
+- **Discrete/boolean parameter stepping**: Key, scale, harmony type/tone/shifted voices, latency mode, editor measures, and all boolean flags snap at the 50% morph threshold.
+- **PitchCurve resampling and interpolation**: Resamples two PitchCurves to 128 samples on a normalized [0,1] time range, then lerps between them. Step mode is copied from whichever curve dominates.
+- **XML state loading**: `loadStateFromXml()` reconstructs a `MorphState` from base64-encoded plugin state XML used by A/B slots, parsing all parameters and the PitchCurve.
+- **Applied state output**: `applyInterpolatedState()` writes interpolated values back to an `AudioProcessorValueTreeState` via `setValueNotifyingHost`.
+
 ## Files Modified
 - `Source/ui/OVTTheme.h` - Forced `grid()` and `scaleLine()` to always use dark values; improved CPU meter colors; updated dark mode grays (`bgDark` = #26282B, `bgPanel`/`headerBg` = #373A3E, `textDim` = #868686, `vizHeaderBg`/`vizLegendBg` = #191B1E)
 - `Source/PluginEditor.cpp` - Fixed banner background, export code, Measures theme, tooltip refresh in `refreshLabels()`; removed background gradient; updated scale combo box keys array
@@ -56,3 +64,4 @@
 - `Source/ui/PitchCurveEditor.cpp` - Replaced inline waveform rendering with shared `ovt::drawWaveformOverlay()` call
 - `Source/PluginEditor.h` - Added `setWaveformDisplayType()` declaration and `lastWaveformDisplayType` member
 - `Source/PluginEditor.cpp` - Added "Waveform Display" submenu in hamburger menu, `setWaveformDisplayType()` implementation, and sync logic in `timerCallback()`
+- `Source/dsp/PresetMorpher.h` - New header-only interpolation engine for preset morphing (new)

@@ -93,6 +93,9 @@ namespace ui
         /// Vide la courbe (Reset)
         void clearCurve() { curve.clear(); repaint(); notifyChanged(); }
 
+        /// Ghost curve overlay for preset morphing (semi-transparent target curve).
+        void setGhostCurve (const atdsp::PitchCurve* ghost) { ghostCurve = ghost; repaint(); }
+
         /// Definit la gamme (pour le snap).
         void setKeyAndScale (int key, atdsp::Scale scale);
 
@@ -158,6 +161,9 @@ namespace ui
         juce::TextButton& getUndoButton() { return undoButton; }
         juce::TextButton& getRedoButton() { return redoButton; }
 
+        /// Refresh all translatable strings after a language change.
+        void refreshTranslations();
+
         // Listener (un seul pour MVP).
         void addListener (Listener* l) { listener = l; }
         void removeListener() { listener = nullptr; }
@@ -167,6 +173,7 @@ namespace ui
     private:
         // === Donnees ===
         atdsp::PitchCurve curve;
+        const atdsp::PitchCurve* ghostCurve = nullptr; // non-owning, for morph overlay
 
         // Clavier piano affiche sur la gauche.
         PianoKeyboard pianoKeyboard;

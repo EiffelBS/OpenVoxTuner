@@ -9,8 +9,8 @@ namespace ui
     {
         auto bounds = getLocalBounds().toFloat().reduced(0.5f);
         
-        // Determine si la note est active (soit par toggle state en mode custom, soit par activeInScale en mode preset)
-        bool isActive = getToggleState();
+        // Active state: use toggle state for Custom mode, activeInScale for preset modes
+        bool isActive = activeInScale || getToggleState();
         
         // Couleurs
         juce::Colour baseColour;

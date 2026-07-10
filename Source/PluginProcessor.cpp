@@ -255,7 +255,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           50.0f),
                       std::make_unique<juce::AudioParameterChoice> (
                           "latency_mode", "Latency Mode",
-                          juce::StringArray { "Low Latency", "Quality", "Safe" }, 1),
+                          juce::StringArray { "Direct Monitoring", "Low Latency", "Quality", "Safe" }, 2),
 
                       // Amount : intensite de la correction (0-100%)
                       std::make_unique<juce::AudioParameterFloat> (
@@ -364,6 +364,11 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             juce::StringArray { "YIN", "Reserved" }, 0)
                       , std::make_unique<juce::AudioParameterBool> (
                             "reverb_enable", "Reverb Enable", false)
+                      , std::make_unique<juce::AudioParameterBool> (
+                            juce::ParameterID { "noise_gate_enable", 1 }, "Noise Gate", false)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            juce::ParameterID { "noise_gate_threshold", 1 }, "Gate Threshold",
+                            juce::NormalisableRange<float> (-80.0f, 0.0f, 1.0f), -40.0f)
                       , std::make_unique<juce::AudioParameterFloat> (
                             "reverb_mix", "Reverb Mix",
                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
@@ -419,6 +424,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     detectorParam = parameters.getRawParameterValue ("pitch_detector");
     reverbEnableParam = parameters.getRawParameterValue ("reverb_enable");
     reverbMixParam = parameters.getRawParameterValue ("reverb_mix");
+    noiseGateEnableParam = parameters.getRawParameterValue ("noise_gate_enable");
+    noiseGateThresholdParam = parameters.getRawParameterValue ("noise_gate_threshold");
     flexTuneParam = parameters.getRawParameterValue ("flex_tune");
     humanizeParam = parameters.getRawParameterValue ("humanize");
     correctionModeParam = parameters.getRawParameterValue ("correction_mode");
@@ -434,6 +441,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     activePitchDetector.store (pitchDetectors[0].get());
     activeDetectorMode = 0;
     scaleQuantizer   = std::make_unique<atdsp::ScaleQuantizer>();
+    scaleQuantizer->setScale (atdsp::Scale::Chromatic); // Ensure chromatic on first launch
     pitchShifter     = std::make_unique<atdsp::PitchShifter>();
     harmonyEngine    = std::make_unique<atdsp::HarmonyEngine>();
 
@@ -505,6 +513,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
         pitchDetectors[0]->prepare (sampleRate / 4.0, samplesPerBlock);
     applyLatencyMode();
     pitchShifter->prepare (sampleRate, samplesPerBlock);
+    noiseGate.prepare (sampleRate);
     
     // Report latency to DAW for automatic compensation (PDC)
     setLatencySamples(pitchShifter->getLatencySamples());
@@ -659,6 +668,15 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             araWaveformSampleRate = currentSampleRate;
             araWaveformReady = true;
         }
+    }
+
+    // === NOISE GATE (input, before pitch detection) ===
+    {
+        const bool gateEnabled = noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f;
+        noiseGate.setEnabled (gateEnabled);
+        if (gateEnabled && noiseGateThresholdParam != nullptr)
+            noiseGate.setThresholdDb (noiseGateThresholdParam->load());
+        noiseGate.process (buffer);
     }
 
     // === LECTURE DES METADONNEES ARA ===
@@ -1617,13 +1635,13 @@ void OpenVoxTunerAudioProcessor::applyLatencyMode()
         return;
 
     const int mode = (latencyModeParam != nullptr)
-        ? juce::jlimit (0, 2, (int) std::round (latencyModeParam->load()))
+        ? juce::jlimit (0, 3, (int) std::round (latencyModeParam->load()))
         : 1;
 
     if (mode == appliedLatencyMode)
         return;
 
-    const float latencyMs = (mode == 0) ? 12.0f : (mode == 1 ? 20.0f : 30.0f);
+    const float latencyMs = (mode == 0) ? 10.0f : (mode == 1 ? 12.0f : (mode == 2 ? 20.0f : 30.0f));
     pitchShifter->setLatencyMs (latencyMs);
 
     for (auto& ps : shiftedVoicePitchShifters)
@@ -1635,7 +1653,8 @@ void OpenVoxTunerAudioProcessor::applyLatencyMode()
     setLatencySamples (pitchShifter->getLatencySamples());
     appliedLatencyMode = mode;
 
-    const juce::String modeName = (mode == 0) ? "Low Latency" : (mode == 1 ? "Quality" : "Safe");
+    const char* modeNames[] = { "Direct Monitoring", "Low Latency", "Quality", "Safe" };
+    const juce::String modeName = (mode >= 0 && mode <= 3) ? modeNames[mode] : "Unknown";
     OVT_LOG ("Latency mode changed: " + modeName +
              " (" + juce::String (latencyMs, 1) + " ms)");
 }
@@ -1842,18 +1861,43 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
 {
     auto state = parameters.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    // Ajoute la pitch curve comme sous-element si disponible.
     if (pitchCurve != nullptr)
     {
         auto curveXml = pitchCurve->toXml();
         if (xml != nullptr && curveXml != nullptr)
             xml->addChildElement (curveXml.release());
     }
-    // Sauvegarde les slots A/B si disponibles.
-    if (abSlotAxml != nullptr)
-        xml->addChildElement (new juce::XmlElement (*abSlotAxml));
-    if (abSlotBxml != nullptr)
-        xml->addChildElement (new juce::XmlElement (*abSlotBxml));
+    // Persist A/B slot MorphStates as compact flat attributes (no nested XML).
+    for (int slot = 0; slot < 2; ++slot)
+    {
+        if (! hasAbSlotData (slot)) continue;
+        const auto& ms = (slot == 0) ? abSlotAMorph : abSlotBMorph;
+        auto* slotXml = xml->createNewChildElement (slot == 0 ? "AB_A" : "AB_B");
+        slotXml->setAttribute ("speed",            (double) ms.speed);
+        slotXml->setAttribute ("amount",           (double) ms.amount);
+        slotXml->setAttribute ("formant",          (double) ms.formant);
+        slotXml->setAttribute ("harmonyGain",      (double) ms.harmonyGain);
+        slotXml->setAttribute ("harmonyBlend",     (double) ms.harmonyBlend);
+        slotXml->setAttribute ("harmonyToneColor", (double) ms.harmonyToneColor);
+        slotXml->setAttribute ("reverbMix",        (double) ms.reverbMix);
+        slotXml->setAttribute ("flexTune",         (double) ms.flexTune);
+        slotXml->setAttribute ("humanize",         (double) ms.humanize);
+        slotXml->setAttribute ("key",              ms.key);
+        slotXml->setAttribute ("scale",            ms.scale);
+        slotXml->setAttribute ("harmonyType",      ms.harmonyType);
+        slotXml->setAttribute ("harmonyTone",      ms.harmonyTone);
+        slotXml->setAttribute ("shiftedVoices",    ms.harmonyShiftedVoices);
+        slotXml->setAttribute ("latencyMode",      ms.latencyMode);
+        slotXml->setAttribute ("editorMeasures",   ms.editorMeasures);
+        slotXml->setAttribute ("formantEnable",    ms.formantEnable);
+        slotXml->setAttribute ("bypass",           ms.bypass);
+        slotXml->setAttribute ("harmonyEnable",    ms.harmonyEnable);
+        slotXml->setAttribute ("useVoice",         ms.harmonyUseVoice);
+        slotXml->setAttribute ("reverbEnable",     ms.reverbEnable);
+        slotXml->setAttribute ("correctionMode",   ms.correctionMode);
+        slotXml->setAttribute ("noiseGateEnable",  ms.noiseGateEnable);
+        slotXml->setAttribute ("noiseGateThreshold", (double) ms.noiseGateThreshold);
+    }
     copyXmlToBinary (*xml, destData);
 }
 
@@ -1864,18 +1908,39 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
     {
         parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
         waveformDisplayType = xmlState->getIntAttribute ("waveformDisplayType", 1);
-        // Restaure les slots A/B si presents.
-        for (int i = 0; i < xmlState->getNumChildElements(); ++i)
+        // Restore A/B slot MorphStates from compact flat attributes.
+        for (int slot = 0; slot < 2; ++slot)
         {
-            auto* child = xmlState->getChildElement (i);
-            if (child != nullptr && child->hasTagName ("AB_SLOT"))
-            {
-                const int slotIdx = child->getIntAttribute ("slot", -1);
-                if (slotIdx == 0 || slotIdx == 1)
-                    setAbSlotXml (slotIdx, std::make_unique<juce::XmlElement> (*child));
-            }
+            auto* slotXml = xmlState->getChildByName (slot == 0 ? "AB_A" : "AB_B");
+            if (slotXml == nullptr) continue;
+            atdsp::MorphState ms;
+            ms.speed              = (float) slotXml->getDoubleAttribute ("speed", 0.25);
+            ms.amount             = (float) slotXml->getDoubleAttribute ("amount", 0.5);
+            ms.formant            = (float) slotXml->getDoubleAttribute ("formant", 0.5);
+            ms.harmonyGain        = (float) slotXml->getDoubleAttribute ("harmonyGain", 0.5);
+            ms.harmonyBlend       = (float) slotXml->getDoubleAttribute ("harmonyBlend", 0.5);
+            ms.harmonyToneColor   = (float) slotXml->getDoubleAttribute ("harmonyToneColor", 0.5);
+            ms.reverbMix          = (float) slotXml->getDoubleAttribute ("reverbMix", 0.3);
+            ms.flexTune           = (float) slotXml->getDoubleAttribute ("flexTune", 0.25);
+            ms.humanize           = (float) slotXml->getDoubleAttribute ("humanize", 0.0);
+            ms.key                = slotXml->getIntAttribute ("key", 0);
+            ms.scale              = slotXml->getIntAttribute ("scale", 0);
+            ms.harmonyType        = slotXml->getIntAttribute ("harmonyType", 0);
+            ms.harmonyTone        = slotXml->getIntAttribute ("harmonyTone", 0);
+            ms.harmonyShiftedVoices = slotXml->getIntAttribute ("shiftedVoices", 1);
+            ms.latencyMode        = slotXml->getIntAttribute ("latencyMode", 1);
+            ms.editorMeasures     = slotXml->getIntAttribute ("editorMeasures", 8);
+            ms.formantEnable      = slotXml->getBoolAttribute ("formantEnable", false);
+            ms.bypass             = slotXml->getBoolAttribute ("bypass", false);
+            ms.harmonyEnable      = slotXml->getBoolAttribute ("harmonyEnable", false);
+            ms.harmonyUseVoice    = slotXml->getBoolAttribute ("useVoice", false);
+            ms.reverbEnable       = slotXml->getBoolAttribute ("reverbEnable", false);
+            ms.correctionMode     = slotXml->getBoolAttribute ("correctionMode", false);
+            ms.noiseGateEnable    = slotXml->getBoolAttribute ("noiseGateEnable", false);
+            ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.667);
+            setAbSlotMorphState (slot, std::move (ms));
         }
-        // Restaure la pitch curve si presente dans le XML.
+        // Restore pitch curve if present in the XML.
         if (pitchCurve != nullptr)
         {
             auto* curveXml = xmlState->getChildByName ("PITCH_CURVE");

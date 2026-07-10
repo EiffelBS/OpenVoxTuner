@@ -4,6 +4,7 @@
 #include "PitchCurveEditor.h"
 #include "OVTFonts.h"
 #include "OVTTheme.h"
+#include "OVTLanguages.h"
 #include "../dsp/NoteUtils.h"
 
 namespace ui
@@ -42,7 +43,7 @@ namespace ui
         // Embedded controls: Measures combo + Auto-Scroll toggle.
         // These are children of PitchCurveEditor, not PluginEditor, so they
         // cannot be blocked by the tabbedComponent's tab buttons.
-        measuresLabel.setText ("Measures", juce::dontSendNotification);
+        measuresLabel.setText (ovt::tr(ovt::Keys::kLabelMeasures), juce::dontSendNotification);
         measuresLabel.setJustificationType (juce::Justification::left);
         measuresLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
         measuresLabel.setFont (ovt::fontMeasuresLabel());
@@ -59,12 +60,12 @@ namespace ui
         measuresBox.onChange = [this] { setMeasuresVisible (measuresBox.getText().getIntValue()); };
         addAndMakeVisible (measuresBox);
 
-        autoScrollToggle.setButtonText ("Auto-Scroll");
+        autoScrollToggle.setButtonText (ovt::tr(ovt::Keys::kLabelAutoScroll));
         // Force dark mode colours (curve editor is always dark regardless of theme)
         autoScrollToggle.setColour (juce::ToggleButton::textColourId, juce::Colour (0xffcccccc));
         autoScrollToggle.setColour (juce::ToggleButton::tickColourId, juce::Colour (0xff1A9AF0));
         autoScrollToggle.setColour (juce::ToggleButton::tickDisabledColourId, juce::Colour (0xff555555));
-        autoScrollToggle.setTooltip ("Automatically scroll the editor view during playback");
+        autoScrollToggle.setTooltip (ovt::tr(ovt::Keys::kTooltipAutoScroll));
         autoScrollToggle.onClick = [this] { autoScrollEnabled = autoScrollToggle.getToggleState(); };
         addAndMakeVisible (autoScrollToggle);
 
@@ -94,8 +95,8 @@ namespace ui
             btn.setTooltip (tip);
             addAndMakeVisible (btn);
         };
-        setupUndoBtn (undoButton, "Undo (Ctrl+Z)");
-        setupUndoBtn (redoButton, "Redo (Ctrl+Y)");
+        setupUndoBtn (undoButton, ovt::tr(ovt::Keys::kTooltipUndo));
+        setupUndoBtn (redoButton, ovt::tr(ovt::Keys::kTooltipRedo));
 
         undoButton.onClick = [this] { performUndo(); };
         redoButton.onClick = [this] { performRedo(); };
@@ -229,6 +230,25 @@ namespace ui
                                 juce::Justification::centredLeft);
                 }
             }
+        }
+
+        // === Ghost curve overlay (preset morphing target) ===
+        if (ghostCurve != nullptr && ghostCurve->getNumPoints() >= 2)
+        {
+            juce::Path ghostPath;
+            const int N = 200;
+            for (int i = 0; i <= N; ++i)
+            {
+                const double t = (timeVisible * i) / N;
+                const float hz = ghostCurve->getPitchAt (t, 0.0f);
+                if (hz <= 0.0f) continue;
+                const float x = static_cast<float> (timeToX (t));
+                const float y = pitchToY (hz);
+                if (i == 0) ghostPath.startNewSubPath (x, y);
+                else ghostPath.lineTo (x, y);
+            }
+            g.setColour (juce::Colour (0x30ffffff)); // 19% opacity white
+            g.strokePath (ghostPath, juce::PathStrokeType (1.5f, juce::PathStrokeType::mitered, juce::PathStrokeType::rounded));
         }
 
         // === Courbe interpolee ===
@@ -402,9 +422,9 @@ namespace ui
 #else
             "Ctrl";
 #endif
-        g.drawText ("MouseWheel: Scroll | " + modifierName + "+MouseWheel: Zoom",
+        g.drawText (ovt::tr(ovt::Keys::kHintScrollZoom) + modifierName + ovt::tr(ovt::Keys::kHintZoom),
                     b.getWidth() - 280, b.getHeight() - 36, 270, 14, juce::Justification::bottomRight);
-        g.drawText ("Double-click: Add point | Right-click: Curve presets",
+        g.drawText (ovt::tr(ovt::Keys::kHintAddPoint),
                     b.getWidth() - 280, b.getHeight() - 20, 270, 14, juce::Justification::bottomRight);
 
         g.restoreState();
@@ -452,7 +472,7 @@ namespace ui
             g.fillRect (plotArea);
             g.setColour (juce::Colours::white.withAlpha (0.7f));
             g.setFont (ovt::fontComboBox());
-            g.drawText ("Live Mode : switch to Curve Editor to edit",
+            g.drawText (ovt::tr(ovt::Keys::kHintLiveMode),
                         plotArea.getX(), plotArea.getY(), plotArea.getWidth(), plotArea.getHeight(),
                         juce::Justification::centred);
         }
@@ -1030,6 +1050,16 @@ namespace ui
             notifyChanged();
             repaint();
         }
+    }
+
+    void PitchCurveEditor::refreshTranslations()
+    {
+        measuresLabel.setText (ovt::tr(ovt::Keys::kLabelMeasures), juce::dontSendNotification);
+        autoScrollToggle.setButtonText (ovt::tr(ovt::Keys::kLabelAutoScroll));
+        autoScrollToggle.setTooltip (ovt::tr(ovt::Keys::kTooltipAutoScroll));
+        undoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUndo));
+        redoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipRedo));
+        repaint();
     }
 
     void PitchCurveEditor::clearHarmonyTraces()

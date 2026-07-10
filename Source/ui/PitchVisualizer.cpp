@@ -554,18 +554,18 @@ namespace ui
             g.setFont (ovt::fontLegend());
             int ly = panelY + 4;
             g.setColour (kInputColour);
-            g.drawText ("Input", panelX + 4, ly, 38, 10, juce::Justification::centredLeft);
+            g.drawText (ovt::tr(ovt::Keys::kLegendInput), panelX + 4, ly, 38, 10, juce::Justification::centredLeft);
             g.setColour (kOutputColour);
-            g.drawText ("Output", panelX + 44, ly, 40, 10, juce::Justification::centredLeft);
+            g.drawText (ovt::tr(ovt::Keys::kLegendOutput), panelX + 44, ly, 40, 10, juce::Justification::centredLeft);
             g.setColour (kHarmonyColour);
-            g.drawText ("Harm.", panelX + 88, ly, 26, 10, juce::Justification::centredLeft);
+            g.drawText (ovt::tr(ovt::Keys::kLegendHarmony), panelX + 88, ly, 26, 10, juce::Justification::centredLeft);
             ly += 12;
 
             // Row 2: Shortcut hints
             g.setColour (juce::Colours::grey.withAlpha (0.7f));
             g.setFont (ovt::fontLegendHint());
-            g.drawText ("Wheel: Scroll", panelX + 4, ly, 72, 10, juce::Justification::centredLeft);
-            g.drawText ("Ctrl+Whl: Zoom", panelX + 80, ly, 76, 10, juce::Justification::centredLeft);
+            g.drawText (ovt::tr(ovt::Keys::kLegendScrollHint), panelX + 4, ly, 72, 10, juce::Justification::centredLeft);
+            g.drawText (ovt::tr(ovt::Keys::kLegendZoomHint), panelX + 80, ly, 76, 10, juce::Justification::centredLeft);
             ly += 12;
 
             // Row 3: Tuning statistics

@@ -1,6 +1,6 @@
 # OpenVoxTuner - Implementation Roadmap
 
-> Last updated: 2026-07-08 08:15 CEST
+> Last updated: 2026-07-10 16:40 CEST
 
 ## Legend
 
@@ -19,6 +19,7 @@
 - [x] Scale quantizer (14 scale types including Custom)
 - [x] Harmony engine (20 harmony types)
 - [x] Reverb effect (post-processing)
+- [x] Noise Gate (input, before pitch detection)
 - [x] FlexTune / Humanize parameters
 - [x] Correction mode (Modern / Transparent)
 - [x] Retarget envelope (attack/release smoothing)
@@ -59,7 +60,8 @@
 - [x] Centralized theme system (OVTTheme.h) - dark/light theme accessors
 - [x] MIDI Learn for sliders (hamburger menu submenu with CC assignment)
 - [x] CPU Usage Meter (header strip display with color-coded bar, positioned left of A/B button)
-- [x] A/B Comparison (toggle between two plugin state slots)
+- [x] A/B Comparison (two separate buttons with morph slider between them, green border for valid data, right-click save, MorphState-based persistence — no exponential XML growth)
+- [x] PresetMorpher interpolation engine (header-only, captures/applies/morphs states + PitchCurves)
 - [x] Keyboard shortcuts help overlay (? key or hamburger menu)
 
 ## 4. UI / GUI - Pitch Visualizer (Live Tab)
