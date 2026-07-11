@@ -203,16 +203,17 @@
 
 OpenVoxTuner is available under a **dual license** model:
 
-### Free — AGPLv3 (Personal & Education)
+### Free — AGPLv3
 
-- Personal use, learning, education, academic research
-- Open source projects compatible with AGPLv3
+- Free for anyone: personal, education, **and commercial use**
+- You may modify and redistribute, but you **must share your source code** under AGPLv3
+- Network use (SaaS) also requires source disclosure
 - Full source code available on GitHub
 - See [LICENSE](LICENSE) for the full AGPLv3 text
 
 ### Commercial — Paid License (Coming Soon)
 
-For professional studios, commercial productions, or any closed-source usage:
+For those who want to use OpenVoxTuner **without the AGPLv3 copyleft obligation** (closed-source productions, proprietary workflows):
 
 | License | Price | Includes |
 |---------|-------|----------|
