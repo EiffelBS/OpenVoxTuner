@@ -63,7 +63,7 @@ namespace ui
         /// @param sampleRate  sample rate in Hz
         void setWaveformOverlay (const float* samples, int numSamples, double sampleRate);
 
-        /// Set the waveform display type (0=Bars, 1=Filled, 2=Line, 3=Mirror).
+        /// Set the waveform display type (0=Line, 1=Mirror).
         void setDisplayType (int type) { currentDisplayType = type; repaint(); }
 
         /// Public scroll methods (called by UI buttons).
