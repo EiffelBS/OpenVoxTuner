@@ -216,7 +216,7 @@ For professional studios, commercial productions, or any closed-source usage:
 
 | License | Price | Includes |
 |---------|-------|----------|
-| **User** | 99$ one-time *or* 5$/month (Patreon) | Unlimited updates, personal commercial use |
+| **User** | 99$ one-time *or* 5$/month (Patreon) | One-time: current version only. Patreon: unlimited updates |
 | **Studio/Enterprise** | 20$/month (Patreon) | Unlimited updates, multi-seat, priority support |
 
 Commercial licenses grant the right to use OpenVoxTuner in professional productions without the AGPLv3 copyleft obligation.
