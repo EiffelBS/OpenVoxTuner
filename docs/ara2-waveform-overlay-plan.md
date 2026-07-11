@@ -9,10 +9,11 @@ Display the host DAW's audio waveform behind the pitch curves in the Live visual
 
 ## Current State
 
-- `PitchVisualizer::setWaveformOverlay(samples, numSamples, sampleRate)` exists but is **never called**
+- `PitchVisualizer::setWaveformOverlay(samples, numSamples, sampleRate)` **is called** from `PluginEditor::timerCallback()` (guarded by the `showWaveform` hamburger-menu toggle) and forwarded to both the visualizer and the curve editor.
 - `PitchVisualizer::paintWaveformOverlay()` renders the waveform correctly when data is provided
 - `AudioProcessorARAExtension` is inherited by the processor
 - `ARADocumentControllerSpecialisation` is implemented (minimal)
+- The cached waveform is a **mono downmix of the input audio captured in `processBlock()`** (all modes), NOT data read from an ARA content reader. The ARA content-reader extraction path described below is **not yet implemented/used**.
 
 ## JUCE ARA2 Audio Access Pattern
 
@@ -31,56 +32,66 @@ Processor (AudioProcessorARAExtension)
 
 ### Step 1: Store Waveform Data in Processor (PluginProcessor.h/.cpp)
 
-Add members to `OpenVoxTunerAudioProcessor`:
+The members already exist in `OpenVoxTunerAudioProcessor` (implemented):
 ```cpp
-// ARA waveform cache
+// ARA waveform cache (actually a mono downmix of input audio)
 juce::AudioBuffer<float> araWaveformBuffer;
 double araWaveformSampleRate = 44100.0;
 bool araWaveformReady = false;
 juce::CriticalSection araWaveformLock;
 ```
+They are populated by a mono downmix capture in `processBlock()` (see Step 2),
+and exposed to the editor via `copyAraWaveform()` / `isAraWaveformReady()`.
 
-### Step 2: Extract Audio in processBlock (PluginProcessor.cpp)
+### Step 2: Capture Mono Downmix in processBlock (PluginProcessor.cpp)
 
-In `processBlock()`, when ARA is active:
-1. Get playback regions via `getPlaybackRegions()`
-2. For the first region, create a content reader
-3. Read audio data into a temporary buffer
-4. Downmix to mono if stereo
-5. Store in `araWaveformBuffer` under lock
-6. Set `araWaveformReady = true`
+The current implementation does **not** use an ARA content reader. Instead,
+early in `processBlock()` (before DSP modifies the buffer, in all modes), it
+captures a mono downmix of the input audio:
 
-Key JUCE ARA API calls:
+1. Read the input buffer's channels and sample count
+2. Copy channel 0 into `araWaveformBuffer` (sized to 1 channel)
+3. Add the remaining channels and apply an equal gain (`1.0 / numCh`) to downmix
+4. Store `currentSampleRate` as `araWaveformSampleRate`
+5. Set `araWaveformReady = true`
+
+Under lock:
 ```cpp
-auto regions = getPlaybackRegions();
-if (!regions.empty())
+const int numSamples = buffer.getNumSamples();
+const int numCh = buffer.getNumChannels();
+if (numSamples > 0 && numCh > 0)
 {
-    auto* region = regions[0];
-    auto* source = region->getAudioSource();
-    auto reader = source->createContentReaderForDefinition(
-        ARAContentDefinition::audioSampleData,
-        region->getLocationStart(),
-        region->getLocationEnd() - region->getLocationStart());
-    // reader->readAudioData() into buffer
+    const juce::CriticalSection::ScopedLockType sl (araWaveformLock);
+    araWaveformBuffer.setSize (1, numSamples, false, false, true);
+    araWaveformBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
+    for (int ch = 1; ch < numCh; ++ch)
+        araWaveformBuffer.addFrom (0, 0, buffer, ch, 0, numSamples);
+    araWaveformBuffer.applyGain (0, 0, numSamples, 1.0f / (float) numCh);
+    araWaveformSampleRate = currentSampleRate;
+    araWaveformReady = true;
 }
 ```
 
+> Note: ARA content-reader extraction (`getPlaybackRegions()` /
+> `createContentReaderForDefinition`) is **not yet used**. If you want the
+> overlay to reflect the DAW's clip data (rather than live input), that path
+> remains future work.
+
 ### Step 3: Forward to Visualizer in Editor (PluginEditor.cpp)
 
-In `timerCallback()`, when ARA is active:
+In `timerCallback()`, when the hamburger "Show Waveform" (`showWaveform`) is
+enabled, copy the cached buffer and forward it to both editors:
 ```cpp
-if (processorRef.araWaveformReady && pitchVisualizer != nullptr)
+juce::AudioBuffer<float> waveform;
+double sr = 44100.0;
+processorRef.copyAraWaveform (waveform, sr);
+if (waveform.getNumSamples() > 0)
 {
-    // Under lock, copy the waveform buffer
-    juce::AudioBuffer<float> temp;
-    {
-        const juce::SpinLock::ScopedLockType sl(processorRef.araWaveformLock);
-        temp.makeCopyOf(processorRef.araWaveformBuffer);
-    }
-    pitchVisualizer->setWaveformOverlay(
-        temp.getReadPointer(0),
-        temp.getNumSamples(),
-        processorRef.araWaveformSampleRate);
+    const float* data = waveform.getReadPointer (0);
+    if (pitchVisualizer != nullptr)
+        pitchVisualizer->setWaveformOverlay (data, waveform.getNumSamples(), sr);
+    if (curveEditor != nullptr)
+        curveEditor->setWaveformOverlay (data, waveform.getNumSamples(), sr);
 }
 ```
 
@@ -104,9 +115,9 @@ The visualizer scrolls based on transport time (from `setPlayheadTime()`). The w
 
 | File | Changes |
 |------|---------|
-| `PluginProcessor.h` | Add waveform cache members, lock |
-| `PluginProcessor.cpp` | Extract audio in `processBlock()` via ARA content reader |
-| `PluginEditor.cpp` | Forward waveform data to visualizer in `timerCallback()` |
+| `PluginProcessor.h` | Waveform cache members + lock (already present) |
+| `PluginProcessor.cpp` | Capture mono downmix in `processBlock()` (already present); ARA content-reader extraction not yet used |
+| `PluginEditor.cpp` | Forward waveform data to visualizer/curve editor in `timerCallback()` (already present) |
 | `PitchVisualizer.h` | Update `setWaveformOverlay()` signature (time alignment) |
 | `PitchVisualizer.cpp` | Improve `paintWaveformOverlay()` for ARA time alignment |
 

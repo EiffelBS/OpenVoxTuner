@@ -12,21 +12,30 @@ plugin states (a "source" and a "target") using a dedicated morph slider.
 The transition interpolates all audio-relevant parameters in real-time while
 maintaining glitch-free audio output.
 
+> **Correction:** The morph control is a **UI-only `juce::Slider`** (declared
+> in `PluginEditor.h`), not an `AudioParameterFloat` / APVTS parameter. There
+> is no `morph_amount` parameter. Dragging the slider triggers
+> `onMorphSliderChanged()` which interpolates a `MorphState` and writes the
+> resulting values to the real parameters. See sections 2.1 and 3.4.
+
 ---
 
 ## 2. Technical Architecture
 
 ### 2.1 Parameter Classification
 
-All 30+ plugin parameters are classified into three interpolation categories:
+All plugin parameters are classified into interpolation categories. The
+`MorphState` struct (`Source/dsp/PresetMorpher.h`) captures exactly the
+parameters listed below; anything not listed is **excluded** from morphing.
 
 | Category | Parameters | Interpolation |
 |----------|-----------|---------------|
-| **Continuous** | `speed`, `amount`, `formant`, `harmony_gain`, `harmony_blend`, `harmony_tone_color`, `reverb_mix`, `flex_tune`, `humanize` | Linear interpolation (lerp) |
-| **Discrete (ordered)** | `key` (0-11), `scale` (0-13), `harmony_type` (0-21), `harmony_tone` (0-5), `harmony_shifted_voices` (1-4), `latency_mode` (0-2), `editor_measures` | Step transition at morph threshold (50%) |
-| **Boolean** | `formant_enable`, `bypass`, `harmony_enable`, `harmony_use_voice`, `midi_out_enable`, `reverb_enable`, `correction_mode`, `auto_scroll` | Step transition at morph threshold (50%) |
+| **Continuous** | `speed`, `amount`, `formant`, `harmony_gain`, `harmony_blend`, `harmony_tone_color`, `reverb_mix`, `flex_tune`, `humanize`, `noise_gate_threshold` | Linear interpolation (lerp) |
+| **Discrete (ordered)** | `key` (0-11), `scale` (0-13), `harmony_type` (0-21), `harmony_tone` (0-5), `harmony_shifted_voices` (1-4), `latency_mode` (0-3), `editor_measures` (1-32) | Step transition at morph threshold (50%) |
+| **Boolean** | `formant_enable`, `bypass`, `harmony_enable`, `harmony_use_voice`, `reverb_enable`, `noise_gate_enable`, `correction_mode` | Step transition at morph threshold (50%) |
 | **UI-only** | `ui_theme`, `ui_language`, `mode` (Live/Curve) | Not interpolated (kept from source) |
-| **Custom scale** | `custom0`-`custom11` | Transition at morph threshold (50%) |
+| **Custom scale** | `custom0`-`custom11` | **Excluded** — not captured in `MorphState`, never interpolated |
+| **Not part of MorphState** | `midi_out_enable`, `auto_scroll`, `pitch_detector`, `dbg_test_grain` | Not interpolated |
 
 ### 2.2 PitchCurve Interpolation
 
@@ -56,8 +65,9 @@ a **parameter smoothing ramp** approach:
 1. The morph slider value (0.0 = source, 1.0 = target) drives all parameter
    interpolation in the editor
 2. Parameter values are written to the `AudioProcessorValueTreeState` via
-   `setValueNotifyingHost()` (no notification to host, prevents parameter
-   automation conflicts)
+   `setValueNotifyingHost()` (this **does** notify the host of the change, so
+   the DAW reflects the new parameter values; morph itself remains a
+   manual/UI-driven performance tool, not an automatable morph position)
 3. The DSP pipeline reads the interpolated parameter values naturally through
    the existing `getRawParameterValue()` calls — no DSP changes needed
 4. For discrete parameters, the transition happens at the 50% threshold to
@@ -109,33 +119,36 @@ other A/B slot.
 
 ### 3.1 Morph Slider Component
 
-A new horizontal slider added to the plugin header, between the A/B button
-and the presets button:
+A new horizontal slider added to the plugin header, positioned **between the
+A and B buttons** and to the left of the Presets button:
 
 ```
-[A/B]  ──[═════════●════════]──  [Presets]
-       Source ▲          ▲ Target
-             0%        100%
+[A]  ──[═════════●════════]──  [B]  [Presets]
+     Source ▲          ▲ Target
+           0%        100%
 ```
 
-**UI Element**: `juce::Slider` (linear horizontal)
+**UI Element**: `juce::Slider` (linear horizontal) — declared as
+`juce::Slider morphSlider { "Morph" };` in `PluginEditor.h`. It is a
+**UI-only control**, not an APVTS parameter.
 - Range: 0.0 to 1.0, step 0.01
 - Slider label: "Morph" (small, above the slider)
 - Source label: preset name or "Current" (left of slider)
 - Target label: preset name or "Target" (right of slider)
-- Color: accent color (#1A9AF0) for the filled portion
+- Color: accent color for the filled portion
 
-**Width**: ~180px (fits in the header strip alongside existing controls)
+**Width**: `morphW = 80` (80px), laid out right-to-left as
+`[Presets] [B] [morphSlider] [A]`.
 
 ### 3.2 Interaction Model
 
 | Action | Behavior |
 |--------|----------|
-| **Right-click morph slider** | Popup menu: "Set Source (Current)", "Set Target from Preset...", "Load Target from A/B Slot" |
+| **Right-click morph slider** | Popup menu: "Set Source (Current)", "Set Target from A/B Slot A", "Set Target from A/B Slot B", "Morph A -> B", "Undo Morph", "Reset Morph" |
 | **Drag morph slider** | Real-time interpolation between source and target |
 | **Release morph slider** | Parameters remain at the interpolated position |
 | **Double-click morph slider** | Snap to center (0.5) |
-| **Ctrl+Z** | Undo morph (restore state before morph started) |
+| **Ctrl+Z** | **Does NOT undo morph.** `keyPressed()` returns `false` and has no morph-undo binding; morph undo is only available via the context menu "Undo Morph" |
 
 ### 3.3 Preset Menu Integration
 
@@ -144,31 +157,46 @@ is visible, the selected preset becomes the **target** state. The morph
 slider resets to 0.0 (source) and the user can drag to morph toward the
 target.
 
-### 3.4 DAW Automation (Priority)
+### 3.4 DAW Automation — NOT a Parameter (Priority correction)
 
-The morph slider is exposed as a **standard automatable parameter**
-(`AudioParameterFloat`, ID: `morph_amount`, range 0.0-1.0). This enables:
+The morph slider is **NOT** exposed as an automatable `AudioParameterFloat`
+and there is **no** `morph_amount` parameter in the APVTS. It is a UI-only
+`juce::Slider` (`morphSlider` in `PluginEditor.h`) whose value is interpreted
+by `onMorphSliderChanged()` on the message thread.
 
-- **Timeline automation**: draw morph curves in the DAW playlist to
-  automate transitions between song sections (verse → chorus)
-- **Real-time control**: map to a MIDI CC for live performance
-- **Project persistence**: morph position is saved in the DAW project
-  automatically (standard parameter behavior)
+Consequences:
 
-**Implementation**: Use `parameters.addParameterListener()` and
-`setValue()` (not `setValueNotifyingHost()`) so the host can record
-and play back automation. The morph parameter appears in the DAW's
-parameter list alongside speed, amount, formant, etc.
+- **No timeline automation of the morph position**: there is no DAW
+  automation lane for "morph", so you cannot draw a morph curve across song
+  sections (verse -> chorus) at the morph level.
+- **No MIDI CC mapping of the morph position**: morph cannot be mapped to a
+  MIDI CC as a parameter. (The *resulting* underlying parameters — speed,
+  amount, formant, etc. — remain individually automatable/MIDI-mappable via
+  their own parameters.)
+- **No dedicated morph persistence**: only the resulting parameter values are
+  saved through the normal APVTS state. The morph slider position and the
+  source/target pair are reconstructed from the A/B slot `MorphState`
+  snapshots, not stored as a single `morph_amount`.
+
+**Implementation**: Dragging the slider calls
+`atdsp::applyInterpolatedState(parameters, source, target, value)`, which
+writes the interpolated underlying parameters via `setValueNotifyingHost()`
+(not `setValue()`, since morph is a UI action that should notify the host of
+each parameter change). The morph slider itself never appears in the DAW's
+parameter list.
 
 ### 3.5 Standalone vs Plugin
 
+Because the morph is a UI-only slider (not a parameter), its behavior is
+identical in both contexts:
+
 | Aspect | Plugin (VST3/AU) | Standalone |
 |--------|-------------------|------------|
-| Parameter automation | **Full DAW automation** (draw curves, MIDI CC) | MIDI CC only (no timeline) |
-| State persistence | Saved in DAW project (automatic) | Saved in user preferences |
+| Parameter automation | Underlying params automatable; **morph position is not** | Same — morph position not automatable |
+| State persistence | Underlying params saved in DAW project; morph pair reconstructed from A/B slots | Underlying params saved in user preferences; morph pair reconstructed from A/B slots |
 | Target preset loading | From plugin preset menu | From file browser |
 | A/B integration | Morph between A and B slots | Same |
-| **Primary use case** | **Song arrangement** (automate over time) | **Live performance** (real-time control) |
+| **Primary use case** | **Song arrangement** (manual transitions during editing) | **Live performance** (real-time manual control) |
 
 ### 3.6 ARA2 Considerations
 
@@ -177,8 +205,9 @@ less critical in this context. However, the morph can still be useful for:
 - Transitioning between correction styles within a long ARA region
 - Creative effects (morph from "natural" to "robotic" during a phrase)
 
-The morph parameter works the same way in ARA2 — it's just a standard
-automatable parameter.
+The morph works the same way in ARA2 — it is just a UI-only slider that
+writes the underlying parameters; it is not an ARA-driven or region-scoped
+automation parameter.
 
 ### 3.7 Ergonomic Constraints
 
@@ -219,11 +248,11 @@ and PitchCurve morphing.
 **Duration**: 2-3 days
 
 1. Add `morphSlider` (juce::Slider) to `PluginEditor.h`:
-   - Position in header strip
+   - Position in header strip (between A and B, left of Presets)
    - Labels for source/target names
 
 2. Add morph slider logic to `PluginEditor.cpp`:
-   - `sliderValueChanged()` callback triggers interpolation
+   - `onMorphSliderChanged()` callback triggers interpolation
    - Right-click menu for source/target management
    - Integration with existing preset menu
 
@@ -253,7 +282,7 @@ and PitchCurve morphing.
 
 **Duration**: 1 day
 
-1. Add "Morph from A to B" option in the morph slider context menu
+1. Add "Morph A -> B" option in the morph slider context menu
 2. When selected, captures slot A as source, slot B as target
 3. Morphing between A and B in real-time
 
@@ -266,7 +295,7 @@ and PitchCurve morphing.
 1. Handle edge cases:
    - Morphing while audio is playing
    - Changing preset while morph is active
-   - Undo/redo during morph
+   - Undo/redo during morph (via context menu "Undo Morph")
    - State save/restore with active morph
 
 2. Performance optimization:
@@ -290,11 +319,11 @@ operations, and state save/restore cycles.
 | Criterion | Metric |
 |-----------|--------|
 | **Glitch-free audio** | Zero audio glitches during morph at any speed |
-| **Parameter coverage** | All continuous parameters interpolated correctly |
+| **Parameter coverage** | All continuous parameters interpolated correctly (including `noise_gate_threshold`) |
 | **Curve interpolation** | Morphed curve is smooth and musically coherent |
 | **Latency** | Morph responds within 1 audio block (< 5ms at 44.1kHz/512 samples) |
 | **State preservation** | Source and target states survive plugin reload |
-| **Undo/redo** | Morph operation is fully reversible |
+| **Undo/redo** | Morph operation is reversible via "Undo Morph" context menu |
 
 ### 5.2 Performance Criteria
 
@@ -311,7 +340,7 @@ operations, and state save/restore cycles.
 | **Discoverability** | User can find and use morph within 30 seconds |
 | **Visual feedback** | Curve editor updates in real-time during morph |
 | **Labeling** | Source and target preset names always visible |
-| **Reversibility** | One-click reset to source state |
+| **Reversibility** | One-click reset to source state (context menu "Reset Morph") |
 
 ---
 
@@ -321,8 +350,8 @@ operations, and state save/restore cycles.
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| **Audio glitches during parameter changes** | High — unacceptable artifacts | Use existing smoothing infrastructure (`RetargetEnvelope`, `LinearSmoothedValue`). Test with all parameter combinations. Add ramp time for discrete parameter flips. |
-| **Parameter automation conflicts** | Medium — host automation may fight with morph | Use `setValueNotifyingHost()` which does NOT trigger host automation recording. Document that morph is a manual performance tool, not automatable. |
+| **Audio glitches during parameter changes** | High — unacceptable artifacts | Use existing smoothing infrastructure (`RetargetEnvelope`, `LinearSmoothedValue`). Test with all parameter combinations. Apply ramp time for discrete parameter flips. |
+| **Host automation on underlying parameters during morph** | Medium — DAW automation of speed/amount/etc. may fight the morph | The morph writes underlying params via `setValueNotifyingHost()`, so the host sees genuine parameter changes. Document that morph is a manual performance tool; users should avoid automating the same params while morphing. |
 | **PitchCurve interpolation artifacts** | Medium — musically incoherent curves | Limit morph speed. Add visual preview before committing. Use 128-sample resolution which is sufficient for smooth curves. |
 
 ### 6.2 Medium Risks
@@ -331,13 +360,13 @@ operations, and state save/restore cycles.
 |------|--------|------------|
 | **State size bloat** | Low — two full states in memory | States are XML-based, typically < 10KB each. Total < 50KB is negligible. |
 | **Discrete parameter "popping"** | Medium — audible click when boolean/discrete params flip | Apply short crossfade (5ms) around the 50% threshold. Use the existing `LinearSmoothedValue` for gain smoothing during the flip. |
-| **Custom scale interpolation** | Low — custom scale booleans don't lerp | Treat as binary: flip at 50% morph. Visual feedback shows which scale is active. |
+| **Custom scale interpolation** | Low — custom scale booleans (`custom0`-`custom11`) are not part of `MorphState` | Custom scale notes are excluded from morphing entirely; the source custom scale is carried through. Document that custom scales do not morph. |
 
 ### 6.3 Low Risks
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| **UI layout overflow** | Low — morph slider may not fit on small screens | Make morph slider collapsible. Use minimum width constraint. |
+| **UI layout overflow** | Low — morph slider may not fit on small screens | Make morph slider collapsible. Use minimum width constraint (80px). |
 | **Preset format changes** | Low — future preset format updates may break morph state | Version the MorphState XML format. Add fallback for missing fields. |
 
 ---
@@ -347,8 +376,8 @@ operations, and state save/restore cycles.
 | File | Changes |
 |------|---------|
 | `Source/dsp/PresetMorpher.h` | **NEW** — MorphState struct, interpolation engine |
-| `Source/PluginEditor.h` | Add morph slider, morph state members, right-click menu |
-| `Source/PluginEditor.cpp` | Morph slider setup, callback logic, preset menu integration |
+| `Source/PluginEditor.h` | Add morph slider (UI-only `juce::Slider`), morph state members, right-click menu |
+| `Source/PluginEditor.cpp` | Morph slider setup, `onMorphSliderChanged()` callback logic, preset menu integration |
 | `Source/PluginProcessor.h` | Add morph-related accessors (getMorphAmount, setMorphSource) |
 | `Source/PluginProcessor.cpp` | Save/restore morph state in getStateInformation/setStateInformation |
 | `Source/ui/PitchCurveEditor.h` | Add ghost curve overlay for target curve visualization |
@@ -373,8 +402,9 @@ operations, and state save/restore cycles.
 
 ## 9. Future Extensions
 
-1. **Morph automation** — record morph as DAW automation lane (requires host
-   cooperation)
+1. **Morph automation** — record morph as DAW automation lane (would require
+   promoting the morph position to a real `AudioParameterFloat`, which is
+   currently intentionally NOT done)
 2. **Multi-preset morph** — morph between 3+ presets using a radial UI
 3. **Morph presets** — save/restore morph configurations (source + target pairs)
 4. **Morph recording** — record morph movements as a performance, replay later

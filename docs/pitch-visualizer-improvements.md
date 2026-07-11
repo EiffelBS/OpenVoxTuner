@@ -139,7 +139,7 @@ operation. The `resetView()` method restores the default range defined by
 
 ### After
 
-Compact 160x52px panel with semi-transparent background (3 rows):
+Compact 160x68px panel with semi-transparent background (3 rows):
 - **Row 1**: Input (pink), Output (green), Harm. (blue) - abbreviated curve labels
 - **Row 2**: "Wheel: Scroll" / "Ctrl+Whl: Zoom" - compact keyboard hints
 - **Row 3**: Tuning statistics (rolling average, in-tune percentage)
@@ -252,17 +252,31 @@ void setWaveformOverlay (const float* samples, int numSamples, double sampleRate
 
 ### Rendering
 
-`paintWaveformOverlay()` is called in `paint()` before the pitch curves,
-drawing a semi-transparent waveform as a background layer:
+`paintWaveformOverlay()` is called in `paint()` before the pitch curves and
+delegates all drawing to the shared helper `ovt::drawWaveformOverlay()`
+defined in `Source/ui/OVTTheme.h`. The helper renders a semi-transparent
+waveform as a background layer, centered vertically at the plot middle:
 
-1. For each pixel column (step of 2px), map the X range to sample indices.
-2. Find the min/max sample values within that range.
-3. Draw a rounded rectangle from `(x, yMin)` to `(x + 2, yMax)` where
-   `yMin = midY - maxVal * halfH` and `yMax = midY - minVal * halfH`.
-4. Color: `0x18ffffff` (very transparent white, 9.4% alpha).
+- `midY = plotArea.getCentreY()`
+- `halfH = plotArea.getHeight() * 0.35f` (35% of the plot height), so the
+  waveform stays compact and centered regardless of zoom/scroll state.
 
-The `halfH` is 35% of the plot area height, keeping the waveform compact
-and centered vertically.
+The render style is selected by the `WaveformDisplayType` enum
+(`Source/ui/OVTTheme.h`), which exposes two modes:
+
+- **`Mirror` (default, `= 1`)** — Symmetric mirrored bars: for each pixel
+  column stepped by 2px it maps the x position to a window of sample indices,
+  computes `maxAbs` (the maximum absolute sample value in that window), and
+  fills a rounded rectangle symmetric around `midY` of total height
+  `barH * 2` where `barH = maxAbs * halfH`. Color: `0x18ffffff`
+  (very transparent white, ~9.4% alpha).
+- **`Line` (`= 0`)** — Single waveform outline: a single path is built from
+  left to right, mapping each sample `i` to `x = plotX + plotW * i / numSamples`
+  and `y = midY - data[i] * halfH`, then stroked as one continuous line.
+  Color: `0x66ffffff` (~40% alpha white).
+
+The `currentDisplayType` field (default `0` → `Line`) is set via
+`setDisplayType(int)` and cast to `ovt::WaveformDisplayType` when rendering.
 
 ### Integration Point
 
