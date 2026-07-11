@@ -201,28 +201,33 @@
 
 ## Licensing
 
-OpenVoxTuner is available under a **dual license** model:
+OpenVoxTuner is **free for everyone** under the [AGPLv3](LICENSE) license — musicians, producers, studios, educators. No restrictions on commercial use.
 
-### Free — AGPLv3
+### What AGPLv3 means for you
 
-- Free for anyone: personal, education, **and commercial use**
-- You may modify and redistribute, but you **must share your source code** under AGPLv3
-- Network use (SaaS) also requires source disclosure
-- Full source code available on GitHub
-- See [LICENSE](LICENSE) for the full AGPLv3 text
+| You are... | Can you use it for free? | Any obligation? |
+|---|---|---|
+| Musician / Producer | Yes | None — just make music |
+| Studio (mixing, mastering, production) | Yes | None — you're using the plugin as a tool |
+| Educator / Student | Yes | None |
+| Developer (modifying & redistributing) | Yes | You must share your modified source under AGPLv3 |
+| Company (forking into a closed-source product) | No | You need a commercial license |
 
-### Commercial — Paid License (Coming Soon)
+> In practice, if you use OpenVoxTuner to make music — even professionally — the AGPLv3 license is completely free with no obligations.
 
-For those who want to use OpenVoxTuner **without the AGPLv3 copyleft obligation** (closed-source productions, proprietary workflows):
+### Support the project
 
-| License | Price | Includes |
-|---------|-------|----------|
-| **User** | 99$ one-time *or* 5$/month (Patreon) | One-time: current version only. Patreon: unlimited updates |
-| **Studio/Enterprise** | 20$/month (Patreon) | Unlimited updates, multi-seat, priority support |
+If you enjoy OpenVoxTuner, consider supporting its development:
 
-Commercial licenses grant the right to use OpenVoxTuner in professional productions without the AGPLv3 copyleft obligation.
+| Tier | Price | Perks |
+|------|-------|-------|
+| **User** | 5$/month (Patreon) | Early access to new features, unlimited updates |
+| **Studio** | 20$/month (Patreon) | Everything above + priority support + multi-seat |
+| **Developer** | Contact | Commercial license for closed-source redistribution |
 
-> **Note:** The commercial license offering is planned for a future release. For now, OpenVoxTuner is available under AGPLv3 only. If you are interested in a commercial license, please open an issue or contact the maintainer.
+### Developer license
+
+A commercial license is available for developers or companies who want to integrate OpenVoxTuner into a **closed-source product** without the AGPLv3 copyleft obligation. Open an issue or contact the maintainer.
 
 ## Build
 
