@@ -1,6 +1,47 @@
-# OpenVoxTuner
+<p align="center">
+  <a href="https://opensource.org/license/agpl-v3"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?color=3F51B5&style=for-the-badge&label=License&logoColor=000000&labelColor=ececec" alt="License: AGPLv3"></a>
+  <img src="https://img.shields.io/badge/C++-17-blue.svg?style=for-the-badge&logo=cplusplus&logoColor=000000&labelColor=ececec" alt="C++17">
+  <img src="https://img.shields.io/badge/JUCE-8-orange.svg?style=for-the-badge&labelColor=ececec" alt="JUCE 8">
+  <img src="https://img.shields.io/badge/Platform-Win%20%7C%20Mac-lightgrey.svg?style=for-the-badge&labelColor=ececec" alt="Platform">
+  <img src="https://img.shields.io/badge/Format-VST3%20%7C%20AU%20%7C%20Standalone-green.svg?style=for-the-badge&labelColor=ececec" alt="Formats">
+</p>
 
-**OpenVoxTuner** is a real-time pitch correction and harmony generation VST3/AU audio plugin built with JUCE 8 (C++17). It features a graphic pitch curve editor (Melodyne-style), ARA2 integration, a modular pitch detection pipeline (YIN / SWIPE'), and PSOLA-based pitch shifting with formant preservation.
+<p align="center">
+  <img src="assets/icon.png" width="120" alt="OpenVoxTuner Icon">
+</p>
+
+<h1 align="center">OpenVoxTuner</h1>
+
+<h3 align="center">Real-time pitch correction & harmony generation for vocals</h3>
+
+<p align="center">
+  VST3 / AU / Standalone &mdash; built with JUCE 8 (C++17)
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> &bull;
+  <a href="#screenshots">Screenshots</a> &bull;
+  <a href="#licensing">License</a> &bull;
+  <a href="#build">Build</a>
+</p>
+
+<p align="center">
+  <a href="readme_i18n/README_fr_FR.md">Fran&ccedil;ais</a> &mdash;
+  <a href="readme_i18n/README_de_DE.md">Deutsch</a> &mdash;
+  <a href="readme_i18n/README_es_ES.md">Espa&ntilde;ol</a> &mdash;
+  <a href="readme_i18n/README_ja_JP.md">&#26085;&#26412;&#35486;</a>
+</p>
+
+---
+
+## Screenshots
+
+<!-- Add screenshots here:
+<p align="center">
+  <img src="docs/screenshots/live-visualizer.png" width="45%" alt="Live Visualizer">
+  <img src="docs/screenshots/curve-editor.png" width="45%" alt="Curve Editor">
+</p>
+-->
 
 ## Features
 
@@ -261,3 +302,13 @@ See [LICENSE](LICENSE).
 Use GitHub issue templates:
 - [Bug report](.github/ISSUE_TEMPLATE/bug_report.md)
 - [Feature request](.github/ISSUE_TEMPLATE/feature_request.md)
+
+## Star History
+
+<a href="https://star-history.com/#EiffelBS/OpenVoxTuner&type=date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=EiffelBS/OpenVoxTuner&type=date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=EiffelBS/OpenVoxTuner&type=date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=EiffelBS/OpenVoxTuner&type=date" width="100%" />
+  </picture>
+</a>
