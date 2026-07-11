@@ -32,6 +32,19 @@
   <a href="readme_i18n/README_ja_JP.md">&#26085;&#26412;&#35486;</a>
 </p>
 
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Why OpenVoxTuner?](#why-openvoxtuner)
+- [Repository Structure](#repository-structure)
+- [Licensing](#licensing)
+- [Support the Project](#support-the-project)
+- [Developer License](#developer-license)
+- [Contributing](#contributing)
+- [Build](#build)
+- [Documentation](#documentation)
+
 ---
 
 ## Screenshots
@@ -131,6 +144,13 @@
 - Bypass toggle (standalone mode)
 - Standalone mode with internal 120 BPM transport
 
+## Why OpenVoxTuner?
+
+- **Open source by design** — every line of DSP, UI, and preset logic is public. No black boxes, no telemetry, no feature paywalls. You can read exactly how your voice is processed.
+- **AGPLv3 for freedom** — the license guarantees the project stays free and open. Anyone can use it (even commercially), and any improvements must be shared back with the community.
+- **ARA2 native** — deep DAW integration means key, scale, and tempo are read directly from your project. No manual setup, no guesswork — OpenVoxTuner follows your arrangement automatically.
+- **Built for real vocals** — YIN pitch detection, formant-preserving PSOLA, and a Melodyne-style curve editor are tuned for the nuances of sung performances, not just proof-of-concept demos.
+
 ## Repository Structure
 
 ```text
@@ -225,7 +245,7 @@ All third-party licenses are compatible with AGPLv3.
 
 ### Support the project
 
-OpenVoxTuner is free for everyone. If you'd like to support its development, here are a few ways to help:
+OpenVoxTuner is free for everyone. If OpenVoxTuner saves you time or helps your music, consider supporting the project — even a small donation makes a huge difference.
 
 | Tier | Platform | Price | Perks |
 |------|----------|-------|-------|
@@ -239,7 +259,19 @@ Every contribution helps keep the project alive and free for everyone.
 
 ### Developer license
 
-A commercial license is available for developers or companies who want to integrate OpenVoxTuner into a **closed-source product** without the AGPLv3 copyleft obligation. Open an issue or contact the maintainer.
+A commercial license is available for developers or companies who want to integrate OpenVoxTuner into a **closed-source product** without the AGPLv3 copyleft obligation.
+
+**What it grants:**
+- Permission to use OpenVoxTuner's DSP, UI components, and algorithms in proprietary software
+- No copyleft obligations — you are **not** required to publish your source code
+- No requirement to release derivative works under AGPLv3
+
+**What it includes:**
+- Priority email support
+- Optional custom features and DSP consulting
+- Perpetual license for the version purchased (updates subject to tier)
+
+**Contact:** open an issue on GitHub or email [license@openvoxtuner.com](mailto:license@openvoxtuner.com).
 
 ## Contributing
 
