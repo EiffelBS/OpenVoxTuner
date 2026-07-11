@@ -1,5 +1,7 @@
 # Étude de faisabilité : Algorithmes alternatifs de Pitch Shifting & Time Stretching
 
+> **📁 ARCHIVÉ (2026-07-11) :** Étude historique. OpenVoxTuner utilise désormais uniquement le moteur PSOLA maison. RubberBand et SoundTouch ont été retirés.
+
 Suite à l'implémentation de **RubberBand**, **SoundTouch** et d'un moteur **Delay-Line Crossfade (WSOLA-like)**, cette étude évalue d'autres moteurs et algorithmes disponibles sur le marché pour une intégration dans le projet Autotune Clone.
 
 ## 1. Algorithmes Temporels (Time-Domain)

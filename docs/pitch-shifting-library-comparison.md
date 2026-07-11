@@ -1,5 +1,7 @@
 # Comparaison des bibliotheques open source pour le pitch shifting temps reel
 
+> **📁 ARCHIVÉ (2026-07-11) :** Comparaison historique. OpenVoxTuner utilise désormais uniquement le moteur PSOLA maison. RubberBand et SoundTouch n'ont pas été retenus.
+
 > Document de travail - 2026-06-11
 > But : choisir la bibliotheque de pitch shifting qui remplacera notre PSOLA
 > maison dans le cadre de la refonte du pipeline DSP.

@@ -1,6 +1,6 @@
 # Pitch Detection Rollback Guide — YIN / SWIPE' / PYIN
 
-> **Status update (2026-07-02):** PYIN has been permanently removed due to unresolved memory crashes. SWIPE' has been re-enabled and optimized (energy calculation extracted from the candidate loop, dead code removed in interpolation). See `docs/changelogs/changelog-2026-07-02.md` for details.
+> **📁 ARCHIVED (2026-07-11):** This document is historical. OpenVoxTuner now uses **YIN only**. SWIPE' and PYIN were evaluated and removed — PYIN due to memory crashes, SWIPE' due to inconsistent accuracy. The `pitch_detector` parameter is now read-only (fixed to YIN). See `docs/changelogs/changelog-2026-07-02.md` for the PYIN removal and the roadmap for the final decision.
 
 ## Overview
 
