@@ -1,14 +1,17 @@
 # Default Parameters Reference — OpenVoxTuner v0.1.1
 
+> Kept in sync with `Source/PluginProcessor.cpp`. Last updated: 2026-07-11.
+
 ## Audio Processing
 
 | Parameter | ID | Type | Default | Range |
 |-----------|-----|------|---------|-------|
-| Speed | `speed` | Float | **50.0** | 0 – 200 ms |
-| Latency Mode | `latency_mode` | Choice | **1 (Quality)** | 0=Low Latency, 1=Quality, 2=Safe |
+| Speed | `speed` | Float | **20.0** | 0 – 200 ms |
+| Latency Mode | `latency_mode` | Choice | **1 (Low Latency)** | 0=Direct Monitoring, 1=Low Latency, 2=Quality, 3=Safe |
 | Amount | `amount` | Float | **1.0** (100%) | 0 – 1 (0–100%) |
 | Bypass | `bypass` | Bool | **false** | false / true |
 | Mode | `mode` | Choice | **0 (Live)** | 0=Live, 1=Curve Editor |
+| Correction Mode | `correction_mode` | Bool | **false** (Modern) | false=Modern, true=Transparent |
 
 ## Formant
 
@@ -16,6 +19,17 @@
 |-----------|-----|------|---------|-------|
 | Formant Shift | `formant` | Float | **0.0** | -5.0 – +5.0 semi-tons |
 | Formant Enable | `formant_enable` | Bool | **false** | false / true |
+
+## Effects
+
+| Parameter | ID | Type | Default | Range |
+|-----------|-----|------|---------|-------|
+| FlexTune | `flex_tune` | Float | **10.0** | 0 – 100 cents |
+| Humanize | `humanize` | Float | **40.0** | 0 – 50 cents |
+| Reverb Enable | `reverb_enable` | Bool | **false** | false / true |
+| Reverb Mix | `reverb_mix` | Float | **0.30** | 0 – 1 |
+| Noise Gate Enable | `noise_gate_enable` | Bool | **false** | false / true |
+| Noise Gate Threshold | `noise_gate_threshold` | Float | **-40.0** | -80 – 0 dB |
 
 ## Pitch Correction (Scale)
 
@@ -40,9 +54,9 @@
 
 | Parameter | ID | Type | Default | Range |
 |-----------|-----|------|---------|-------|
-| Harmony Type | `harmony_type` | Choice | **3 (3rd Below + Above)** | 0=None, 1=3rd Below, 2=3rd Above, 3=3rd Below + Above, 4=4th Below, 5=4th Above, 6=4th Below + Above, 7=5th Below, 8=5th Above, 9=5th Below + Above, 10=3rd Below + 5th Above, 11=5th Below + 3rd Above, 12=Octave Below, 13=Octave Above, 14=Octave Below + Above, 15=Vocal Stack (3), 16=Vocal Stack (4), 17=Power Chord, 18=Parallel 3rd, 19=Drone |
+| Harmony Type | `harmony_type` | Choice | **3 (3rd Below + Above)** | 0=None, 1=3rd Below, 2=3rd Above, 3=3rd Below + Above, 4=4th Below, 5=4th Above, 6=4th Below + Above, 7=5th Below, 8=5th Above, 9=5th Below + Above, 10=3rd Below + 5th Above, 11=5th Below + 3rd Above, 12=Octave Below, 13=Octave Above, 14=Octave Below + Above, 15=Vocal Stack (3 voices), 16=Vocal Stack (4 voices), 17=Power Chord, 18=Parallel 3rd, 19=Drone, 20=Unison (2 voices), 21=Unison + Octaves (4 voices) |
 | Harmony Enable | `harmony_enable` | Bool | **false** | false / true |
-| Harmony Volume | `harmony_gain` | Float | **1.0** | 0 – 1 |
+| Harmony Volume | `harmony_gain` | Float | **0.75** | 0 – 1 |
 | Harmony Blend | `harmony_blend` | Float | **0.5** | 0 – 1 |
 | Use Voice for Harmony | `harmony_use_voice` | Bool | **true** | false / true |
 | Shifted Voices | `harmony_shifted_voices` | Int | **4** | 1 – 4 |
