@@ -217,13 +217,16 @@ OpenVoxTuner is **free for everyone** under the [AGPLv3](LICENSE) license — mu
 
 ### Support the project
 
-If you enjoy OpenVoxTuner, consider supporting its development:
+OpenVoxTuner is free for everyone. If you'd like to support its development, here are a few ways to help:
 
-| Tier | Price | Perks |
-|------|-------|-------|
-| **User** | 5$/month (Patreon) | Early access to new features, unlimited updates |
-| **Studio** | 20$/month (Patreon) | Everything above + priority support + multi-seat |
-| **Developer** | Contact | Commercial license for closed-source redistribution |
+| Tier | Platform | Price | Perks |
+|------|----------|-------|-------|
+| **Free** | — | 0$ | Full plugin, all features |
+| **Buy me a coffee** | [Ko-fi](https://ko-fi.com/) | One-time | A quick thank-you ❤️ |
+| **Supporter** | [Patreon](https://patreon.com/) | 5$/month | Private Discord + vote on upcoming features |
+| **Gold** | [Patreon](https://patreon.com/) | 20$/month | All Supporter perks + early access / beta builds + name in credits |
+
+Every contribution helps keep the project alive and free for everyone.
 
 ### Developer license
 
