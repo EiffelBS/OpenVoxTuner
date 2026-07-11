@@ -1,111 +1,110 @@
-# Comparaison des bibliotheques open source pour le pitch shifting temps reel
+# Comparison of open source libraries for real-time pitch shifting
 
-> **📁 ARCHIVÉ (2026-07-11) :** Comparaison historique. OpenVoxTuner utilise désormais uniquement le moteur PSOLA maison. RubberBand et SoundTouch n'ont pas été retenus.
+> **📁 ARCHIVED (2026-07-11):** Historical comparison. OpenVoxTuner now uses only the in-house PSOLA engine. RubberBand and SoundTouch were not retained.
 
-> Document de travail - 2026-06-11
-> But : choisir la bibliotheque de pitch shifting qui remplacera notre PSOLA
-> maison dans le cadre de la refonte du pipeline DSP.
+> Working document - 2026-06-11
+> Purpose: choose the pitch shifting library that will replace our in-house PSOLA
+> as part of the DSP pipeline rework.
 
-## Contexte
+## Context
 
-Le PSOLA maison de l'Autotune Clone genere des artefacts audibles
-(phasiness, pops, glitches pitch-dependent) qui ne sont pas corrigibles
-par ajustements incrementaux (rounds 4 a 8 vus). Le pipeline est
-trop simpliste (OLA avec Hann, pas de phase-locking, COLA
-discontinue) et doit etre remplace par une bibliotheque tierce de
-qualite production.
+The in-house PSOLA of the Autotune Clone produces audible artefacts
+(phasiness, pops, pitch-dependent glitches) that cannot be fixed
+through incremental adjustments (rounds 4 to 8 observed). The pipeline is
+too simplistic (OLA with Hann, no phase-locking, discontinuous COLA)
+and must be replaced by a third-party, production-quality library.
 
-Ce document compare les options reelles et fait une recommandation.
+This document compares the real options and makes a recommendation.
 
 ---
 
-## Bibliotheques evaluees
+## Evaluated libraries
 
 ### 1. RubberBand Library
 
-- **Site officiel** : https://breakfastquay.com/rubberband/index.html
-- **Auteur** : Chris Cannam (mainteneur actif)
-- **Version courante** : 4.0.0 (2024)
-- **Licence** : **GPL-2.0-or-later** (virale)
-- **Langage** : C++, wrapper JNI, Python, LV2
-- **Algorithme** : Phase vocoder R3 (canon de Griffin & Lim)
-- **Latence typique** : 50-100 ms (configurable via `Option::WindowSize`)
+- **Official site**: https://breakfastquay.com/rubberband/index.html
+- **Author**: Chris Cannam (active maintainer)
+- **Current version**: 4.0.0 (2024)
+- **Licence**: **GPL-2.0-or-later** (viral)
+- **Language**: C++, JNI wrapper, Python, LV2
+- **Algorithm**: R3 phase vocoder (Griffin & Lim canon)
+- **Typical latency**: 50-100 ms (configurable via `Option::WindowSize`)
 
-#### Qualite audio
+#### Audio quality
 
-Excellente, standard de l'industrie. Utilise par :
-- **MuseScore** (transposition audio dans les partitions)
+Excellent, industry standard. Used by:
+- **MuseScore** (audio transposition in scores)
 - **Mixxx** (DJ software)
-- **Ardour** (DAW open source)
+- **Ardour** (open source DAW)
 - **Sonic Visualiser**
-- Divers plugins LV2 et Audio Units commerciaux
+- Various commercial LV2 and Audio Units plugins
 
-Gestion particuliere des transitoires (`Option::PhaseLocus = Transient`),
-du formant preservation, et des signaux non-stationnaires. Beaucoup
-mieux que PSOLA sur les voix soutenues et les voyelles.
+Particularly good handling of transients (`Option::PhaseLocus = Transient`),
+formant preservation, and non-stationary signals. Much better than PSOLA
+on sustained voices and vowels.
 
 #### Integration
 
-- Bibliotheque C++ classique (header + .lib/.so/.dll)
-- API simple :
+- Classic C++ library (header + .lib/.so/.dll)
+- Simple API:
   ```cpp
   RubberBand::RubberBandStretcher stretcher(sampleRate, channels, options);
   stretcher.setPitchScale(pow(2.0, semitones/12.0));
   stretcher.process(input, inputSize, false);
   stretcher.retrieve(output, outputSize);
   ```
-- Compatible Windows, macOS, Linux, iOS, Android
-- Build CMake standard
-- Wrapper JUCE : il faut faire un wrapper maison (50-100 lignes)
+- Compatible with Windows, macOS, Linux, iOS, Android
+- Standard CMake build
+- JUCE wrapper: a custom wrapper is required (50-100 lines)
 
-#### Implications licence
+#### Licence implications
 
-**GPL = virale** : si on linke statiquement RubberBand dans notre
-plugin VST3, le plugin lui-meme doit etre distribue sous GPL.
-- Les utilisateurs peuvent voir et modifier le code source
-- Ils peuvent le redistribuer librement
-- Obligation de fournir le source avec le binaire
-- Pas de vente "close-source" possible sans acheter une **licence
-  commerciale** (Standard Licence : £420 / Non-Attribution : £1120)
+**GPL = viral**: if we statically link RubberBand into our
+VST3 plugin, the plugin itself must be distributed under GPL.
+- Users can view and modify the source code
+- They can freely redistribute it
+- Obligation to ship the source alongside the binary
+- No "close-source" sale possible without buying a **commercial
+  licence** (Standard Licence: £420 / Non-Attribution: £1120)
 
-#### Cout integration
+#### Integration cost
 
-- Build CMake : ~30 min
-- Wrapper JUCE (`RubberBandPitchShifter` derivant de notre `PitchShifter`) : ~2-3 h
-- Tests audio (buffer sizes 144/512/2048) : ~1 h
-- Latence a declarer dans `getLatencySamples` : 5 min
-- **Total : ~1 journee de travail**
+- CMake build: ~30 min
+- JUCE wrapper (`RubberBandPitchShifter` deriving from our `PitchShifter`): ~2-3 h
+- Audio tests (buffer sizes 144/512/2048): ~1 h
+- Latency to declare in `getLatencySamples`: 5 min
+- **Total: ~1 working day**
 
 ---
 
 ### 2. SoundTouch
 
-- **Site officiel** : https://soundtouch.surina.su/
-- **Auteur** : Olli Parviainen (mainteneur actif)
-- **Version courante** : 2.3.3 (2023)
-- **Licence** : **LGPL-2.1** (moins contraignante)
-- **Langage** : C++ (bibliotheque classique)
-- **Algorithme** : SOLA/WSOLA (Synchronous OverLap-Add)
-- **Latence typique** : ~100-130 ms
+- **Official site**: https://soundtouch.surina.su/
+- **Author**: Olli Parviainen (active maintainer)
+- **Current version**: 2.3.3 (2023)
+- **Licence**: **LGPL-2.1** (less restrictive)
+- **Language**: C++ (classic library)
+- **Algorithm**: SOLA/WSOLA (Synchronous OverLap-Add)
+- **Typical latency**: ~100-130 ms
 
-#### Qualite audio
+#### Audio quality
 
-Correcte a bonne sur la majorite des signaux. Legerement en retrait
-par rapport a RubberBand sur :
-- Voix tres soutenues (un peu de "phasiness" sur les voyelles tenues)
-- Transitoires (moins bonne preservation des attaques)
-- Pitch shifts importants (> 5 demi-tons)
+Fair to good on most signals. Slightly behind
+RubberBand on:
+- Very sustained voices (some "phasiness" on held vowels)
+- Transients (weaker attack preservation)
+- Large pitch shifts (> 5 semitones)
 
-Mais nettement superieure a notre PSOLA maison. Utilisee par :
-- **MuseScore** (egalement, pour comparaison)
-- **Auralé** (lecteur audio Android)
+But clearly superior to our in-house PSOLA. Used by:
+- **MuseScore** (also, for comparison)
+- **Auralé** (Android audio player)
 - **BPM Analyzer**
-- **Mixxx** (en option)
-- Plusieurs plugins LV2
+- **Mixxx** (optional)
+- Several LV2 plugins
 
 #### Integration
 
-- API C++ classique, simple :
+- Classic, simple C++ API:
   ```cpp
   soundtouch::SoundTouch st;
   st.setSampleRate(sampleRate);
@@ -114,104 +113,104 @@ Mais nettement superieure a notre PSOLA maison. Utilisee par :
   st.putSamples(input, numSamples);
   st.receiveSamples(output, numSamples);
   ```
-- Header-only pour le wrapper haut-niveau, lib dynamique sinon
-- Build CMake officiel disponible
-- Compatible Windows, macOS, Linux, Android, iOS
-- Wrapper JUCE : ~1-2 h
+- Header-only for the high-level wrapper, otherwise dynamic lib
+- Official CMake build available
+- Compatible with Windows, macOS, Linux, Android, iOS
+- JUCE wrapper: ~1-2 h
 
-#### Implications licence
+#### Licence implications
 
-**LGPL = permissive** : on peut lier SoundTouch **dynamiquement**
-(.dll / .so livre separe) sans contaminer la licence de notre
+**LGPL = permissive**: we can link SoundTouch **dynamically**
+(.dll / .so shipped separately) without contaminating the licence of our
 plugin.
-- Notre plugin peut rester **close-source**
-- On peut le **vendre** sans restriction
-- Obligation : permettre a l'utilisateur de remplacer la .dll
-  SoundTouch (standard sous Windows)
-- Alternative : licence commerciale SoundTouch disponible (contact
-  auteur, tarif non public mais raisonnable)
+- Our plugin can remain **close-source**
+- We can **sell** it without restriction
+- Obligation: allow the user to replace the SoundTouch .dll
+  (standard on Windows)
+- Alternative: commercial SoundTouch licence available (contact
+  author, price not public but reasonable)
 
-#### Cout integration
+#### Integration cost
 
-- Build CMake : ~20 min
-- Wrapper JUCE : ~1-2 h
-- Tests audio : ~1 h
-- Documentation utilisateur (comment remplacer la .dll) : ~30 min
-- **Total : ~0.5-1 journee de travail**
+- CMake build: ~20 min
+- JUCE wrapper: ~1-2 h
+- Audio tests: ~1 h
+- User documentation (how to replace the .dll): ~30 min
+- **Total: ~0.5-1 working day**
 
 ---
 
-### 3. Autres bibliotheques evaluees rapidement
+### 3. Other libraries reviewed quickly
 
-| Lib | Licence | Algo | Qualite voix | Verdict |
+| Lib | Licence | Algo | Voice quality | Verdict |
 |---|---|---|---|---|
-| **Aubio** | GPL-3.0 | PSOLA + variantes | Variable | Oriente analyse, pas de qualite prod |
-| **libsamplerate** | BSD-2 | SRC best-fit | Mediocre | SRC, pas vraiment pitch shifting |
-| **PaulStretch** | GPL | Extreme TS | Excellent pour extreme | Hors scope (TS extreme) |
-| **JUCE `dsp::PitchShift`** | (closed JUCE) | Phase vocoder basique | Mauvaise sur voix | Pas de qualite prod |
-| **TAL-Vocoder** (style) | GPL-2.0 | Divers | Variable | Reference uniquement |
+| **Aubio** | GPL-3.0 | PSOLA + variants | Variable | Analysis-oriented, no production quality |
+| **libsamplerate** | BSD-2 | Best-fit SRC | Poor | SRC, not really pitch shifting |
+| **PaulStretch** | GPL | Extreme TS | Excellent for extreme | Out of scope (extreme TS) |
+| **JUCE `dsp::PitchShift`** | (closed JUCE) | Basic phase vocoder | Bad on voice | No production quality |
+| **TAL-Vocoder** (style) | GPL-2.0 | Various | Variable | Reference only |
 
-**Verdict** : les seules options serieuses pour un autotune de
-qualite sont **RubberBand** et **SoundTouch**.
+**Verdict**: the only serious options for quality autotune
+are **RubberBand** and **SoundTouch**.
 
 ---
 
-## Comparatif synthetique
+## Summary comparison
 
-| Critere | RubberBand 4.0.0 | SoundTouch 2.3.3 |
+| Criterion | RubberBand 4.0.0 | SoundTouch 2.3.3 |
 |---|---|---|
-| Licence | GPL-2.0-or-later (virale) | LGPL-2.1 (permissive) |
-| Qualite vocale | Excellente | Bonne (un cran en-dessous) |
-| Transitoires | Tres bien preservees | Correct |
-| Latence | 50-100 ms (configurable) | 100-130 ms |
-| CPU | Moyen | Leger |
+| Licence | GPL-2.0-or-later (viral) | LGPL-2.1 (permissive) |
+| Voice quality | Excellent | Good (one notch below) |
+| Transients | Very well preserved | Fair |
+| Latency | 50-100 ms (configurable) | 100-130 ms |
+| CPU | Medium | Light |
 | Build | CMake | CMake |
-| Mainteneur | Actif (breakfastquay) | Actif (Parviainen) |
-| Cout commercial | £420-1120 (optionnel) | Inconnu (contacter auteur) |
-| Cout integration | ~1 jour | ~0.5-1 jour |
-| **Plugin doit etre GPL ?** | **OUI** (obligatoire) | **NON** (LGPL dynamique) |
+| Maintainer | Active (breakfastquay) | Active (Parviainen) |
+| Commercial cost | £420-1120 (optional) | Unknown (contact author) |
+| Integration cost | ~1 day | ~0.5-1 day |
+| **Plugin must be GPL?** | **YES** (mandatory) | **NO** (dynamic LGPL) |
 
 ---
 
-## Recommandation
+## Recommendation
 
-### Si tu acceptes la GPL sur le plugin
+### If you accept the GPL on the plugin
 
-**RubberBand**, sans hesitation. Qualite audio superieure, gestion
-des transitoires et formants tres soignee, latence configurable.
-C'est ce qu'utilisent les projets open source audio serieux
+**RubberBand**, without hesitation. Superior audio quality, very careful
+transient and formant handling, configurable latency.
+This is what serious open source audio projects use
 (Ardour, MuseScore, Mixxx).
 
-### Si tu veux garder la liberte de licence
+### If you want to keep licence freedom
 
-**SoundTouch**. La qualite est legerement en retrait mais tres
-superieure a notre PSOLA actuel. Le gain net sera enorme (de
-"inutilisable sur voix out-of-tune" a "utilisable en production
-legere"). Le cout licence est zero et tu gardes la possibilite
-de vendre ton plugin ferme.
+**SoundTouch**. Quality is slightly behind but far
+superior to our current PSOLA. The net gain will be huge (from
+"unusable on out-of-tune voice" to "usable in light production").
+The licence cost is zero and you keep the ability
+to sell your closed plugin.
 
-### Alternative hybride
+### Hybrid alternative
 
-Utiliser **SoundTouch en LGPL** comme defaut, et **laisser un
-slot compile-time** pour un wrapper RubberBand. Tu commences
-par SoundTouch (rapidement fonctionnel, pas de contraintes),
-et tu pourras switcher plus tard en acceptant la GPL.
+Use **SoundTouch under LGPL** as default, and **leave a
+compile-time slot** for a RubberBand wrapper. You start
+with SoundTouch (quickly functional, no constraints),
+and you can switch later by accepting the GPL.
 
 ---
 
-## Prochaines etapes
+## Next steps
 
-1. **Decision utilisateur** (FAIT 2026-06-11) : Jerome a choisi
-   **RubberBand (GPL)**. Voir le Round 10 du
-   `docs/changelogs/changelog-2026-06-11.md` pour le detail de l'integration.
-2. ~~Si l'utilisateur choisit RubberBand~~ : fait, voir
-   `Source/dsp/RubberBandPitchShifter.h/.cpp` et le Round 10 du
-   changelog.
-3. ~~Si l'utilisateur choisit SoundTouch~~ : non applicable.
+1. **User decision** (DONE 2026-06-11): Jerome chose
+   **RubberBand (GPL)**. See Round 10 of
+   `docs/changelogs/changelog-2026-06-11.md` for the integration details.
+2. ~~If the user chooses RubberBand~~: done, see
+   `Source/dsp/RubberBandPitchShifter.h/.cpp` and Round 10 of
+   the changelog.
+3. ~~If the user chooses SoundTouch~~: not applicable.
 
-## References externes
+## External references
 
-- RubberBand API : https://breakfastquay.com/rubberband/code.html
-- SoundTouch API : http://www.surina.net/soundtouch/README.html
-- GPL-2.0 implications : https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
-- LGPL-2.1 implications : https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+- RubberBand API: https://breakfastquay.com/rubberband/code.html
+- SoundTouch API: http://www.surina.net/soundtouch/README.html
+- GPL-2.0 implications: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+- LGPL-2.1 implications: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html

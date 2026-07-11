@@ -1,136 +1,136 @@
-# Changelog - Corrections du 2026-06-17
+# Changelog - Fixes of 2026-06-17
 
-## Problèmes Résolus
+## Issues Resolved
 
-### 1. ✅ Logging Excessif (Cause du Problème Audio en Plugin VST3)
+### 1. ✅ Excessive Logging (Cause of Audio Problem in VST3 Plugin)
 
-**Symptôme** : Le plugin fonctionne en standalone mais pas en mode VST3 dans un DAW.
+**Symptom**: The plugin works in standalone mode but not as a VST3 plugin inside a DAW.
 
-**Cause** : Un log non-throttlé dans `PluginProcessor.cpp` (lignes 857-858) qui s'exécutait à chaque bloc audio (~86 fois par seconde), générant des millions de lignes de log et saturant complètement le système.
+**Cause**: An un-throttled log in `PluginProcessor.cpp` (lines 857-858) that ran on every audio block (~86 times per second), generating millions of log lines and completely saturating the system.
 
-**Fix** : Throttlage du log pour qu'il ne s'affiche qu'une fois par seconde, comme tous les autres logs de debug.
+**Fix**: Throttling the log so it is displayed only once per second, like all other debug logs.
 
-**Fichier modifié** : `Source/PluginProcessor.cpp`
+**File modified**: `Source/PluginProcessor.cpp`
 
 ```cpp
-// AVANT (lignes 845-858)
+// BEFORE (lines 845-858)
 pitchShifter->process (buffer, ratio, userFormantRatio, f0_in);
 
 // Immediately compare snapshot to detect modifications
 float diffSq = 0.0f;
-// ... calculs ...
-juce::Logger::writeToLog ("pitchShifter post-check: ..."); // ❌ À chaque bloc !
+// ... calculations ...
+juce::Logger::writeToLog ("pitchShifter post-check: ..."); // ❌ On every block!
 
-// APRÈS (avec throttling)
+// AFTER (with throttling)
 pitchShifter->process (buffer, ratio, userFormantRatio, f0_in);
 
 // Immediately compare snapshot to detect modifications (throttled log: once per second)
 static std::atomic<uint32_t> lastPostCheckLogMs { 0 };
 uint32_t nowPostCheck = juce::Time::getMillisecondCounter();
 uint32_t lastPostCheck = lastPostCheckLogMs.load();
-if (nowPostCheck - lastPostCheck > 1000)  // ✅ Seulement toutes les 1000ms
+if (nowPostCheck - lastPostCheck > 1000)  // ✅ Only every 1000ms
 {
     if (lastPostCheckLogMs.compare_exchange_strong (lastPostCheck, nowPostCheck))
     {
-        // ... calculs et log ...
+        // ... calculations and log ...
     }
 }
 ```
 
-### 2. ✅ Organisation et Workflow de Développement
+### 2. ✅ Development Organization and Workflow
 
-**Problèmes** :
-- Droits d'accès insuffisants pour copier le VST3 dans `Program Files`
-- Pas de script d'installation pratique pour le développement
-- Confusion sur la structure `build/` dans le projet
+**Problems**:
+- Insufficient access rights to copy the VST3 into `Program Files`
+- No convenient install script for development
+- Confusion regarding the `build/` structure in the project
 
-**Solutions apportées** :
+**Solutions provided**:
 
-#### Nouveaux Scripts PowerShell
+#### New PowerShell Scripts
 
-1. **`create_dev_symlink.ps1`** (⭐ Recommandé pour le dev)
-   - Crée un lien symbolique vers le build Debug ou Release
-   - Avantage : Le plugin dans Program Files est automatiquement mis à jour après chaque rebuild Visual Studio
-   - Nécessite les droits administrateur (une seule fois)
+1. **`create_dev_symlink.ps1`** (⭐ Recommended for development)
+   - Creates a symbolic link to the Debug or Release build
+   - Advantage: The plugin in Program Files is automatically updated after every Visual Studio rebuild
+   - Requires administrator rights (one time only)
 
-2. **`install_vst3.ps1`** (Mise à jour)
-   - Installation manuelle par copie (pour tests ponctuels)
-   - Nécessite les droits admin à chaque copie
+2. **`install_vst3.ps1`** (Updated)
+   - Manual installation by copy (for one-off tests)
+   - Requires admin rights on each copy
 
 3. **`rebuild_clean.ps1`**
-   - Nettoie complètement le dossier `build/`
-   - Régénère tout via CMake
-   - Utile quand CMake est perdu ou pour repartir de zéro
+   - Fully cleans the `build/` folder
+   - Regenerates everything via CMake
+   - Useful when CMake is lost or to start from scratch
 
 4. **`open_vs.ps1`**
-   - Ouvre Visual Studio avec la solution OpenVoxTuner
-   - Détecte automatiquement la version de VS installée
+   - Opens Visual Studio with the OpenVoxTuner solution
+   - Automatically detects the installed VS version
 
 #### Documentation
 
 1. **`BUILD_GUIDE.md`**
-   - Guide complet de build et d'installation
-   - Explications sur la structure VST3 (bundle vs fichier)
-   - Solutions aux problèmes courants
-   - Workflow de développement recommandé
+   - Complete build and install guide
+   - Explanations of the VST3 structure (bundle vs file)
+   - Solutions to common problems
+   - Recommended development workflow
 
 2. **`README.md`**
-   - Quick start pour les développeurs
-   - Tableau récapitulatif des scripts
-   - Notes sur le format VST3
+   - Quick start for developers
+   - Summary table of scripts
+   - Notes on the VST3 format
 
-## Impact sur les Performances
+## Performance Impact
 
-**Avant** :
-- ~86 appels de log par seconde à 44.1kHz (buffer de 512 samples)
-- Millions de lignes écrites dans `OpenVoxTuner.log`
-- Saturation du disque dur
-- Ralentissements majeurs voire crashes
-- Plugin inutilisable en mode VST3
+**Before**:
+- ~86 log calls per second at 44.1kHz (512-sample buffer)
+- Millions of lines written to `OpenVoxTuner.log`
+- Hard drive saturation
+- Major slowdowns and even crashes
+- Plugin unusable in VST3 mode
 
-**Après** :
-- 1 log par seconde maximum
-- Fichier de log gérable (~1 Ko/seconde)
-- Pas d'impact sur les performances audio
-- Plugin fonctionnel en VST3 et standalone
+**After**:
+- 1 log per second maximum
+- Manageable log file (~1 KB/second)
+- No impact on audio performance
+- Plugin functional in VST3 and standalone
 
-## Workflow de Développement Recommandé
+## Recommended Development Workflow
 
-### Première Fois
+### First Time
 
 ```powershell
-# 1. Créer le lien symbolique (une seule fois, nécessite admin)
+# 1. Create the symbolic link (one time only, requires admin)
 .\create_dev_symlink.ps1
 
-# 2. Ouvrir Visual Studio
+# 2. Open Visual Studio
 .\open_vs.ps1
 ```
 
-### Développement Quotidien
+### Daily Development
 
-1. Modifier le code dans Visual Studio
-2. Compiler (Ctrl+Shift+B)
-3. ✨ **Le plugin est automatiquement mis à jour dans Program Files** (grâce au lien symbolique)
-4. Fermer complètement le DAW
-5. Relancer le DAW et tester
+1. Modify the code in Visual Studio
+2. Build (Ctrl+Shift+B)
+3. ✨ **The plugin is automatically updated in Program Files** (thanks to the symlink)
+4. Fully close the DAW
+5. Restart the DAW and test
 
-### En Cas de Problème CMake
+### In Case of CMake Problem
 
 ```powershell
 .\rebuild_clean.ps1 -Configuration Debug
 ```
 
-## Notes Importantes
+## Important Notes
 
-### Structure du Projet
-- ✅ **NORMAL** que Visual Studio soit dans `build/` (convention CMake)
-- `build/` = dossier généré, non versionné (dans `.gitignore`)
-- Sources = toujours dans `Source/` à la racine
-- **Ne jamais ouvrir les fichiers depuis `build/`**, toujours depuis `Source/`
+### Project Structure
+- ✅ It is **NORMAL** for Visual Studio to be in `build/` (CMake convention)
+- `build/` = generated folder, not versioned (in `.gitignore`)
+- Sources = always in `Source/` at the root
+- **Never open files from `build/`**, always from `Source/`
 
-### Format VST3
-- Un VST3 est un **bundle** (dossier), pas un fichier unique `.vst3`
-- Structure interne :
+### VST3 Format
+- A VST3 is a **bundle** (folder), not a single `.vst3` file
+- Internal structure:
   ```
   OpenVoxTuner.vst3/
   ├── Contents/
@@ -139,45 +139,45 @@ if (nowPostCheck - lastPostCheck > 1000)  // ✅ Seulement toutes les 1000ms
   ├── desktop.ini
   └── Plugin.ico
   ```
-- C'est pourquoi il faut copier **tout le dossier**, pas juste la DLL
+- This is why you must copy **the whole folder**, not just the DLL
 
 ### Logs
-- Fichier de log : `C:\Users\User\Documents\OpenVoxTuner.log`
-- Les logs sont maintenant throttlés (1x/seconde max)
-- Consultez ce fichier pour diagnostiquer les problèmes audio
+- Log file: `C:\Users\User\Documents\OpenVoxTuner.log`
+- Logs are now throttled (max 1x/second)
+- Consult this file to diagnose audio problems
 
-## Tests à Effectuer
+## Tests to Perform
 
-1. ✅ Compilation réussie
-2. ⏳ Test en mode standalone
-3. ⏳ Test en mode VST3 dans un DAW
-4. ⏳ Vérification des logs (fichier de taille raisonnable)
-5. ⏳ Test du lien symbolique (rebuild automatique)
+1. ✅ Build succeeded
+2. ⏳ Standalone mode test
+3. ⏳ VST3 mode test in a DAW
+4. ⏳ Log verification (reasonably sized file)
+5. ⏳ Symlink test (automatic rebuild)
 
-## Prochaines Étapes Recommandées
+## Recommended Next Steps
 
-1. Tester le plugin en mode VST3 avec la correction du logging
-2. Vérifier que le fichier `OpenVoxTuner.log` ne grossit plus de manière excessive
-3. Confirmer que l'audio tuné fonctionne correctement dans le DAW
-4. Si le problème persiste, les logs throttlés permettront de voir exactement où se situe le problème (par exemple, si `rmsDiffL=0`, cela signifie que le `pitchShifter` ne modifie pas le buffer)
+1. Test the plugin in VST3 mode with the logging fix
+2. Verify that the `OpenVoxTuner.log` file no longer grows excessively
+3. Confirm that the tuned audio works correctly in the DAW
+4. If the problem persists, the throttled logs will make it possible to see exactly where the issue lies (for example, if `rmsDiffL=0`, it means the `pitchShifter` is not modifying the buffer)
 
 ---
 
-## Addendum : Débogage dans Visual Studio
+## Addendum: Debugging in Visual Studio
 
-### Problème Supplémentaire Résolu
+### Additional Problem Resolved
 
-**Erreur** : "Impossible de démarrer le programme ... ALL_BUILD"
+**Error**: "Unable to start the program ... ALL_BUILD"
 
-**Cause** : Visual Studio essayait de lancer le projet CMake `ALL_BUILD` (qui compile tout mais ne produit pas d'exécutable).
+**Cause**: Visual Studio was trying to launch the CMake project `ALL_BUILD` (which compiles everything but produces no executable).
 
-**Solution** : Configurer le projet de démarrage correct dans Visual Studio :
-1. Clic droit sur `OpenVoxTuner_Standalone` → "Définir comme projet de démarrage"
-2. Lancer le débogueur (F5)
+**Solution**: Configure the correct startup project in Visual Studio:
+1. Right-click `OpenVoxTuner_Standalone` → "Set as Startup Project"
+2. Start the debugger (F5)
 
-### Documentation Ajoutée
+### Documentation Added
 
-- **`DEBUG_GUIDE.md`** : Guide complet de débogage (breakpoints, attach to process, profiling)
-- **`QUICKFIX_ALL_BUILD_ERROR.md`** : Solution rapide pour l'erreur ALL_BUILD
-- **`build/set_startup_project.ps1`** : Script d'aide pour configurer le projet de démarrage
-- **`.editorconfig`** : Configuration automatique de l'éditeur pour Visual Studio
+- **`DEBUG_GUIDE.md`**: Complete debugging guide (breakpoints, attach to process, profiling)
+- **`QUICKFIX_ALL_BUILD_ERROR.md`**: Quick fix for the ALL_BUILD error
+- **`build/set_startup_project.ps1`**: Helper script to configure the startup project
+- **`.editorconfig`**: Automatic editor configuration for Visual Studio

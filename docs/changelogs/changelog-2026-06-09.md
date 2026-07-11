@@ -1,443 +1,427 @@
-# Changelog - 9 juin 2026
+# Changelog - June 9, 2026
 
-## Initialisation du projet Autotune Clone
+## Autotune Clone project initialization
 
-### Decisions architecturales
-- Framework : **JUCE 8.0.12** (clone git dans `C:\JUCE`)
-- Toolchain : **CMake + Visual Studio 2022 + NMake** sur Windows 11
-- Build system : `CMakeLists.txt` (pas de Projucer, plus moderne et plus simple)
-- Formats actifs : **VST3** et **Standalone**
-- Formats prepares mais non activables depuis Windows : **AU** (macOS), **AAX** (macOS + dev Avid)
-- Approche DSP : demarrage simple, iteration (YIN -> quantificateur -> PSOLA)
-- Gammes : tonique + mode custom (majeur, mineur, pentatoniques, chromatique)
-- GUI : 4 knobs (Speed, Amount, Key, Scale) + visualiseur de pitch en temps reel
+### Architectural decisions
+- Framework: **JUCE 8.0.12** (git clone in `C:\JUCE`)
+- Toolchain: **CMake + Visual Studio 2022 + NMake** on Windows 11
+- Build system: `CMakeLists.txt` (no Projucer, more modern and simpler)
+- Active formats: **VST3** and **Standalone**
+- Formats prepared but not buildable from Windows: **AU** (macOS), **AAX** (macOS + Avid dev license)
+- DSP approach: simple start, iterate (YIN -> quantizer -> PSOLA)
+- Scales: tonic + custom mode (major, minor, pentatonic, chromatic)
+- GUI: 4 knobs (Speed, Amount, Key, Scale) + real-time pitch visualizer
 
-### Fichiers crees
+### Files created
 
-**Pipeline DSP (Phase 1 + 4)** :
-- `Source/PluginProcessor.h` / `.cpp` : pipeline complet
-- `Source/PluginEditor.h` / `.cpp` : GUI personnalisee (knobs + visualiseur)
-- `Source/dsp/PitchDetector.h` / `.cpp` : algorithme YIN complet
-- `Source/dsp/ScaleQuantizer.h` / `.cpp` : quantification tonique + mode (5 modes)
-- `Source/dsp/PitchShifter.h` / `.cpp` : PSOLA (Phase 4) - ring buffer + pitch marks + OLA
-- `Source/dsp/FormantPreserver.h` / `.cpp` : biquad passe-bas Butterworth
-- `Source/dsp/RetargetEnvelope.h` / `.cpp` : IIR 1er ordre pour le Speed
-- `Source/dsp/PitchCurve.h` / `.cpp` : pitch curve editable (mode Graphic)
-- `Source/ui/PitchVisualizer.h` / `.cpp` : visualisation semi-log des pitch curves
-- `Source/ui/PitchCurveEditor.h` / `.cpp` : editeur interactif (drag, add, delete, preset)
+**DSP pipeline (Phase 1 + 4)**:
+- `Source/PluginProcessor.h` / `.cpp`: complete pipeline
+- `Source/PluginEditor.h` / `.cpp`: custom GUI (knobs + visualizer)
+- `Source/dsp/PitchDetector.h` / `.cpp`: complete YIN algorithm
+- `Source/dsp/ScaleQuantizer.h` / `.cpp`: tonic + mode quantization (5 modes)
+- `Source/dsp/PitchShifter.h` / `.cpp`: PSOLA (Phase 4) - ring buffer + pitch marks + OLA
+- `Source/dsp/FormantPreserver.h` / `.cpp`: Butterworth low-pass biquad
+- `Source/dsp/RetargetEnvelope.h` / `.cpp`: 1st-order IIR for Speed
+- `Source/dsp/PitchCurve.h` / `.cpp`: editable pitch curve (Graphic mode)
+- `Source/ui/PitchVisualizer.h` / `.cpp`: semi-log visualization of pitch curves
+- `Source/ui/PitchCurveEditor.h` / `.cpp`: interactive editor (drag, add, delete, preset)
 
-**Build system** :
-- `CMakeLists.txt` : build CMake natif JUCE 8 (sans Projucer)
-- `init_vs_env.ps1` : initialisation MSVC + Windows SDK en PowerShell pur
-- `build.ps1` : configuration + compilation + tests
+**Build system**:
+- `CMakeLists.txt`: native JUCE 8 CMake build (no Projucer)
+- `init_vs_env.ps1`: MSVC + Windows SDK initialization in pure PowerShell
+- `build.ps1`: configure + compile + tests
 - `.gitignore`
 
-**Documentation** :
-- `roadmap.md` : suivi complet du projet avec cases a cocher par phase
-- `docs/changelogs/changelog-2026-06-09.md` (ce fichier)
-- `docs/architecture.md` : documentation complete (PSOLA, formants, retarget)
+**Documentation**:
+- `roadmap.md`: complete project tracking with checkbox per phase
+- `docs/changelogs/changelog-2026-06-09.md` (this file)
+- `docs/architecture.md`: complete documentation (PSOLA, formants, retarget)
 
-**Tests unitaires** :
-- `test/Main.cpp` : point d'entree des tests
-- `test/dsp/PitchDetectorTest.cpp` : 5 cas (440, 220, 100 Hz, silence, buffer trop petit)
-- `test/dsp/ScaleQuantizerTest.cpp` : 7 cas (in/out gamme, tonique, chromatique, etc.)
-- `test/dsp/RetargetEnvelopeTest.cpp` : 4 cas (Speed=0, Speed=200, cible=1, reset)
-- `test/dsp/FormantPreserverTest.cpp` : 3 cas (desactive, ratio=1, ratio extreme)
-- `test/dsp/PitchCurveTest.cpp` : 10 cas (vide, 1 point, 2 points, modif, suppression, tri, snap, serialisation, presets, perf)
+**Unit tests**:
+- `test/Main.cpp`: test entry point
+- `test/dsp/PitchDetectorTest.cpp`: 5 cases (440, 220, 100 Hz, silence, buffer too small)
+- `test/dsp/ScaleQuantizerTest.cpp`: 7 cases (in/out of scale, tonic, chromatic, etc.)
+- `test/dsp/RetargetEnvelopeTest.cpp`: 4 cases (Speed=0, Speed=200, target=1, reset)
+- `test/dsp/FormantPreserverTest.cpp`: 3 cases (disabled, ratio=1, extreme ratio)
+- `test/dsp/PitchCurveTest.cpp`: 10 cases (empty, 1 point, 2 points, modify, delete, sort, snap, serialization, presets, perf)
 
 ### Installation
-- JUCE 8.0.12 installe dans `C:\JUCE` via `git clone --branch 8.0.12`
-- CMake 4.3.3 installe via winget (Kitware.CMake)
+- JUCE 8.0.12 installed in `C:\JUCE` via `git clone --branch 8.0.12`
+- CMake 4.3.3 installed via winget (Kitware.CMake)
 
-### Pipeline DSP complet implemente
-1. **Detection YIN** (4 etapes, interpolation parabolique sub-sample)
-2. **Mode Auto : Quantification** (5 modes, distance circulaire)
-3. **Mode Graphic : PitchCurve editable** (interpolation lineaire, snap, presets)
-4. **Selection du mode** (parametre AudioParameterInt 0/1)
-5. **Filtre anti-formants** (biquad Butterworth, sqrt compensation)
-6. **PSOLA** (pitch marks + OLA Hann 2-periodes, ring buffer)
-7. **Retarget Envelope** (IIR 1er ordre pour le Speed style Antares)
-8. **Cablage** : AudioIn -> PitchDetector -> [Auto: Quantif | Graphic: PitchCurve] -> Retarget -> FormantPreserver -> PSOLA -> AudioOut
-9. **Transport time** lu via `getPlayHead()` (utilise en mode Graphic)
-10. **Latence** declaree au host (`getLatencySamples`)
-11. **PitchCurve serialisee** dans `getStateInformation()` (sous-element XML `<PITCH_CURVE>`)
+### Complete DSP pipeline implemented
+1. **YIN detection** (4 steps, sub-sample parabolic interpolation)
+2. **Auto mode: Quantization** (5 modes, circular distance)
+3. **Graphic mode: editable PitchCurve** (linear interpolation, snap, presets)
+4. **Mode selection** (AudioParameterInt parameter 0/1)
+5. **Anti-formant filter** (Butterworth biquad, sqrt compensation)
+6. **PSOLA** (pitch marks + 2-period Hann OLA, ring buffer)
+7. **Retarget Envelope** (1st-order IIR for the Antares-style Speed)
+8. **Wiring**: AudioIn -> PitchDetector -> [Auto: Quantize | Graphic: PitchCurve] -> Retarget -> FormantPreserver -> PSOLA -> AudioOut
+9. **Transport time** read via `getPlayHead()` (used in Graphic mode)
+10. **Latency** reported to the host (`getLatencySamples`)
+11. **PitchCurve serialized** in `getStateInformation()` (XML sub-element `<PITCH_CURVE>`)
 
-### Bloqueur environnement
-L'installation Visual Studio 2022 detectee est **incomplete** : pas de
-headers STL (dossier `include/` vide), pas de libs Desktop (seulement
-`onecore`). CMake configure OK, mais `cl.exe` ne peut rien compiler.
+### Environment blocker
+The detected Visual Studio 2022 installation is **incomplete**: no
+STL headers (empty `include/` folder), no Desktop libs (only
+`onecore`). CMake configures OK, but `cl.exe` cannot compile anything.
 
-### Action requise cote utilisateur
-Reinstaller ou completer Visual Studio 2022 avec le workload
-**"Developpement Desktop en C++"** :
-1. Ouvrir **Visual Studio Installer**
-2. Modifier l'installation VS 2022 Community
-3. Cocher l'onglet **"Composants individuels"** :
+### User action required
+Reinstall or complete Visual Studio 2022 with the
+**"Desktop development with C++"** workload:
+1. Open **Visual Studio Installer**
+2. Modify the VS 2022 Community installation
+3. Check the **"Individual components"** tab:
    - `MSVC v143 - VS 2022 C++ x64/x86 build tools`
-   - `Windows 11 SDK` (ou Windows 10 SDK)
-4. Cliquer "Modifier" et reinstaller (~5 Go)
+   - `Windows 11 SDK` (or Windows 10 SDK)
+4. Click "Modify" and reinstall (~5 GB)
 
-Une fois VS repare, lancer :
+Once VS is repaired, run:
 ```powershell
 . .\init_vs_env.ps1
 .\build.ps1 -RunTests
 ```
 
-### Prochaines etapes
-- Phase 4bis : preservation des transitoires (onset detection)
-- Phase 4bis : preservation exacte des formants par LPC
-- Phase 4bis : mode Graphic - courbes de Bezier + capture pitch par clic
-- Phase 5 : configurer AU/AAX depuis un Mac
-- Phase 6 : tests audio subjectifs
-- Phase bonus : zoom temporel sur la pitch curve
+### Next steps
+- Phase 4bis: transient preservation (onset detection)
+- Phase 4bis: exact formant preservation via LPC
+- Phase 4bis: Graphic mode - Bezier curves + pitch capture by click
+- Phase 5: configure AU/AAX from a Mac
+- Phase 6: subjective audio testing
+- Bonus phase: temporal zoom on the pitch curve
 
 
-## Validation de la toolchain VS2022 (apres mise a jour de l'utilisateur)
+## VS2022 toolchain validation (after user update)
 
-### Build complet reussi (Release x64)
-- CMake configure avec succes (generator Visual Studio 17 2022, A x64)
-- Compilation reussie pour VST3 et Standalone
-- Binaires produits :
-  - Autotune Clone.vst3 (3.5 MB) - plugin VST3 Windows x64
-  - Autotune Clone.exe (4.7 MB) - executable standalone
+### Full build succeeded (Release x64)
+- CMake configured successfully (Visual Studio 17 2022 generator, A x64)
+- Compilation succeeded for VST3 and Standalone
+- Binaries produced:
+  - Autotune Clone.vst3 (3.5 MB) - Windows x64 VST3 plugin
+  - Autotune Clone.exe (4.7 MB) - standalone executable
 
-### Corrections appliquees au code source
-- **Namespace dsp renomme en tdsp** dans tous les modules DSP
-  - Cause : ambiguite avec juce::dsp apporte par le module juce_dsp
-    (inclus via JuceHeader.h)
-  - Fichiers modifies : ScaleQuantizer, PitchDetector, PitchShifter,
+### Source code fixes applied
+- **dsp namespace renamed to `atdsp`** in all DSP modules
+  - Cause: ambiguity with juce::dsp brought in by the juce_dsp module
+    (included via JuceHeader.h)
+  - Files modified: ScaleQuantizer, PitchDetector, PitchShifter,
     FormantPreserver, RetargetEnvelope, PitchCurve (h+cpp), PluginProcessor
     (h+cpp), PluginEditor.cpp, PitchCurveEditor (h+cpp), test/dsp/*, docs
-- **API JUCE 8 mises a jour** :
-  - XmlElement::getFloatAttribute n'existe plus, remplace par
-    getDoubleAttribute avec cast (PitchCurve.cpp)
-  - juce::Array<T>::resize ne prend plus de valeur initiale en 2e arg,
-    remplacement par clear() + dd() en boucle (PitchVisualizer.cpp)
-  - AudioProcessor::getLatencySamples() n'est PAS virtuel en JUCE 8,
-    suppression du override (PluginProcessor.h)
-  - cceptsMidi(), producesMidi(), isMidiEffect() doivent etre
-    declares const (PluginProcessor.cpp)
-  - juce::Array<T>::indexOf requiert operator== sur T, ajout sur
+- **Updated JUCE 8 APIs**:
+  - XmlElement::getFloatAttribute no longer exists, replaced by
+    getDoubleAttribute with a cast (PitchCurve.cpp)
+  - juce::Array<T>::resize no longer takes an initial value as 2nd arg,
+    replaced by clear() + add() in a loop (PitchVisualizer.cpp)
+  - AudioProcessor::getLatencySamples() is NOT virtual in JUCE 8,
+    removed the override (PluginProcessor.h)
+  - acceptsMidi(), producesMidi(), isMidiEffect() must be
+    declared const (PluginProcessor.cpp)
+  - juce::Array<T>::indexOf requires operator== on T, added on
     PitchPoint (PitchCurve.h)
-- **Include manquant** : ScaleQuantizer.h ajoute dans PitchCurve.h
-  (necessaire pour le type tdsp::Scale utilise par snapToScale)
-- **VST2/VST3 warning** : JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1
-  ajoute aux definitions de compilation (CMakeLists.txt) car on ne distribue
-  pas de VST2
+- **Missing include**: ScaleQuantizer.h added in PitchCurve.h
+  (required for the `atdsp::Scale` type used by snapToScale)
+- **VST2/VST3 warning**: JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1
+  added to the compile definitions (CMakeLists.txt) since we do not
+  ship a VST2
 
-### Workaround build : generation manuelle de JuceHeader.h
-- Le support CMake de JUCE 8 ne genere pas automatiquement JuceHeader.h
-  dans toutes les configurations
-- Ajout d'une etape dans uild.ps1 qui :
-  1. Localise juceaide.exe dans _juce_build/
-  2. Genere JuceHeader.h dans Release/ a partir de Defs.txt
-  3. Copie le fichier au niveau superieur (JuceLibraryCode/) pour
-     correspondre au include path par defaut
+### Build workaround: manual generation of JuceHeader.h
+- JUCE 8 CMake support does not automatically generate JuceHeader.h
+  in all configurations
+- Added a step in build.ps1 that:
+  1. Locates juceaide.exe in _juce_build/
+  2. Generates JuceHeader.h in Release/ from Defs.txt
+  3. Copies the file one level up (JuceLibraryCode/) to match the
+     default include path
 
-### Verification de l'environnement
-- MSVC 14.44.35207 (VS 2022 17.14) : OK
-- Windows SDK 10.0.19041.0 : OK
-- CMake 3.28.6 : OK
-- JUCE 8.0.12 dans C:\\JUCE : OK
-- cl.exe, link.exe, rc.exe : tous operationnels
+### Environment verification
+- MSVC 14.44.35207 (VS 2022 17.14): OK
+- Windows SDK 10.0.19041.0: OK
+- CMake 3.28.6: OK
+- JUCE 8.0.12 in C:\JUCE: OK
+- cl.exe, link.exe, rc.exe: all operational
 
-### Prochaines etapes
-- Tests unitaires : valider avec -RunTests (apres verification du build)
-- Proposer a Jerome les idees d'amelioration validees precedemment :
-  onset detection, harmonisation automatique, presets supplementaires
-  (vocoder, hard tune), documentation utilisateur (docs/user-guide.md)
+### Next steps
+- Unit tests: validate with -RunTests (after build verification)
+- Propose to Jérôme the previously validated improvement ideas:
+  onset detection, automatic harmonization, additional presets
+  (vocoder, hard tune), user documentation (docs/user-guide.md)
 
 
-## Resolution des plantages au lancement et corrections UI
+## Launch crash fixes and UI corrections
 
-### Crash #1 : violation d'acces `0x38` dans `Rectangle<int>::getX()`
-- **Symptome** : `Autotune Clone.exe` se lance mais plante silencieusement
-  (fenetre invisible)
-- **Cause** : `setSize(800, 600)` et `setResizable(true,true)` etaient
-  appeles AVANT la creation de `pitchVisualizer` et `curveEditor`.
-  `resized()` est declenche pendant `setSize`, et accedait a ces
-  unique_ptr encore null
-- **Fix** : deplacer `setSize`, `setResizable`, `setResizeLimits` apres
-  le `addAndMakeVisible(*curveEditor)`
-- **Fichier** : `Source/PluginEditor.cpp`
+### Crash #1: access violation `0x38` in `Rectangle<int>::getX()`
+- **Symptom**: `Autotune Clone.exe` launches but crashes silently
+  (invisible window)
+- **Cause**: `setSize(800, 600)` and `setResizable(true,true)` were
+  called BEFORE the creation of `pitchVisualizer` and `curveEditor`.
+  `resized()` is triggered during `setSize` and accessed these
+  still-null unique_ptrs
+- **Fix**: move `setSize`, `setResizable`, `setResizeLimits` after
+  the `addAndMakeVisible(*curveEditor)`
+- **File**: `Source/PluginEditor.cpp`
 
-### Crash #2 : `AudioProcessor::Bus::isLayoutSupported` (au bout de quelques secondes)
-- **Symptome** : le plugin se lance, mais plante apres activation audio
-- **Cause** : `AudioProcessor::BusesProperties` n'etait pas precise dans
-  le constructeur ; les bus etaient crees avec `isActivatedByDefault=false`
-  et une fois l'audio active le host demandait un layout qui n'etait pas
-  supporte
-- **Fix** : ajouter
+### Crash #2: `AudioProcessor::Bus::isLayoutSupported` (after a few seconds)
+- **Symptom**: the plugin launches but crashes after audio is activated
+- **Cause**: `AudioProcessor::BusesProperties` was not specified in
+  the constructor; the buses were created with `isActivatedByDefault=false`
+  and once audio was active the host requested a layout that was not
+  supported
+- **Fix**: add
   ```cpp
   AudioProcessor::BusesProperties()
       .withInput  ("Input",  AudioChannelSet::stereo(), true)
       .withOutput ("Output", AudioChannelSet::stereo(), true)
   ```
-  au ctor de `AutotuneCloneAudioProcessor`
-- **Fichier** : `Source/PluginProcessor.cpp`
+  to the ctor of `AutotuneCloneAudioProcessor`
+- **File**: `Source/PluginProcessor.cpp`
 
-### Crash #3 : `~HeapBlock` dans le pipeline audio
-- **Symptome** : crash pendant la lecture audio, dans le destructeur
-  de `juce::HeapBlock<float>`
-- **Cause** : `PitchShifter::addGrain` bornait son ecriture par
-  `outIdx < N` ou `N = ringBufferSize = 8192`, mais le buffer de sortie
-  ne fait que `numSamples = 512` ; l'ecriture debordait silencieusement
-  puis le destructeur detectait l'incoherence
-- **Fix** : ajouter un parametre `outCapacity` a `addGrain` et utiliser
-  `outIdx < outCapacity` ; le caller passe `numSamples`
-- **Fichier** : `Source/dsp/PitchShifter.cpp`
+### Crash #3: `~HeapBlock` in the audio pipeline
+- **Symptom**: crash during audio playback, in the destructor of
+  `juce::HeapBlock<float>`
+- **Cause**: `PitchShifter::addGrain` bounded its write by
+  `outIdx < N` where `N = ringBufferSize = 8192`, but the output buffer
+  is only `numSamples = 512` long; the write silently overflowed and
+  the destructor later detected the inconsistency
+- **Fix**: add an `outCapacity` parameter to `addGrain` and use
+  `outIdx < outCapacity`; the caller passes `numSamples`
+- **File**: `Source/dsp/PitchShifter.cpp`
 
-### UI : knobs invisibles, drag inactif, key/scale incoherents
-- **Knobs non visibles** : la barre du bas etait trop petite (80 px) ;
-  fixee a 160 px. La formule de calcul de `centerArea` divisait par
-  erreur toute la hauteur au lieu de retirer 160 px : remplace
-  `bounds.removeFromBottom(getHeight() - 80)` par
+### UI: invisible knobs, inactive drag, inconsistent key/scale
+- **Knobs not visible**: the bottom bar was too short (80 px); fixed
+  to 160 px. The `centerArea` calculation formula incorrectly divided
+  the whole height instead of subtracting 160 px: replaced
+  `bounds.removeFromBottom(getHeight() - 80)` with
   `bounds.removeFromTop(bounds.getHeight() - 160).reduced(10)`
-- **Key/Scale en ComboBox** : un slider rotatif n'a pas de sens pour
-  des valeurs discretes. Remplacement par des `juce::ComboBox`
-  (C, C#, ..., B / Major, Minor, Pent. Maj, Pent. Min, Chromatic) avec
-  binding manuel vers les `AudioParameterInt` via `getRawParameterValue`
-- **Drag des points inactif (mode Graphic)** : `mouseDown` et `mouseDrag`
-  etaient bien appeles, mais l'ecriture via le setter ne propageait pas
-  la nouvelle valeur (la lecture dans `paint()` montrait toujours
-  `pt.pitch=12.0`). Cause : `Array<T>::operator[]` retourne une
-  *reference* mais la lecture se faisait probablement sur une copie
-  temporaire
-  - **Fix** : nouvelle methode `setPointPitch(int, float)` dans
-    `PitchCurve` qui utilise `points.getReference(index).pitch = pitch`
-    pour ecrire directement
-  - **Hit-test** elargi de 12 a 30 px pour faciliter la selection
-  - **Overlay grise** en mode Auto (texte "Auto mode - read only")
-- **Fichiers** : `Source/PluginEditor.cpp`, `Source/PluginEditor.h`,
+- **Key/Scale in ComboBox**: a rotary slider makes no sense for
+  discrete values. Replaced with `juce::ComboBox`
+  (C, C#, ..., B / Major, Minor, Pent. Maj, Pent. Min, Chromatic) with
+  manual binding to the `AudioParameterInt` via `getRawParameterValue`
+- **Inactive point drag (Graphic mode)**: `mouseDown` and `mouseDrag`
+  were correctly called, but the write via the setter did not propagate
+  the new value (the read in `paint()` always showed
+  `pt.pitch=12.0`). Cause: `Array<T>::operator[]` returns a
+  *reference* but the read was probably made on a temporary copy
+  - **Fix**: new `setPointPitch(int, float)` method in `PitchCurve`
+    that uses `points.getReference(index).pitch = pitch` to write
+    directly
+  - **Hit-test** widened from 12 to 30 px to ease selection
+  - **Gray overlay** in Auto mode (text "Auto mode - read only")
+- **Files**: `Source/PluginEditor.cpp`, `Source/PluginEditor.h`,
   `Source/dsp/PitchCurve.h`, `Source/ui/PitchCurveEditor.cpp`,
   `Source/ui/PitchCurveEditor.h`
 
-### Cleanup de l'instrumentation debug
-- Supprime la fonction `dbgLog` et tous ses appels dans
-  `Source/PluginProcessor.cpp` et `Source/PluginEditor.cpp`
-- Supprime la declaration `void dbgLog(...)` dans
+### Debug instrumentation cleanup
+- Removed the `dbgLog` function and all its calls in
+  `Source/PluginProcessor.cpp` and `Source/PluginEditor.cpp`
+- Removed the `void dbgLog(...)` declaration in
   `Source/PluginProcessor.h`
-- Supprime les `juce::Logger::writeToLog` et les blocs d'ecriture
-  `autotune_paint.log` dans :
+- Removed the `juce::Logger::writeToLog` and the `autotune_paint.log`
+  write blocks in:
   - `Source/PluginEditor.cpp::paint`
-  - `Source/ui/PitchCurveEditor.cpp::paint` et `mouseDrag`
+  - `Source/ui/PitchCurveEditor.cpp::paint` and `mouseDrag`
   - `Source/ui/PitchVisualizer.cpp::paint`
-- Supprime `Source/DebugMinidump.cpp` (SetUnhandledExceptionFilter +
-  AddVectoredExceptionHandler) et sa ligne dans `CMakeLists.txt`
-  (le sandbox ne pouvait pas ecrire sur `C:\Users\User\Desktop`, donc
-  le minidump n'a jamais fonctionne ; approche productive = breakpoints VS)
-- Supprime `debug-standalone-no-window.md` (note de session debug)
+- Removed `Source/DebugMinidump.cpp` (SetUnhandledExceptionFilter +
+  AddVectoredExceptionHandler) and its line in `CMakeLists.txt`
+  (the sandbox could not write to `C:\Users\User\Desktop`, so the
+  minidump never worked; the productive approach = VS breakpoints)
+- Removed `debug-standalone-no-window.md` (debug session note)
 
-### Regression connue : PSOLA audible mais distordu
-- Les grains PSOLA sont produits sans depassement memoire (post-fix #3)
-  mais le son resultant reste distordu (grains perdus, alignement
-  approximatif). A reecrire proprement en Phase 4bis (preservation des
-  transitoires + onset detection)
-
-
-## Reecriture complete du PSOLA
-
-### Bugs identifies dans l'implementation precedente
-- **Grain = 4*T0 au lieu de 2*T0** : `halfLen = 2*period` rendait le grain
-  4 periodes au lieu des 2 attendues, ce qui etalait excessivement le grain
-- **Position de synthese completement fausse** : `(m * synthPeriod) %
-  ringBufferSize` modulo l'anneau (8192) au lieu du numero d'echantillon
-  de sortie reel (typiquement 512) ; la majorite des grains etait
-  silencieusement jetee
-- **Mapping markA/markB non utilise** : la variable `markB` etait
-  calculee puis explicitement mise a `(void)` ; aucun interet reel
-- **Pas de continuite entre blocs** : aucune memoire de la position du
-  prochain mark de synthese, donc impossible de gerer correctement
-  plusieurs blocs successifs
-
-### Nouvelle implementation (PitchShifter.cpp)
-- **PitchMark = { absoluteSample, ringIdx }** : on garde le temps absolu
-  en plus de l'index dans le ring buffer, ce qui permet de raisonner
-  en temps lineaire et de retomber sur le bon echantillon d'entree
-- **Grain = 2*T0** : demi-fenetre = T0, fenetre Hann centree sur la mark
-  d'analyse, comme specifie dans la litterature PSOLA
-- **Synthese par recherche dichotomique** : pour chaque marque de
-  synthese au temps `t_out` (intervalle T0'), on retrouve l'analyse
-  mark la plus proche via `findClosestAnalysisMark()` (bsearch sur
-  `absoluteSample`)
-- **Continuite inter-blocs** : `nextSynthMarkSample` conserve la
-  position du prochain mark entre les appels a `process()`, et est
-  re-aligne sur `blockStart` si jamais on a glisse
-- **Normalisation COLA adaptive** : `grainGain = 1 / max(1, 2*T0/T0p)`,
-  divise par le nombre reel de grains qui se superposent (1, 2, 4, ...
-  selon le ratio)
-- **`addGrain` simplifie** : le `gain` passe en parametre est deja
-  normalise (pas de division magique par 2 a l'interieur)
-- **Renommage `findNextPitchMark` -> `findPeak`** : la fonction cherche
-  juste un max, pas un "prochain" mark
-- **Passage par zero en passthrough** : si `f0 <= 0` ou `ratio = 1`,
-  le ring buffer est quand meme alimente et `nextSynthMarkSample` est
-  reinitialise a `totalSamplesWritten` pour eviter un gros saut si
-  l'utilisateur reactive le pitch
-
-### Fichiers modifies
-- `Source/dsp/PitchShifter.h` : nouveau membre `nextSynthMarkSample`,
-  nouvelle struct `PitchMark` avec `absoluteSample`, nouvelle methode
-  `findClosestAnalysisMark`, signature de `findNextPitchMark` ->
-  `findPeak`
-- `Source/dsp/PitchShifter.cpp` : `process()` completement reecrit,
-  `addGrain` simplifie, `findPeak` ajoute, `findClosestAnalysisMark`
-  ajoute, `prepare` et `reset` mettent a jour `nextSynthMarkSample`
-
-### Resultat attendu
-- Pitch shift audible et propre pour `ratio` dans [0.5, 2.0]
-- Pas de clicks ni de grains perdus
-- Latence inchangee (meme ring buffer de 8192 samples)
-
-### Limites connues (a ameliorer ensuite)
-- Pas de preservation des transitoires (onset detection a faire)
-- Pour `ratio < 0.5` ou `ratio > 2.0`, le grain devient trop long
-  par rapport au hop et l'OLA produit des artefacts
-- MPM ou autre detecteur de pitch plus robuste complementaire a YIN
-  ameliorerait la stabilite des pitch marks
+### Known regression: PSOLA audible but distorted
+- The PSOLA grains are produced without memory overflow (post-fix #3)
+  but the resulting sound remains distorted (lost grains, approximate
+  alignment). To be rewritten properly in Phase 4bis (transient
+  preservation + onset detection)
 
 
-## Correction du bug de wraparound du ring buffer (PSOLA)
+## Full PSOLA rewrite
 
-### Symptome rapporte par Jerome
-"je n'ai pas l'impression d'entendre ma voix tunée quel que soit le
-paramètre modifié, même en mettant à 0ms et amount=1. De plus, si
-j'enlève le bypass du visualiseur et que le Amount>0, l'audio
-complètement incorrect, hachuré et distordu."
+### Bugs identified in the previous implementation
+- **Grain = 4*T0 instead of 2*T0**: `halfLen = 2*period` made the grain
+  4 periods instead of the expected 2, excessively spreading the grain
+- **Completely wrong synthesis position**: `(m * synthPeriod) %
+  ringBufferSize` modulo the ring (8192) instead of the real output
+  sample number (typically 512); the majority of grains were silently
+  discarded
+- **markA/markB mapping unused**: the `markB` variable was computed then
+  explicitly set to `(void)`; no real purpose
+- **No continuity between blocks**: no memory of the next synthesis
+  mark position, so it was impossible to correctly handle several
+  successive blocks
 
-### Cause racine
-Dans la reecriture du PSOLA, chaque PitchMark stocke un `ringIdx`
-(l'index dans le ring buffer au moment de la detection du pic). Mais
-apres ~186 ms (8192 samples a 44100 Hz), le ring buffer wrappe et cet
-index devient obsolete. En phase 2, on lit alors de la VIEILLE data
-(qui date de plusieurs centaines de ms) au lieu des echantillons
-courants. Cela produit :
-- Un output incoherent (mix de donnees actuelles et anciennes)
-- Des "trous" et des "pics" qui donnent un son hachuré
-- Aucune note correcte en sortie (le pitch shift est completement
-  perdu dans le bruit)
+### New implementation (PitchShifter.cpp)
+- **PitchMark = { absoluteSample, ringIdx }**: we keep the absolute time
+  in addition to the ring buffer index, which lets us reason in linear
+  time and fall back on the correct input sample
+- **Grain = 2*T0**: half-window = T0, Hann window centered on the
+  analysis mark, as specified in the PSOLA literature
+- **Synthesis by binary search**: for each synthesis mark at time
+  `t_out` (T0' interval), we find the closest analysis mark via
+  `findClosestAnalysisMark()` (bsearch on `absoluteSample`)
+- **Inter-block continuity**: `nextSynthMarkSample` keeps the next mark
+  position between `process()` calls and is re-aligned on `blockStart`
+  if we ever drifted
+- **Adaptive COLA normalization**: `grainGain = 1 / max(1, 2*T0/T0p)`,
+  divided by the real number of overlapping grains (1, 2, 4, ...
+  depending on the ratio)
+- **Simplified `addGrain`**: the `gain` passed as a parameter is already
+  normalized (no magic division by 2 inside)
+- **Renamed `findNextPitchMark` -> `findPeak`**: the function only looks
+  for a max, not a "next" mark
+- **Zero-crossing passthrough**: if `f0 <= 0` or `ratio = 1`, the ring
+  buffer is still fed and `nextSynthMarkSample` is reset to
+  `totalSamplesWritten` to avoid a big jump if the user re-enables pitch
+
+### Files modified
+- `Source/dsp/PitchShifter.h`: new `nextSynthMarkSample` member, new
+  `PitchMark` struct with `absoluteSample`, new `findClosestAnalysisMark`
+  method, `findNextPitchMark` -> `findPeak` signature
+- `Source/dsp/PitchShifter.cpp`: `process()` fully rewritten, `addGrain`
+  simplified, `findPeak` added, `findClosestAnalysisMark` added,
+  `prepare` and `reset` update `nextSynthMarkSample`
+
+### Expected result
+- Audible and clean pitch shift for `ratio` in [0.5, 2.0]
+- No clicks or lost grains
+- Latency unchanged (same 8192-sample ring buffer)
+
+### Known limitations (to improve later)
+- No transient preservation (onset detection to do)
+- For `ratio < 0.5` or `ratio > 2.0`, the grain becomes too long
+  relative to the hop and the OLA produces artefacts
+- MPM or another more robust pitch detector complementing YIN
+  would improve pitch mark stability
+
+
+## Ring buffer wraparound bug fix (PSOLA)
+
+### Symptom reported by Jérôme
+"I don't feel like I'm hearing my tuned voice no matter which parameter
+I change, even at 0ms and amount=1. Also, if I take the visualizer out
+of bypass and Amount>0, the audio is completely wrong, hatched and
+distorted."
+
+### Root cause
+In the PSOLA rewrite, each PitchMark stores a `ringIdx` (the index in the
+ring buffer at the moment the peak was detected). But after ~186 ms
+(8192 samples at 44100 Hz), the ring buffer wraps and this index becomes
+stale. In phase 2, we then read OLD data (dating back several hundred ms)
+instead of the current samples. This produces:
+- Inconsistent output (mix of current and old data)
+- "Holes" and "spikes" that give a hatched sound
+- No correct note in output (the pitch shift is completely lost in the
+  noise)
 
 ### Fix
-Nouvelle methode `ringPosAt(long long absSample)` qui calcule
-dynamiquement la position dans le ring buffer a partir du temps
-absolu de la marque :
+New `ringPosAt(long long absSample)` method that dynamically computes the
+ring buffer position from the mark's absolute time:
 ```cpp
 pos = (writeIndex - (totalSamplesWritten - absSample)) mod N
 ```
-Appelee en phase 2 a la place de `analysisMarks[idx].ringIdx`.
-Le ringIdx stocke dans la PitchMark est conserve a titre informatif
-(utile pour debug) mais n'est plus utilise pour la lecture.
+Called in phase 2 instead of `analysisMarks[idx].ringIdx`.
+The ringIdx stored in the PitchMark is kept for informational purposes
+(useful for debug) but is no longer used for reading.
 
 ### Verification
-- L'index du ring buffer change a chaque echantillon (writeIndex
-  incremente). En stockant ringIdx statiquement, on lirait un
-  echantillon de plus en plus loin dans le passe. Apres 8192 echantillons,
-  on lit un echantillon tres ancien (0 ou N-1) selon le wraparound.
-- Avec le calcul dynamique, ringPosAt renvoie systematiquement la
-  position de l'echantillon a l'instant absolu `absSample` dans
-  l'etat COURANT du ring buffer.
+- The ring buffer index changes every sample (writeIndex increments).
+  By storing ringIdx statically, we would read a sample further and
+  further back in the past. After 8192 samples, we read a very old
+  sample (0 or N-1) depending on the wraparound.
+- With the dynamic calculation, ringPosAt always returns the position of
+  the sample at the absolute instant `absSample` in the CURRENT state of
+  the ring buffer.
 
-### Fichiers modifies
-- `Source/dsp/PitchShifter.h` : declaration de `ringPosAt`
-- `Source/dsp/PitchShifter.cpp` : implementation de `ringPosAt`,
-  modification de la phase 2 pour l'utiliser au lieu de `ringIdx`
+### Files modified
+- `Source/dsp/PitchShifter.h`: declaration of `ringPosAt`
+- `Source/dsp/PitchShifter.cpp`: implementation of `ringPosAt`,
+  modified phase 2 to use it instead of `ringIdx`
 
 
-## Correction du bug stereo (canal droit silencieux)
+## Stereo bug fix (silent right channel)
 
-### Symptome rapporte par Jerome
-"j'ai toujours l'impression d'entendre ma voix et qu'aucun tunage n'est
-appliqué, que la visualisation soit activée ou non. Par contre, si la
-visualisation est activé, le son est complètement distordu dans l'oreille
-gauche et silencieux, hachuré ou intermittent sur l'oreille droite"
+### Symptom reported by Jérôme
+"I still feel like I'm hearing my voice and no tuning is applied,
+whether the visualization is enabled or not. On the other hand, if the
+visualization is enabled, the sound is completely distorted in the left
+ear and silent, hatched or intermittent on the right ear"
 
-### Cause racine
-Dans la phase 2 du PSOLA, la mise a jour de `nextSynthMarkSample`
-(= `t_out` apres le while loop) se faisait A L'INTERIEUR de la boucle
-sur les canaux. Consequence :
-- Canal 0 (gauche) : la synthese s'execute normalement, t_out avance
-  jusqu'a `blockEnd + T0p`, puis `nextSynthMarkSample = blockEnd + T0p`
-- Canal 1 (droite) : `t_out = nextSynthMarkSample = blockEnd + T0p`,
-  la condition `t_out < blockEnd` est FAUSSE, le while loop ne tourne
-  JAMAIS, donc le canal droit n'est jamais ecrit
-- Le buffer de sortie du canal droit reste a zero (= silence)
-- En sortie : oreille gauche = PSOLA (avec l'autre bug de wraparound),
-  oreille droite = silence (avec parfois des transitoires quand le
-  block etait partiellement traite, d'ou le "hachure/intermittent")
+### Root cause
+In PSOLA phase 2, the update of `nextSynthMarkSample` (= `t_out` after
+the while loop) happened INSIDE the channel loop. Consequence:
+- Channel 0 (left): synthesis runs normally, t_out advances up to
+  `blockEnd + T0p`, then `nextSynthMarkSample = blockEnd + T0p`
+- Channel 1 (right): `t_out = nextSynthMarkSample = blockEnd + T0p`, the
+  `t_out < blockEnd` condition is FALSE, the while loop never runs, so
+  the right channel is never written
+- The right channel output buffer stays zero (= silence)
+- In output: left ear = PSOLA (with the other wraparound bug), right ear
+  = silence (with sometimes transients when the block was partially
+  processed, hence the "hatched/intermittent")
 
-### Bug bonus detecte en meme temps
-La detection des pitch marks etait elle aussi a l'interieur de la
-boucle canaux. Resultat : la meme pitch mark etait ajoutee N fois
-(une fois par canal) dans `analysisMarks`, ce qui :
-- Fait grossir la liste 2x plus vite que necessaire
-- Le bsearch renvoie toujours la 1ere occurrence (canal 0), donc pas
-  d'impact fonctionnel visible, mais c'est du gaspillage
+### Bonus bug detected at the same time
+Pitch mark detection was also inside the channel loop. Result: the same
+pitch mark was added N times (once per channel) in `analysisMarks`, which:
+- Makes the list grow 2x faster than necessary
+- The bsearch always returns the 1st occurrence (channel 0), so no
+  visible functional impact, but it is wasteful
 
 ### Fix
-- Phase 1 refactoree : on ecrit TOUS les canaux dans le ring buffer
-  (memoire de position partagee), puis on detecte les pitch marks UNE
-  SEULE fois sur le canal 0
-- Phase 2 refactoree : `synthStart` est calcule une fois avant la
-  boucle canaux, `t_out` est une variable LOCALE dans la boucle while,
-  et `nextSynthMarkSample` n'est mis a jour qu'apres la boucle (et
-  systematiquement, pour eviter toute derive)
+- Phase 1 refactored: we write ALL channels into the ring buffer
+  (shared position memory), then detect pitch marks ONCE on channel 0
+- Phase 2 refactored: `synthStart` is computed once before the channel
+  loop, `t_out` is a LOCAL variable in the while loop, and
+  `nextSynthMarkSample` is updated only after the loop (and systematically,
+  to avoid any drift)
 
-### Fichiers modifies
-- `Source/dsp/PitchShifter.cpp` : refactoring des phases 1 et 2
+### Files modified
+- `Source/dsp/PitchShifter.cpp`: refactoring of phases 1 and 2
 
 
-## Correction off-by-one sur absoluteSample des pitch marks
+## Pitch mark absoluteSample off-by-one fix
 
-### Symptome rapporte par Jerome
-"Plus de problème de stéréo. Par contre, toujours les glitch sur
-l'audio lorsque le visualiseur est activé. J'ai remarqué que le
-problème n'est que lorsqu'il y a une ligne rouge, donc un out-of-tune
-détecté et normalement corrigé. J'entends toujours ma voix, mais la
-version qui est censée être tunée est 100% distordue."
+### Symptom reported by Jérôme
+"No more stereo problem. On the other hand, still glitches on the audio
+when the visualizer is enabled. I noticed the problem only happens when
+there is a red line, i.e. an out-of-tune detected and normally corrected.
+I still hear my voice, but the version that is supposed to be tuned is
+100% distorted."
 
-### Cause racine
-Dans la phase 1 du PSOLA, apres avoir ecrit un echantillon et
-incremente `writeIndex` + `totalSamplesWritten`, on ajoutait la pitch
-mark avec `analysisMarks.add({ totalSamplesWritten, ... })`. Mais
-`totalSamplesWritten` represente le PROCHAIN echantillon a ecrire, pas
-le DERNIER ecrit. Le dernier ecrit est a l'instant `totalSamplesWritten
-- 1` en position `writeIndex - 1`.
+### Root cause
+In PSOLA phase 1, after writing a sample and incrementing `writeIndex` +
+`totalSamplesWritten`, the pitch mark was added with
+`analysisMarks.add({ totalSamplesWritten, ... })`. But `totalSamplesWritten`
+represents the NEXT sample to write, not the LAST one written. The last
+written one is at time `totalSamplesWritten - 1` at position
+`writeIndex - 1`.
 
-Consequence pour `ringPosAt()` :
-- Formule : pos = (writeIndex - totalSamplesWritten + absSample) mod N
-- Avec absoluteSample = totalSamplesWritten (bug) : pos = writeIndex
-  (la position de la PROCHAINE ecriture = vieille data de N samples
-  en arriere, jusqu'a 186 ms)
-- Avec absoluteSample = totalSamplesWritten - 1 (fix) : pos = writeIndex
-  - 1 (la position du DERNIER ecrit = donnee courante)
+Consequence for `ringPosAt()`:
+- Formula: pos = (writeIndex - totalSamplesWritten + absSample) mod N
+- With absoluteSample = totalSamplesWritten (bug): pos = writeIndex (the
+  position of the NEXT write = old data N samples back, up to 186 ms)
+- With absoluteSample = totalSamplesWritten - 1 (fix): pos = writeIndex
+  - 1 (the position of the LAST written = current data)
 
-Effet audio : pour les notes in-scale (ratio = 1.0), le code prend la
-branche passthrough, donc rien ne passe par le PSOLA. Pour les notes
-out-of-scale (ratio != 1.0), le PSOLA lit de la vieille data dans le
-ring buffer a partir de ~186 ms, ce qui produit un mix incoherent de
-donnees actuelles et anciennes -> "100% distordu" rapporte par Jerome.
+Audio effect: for in-scale notes (ratio = 1.0), the code takes the
+passthrough branch, so nothing goes through PSOLA. For out-of-scale notes
+(ratio != 1.0), PSOLA reads old data from the ring buffer from ~186 ms on,
+which produces an inconsistent mix of current and old data -> "100%
+distorted" reported by Jérôme.
 
 ### Fix
-- `analysisMarks.add({ totalSamplesWritten - 1, markRingPos })` au
-  lieu de `analysisMarks.add({ totalSamplesWritten, markRingPos })`
-- `ringPosAt` conserve sa formule : pos = writeIndex - totalSamplesWritten
-  + absSample, qui est maintenant correcte puisque absoluteSample
-  designe bien le temps du dernier ecrit
+- `analysisMarks.add({ totalSamplesWritten - 1, markRingPos })` instead
+  of `analysisMarks.add({ totalSamplesWritten, markRingPos })`
+- `ringPosAt` keeps its formula: pos = writeIndex - totalSamplesWritten
+  + absSample, which is now correct since absoluteSample properly denotes
+  the time of the last write
 
 ### Notes
-- L'offset de T0/2 entre la position de detection (markRingPos) et le
-  temps "totalSamplesWritten - 1" est acceptable : la fenetre Hann de
-  longueur 2*T0 est suffisamment large pour absorber un decalage de
-  quelques % du grain.
-- Pour une version "exacte", on pourrait stocker l'offset exact du
-  pic par rapport au dernier ecrit, mais cela complexifie le code
-  pour un gain audio negligeable.
+- The T0/2 offset between the detection position (markRingPos) and the
+  "totalSamplesWritten - 1" time is acceptable: the 2*T0 Hann window is
+  wide enough to absorb a shift of a few % of the grain.
+- For an "exact" version, we could store the exact peak offset relative
+  to the last write, but that complicates the code for a negligible audio
+  gain.
 
-### Fichier modifie
-- `Source/dsp/PitchShifter.cpp` : phase 1, ajout de "- 1" sur
-  totalSamplesWritten lors de l'ajout de la pitch mark
-
-
-
-
-
+### File modified
+- `Source/dsp/PitchShifter.cpp`: phase 1, added "- 1" on
+  totalSamplesWritten when adding the pitch mark

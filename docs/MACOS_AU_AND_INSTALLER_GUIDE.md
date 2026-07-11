@@ -1,106 +1,106 @@
-# macOS : Build AU + Installateur `.pkg`
+# macOS: Build AU + `.pkg` Installer
 
-Ce document couvre les deux scripts :
+This document covers the two scripts:
 - `build_macos_au.sh`
 - `build_macos_pkg.sh`
 
-## Prérequis
+## Prerequisites
 
 ```bash
 xcode-select --install
 brew install cmake ninja
 ```
 
-JUCE doit être disponible localement (exemple `~/dev/JUCE`).
+JUCE must be available locally (e.g. `~/dev/JUCE`).
 
 ## 1) Build AU (Audio Unit)
 
-Script :
+Script:
 
 ```bash
 chmod +x ./build_macos_au.sh
 ./build_macos_au.sh --juce-path ~/dev/JUCE --install
 ```
 
-Résultat attendu :
-- artefact : `build-mac-au/OpenVoxTuner_artefacts/Release/AU/OpenVoxTuner.component`
-- install locale (option `--install`) : `~/Library/Audio/Plug-Ins/Components/OpenVoxTuner.component`
+Expected output:
+- artifact: `build-mac-au/OpenVoxTuner_artefacts/Release/AU/OpenVoxTuner.component`
+- local install (with `--install` option): `~/Library/Audio/Plug-Ins/Components/OpenVoxTuner.component`
 
-Options utiles :
+Useful options:
 
 ```bash
 ./build_macos_au.sh --help
 ```
 
-## 2) Générer un installateur macOS `.pkg`
+## 2) Generate a macOS `.pkg` installer
 
-Script :
+Script:
 
 ```bash
 chmod +x ./build_macos_pkg.sh
 ./build_macos_pkg.sh --juce-path ~/dev/JUCE
 ```
 
-Par défaut, le script :
-- build `VST3` + `AU` + `STANDALONE`
-- génère `dist/OpenVoxTuner-macOS.pkg`
+By default, the script:
+- builds `VST3` + `AU` + `STANDALONE`
+- generates `dist/OpenVoxTuner-macOS.pkg`
 
-### Emplacements installés par le `.pkg`
+### Locations installed by the `.pkg`
 
 - `/Library/Audio/Plug-Ins/VST3/OpenVoxTuner.vst3`
 - `/Library/Audio/Plug-Ins/Components/OpenVoxTuner.component`
 - `/Applications/OpenVoxTuner.app` (Standalone)
 
-### Exemples
+### Examples
 
-VST3 seulement :
+VST3 only:
 
 ```bash
 ./build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3
 ```
 
-AU seulement :
+AU only:
 
 ```bash
 ./build_macos_pkg.sh --juce-path ~/dev/JUCE --formats AU
 ```
 
-Standalone seulement :
+Standalone only:
 
 ```bash
 ./build_macos_pkg.sh --juce-path ~/dev/JUCE --formats STANDALONE
 ```
 
-VST3 + Standalone :
+VST3 + Standalone:
 
 ```bash
 ./build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,STANDALONE
 ```
 
-Sans rebuild (package depuis artefacts existants) :
+Without rebuild (package from existing artifacts):
 
 ```bash
 ./build_macos_pkg.sh --juce-path ~/dev/JUCE --skip-build
 ```
 
-Signer le package (Developer ID Installer) :
+Sign the package (Developer ID Installer):
 
 ```bash
 ./build_macos_pkg.sh \
   --juce-path ~/dev/JUCE \
-  --sign-installer "Developer ID Installer: Votre Nom (TEAMID)"
+  --sign-installer "Developer ID Installer: Your Name (TEAMID)"
 ```
 
-Toutes les options :
+All options:
 
 ```bash
 ./build_macos_pkg.sh --help
 ```
 
-## Notes importantes
+## Important notes
 
-- Le projet CMake a été préparé pour activer `AU` sur macOS via l'option `OVT_ENABLE_AU`.
-- Le `.pkg` généré installe dans :
-  - `/Library/Audio/Plug-Ins/VST3` (si VST3 inclus)
-  - `/Library/Audio/Plug-Ins/Components` (si AU inclus)
-- Pour distribution publique, ajouter ensuite notarization (`notarytool`) et `stapler`.
+- The CMake project has been prepared to enable `AU` on macOS via the `OVT_ENABLE_AU` option.
+- The generated `.pkg` installs to:
+  - `/Library/Audio/Plug-Ins/VST3` (if VST3 is included)
+  - `/Library/Audio/Plug-Ins/Components` (if AU is included)
+- For public distribution, add notarization (`notarytool`) and `stapler` afterward.

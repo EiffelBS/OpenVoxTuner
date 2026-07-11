@@ -1,201 +1,198 @@
 # Changelog 2026-06-24
 
-## Diagnostic et plan de correction du plugin d'autotune
+## Autotune plugin diagnosis and remediation plan
 
-> Demande de Jerome : analyser et documenter les corrections pour
-> l'ensemble des dysfonctionnements affectant le plugin d'autotune.
-> 4 pannes racines identifiees, 2 rounds de correctifs appliques.
+> Request from Jerome: analyze and document the fixes for
+> all the malfunctions affecting the autotune plugin.
+> 4 root-cause failures identified, 2 rounds of fixes applied.
 
 ---
 
-## Round 1 (session precedente)
+## Round 1 (previous session)
 
-### Pannes identifiees (R1, R2, R3)
+### Failures identified (R1, R2, R3)
 
-**R1** - Traitement audio principal : ratio `1.0` injecte au PitchShifter
-a cause de micro-pauses YIN (anti-octave-error trop zele).
+**R1** - Main audio processing: ratio `1.0` injected into the PitchShifter
+due to YIN micro-pauses (overzealous octave-error prevention).
 
-**R2** - Affichage visuel : `PianoKeyboard::setNoteNames()` manquait,
-les labels de notes ne s'affichaient pas en temps reel.
+**R2** - Visual display: `PianoKeyboard::setNoteNames()` was missing,
+note labels were not shown in real time.
 
-**R3** - Latence parasite : `getPlayHead()->getPosition()` et
-`getLoopPoints()` en synchrone dans le thread audio.
+**R3** - Parasitic latency: `getPlayHead()->getPosition()` and
+`getLoopPoints()` running synchronously in the audio thread.
 
-### Correctifs R1, R2, R3 appliques (Build OK)
-- `PluginProcessor.h` : ajout `lastValidPitchForAutotune`, `lastRatioSnapshot`,
+### R1, R2, R3 fixes applied (Build OK)
+- `PluginProcessor.h`: added `lastValidPitchForAutotune`, `lastRatioSnapshot`,
   `cachedTransportTime`, `lastTransportTimeUpdateMs`
-- `PluginProcessor.cpp` : `computeInputPitch()` fallback sur dernier pitch
-  valide ; `processBlock()` snapshot du ratio ; cache transport 10ms
-- `PitchShifter.cpp` : validation ratio d'entree (NaN/Inf/<=0 -> 1.0)
-- `PluginEditor.cpp` : appel `setNoteNames()` sur les deux pianos
-- `PianoKeyboard.h/cpp` : nouvelle methode + labels rouge/vert en haut
-- `PitchVisualizer.h/cpp` : constante `kHarmonyColour` nommee
+- `PluginProcessor.cpp`: `computeInputPitch()` fallback to last valid pitch;
+  `processBlock()` ratio snapshot; 10ms transport cache
+- `PitchShifter.cpp`: input ratio validation (NaN/Inf/<=0 -> 1.0)
+- `PluginEditor.cpp`: call `setNoteNames()` on both pianos
+- `PianoKeyboard.h/cpp`: new method + red/green labels at the top
+- `PitchVisualizer.h/cpp`: named `kHarmonyColour` constant
 
 ---
 
-## Round 2 (cette session) - CAUSE RACINE TROUVEE
+## Round 2 (this session) - ROOT CAUSE FOUND
 
-### R4 - YIN ne s'execute jamais (BUG BLOQUANT)
+### R4 - YIN never executes (BLOCKING BUG)
 
-**Symptome** apres Round 1 : toujours aucun effet autotune audible.
-Seul le formant shift fonctionne.
+**Symptom** after Round 1: still no audible autotune effect.
+Only the formant shift works.
 
-**Cause racine identifiee par analyse statique :**
-Incoherence entre `prepareToPlay()` et `computeInputPitch()` :
+**Root cause identified by static analysis:**
+Inconsistency between `prepareToPlay()` and `computeInputPitch()`:
 
 ```
 prepareToPlay:  pitchDetector->prepare (sampleRate / 4.0, ...)
 computeInputPitch:  decimation = 8
 ```
 
-Decalage des frequences d'echantillonnage internes :
+Internal sampling rate mismatch:
 
-| Etape | Frequence | Taille buffer |
-|-------|-----------|---------------|
+| Step | Frequency | Buffer size |
+|------|-----------|-------------|
 | `prepareToPlay` | 44100 / 4 = **11025 Hz** | `analysisWindow` = 2048 raw |
-| `maxLag` YIN | 11025 / 30 Hz = **367 samples** | besoin = 2*367 = **734** |
-| `decimation = 8` | 44100 / 8 = **5512 Hz** | `2048/8` = **256 echantillons** |
-| Verif YIN | 256 < 734 ? **ECHEC -> retourne 0** | | |
+| `maxLag` YIN | 11025 / 30 Hz = **367 samples** | needed = 2*367 = **734** |
+| `decimation = 8` | 44100 / 8 = **5512 Hz** | `2048/8` = **256 samples** |
+| YIN check | 256 < 734 ? **FAIL -> returns 0** | | |
 
-**Resultat** : `detectPitch()` retourne immediatement `0.0f` a CHAQUE
-bloc, car `numSamples (256) < maxLag * 2 (734)`.
+**Result**: `detectPitch()` returns `0.0f` immediately at EVERY
+block, because `numSamples (256) < maxLag * 2 (734)`.
 
-**Le YIN n'a jamais fonctionne depuis la refonte Multi-Moteurs**
-(Phase 7, 2026-06-12) qui avait introduit la decimation par 8 sans
-mettre a jour `prepareToPlay`.
+**YIN has never worked since the Multi-Engine overhaul**
+(Phase 7, 2026-06-12) which introduced the decimation by 8 without
+updating `prepareToPlay`.
 
-Le formant shift fonctionnait independamment car le PitchShifter
-utilise le `formantRatio` pour controler la vitesse de lecture des
-grains, independamment du `f0_in`.
+The formant shift worked independently because the PitchShifter
+uses `formantRatio` to control the playback speed of the grains,
+independently of `f0_in`.
 
-### Correctif R4
+### R4 fix
 
-| Fichier | Avant | Apres |
-|---------|-------|-------|
+| File | Before | After |
+|------|--------|-------|
 | `PluginProcessor.h` `analysisWindow` | 2048 | **4096** |
 | `PluginProcessor.h` `analysisHopSize` | 1024 (~23ms) | **2048 (~46ms)** |
 | `PluginProcessor.cpp` `decimation` | 8 | **4** |
 
-Verification apres correctif :
+Verification after fix:
 
-| Etape | Valeur |
-|-------|--------|
+| Step | Value |
+|------|-------|
 | Prepare sample rate | 44100 / 4 = **11025 Hz** |
 | maxLag YIN (30 Hz) | 11025 / 30 = **367 samples** |
-| Besoin YIN (2*maxLag) | **734 samples** |
+| YIN need (2*maxLag) | **734 samples** |
 | Decimated window (4096/4) | **1024 samples** |
-| Verif | 1024 >= 734 ? **OK -> YIN s'execute** |
+| Check | 1024 >= 734 ? **OK -> YIN runs** |
 
-### Fichiers modifies Round 2
+### Files modified Round 2
 
-| Fichier | Modification |
-|---------|-------------|
+| File | Modification |
+|------|--------------|
 | `Source/PluginProcessor.h` | `analysisWindow` 2048 -> 4096, `analysisHopSize` 1024 -> 2048 |
-| `Source/PluginProcessor.cpp` | `decimation` 8 -> 4, commentaire mis a jour |
+| `Source/PluginProcessor.cpp` | `decimation` 8 -> 4, comment updated |
 
 ---
 
-## Round 3 (cette session) - Drops d'octave sur note tenue
+## Round 3 (this session) - Octave drops on held note
 
-### R5 - Anti-octave-error trop permissif et bug de consensus
+### R5 - Overly permissive octave-error prevention and consensus bug
 
-**Symptome** : l'autotune fonctionne mais le pitch detecte saute regulierement
-d'une octave (souvent vers le haut) alors que l'utilisateur tient une note
-constante.
+**Symptom**: autotune works but the detected pitch regularly jumps
+by an octave (often upward) while the user holds a constant note.
 
-**Cause racine identifiee** : 2 bugs dans l'anti-octave-error du PitchDetector :
+**Root cause identified**: 2 bugs in the PitchDetector octave-error prevention:
 
-#### Bug 1 (detectPitch etape 3b) - Seuils trop restrictifs
-L'ancienne correction verifiait `yinBuffer[tauHalf] < threshold` et
-`ratio < 1.1`. Quand YIN trouvait la 2e harmonique (tau correspondant a
-2*f0, typique des voix feminines et des voyelles avec formant eleve),
-`yinBuffer[2*tau]` (la bonne fondamentale) n'etait PAS sous le seuil,
-donc la correction ne se declenchait pas.
+#### Bug 1 (detectPitch step 3b) - Thresholds too restrictive
+The old correction checked `yinBuffer[tauHalf] < threshold` and
+`ratio < 1.1`. When YIN found the 2nd harmonic (tau corresponding to
+2*f0, typical of female voices and vowels with high formant),
+`yinBuffer[2*tau]` (the correct fundamental) was NOT below the
+threshold, so the correction did not trigger.
 
-**Correctif** : remplacement par une evaluation systematique des 2
-alternatives (tau/2 et 2*tau). L'algorithme choisit la meilleure
-selon :
-- (a) la valeur de d' (la plus basse = meilleure clarte)
-- (b) la continuite d'octave avec `lastValidPitch` (a clarte similaire
-      a < 20%, on prefere l'octave la plus proche du contexte)
+**Fix**: replaced with a systematic evaluation of the 2
+alternatives (tau/2 and 2*tau). The algorithm chooses the best
+one based on:
+- (a) the d' value (lowest = best clarity)
+- (b) octave continuity with `lastValidPitch` (at similar clarity
+      within < 20%, the octave closest to the context is preferred)
 
-#### Bug 2 (getMedianFiltered) - Verification sur 1 valeur au lieu de 5
-L'ancienne boucle de continuite d'octave avait un `break` qui arretait
-la verification apres la PREMIERE valeur valide de l'historique. Si
-cette unique valeur etait un outlier (par ex. un pitch parasite a
-l'octave), la correction etait appliquee a tort.
+#### Bug 2 (getMedianFiltered) - Check on 1 value instead of 5
+The old octave-continuity loop had a `break` that stopped
+the check after the FIRST valid value in the history. If that
+single value was an outlier (e.g., a spurious pitch an octave
+away), the correction was wrongly applied.
 
-**Correctif** : verification par CONSENSUS sur les 5 valeurs de
-l'historique. La correction n'est appliquee que si >= 3 valeurs
-valides indiquent le MEME saut d'octave, et AUCUNE ne vote pour
-la direction opposee.
+**Fix**: CONSENSUS check across the 5 history values. The correction
+is applied only if >= 3 valid values indicate the SAME octave jump,
+and NONE votes for the opposite direction.
 
-### Fichier modifie Round 3
+### File modified Round 3
 
-| Fichier | Modification |
-|---------|-------------|
-| `Source/dsp/PitchDetector.cpp` | `detectPitch()` etape 3b : nouvelle logique d'evaluation systematique des octaves. `getMedianFiltered()` : correction par consensus vote > 50% |
+| File | Modification |
+|------|--------------|
+| `Source/dsp/PitchDetector.cpp` | `detectPitch()` step 3b: new systematic octave evaluation logic. `getMedianFiltered()`: consensus vote > 50% correction |
 
 ---
 
-## Bilan
+## Summary
 
-| Panne | Cause | Correctif | Statut |
-|-------|-------|-----------|--------|
-| R1 | ratio 1.0 sur micro-pause YIN | fallback lastValidPitchForAutotune | **Compile** |
-| R2 | pas de labels de notes | setNoteNames() sur les 2 pianos | **Compile** |
-| R3 | getPlayHead synchrone | cache 10ms | **Compile** |
-| **R4** | **YIN ne s'executait jamais** | **decimation=4, analysisWindow=4096** | **Compile** |
-| **R5** | **Drops d'octave sur note tenue** | **Nouvelle etape 3b + consensus median** | **Compile** |
-| **R6** | **Drops d'octave persistent en mode Curve Editor** | **Filtre anti-saut dans processBlock (lastOctaveValidatedPitch)** | **Compile** |
+| Failure | Cause | Fix | Status |
+|---------|-------|-----|--------|
+| R1 | ratio 1.0 on YIN micro-pause | fallback lastValidPitchForAutotune | **Compiles** |
+| R2 | no note labels | setNoteNames() on both pianos | **Compiles** |
+| R3 | synchronous getPlayHead | 10ms cache | **Compiles** |
+| **R4** | **YIN never executed** | **decimation=4, analysisWindow=4096** | **Compiles** |
+| **R5** | **Octave drops on held note** | **New step 3b + median consensus** | **Compiles** |
+| **R6** | **Persistent octave drops in Curve Editor mode** | **Anti-jump filter in processBlock (lastOctaveValidatedPitch)** | **Compiles** |
 
-## Round 4 - Drops d'octave persistent en mode Curve Editor
+## Round 4 - Persistent octave drops in Curve Editor mode
 
-### R6 - Saut d'octave dans processBlock non rattrape par YIN
+### R6 - Octave jump in processBlock not caught by YIN
 
-**Symptome** : malgre les correctifs R5 dans PitchDetector, des drops
-d'octave se produisent encore, MEME en mode Curve Editor (ou pourtant
-la note cible est forcee par la courbe utilisateur).
+**Symptom**: despite the R5 fixes in PitchDetector, octave drops
+still occur, EVEN in Curve Editor mode (where the target note is
+forced by the user curve).
 
-**Cause racine** : le probleme n'est PAS dans YIN mais dans la maniere
-dont `f0_in` est utilise par `processBlock`. Meme avec la bonne note
-cible fournie par la courbe, si `f0_in` saute d'une octave :
-- Le ratio `f0_target / f0_in` devient faux (moitie ou double)
-- Le PitchShifter recoit un ratio invalide -> grains synthetises a
-  la mauvaise periode -> output drop d'octave
-- Le formant shift n'est pas impacte car il utilise `formantRatio`
-  independamment de `f0_in`
+**Root cause**: the problem is NOT in YIN but in how `f0_in` is used
+by `processBlock`. Even with the correct target note provided by the
+curve, if `f0_in` jumps by an octave:
+- The ratio `f0_target / f0_in` becomes wrong (half or double)
+- The PitchShifter receives an invalid ratio -> grains synthesized at
+  the wrong period -> output octave drop
+- The formant shift is not impacted because it uses `formantRatio`
+  independently of `f0_in`
 
-**Correctif** : ajout d'un **filtre anti-saut-d'octave** au niveau
-de `processBlock`, apres `computeInputPitch()`. Ce filtre verifie
-que `f0_in` ne saute pas d'un facteur ~2 ou ~0.5 par rapport au
-dernier pitch valide (`lastOctaveValidatedPitch`). Si c'est le cas,
-il conserve l'ancienne valeur.
+**Fix**: added an **octave-jump filter** at the `processBlock` level,
+after `computeInputPitch()`. This filter verifies that `f0_in` does
+not jump by a factor of ~2 or ~0.5 relative to the last valid pitch
+(`lastOctaveValidatedPitch`). If it does, it keeps the old value.
 
-Contrairement aux corrections R5 dans PitchDetector (qui agissent
-sur la sortie de YIN), ce filtre est **independant de YIN** et
-protege le pipeline complet : autotune, harmonies ET Curve Editor.
+Unlike the R5 fixes in PitchDetector (which act on YIN's output), this
+filter is **independent of YIN** and protects the entire pipeline:
+autotune, harmonies AND Curve Editor.
 
-### Fichiers modifies Round 4
+### Files modified Round 4
 
-| Fichier | Modification |
-|---------|-------------|
-| `Source/PluginProcessor.h` | Ajout membre `lastOctaveValidatedPitch` |
-| `Source/PluginProcessor.cpp` | Filtre anti-saut d'octave entre `computeInputPitch()` et `lastInputPitch.store()` |
+| File | Modification |
+|------|--------------|
+| `Source/PluginProcessor.h` | Added `lastOctaveValidatedPitch` member |
+| `Source/PluginProcessor.cpp` | Octave-jump filter between `computeInputPitch()` and `lastInputPitch.store()` |
 
 ---
 
-## Bilan final
+## Final summary
 
-| Panne | Cause | Correctif | Statut |
-|-------|-------|-----------|--------|
-| R1 | ratio 1.0 sur micro-pause YIN | fallback lastValidPitchForAutotune | **Compile** |
-| R2 | pas de labels de notes | setNoteNames() sur les 2 pianos | **Compile** |
-| R3 | getPlayHead synchrone | cache 10ms | **Compile** |
-| R4 | YIN ne s'executait jamais | decimation=4, analysisWindow=4096 | **Compile** |
-| R5 | Drops d'octave (YIN interne) | Nouvelle etape 3b + consensus median | **Compile** |
-| **R6** | **Drops d'octave (pipeline)** | **Filtre anti-saut dans processBlock** | **Compile** |
+| Failure | Cause | Fix | Status |
+|---------|-------|-----|--------|
+| R1 | ratio 1.0 on YIN micro-pause | fallback lastValidPitchForAutotune | **Compiles** |
+| R2 | no note labels | setNoteNames() on both pianos | **Compiles** |
+| R3 | synchronous getPlayHead | 10ms cache | **Compiles** |
+| R4 | YIN never executed | decimation=4, analysisWindow=4096 | **Compiles** |
+| R5 | Octave drops (internal YIN) | New step 3b + median consensus | **Compiles** |
+| **R6** | **Octave drops (pipeline)** | **Anti-jump filter in processBlock** | **Compiles** |
 
-**Build Release VST3 reussi** apres chaque round. Le plugin est maintenant
-fonctionnel avec autotune + harmonies + affichage + latence maitrisee +
-anti-octave-error multicouche.
+**Release VST3 build succeeded** after each round. The plugin is now
+functional with autotune + harmonies + display + controlled latency +
+multi-layer octave-error prevention.

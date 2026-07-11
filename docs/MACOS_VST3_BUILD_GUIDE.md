@@ -1,52 +1,47 @@
 # Build VST3 macOS (OpenVoxTuner)
 
-Ce guide correspond au projet actuel (`OpenVoxTuner`) et à son `CMakeLists.txt`.
+This guide corresponds to the current project (`OpenVoxTuner`) and its `CMakeLists.txt`.
 
-## Prérequis macOS
+## macOS Prerequisites
 
-Installer sur Mac :
+Install on Mac:
 
 ```bash
 xcode-select --install
 brew install cmake ninja
 ```
 
-Cloner JUCE localement (exemple) :
+Clone JUCE locally (example):
 
 ```bash
 git clone https://github.com/juce-framework/JUCE.git ~/dev/JUCE
 ```
 
-## Build rapide avec le script
+## Quick Build with the Script
 
-Depuis la racine du projet :
+From the project root:
 
 ```bash
 chmod +x ./build_macos_vst3.sh
 ./build_macos_vst3.sh --juce-path ~/dev/JUCE --install
 ```
 
-## Build sur macOS avec SDK "insider" (26.x)
+## Build on macOS with "insider" SDK (26.x)
 
-Si vous utilisez une version "insider" du SDK macOS (ex: Xcode 17+ / macOS 26.5)
-qui n'est pas officiellement supportee par JUCE 8, le CMakeLists.txt contient
-deja les adaptations necessaires :
+If you are using an "insider" version of the macOS SDK (e.g., Xcode 17+ / macOS 26.5) which is not officially supported by JUCE 8, the CMakeLists.txt already contains the necessary adaptations:
 
-1. **Deployment target force** : `CMAKE_OSX_DEPLOYMENT_TARGET = "11.0"`
-   (configurable via `-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0` en ligne de commande)
-2. **Avertissements desactives** : `-Wno-unguarded-availability` pour ignorer
-   les warnings d'API depreciees dans le SDK 26.x.
+1. **Forced deployment target**: `CMAKE_OSX_DEPLOYMENT_TARGET = "11.0"` (configurable via `-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0` on the command line)
+2. **Disabled warnings**: `-Wno-unguarded-availability` to ignore deprecated API warnings in the 26.x SDK.
 
-**Si des erreurs persistent**, vous pouvez forcer l'utilisation d'un SDK
-specifique installe sur votre machine (ex: macOS 14.5 SDK) :
+**If errors persist**, you can force the use of a specific SDK installed on your machine (e.g., macOS 14.5 SDK):
 
 ```bash
-# Lister les SDK disponibles
+# List available SDKs
 ls /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
-# ou pour Xcode beta
+# or for Xcode beta
 ls /Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
 
-# Forcer un SDK specifique dans la commande CMake
+# Force a specific SDK in the CMake command
 cmake -B build_mac \
   -DCMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
@@ -56,36 +51,35 @@ cmake -B build_mac \
 cmake --build build_mac
 ```
 
-> **Note** : `CMAKE_OSX_SYSROOT` pointe vers un dossier SDK INSTALLE.
-> Si vous n'avez qu'un seul Xcode, le SDK par defaut est le bon.
-> Utilisez `CMAKE_OSX_DEPLOYMENT_TARGET` seul suffit dans la majorite
-> des cas.
+> **Note**: `CMAKE_OSX_SYSROOT` points to an INSTALLED SDK folder.
+> If you have only a single Xcode, the default SDK is the right one.
+> Using `CMAKE_OSX_DEPLOYMENT_TARGET` alone is sufficient in most cases.
 
-Ce script :
-1. Configure CMake en `Release`
-2. Build la target `OpenVoxTuner_VST3`
-3. Copie le bundle dans `~/Library/Audio/Plug-Ins/VST3` si `--install` est fourni
+This script:
+1. Configures CMake in `Release`
+2. Builds the `OpenVoxTuner_VST3` target
+3. Copies the bundle to `~/Library/Audio/Plug-Ins/VST3` if `--install` is provided
 
-## Options utiles du script
+## Useful Script Options
 
 ```bash
 ./build_macos_vst3.sh --help
 ```
 
-Exemples :
+Examples:
 
 ```bash
-# Build universal (Apple Silicon + Intel), sans installation
+# Build universal (Apple Silicon + Intel), without installation
 ./build_macos_vst3.sh --juce-path ~/dev/JUCE --arch "arm64;x86_64"
 
-# Build arm64 uniquement
+# Build arm64 only
 ./build_macos_vst3.sh --juce-path ~/dev/JUCE --arch arm64
 
-# Build dans un dossier custom
+# Build in a custom folder
 ./build_macos_vst3.sh --juce-path ~/dev/JUCE --build-dir build-mac-release
 ```
 
-## Build manuel (sans script)
+## Manual Build (without script)
 
 ```bash
 cmake -S . -B build-mac -G Ninja \
@@ -96,13 +90,13 @@ cmake -S . -B build-mac -G Ninja \
 cmake --build build-mac --config Release --target OpenVoxTuner_VST3
 ```
 
-Bundle généré (chemin attendu) :
+Generated bundle (expected path):
 
 ```text
 build-mac/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vst3
 ```
 
-Copie manuelle vers le dossier utilisateur VST3 :
+Manual copy to the user VST3 folder:
 
 ```bash
 mkdir -p ~/Library/Audio/Plug-Ins/VST3
@@ -110,19 +104,19 @@ rsync -a --delete "build-mac/OpenVoxTuner_artefacts/Release/VST3/OpenVoxTuner.vs
   ~/Library/Audio/Plug-Ins/VST3/
 ```
 
-## Scripts macOS disponibles
+## Available macOS Scripts
 
-- `build_macos_vst3.sh` : build VST3 (et installation locale optionnelle)
-- `build_macos_au.sh` : build AU (et installation locale optionnelle)
-- `build_macos_pkg.sh` : génération d'un installateur `.pkg` (par défaut : `VST3 + AU + STANDALONE`)
+- `build_macos_vst3.sh`: build VST3 (and optional local installation)
+- `build_macos_au.sh`: build AU (and optional local installation)
+- `build_macos_pkg.sh`: generate a `.pkg` installer (default: `VST3 + AU + STANDALONE`)
 
-Voir aussi : `docs/MACOS_AU_AND_INSTALLER_GUIDE.md`.
+See also: `docs/MACOS_AU_AND_INSTALLER_GUIDE.md`.
 
-## Distribution (optionnel)
+## Distribution (optional)
 
-Pour distribuer publiquement sur macOS, prévoir :
+For public distribution on macOS, plan for:
 - `codesign`
-- notarization Apple (`notarytool`)
+- Apple notarization (`notarytool`)
 - `stapler`
 
-Le script ci-dessus couvre uniquement le build + installation locale développeur.
+The script above only covers the developer build + local installation.
