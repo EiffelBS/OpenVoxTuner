@@ -1,10 +1,10 @@
 // YinPitchDetector.h
 // Pitch detection using the YIN algorithm (de Cheveigne & Kawahara, 2002).
-// Implements IPitchDetector interface for interchangeability with SWIPE'.
+// Implements the IPitchDetector interface.
 //
 // This is the original algorithm from PitchDetector, refactored into
 // the IPitchDetector hierarchy. The original PitchDetector.h/.cpp files
-// are preserved unchanged for rollback (see docs/pitch-detection-rollback-guide.md).
+// are preserved unchanged for reference (see docs/pitch-detection-rollback-guide.md).
 
 #pragma once
 

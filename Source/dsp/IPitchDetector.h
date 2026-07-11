@@ -1,11 +1,9 @@
 // IPitchDetector.h
 // Abstract interface for pitch detection algorithms.
-// Allows runtime switching between YIN and SWIPE' implementations
-// with a clean rollback path.
+// Currently only YIN is implemented (see YinPitchDetector).
 //
 // References:
 //   YIN:  de Cheveigne & Kawahara, J. Acoust. Soc. Am. 111 (4), 2002
-//   SWIPE': Camacho & Harris, IEEE Trans. ASLP, 2008
 
 #pragma once
 
