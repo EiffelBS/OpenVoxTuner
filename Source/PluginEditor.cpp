@@ -727,7 +727,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // Auto-save the CURRENT slot before loading the other one.
             // Only save if the current state matches this slot's original state
             // (morph slider at the correct endpoint), not a morphed blend.
-            const float morphPos = (float) morphSlider.getValue();
+            const float morphPos = processorRef.getMorphAmount();
             const bool atOwnEndpoint = isSlotAActive ? (morphPos < 0.01f) : (morphPos > 0.99f);
             if (atOwnEndpoint)
             {
@@ -758,8 +758,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             }
 
             // Position slider: A=left (0), B=right (1)
-            morphSlider.setValue (slotIdx == 0 ? 0.0 : 1.0, juce::dontSendNotification);
-            lastMorphValue = (float) slotIdx;
+            processorRef.setMorphAmount (slotIdx == 0 ? 0.0f : 1.0f);
 
             updateABButtonStates();
         };
@@ -778,12 +777,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     morphSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     morphSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     morphSlider.setRange (0.0, 1.0, 0.01);
-    morphSlider.setValue (0.0, juce::dontSendNotification);
     morphSlider.setColour (juce::Slider::thumbColourId, ovt::accent());
     morphSlider.setColour (juce::Slider::trackColourId, ovt::accent().withAlpha (0.7f));
     morphSlider.setColour (juce::Slider::backgroundColourId, ovt::bgPanel());
     morphSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipMorphDrag));
-    morphSlider.onValueChange = [this] { onMorphSliderChanged ((float) morphSlider.getValue()); };
+    // Morph is now a host-automatable parameter ("morph_amount"). The slider is
+    // bound to it via this attachment, so DAW automation and the slider stay in
+    // sync. The actual morph application is driven from timerCallback().
+    morphAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>
+        (processorRef.getParameters(), "morph_amount", morphSlider);
     addAndMakeVisible (morphSlider);
     morphSlider.addMouseListener (this, false); // for right-click context menu
 
@@ -1693,6 +1695,15 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         }
     }
 
+    // Morph: apply whenever the DAW (or the slider) changes the automatable
+    // "morph_amount" parameter. Driven here so DAW automation works even without
+    // user interaction with the slider.
+    {
+        const float m = processorRef.getMorphAmount();
+        if (m != lastMorphValue)
+            onMorphSliderChanged (m);
+    }
+
     if (updateCheckState != nullptr)
     {
         if (! updateCheckState->finished.load())
@@ -1967,7 +1978,7 @@ void OpenVoxTunerAudioProcessorEditor::resetMorph()
             curveEditor->setGhostCurve (nullptr);
         }
     }
-    morphSlider.setValue (0.0, juce::dontSendNotification);
+    processorRef.setMorphAmount (0.0f);
     lastMorphValue = 0.0f;
     morphSource.reset();
     morphTarget.reset();
@@ -2046,7 +2057,7 @@ void OpenVoxTunerAudioProcessorEditor::undoMorph()
         curveEditor->setCurve (morphUndoState->curve);
         curveEditor->setGhostCurve (nullptr);
     }
-    morphSlider.setValue (0.0, juce::dontSendNotification);
+    processorRef.setMorphAmount (0.0f);
     lastMorphValue = 0.0f;
     morphUndoState.reset();
 }
@@ -2060,7 +2071,7 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
             atdsp::captureState (processorRef.getParameters(),
                                  processorRef.getPitchCurve(), "Current"));
         morphSourceName = "Current";
-        morphSlider.setValue (0.0, juce::dontSendNotification);
+        processorRef.setMorphAmount (0.0f);
         lastMorphValue = 0.0f;
     });
 
@@ -2071,7 +2082,7 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
         {
             morphTarget = std::make_unique<atdsp::MorphState> (*slotA.morphState);
             morphTargetName = "Slot A";
-            morphSlider.setValue (0.0, juce::dontSendNotification);
+            processorRef.setMorphAmount (0.0f);
             lastMorphValue = 0.0f;
         }
     });
@@ -2081,7 +2092,7 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
         {
             morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
             morphTargetName = "Slot B";
-            morphSlider.setValue (0.0, juce::dontSendNotification);
+            processorRef.setMorphAmount (0.0f);
             lastMorphValue = 0.0f;
         }
     });
@@ -2097,7 +2108,7 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
             morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
             morphTargetName = "Slot B";
 
-            morphSlider.setValue (0.0, juce::dontSendNotification);
+            processorRef.setMorphAmount (0.0f);
             lastMorphValue = 0.0f;
         }
     });
@@ -2120,7 +2131,7 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
                 curveEditor->setGhostCurve (nullptr);
             }
         }
-        morphSlider.setValue (0.0, juce::dontSendNotification);
+        processorRef.setMorphAmount (0.0f);
         lastMorphValue = 0.0f;
     });
 
@@ -2159,7 +2170,7 @@ void OpenVoxTunerAudioProcessorEditor::mouseDown (const juce::MouseEvent& event)
         auto* source = event.eventComponent;
         if (source == &morphSlider)
         {
-            morphSlider.setValue (0.5, juce::sendNotificationSync);
+            processorRef.setMorphAmount (0.5f);
         }
     }
 }
@@ -2550,7 +2561,7 @@ void OpenVoxTunerAudioProcessorEditor::updateABButtonStates()
     morphSliderLabel.setVisible (bothFilled);
     if (! bothFilled && morphSource != nullptr)
     {
-        morphSlider.setValue (0.0, juce::dontSendNotification);
+        processorRef.setMorphAmount (0.0f);
         lastMorphValue = 0.0f;
         morphSource.reset();
         morphTarget.reset();

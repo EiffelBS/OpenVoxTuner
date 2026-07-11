@@ -389,6 +389,11 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       // UI Language: 0 = English (default), 1 = French, 2 = German, 3 = Spanish, 4 = Japanese
                       , std::make_unique<juce::AudioParameterInt> (
                             "ui_language", "UI Language", 0, 4, 0)
+                      // Morph: A/B crossfade position (0 = source slot A, 1 = target slot B).
+                      // Made a host-automatable parameter so the DAW can automate the morph.
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "morph_amount", "Morph",
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f)
                     })
 {
     // Ensure per-channel MIDI note state starts clean (-1 means no active note)
@@ -420,6 +425,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     harmonyToneColorParam = parameters.getRawParameterValue ("harmony_tone_color");
     midiOutEnableParam = parameters.getRawParameterValue ("midi_out_enable");
     dbgTestGrainParam = parameters.getRawParameterValue ("dbg_test_grain");
+    morphAmountParam = parameters.getRawParameterValue ("morph_amount");
+    morphParam = dynamic_cast<juce::AudioParameterFloat*>(parameters.getParameter ("morph_amount"));
     editorMeasuresParam = parameters.getRawParameterValue ("editor_measures");
     detectorParam = parameters.getRawParameterValue ("pitch_detector");
     reverbEnableParam = parameters.getRawParameterValue ("reverb_enable");
@@ -497,6 +504,12 @@ OpenVoxTunerAudioProcessor::~OpenVoxTunerAudioProcessor() = default;
 const juce::String OpenVoxTunerAudioProcessor::getName() const
 {
     return JucePlugin_Name;
+}
+
+void OpenVoxTunerAudioProcessor::setMorphAmount (float v)
+{
+    if (morphParam != nullptr)
+        morphParam->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, v));
 }
 
 // === Audio configuration (before the first processBlock) ===

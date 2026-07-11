@@ -12,11 +12,14 @@ plugin states (a "source" and a "target") using a dedicated morph slider.
 The transition interpolates all audio-relevant parameters in real-time while
 maintaining glitch-free audio output.
 
-> **Correction:** The morph control is a **UI-only `juce::Slider`** (declared
-> in `PluginEditor.h`), not an `AudioParameterFloat` / APVTS parameter. There
-> is no `morph_amount` parameter. Dragging the slider triggers
-> `onMorphSliderChanged()` which interpolates a `MorphState` and writes the
-> resulting values to the real parameters. See sections 2.1 and 3.4.
+> **Morph parameter:** The morph control is a host-automatable
+> `AudioParameterFloat` named `morph_amount` (0 = source slot A, 1 = target
+> slot B), registered in the APVTS. The slider is bound to it via a
+> `SliderAttachment`, so DAW automation and the slider stay in sync. The
+> `timerCallback()` polls the parameter value and calls
+> `onMorphSliderChanged()` when it changes, interpolating a `MorphState` and
+> writing the resulting values to the real parameters. See sections 2.1 and
+> 3.4.
 
 ---
 
@@ -129,9 +132,9 @@ A and B buttons** and to the left of the Presets button:
 ```
 
 **UI Element**: `juce::Slider` (linear horizontal) — declared as
-`juce::Slider morphSlider { "Morph" };` in `PluginEditor.h`. It is a
-**UI-only control**, not an APVTS parameter.
-- Range: 0.0 to 1.0, step 0.01
+`juce::Slider morphSlider { "Morph" };` in `PluginEditor.h`. It is bound to
+the `morph_amount` APVTS parameter via a `SliderAttachment`.
+- Range: 0.0 to 1.0 (step 0.001, matching the parameter's normalisable range)
 - Slider label: "Morph" (small, above the slider)
 - Source label: preset name or "Current" (left of slider)
 - Target label: preset name or "Target" (right of slider)
@@ -157,46 +160,44 @@ is visible, the selected preset becomes the **target** state. The morph
 slider resets to 0.0 (source) and the user can drag to morph toward the
 target.
 
-### 3.4 DAW Automation — NOT a Parameter (Priority correction)
+### 3.4 DAW Automation — `morph_amount` Parameter
 
-The morph slider is **NOT** exposed as an automatable `AudioParameterFloat`
-and there is **no** `morph_amount` parameter in the APVTS. It is a UI-only
-`juce::Slider` (`morphSlider` in `PluginEditor.h`) whose value is interpreted
-by `onMorphSliderChanged()` on the message thread.
+The morph is exposed as a host-automatable `AudioParameterFloat` named
+`morph_amount` (registered in the APVTS). The slider is bound to it via a
+`SliderAttachment`, so DAW automation, MIDI CC mapping, and project persistence
+all apply to the morph position.
 
 Consequences:
 
-- **No timeline automation of the morph position**: there is no DAW
-  automation lane for "morph", so you cannot draw a morph curve across song
-  sections (verse -> chorus) at the morph level.
-- **No MIDI CC mapping of the morph position**: morph cannot be mapped to a
-  MIDI CC as a parameter. (The *resulting* underlying parameters — speed,
-  amount, formant, etc. — remain individually automatable/MIDI-mappable via
-  their own parameters.)
-- **No dedicated morph persistence**: only the resulting parameter values are
-  saved through the normal APVTS state. The morph slider position and the
-  source/target pair are reconstructed from the A/B slot `MorphState`
-  snapshots, not stored as a single `morph_amount`.
+- **Timeline automation of the morph position**: a DAW automation lane exists
+  for "Morph", so you can draw a morph curve across song sections
+  (verse -> chorus) at the morph level.
+- **MIDI CC mapping**: morph can be mapped to a MIDI CC like any other
+  parameter. (The *resulting* underlying parameters — speed, amount, formant,
+  etc. — remain individually automatable/MIDI-mappable via their own
+  parameters.)
+- **Morph persistence**: the morph position is saved in the DAW project / user
+  preferences as a normal APVTS parameter. The source/target pair is
+  reconstructed from the A/B slot `MorphState` snapshots.
 
-**Implementation**: Dragging the slider calls
-`atdsp::applyInterpolatedState(parameters, source, target, value)`, which
-writes the interpolated underlying parameters via `setValueNotifyingHost()`
-(not `setValue()`, since morph is a UI action that should notify the host of
-each parameter change). The morph slider itself never appears in the DAW's
-parameter list.
+**Implementation**: `timerCallback()` polls `morph_amount` and calls
+`atdsp::applyInterpolatedState(parameters, source, target, value)` when it
+changes, which writes the interpolated underlying parameters via
+`setValueNotifyingHost()`. The morph appears in the DAW's parameter list as
+"Morph".
 
 ### 3.5 Standalone vs Plugin
 
-Because the morph is a UI-only slider (not a parameter), its behavior is
-identical in both contexts:
+Because the morph is a real parameter, its automation behavior is identical in
+both contexts:
 
 | Aspect | Plugin (VST3/AU) | Standalone |
 |--------|-------------------|------------|
-| Parameter automation | Underlying params automatable; **morph position is not** | Same — morph position not automatable |
-| State persistence | Underlying params saved in DAW project; morph pair reconstructed from A/B slots | Underlying params saved in user preferences; morph pair reconstructed from A/B slots |
+| Parameter automation | Morph + underlying params automatable | Morph + underlying params automatable |
+| State persistence | Saved in DAW project | Saved in user preferences |
 | Target preset loading | From plugin preset menu | From file browser |
 | A/B integration | Morph between A and B slots | Same |
-| **Primary use case** | **Song arrangement** (manual transitions during editing) | **Live performance** (real-time manual control) |
+| **Primary use case** | **Song arrangement** (manual or automated transitions) | **Live performance** (real-time manual control) |
 
 ### 3.6 ARA2 Considerations
 
@@ -205,8 +206,8 @@ less critical in this context. However, the morph can still be useful for:
 - Transitioning between correction styles within a long ARA region
 - Creative effects (morph from "natural" to "robotic" during a phrase)
 
-The morph works the same way in ARA2 — it is just a UI-only slider that
-writes the underlying parameters; it is not an ARA-driven or region-scoped
+The morph works the same way in ARA2 — it is a normal automatable parameter
+that writes the underlying parameters; it is not an ARA-driven or region-scoped
 automation parameter.
 
 ### 3.7 Ergonomic Constraints
@@ -376,7 +377,7 @@ operations, and state save/restore cycles.
 | File | Changes |
 |------|---------|
 | `Source/dsp/PresetMorpher.h` | **NEW** — MorphState struct, interpolation engine |
-| `Source/PluginEditor.h` | Add morph slider (UI-only `juce::Slider`), morph state members, right-click menu |
+| `Source/PluginEditor.h` | Add morph slider bound to the `morph_amount` APVTS parameter (via `SliderAttachment`), morph state members, right-click menu |
 | `Source/PluginEditor.cpp` | Morph slider setup, `onMorphSliderChanged()` callback logic, preset menu integration |
 | `Source/PluginProcessor.h` | Add morph-related accessors (getMorphAmount, setMorphSource) |
 | `Source/PluginProcessor.cpp` | Save/restore morph state in getStateInformation/setStateInformation |
