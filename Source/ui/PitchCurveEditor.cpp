@@ -16,6 +16,14 @@ namespace ui
     // Static clipboard for copy/paste across instances
     juce::Array<atdsp::PitchPoint> PitchCurveEditor::clipboard;
 
+    // Full chromatic interval set [0, 11], used by the "snap off" magnetism
+    // branch (snap to the nearest chromatic note when close enough).
+    static const juce::Array<int>& getChromaticIntervals()
+    {
+        static const juce::Array<int> chromatic = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+        return chromatic;
+    }
+
     PitchCurveEditor::PitchCurveEditor()
     {
         // Do NOT load the "default" preset here — the parent editor will
@@ -769,14 +777,11 @@ namespace ui
 
             if (snapEnabled)
             {
-                if (currentScale == atdsp::Scale::Custom && ! customIntervalsCache.isEmpty())
-                    hz = atdsp::PitchCurve::snapToScaleCustom (hz, customIntervalsCache);
-                else
-                    hz = atdsp::PitchCurve::snapToScale (hz, keyIdx, currentScale);
+                hz = atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
             }
             else
             {
-                float snappedHz = atdsp::PitchCurve::snapToScale (hz, 0, atdsp::Scale::Chromatic);
+                float snappedHz = atdsp::PitchCurve::snapToIntervals (hz, getChromaticIntervals());
                 float centsDiff = 1200.0f * std::log2 (hz / snappedHz);
                 if (std::abs (centsDiff) < 15.0f)
                     hz = snappedHz;
@@ -847,16 +852,13 @@ namespace ui
         // Snap to note / Snap to scale
         if (snapEnabled)
         {
-            if (currentScale == atdsp::Scale::Custom && ! customIntervalsCache.isEmpty())
-                hz = atdsp::PitchCurve::snapToScaleCustom (hz, customIntervalsCache);
-            else
-                hz = atdsp::PitchCurve::snapToScale (hz, keyIdx, currentScale);
+            hz = atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
         }
         else
         {
             // Snap to note (Chromatique implicite par magnetisme)
             // L'utilisateur voulait un "snap-to-note lors du changement de pitch" meme sans la gamme.
-            float snappedHz = atdsp::PitchCurve::snapToScale(hz, 0, atdsp::Scale::Chromatic);
+            float snappedHz = atdsp::PitchCurve::snapToIntervals (hz, getChromaticIntervals());
             // Magnetisme si on est proche de la note exacte (ex: ecart de moins de 15 cents)
             float centsDiff = 1200.0f * std::log2(hz / snappedHz);
             if (std::abs(centsDiff) < 15.0f) {
@@ -974,10 +976,7 @@ namespace ui
         
         if (snapEnabled)
         {
-            if (currentScale == atdsp::Scale::Custom && ! customIntervalsCache.isEmpty())
-                hz = atdsp::PitchCurve::snapToScaleCustom (hz, customIntervalsCache);
-            else
-                hz = atdsp::PitchCurve::snapToScale (hz, keyIdx, currentScale);
+            hz = atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
         }
         curve.addOrUpdatePoint (t, hz);
         notifyChanged();
@@ -1053,10 +1052,7 @@ namespace ui
         if (hz <= 0.0f) return;
         if (snapEnabled)
         {
-            if (currentScale == atdsp::Scale::Custom && ! customIntervalsCache.isEmpty())
-                hz = atdsp::PitchCurve::snapToScaleCustom (hz, customIntervalsCache);
-            else
-                hz = atdsp::PitchCurve::snapToScale (hz, keyIdx, currentScale);
+            hz = atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
         }
         curve.addOrUpdatePoint (currentTime, hz);
         notifyChanged();
@@ -1131,15 +1127,13 @@ namespace ui
         // Re-snap tous les points si le snap est actif.
         if (snapEnabled)
         {
+            // Snap against the authoritative interval set (same as the on-screen
+            // display) so re-snapping always matches the visible scale.
             for (int i = 0; i < curve.getNumPoints(); ++i)
             {
                 const float hz = curve.getPoint (i).pitch;
-                if (scale == atdsp::Scale::Custom && ! customIntervalsCache.isEmpty())
-                    curve.getPoint (i).pitch =
-                        atdsp::PitchCurve::snapToScaleCustom (hz, customIntervalsCache);
-                else
-                    curve.getPoint (i).pitch =
-                        atdsp::PitchCurve::snapToScale (hz, keyIdx, currentScale);
+                curve.getPoint (i).pitch =
+                    atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
             }
             notifyChanged();
         }

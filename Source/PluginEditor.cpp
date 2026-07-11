@@ -345,7 +345,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     translatableLabels.push_back ({ &speedLabel, ovt::Keys::kLabelSpeed });
     setupKnob (amountSlider, &amountLabel, "Amount");
     translatableLabels.push_back ({ &amountLabel, ovt::Keys::kLabelAmount });
+    speedSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSpeed));
+    amountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipAmount));
     setupKnob (formantSlider, nullptr, "");
+    // Formant knob: no value textbox; value shown only while dragging, normal
+    // tooltip restored on release (matching FlexTune/Humanize).
+    formantSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    formantSlider.onDragStart = [this] { formantSlider.setTooltip (juce::String (formantSlider.getValue(), 1) + " st"); };
+    formantSlider.onValueChange = [this] { formantSlider.setTooltip (juce::String (formantSlider.getValue(), 1) + " st"); };
+    formantSlider.onDragEnd = [this] { formantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant)); };
 
     // === Harmony UI ===
     // Harmony enable toggle (use same visual style as Formant)
@@ -378,11 +386,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     translatableLabels.push_back ({ &harmonyGainLabel, ovt::Keys::kLabelVolume });
     harmonyGainSlider.setRange (0.0, 1.0, 0.01);
     harmonyGainSlider.setValue (1.0);
+    harmonyGainSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipVolume));
 
     setupKnob (harmonyBlendSlider, &harmonyBlendLabel, "Blend");
     translatableLabels.push_back ({ &harmonyBlendLabel, ovt::Keys::kLabelBlend });
     harmonyBlendSlider.setRange (0.0, 1.0, 0.01);
     harmonyBlendSlider.setValue (0.5);
+    harmonyBlendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipBlend));
 
     // Use Voice controls
     useVoiceButton.setButtonText (ovt::tr(ovt::Keys::kLabelUseVoice));
@@ -744,6 +754,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             morphSource.reset();
             morphTarget.reset();
             morphUndoState.reset();
+            // Drop the external-automation exclusion baseline. loadSlot() below
+            // overwrites the parameters with the slot's saved values; without
+            // clearing this map the next slider move would treat every changed
+            // parameter as "externally driven" and exclude it from the morph,
+            // which (once excluded, a parameter's baseline is never refreshed)
+            // progressively kills the slider after a few A<->B toggles.
+            lastMorphIntendedValues.clear();
 
             // Load the clicked slot
             loadSlot (clickedSlot);
@@ -802,26 +819,47 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     amountSlider.setRange (0.0, 1.0, 0.01);
     amountSlider.setValue (1.0);
 
-    // === Manual bindings for ComboBox Key/Scale to AudioParameterInt ===
-    // Using ComboBoxAttachment for perfect sync with the host
+    // === Bindings for the Key/Scale ComboBoxes to their parameters ===
+    // ComboBoxAttachment keeps the combo box and the host parameter in sync in BOTH
+    // directions: parameter -> combo box (so morph/automation correctly drives the displayed
+    // scale/key) and combo box -> parameter on user selection. It uses the ComboBox Listener
+    // mechanism (addListener / comboBoxChanged) to write the parameter on a genuine user
+    // selection; this is robust and idempotent with whatever we do below.
+    // IMPORTANT: when the attachment drives the combo (morph / host automation) it updates the
+    // displayed index with sendNotificationSync. JUCE guards the Listener with an internal
+    // ignoreCallbacks flag, but the onChange callback is NOT guarded, so onChange ALSO fires in
+    // that case. Therefore the onChange handlers below must NOT write the parameter (that would
+    // fight the morph / automation, since the index is read back from the combo display which can
+    // momentarily lag the morph target during a crossfade). onChange only mirrors the per-note
+    // custom flags / piano keys for whatever scale/key the combo currently shows.
     keyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "key", keyBox);
-    // When the user selects a new key, update the piano keys for the current preset scale.
+    // The ComboBoxAttachment writes the "key" parameter on user selection (via its Listener).
+    // Here we only re-sync the per-note custom flags / piano keys for the new key. We must not
+    // write the parameter here (see the note above about morph/automation driving the combo).
     keyBox.onChange = [this] {
         const int scaleIdx = scaleBox.getSelectedItemIndex();
         if (scaleIdx >= 0 && scaleIdx != 13)
-            scaleBox.onChange(); // Re-run the scale onChange to recompute intervals with the new key
+            scaleBox.onChange(); // Re-sync intervals/piano for the new key
     };
-        
+
     scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "scale", scaleBox);
-    // When the user selects a preset scale, update the piano keys immediately.
+    // The ComboBoxAttachment writes the "scale" parameter on user selection (via its Listener),
+    // so the engine and the curve editor snap always use the selected scale. This onChange
+    // handler must NOT also write the parameter: it fires whenever the attachment drives the
+    // combo (morph / host automation) via sendNotificationSync, and writing back would fight the
+    // morph (the index comes from the combo display, which can lag the morph target during a
+    // crossfade). Here we only keep the per-note custom flags / piano keys in sync with the
+    // selected preset scale.
     scaleBox.onChange = [this] {
         const int idx = scaleBox.getSelectedItemIndex();
-        if (idx >= 0 && idx != 13) // Not Custom
+        if (idx < 0)
+            return;
+        if (idx != 13) // Not Custom (Custom keeps the user's custom note flags)
         {
             auto* rawKey = processorRef.getParameters().getRawParameterValue ("key");
-            const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load())) : 0;
+            const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load() * 11.0f)) : 0;
 
             atdsp::ScaleQuantizer tempQuantizer;
             tempQuantizer.setKey (keyIdx);
@@ -1132,6 +1170,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     setupKnob (reverbMixSlider, &reverbMixLabel, "Mix");
     reverbMixSlider.setRange (0.0, 1.0, 0.01);
     reverbMixSlider.setEnabled (false); // disabled until reverb is toggled on
+    // No value textbox; value shown only while dragging, normal tooltip restored on release.
+    reverbMixSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    reverbMixSlider.onDragStart = [this] { reverbMixSlider.setTooltip (juce::String ((int) (reverbMixSlider.getValue() * 100.0f)) + " %"); };
+    reverbMixSlider.onValueChange = [this] { reverbMixSlider.setTooltip (juce::String ((int) (reverbMixSlider.getValue() * 100.0f)) + " %"); };
+    reverbMixSlider.onDragEnd = [this] { reverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn)); };
 
     reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
     reverbEnableButton.setName ("PowerButton");
@@ -1148,8 +1191,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     noiseGateEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
     addAndMakeVisible (noiseGateEnableButton);
 
-    noiseGateThresholdSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    noiseGateThresholdSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 16);
+    noiseGateThresholdSlider.setSliderStyle (juce::Slider::RotaryVerticalDrag);
+    noiseGateThresholdSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     noiseGateThresholdSlider.setRange (-80.0, 0.0, 1.0);
     noiseGateThresholdSlider.setValue (-40.0, juce::dontSendNotification);
     noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
@@ -1159,6 +1202,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     noiseGateThresholdSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     noiseGateThresholdSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
+    // Value shown via tooltip only while dragging (no textbox); normal tooltip restored on release.
+    noiseGateThresholdSlider.onDragStart = [this] { noiseGateThresholdSlider.setTooltip (juce::String (noiseGateThresholdSlider.getValue(), 0) + " dB"); };
+    noiseGateThresholdSlider.onValueChange = [this] { noiseGateThresholdSlider.setTooltip (juce::String (noiseGateThresholdSlider.getValue(), 0) + " dB"); };
+    noiseGateThresholdSlider.onDragEnd = [this] { noiseGateThresholdSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipThreshold)); };
     addAndMakeVisible (noiseGateThresholdSlider);
 
     noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
@@ -1172,17 +1219,18 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     translatableLabels.push_back ({ &flexTuneLabel, ovt::Keys::kLabelFlex });
     flexTuneSlider.setRange (0.0, 100.0, 1.0);
     flexTuneSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipFlexTune));
-    flexTuneSlider.onValueChange = [this] {
-        flexTuneSlider.setTooltip (juce::String ((int) flexTuneSlider.getValue()) + " cents");
-    };
+    // Value shown only while dragging (no textbox); revert to the normal tooltip on release.
+    flexTuneSlider.onDragStart = [this] { flexTuneSlider.setTooltip (juce::String ((int) flexTuneSlider.getValue()) + " cents"); };
+    flexTuneSlider.onValueChange = [this] { flexTuneSlider.setTooltip (juce::String ((int) flexTuneSlider.getValue()) + " cents"); };
+    flexTuneSlider.onDragEnd = [this] { flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune)); };
 
     setupKnob (humanizeSlider, &humanizeLabel, "Humanize");
     translatableLabels.push_back ({ &humanizeLabel, ovt::Keys::kLabelHumanize });
     humanizeSlider.setRange (0.0, 50.0, 1.0);
     humanizeSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipHumanize));
-    humanizeSlider.onValueChange = [this] {
-        humanizeSlider.setTooltip (juce::String ((int) humanizeSlider.getValue()) + " cents");
-    };
+    humanizeSlider.onDragStart = [this] { humanizeSlider.setTooltip (juce::String ((int) humanizeSlider.getValue()) + " cents"); };
+    humanizeSlider.onValueChange = [this] { humanizeSlider.setTooltip (juce::String ((int) humanizeSlider.getValue()) + " cents"); };
+    humanizeSlider.onDragEnd = [this] { humanizeSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHumanize)); };
 
     // FlexTune and Humanize: no textbox, smaller inline labels
     flexTuneLabel.setText ("Flex", juce::dontSendNotification);
@@ -1527,7 +1575,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // Layout: Correction (knobs) | Effects (Formant+Reverb) | Scale/Keyboard | Harmony
     const int knobBlockWidth = 280;
     const int effectBlockWidth = 200;
-    const int scaleBlockWidth = 260;
+    const int scaleBlockWidth = 236; // narrowed by 24px after shrinking the Root combo (see Block 1)
     const int blockSpacing = 10;
 
     auto leftBlock = bottomArea.removeFromLeft(knobBlockWidth);
@@ -1580,27 +1628,33 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     humanizeLabel.setBounds (humanCol.removeFromLeft(52));
     humanizeSlider.setBounds (humanCol);
 
-    // --- Block 4 : Effects (Formant + Reverb, side by side, same size as Speed/Amount) ---
+    // --- Block 4 : Effects — 2 rows (Gate + Reverb on top, Formant below) ---
     auto b4 = block4Bounds.reduced(10);
-    // Effects: Gate / Reverb / Formant — 3 columns, toggle + knob each
-    auto effectKnobArea = b4.removeFromTop (81);
-    int effectThird = (effectKnobArea.getWidth() - 12) / 3;
+    // Knobs show their value only via tooltip while dragging (no textbox) and are
+    // slightly smaller (+5% smaller power button) so two rows fit without overlapping.
+    const int effectPowerH = 17; // ~5% smaller than the 18px used elsewhere
+    const int rowGap = 6;
+    const int rowH = (b4.getHeight() - rowGap) / 2;
+
+    // Row 1 : Noise Gate + Reverb (two columns)
+    auto row1 = b4.removeFromTop (rowH);
+    b4.removeFromTop (rowGap);
+    const int effectColW = (row1.getWidth() - 8) / 2;
 
     // Noise Gate (column 1)
-    auto gateCol = effectKnobArea.removeFromLeft(effectThird);
-    noiseGateEnableButton.setBounds(gateCol.removeFromTop(18));
-    noiseGateThresholdSlider.setBounds(gateCol);
-    effectKnobArea.removeFromLeft(6);
+    auto gateCol = row1.removeFromLeft (effectColW);
+    noiseGateEnableButton.setBounds (gateCol.removeFromTop (effectPowerH));
+    noiseGateThresholdSlider.setBounds (gateCol);
+    row1.removeFromLeft (8);
 
     // Reverb (column 2)
-    auto reverbCol = effectKnobArea.removeFromLeft(effectThird);
-    reverbEnableButton.setBounds(reverbCol.removeFromTop(18));
+    auto reverbCol = row1;
+    reverbEnableButton.setBounds (reverbCol.removeFromTop (effectPowerH));
     reverbMixSlider.setBounds (reverbCol);
-    effectKnobArea.removeFromLeft(6);
 
-    // Formant (column 3)
-    formantEnableButton.setBounds(effectKnobArea.removeFromTop(18));
-    formantSlider.setBounds(effectKnobArea);
+    // Row 2 : Formant (single column)
+    formantEnableButton.setBounds (b4.removeFromTop (effectPowerH));
+    formantSlider.setBounds (b4);
 
     // Harmony controls block (rightmost block)
     {
@@ -1641,8 +1695,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     auto topRow = b1.removeFromTop(44); // 20 label + 24 combobox
 
-    // Left: Key
-    auto bKey = topRow.removeFromLeft(80);
+    // Left: Key (Root) — only ever shows up to 2 chars (e.g. "C", "C#"), so keep it narrow.
+    auto bKey = topRow.removeFromLeft(56);
     keyLabel.setBounds(bKey.removeFromTop(20));
     keyBox.setBounds(bKey);
 
@@ -1926,7 +1980,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
 
         auto* rawKey = processorRef.getParameters().getRawParameterValue ("key");
         auto* rawScale = processorRef.getParameters().getRawParameterValue ("scale");
-        const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load())) : 0;
+        const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load() * 11.0f)) : 0;
         const int scaleIdx = rawScale ? static_cast<int> (std::round (rawScale->load() * 13.0f)) : 0;
         
         if (scaleIdx == 13)
@@ -1983,6 +2037,7 @@ void OpenVoxTunerAudioProcessorEditor::resetMorph()
     morphSource.reset();
     morphTarget.reset();
     morphUndoState.reset();
+    lastMorphIntendedValues.clear();
 }
 
 void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
@@ -1997,6 +2052,9 @@ void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
     // Auto-capture source on first movement if not set
     if (morphSource == nullptr)
     {
+        // Fresh morph: forget any previous external-automation exclusions so
+        // the new crossfade starts with a clean baseline.
+        lastMorphIntendedValues.clear();
         morphSource = std::make_unique<atdsp::MorphState> (
             atdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Current"));
         morphSourceName = "Current";
@@ -2029,9 +2087,43 @@ void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
             atdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Pre-morph"));
     }
 
-    // Apply interpolated state
-    atdsp::applyInterpolatedState (processorRef.getParameters(),
-                                    *morphSource, *morphTarget, value);
+    // Detect parameters currently driven by external automation (DAW lanes or
+    // UI) so the morph crossfade does not overwrite them. A parameter is
+    // considered externally driven when its live value differs from the value
+    // the morph last applied to it.
+    juce::AudioProcessorValueTreeState& params = processorRef.getParameters();
+    juce::StringArray excluded;
+    {
+        const juce::StringArray ids = atdsp::getMorphParameterIds();
+        for (const auto& id : ids)
+        {
+            auto* p = params.getParameter (id);
+            if (p == nullptr)
+                continue;
+            auto it = lastMorphIntendedValues.find (id);
+            if (it != lastMorphIntendedValues.end()
+                && std::abs (p->getValue() - it->second) > 1.0e-4f)
+                excluded.add (id);
+        }
+    }
+
+    // Apply interpolated state (skipping externally-driven parameters)
+    atdsp::applyInterpolatedState (params,
+                                    *morphSource, *morphTarget, value, &excluded);
+
+    // Record the values the morph just applied so the next frame can detect
+    // whether a parameter was changed externally and must remain excluded.
+    {
+        const juce::StringArray ids = atdsp::getMorphParameterIds();
+        for (const auto& id : ids)
+        {
+            if (excluded.contains (id))
+                continue;
+            auto* p = params.getParameter (id);
+            if (p != nullptr)
+                lastMorphIntendedValues[id] = p->getValue();
+        }
+    }
 
     // Interpolate the pitch curve
     auto morphedCurve = atdsp::interpolateCurves (morphSource->curve, morphTarget->curve, value);
@@ -2108,6 +2200,9 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
             morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
             morphTargetName = "Slot B";
 
+            // Fresh morph baseline: drop the external-automation exclusion map so
+            // the new crossfade is not poisoned by stale intended values.
+            lastMorphIntendedValues.clear();
             processorRef.setMorphAmount (0.0f);
             lastMorphValue = 0.0f;
         }
@@ -2252,10 +2347,16 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     harmonyEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyEn));
     reverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn));
     formantEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant));
+    formantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant));
+    reverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn));
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
     flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune));
     humanizeSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHumanize));
+    speedSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSpeed));
+    amountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipAmount));
+    harmonyGainSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipVolume));
+    harmonyBlendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipBlend));
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
     buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
     buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));

@@ -2,7 +2,7 @@
 // Implementation de la pitch curve.
 
 #include "PitchCurve.h"
-#include "ScaleQuantizer.h" // pour l'enum atdsp::Scale (utilise par snapToScale)
+#include "ScaleQuantizer.h" // pour l'enum atdsp::Scale et les types lies a la gamme
 #include <cmath>
 
 namespace atdsp
@@ -150,78 +150,24 @@ namespace atdsp
         return static_cast<float> (points[lo].pitch + frac * (points[hi].pitch - points[lo].pitch));
     }
 
-    float PitchCurve::snapToScale (float hz, int keyInSemitones, Scale scale)
+    float PitchCurve::snapToIntervals (float hz, const juce::Array<int>& intervals)
     {
-        // Reutilise la logique de ScaleQuantizer (distance circulaire).
+        // Snap a frequency to the nearest note of an explicit interval set.
+        // "intervals" holds absolute semitone offsets within [0, 11] (one octave),
+        // already shifted by the musical key by the caller. Using this single,
+        // authoritative set (the same one driving the on-screen scale display)
+        // guarantees the interactive snap always matches the visible scale.
+        // This avoids the former dual-source-of-truth bug where the editor snapped
+        // against a hardcoded table/index that could diverge from the displayed scale.
         if (hz <= 0.0f) return 0.0f;
-
-        const int key = ((keyInSemitones % 12) + 12) % 12;
-        const int midiRef = 69;
-        const int currentMidi = static_cast<int> (std::round (12.0f * std::log2 (hz / 440.0f))) + midiRef;
-        const int noteInOctave = ((currentMidi % 12) + 12) % 12;
-
-        // Intervalles par mode.
-        static const juce::Array<int> intervalsTable[] = {
-            { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 },  // Chromatic
-            { 0, 2, 4, 5, 7, 9, 11 },                  // Major
-            { 0, 2, 3, 5, 7, 9, 11 },                  // Melodic Minor
-            { 0, 2, 3, 5, 7, 8, 11 },                  // Harmonic Minor
-            { 0, 2, 3, 5, 7, 8, 10 },                  // Natural Minor
-            { 0, 2, 4, 7, 9 },                         // Major Pentatonic
-            { 0, 3, 5, 7, 10 },                        // Minor Pentatonic
-            { 0, 3, 5, 6, 7, 10 },                     // Blues
-            { 0, 2, 3, 5, 7, 9, 10 },                  // Dorian
-            { 0, 1, 3, 5, 7, 8, 10 },                  // Phrygian
-            { 0, 2, 4, 6, 7, 9, 11 },                  // Lydian
-            { 0, 2, 4, 5, 7, 9, 10 },                  // Mixolydian
-            { 0, 1, 3, 5, 6, 8, 10 },                  // Locrian
-            { 0, 4, 7 },                               // Major Triad
-            { 0, 3, 7 }                                // Minor Triad
-        };
-        const int scaleIdx = static_cast<int> (scale);
-        if (scaleIdx < 0 || scaleIdx >= 15) return hz;
-        const auto& intervals = intervalsTable[scaleIdx];
-
-        // Si deja dans la gamme, on garde.
-        juce::Array<int> shifted;
-        for (int i : intervals) shifted.add ((i + key) % 12);
-        if (shifted.contains (noteInOctave)) return hz;
-
-        // Recherche de la note la plus proche.
-        auto circularDist = [] (int a, int b) -> int
-        {
-            int d = b - a;
-            d = ((d + 6) % 12) - 6;
-            if (d < -6) d += 12;
-            return d;
-        };
-
-        int bestShift = 0;
-        int bestDist = 100;
-        for (int s : shifted)
-        {
-            int sh = circularDist (noteInOctave, s);
-            int d = std::abs (sh);
-            if (d < bestDist) { bestDist = d; bestShift = sh; if (d == 0) break; }
-        }
-
-        const int correctedMidi = currentMidi + bestShift;
-        return 440.0f * std::pow (2.0f, (correctedMidi - midiRef) / 12.0f);
-    }
-
-    float PitchCurve::snapToScaleCustom (float hz, const juce::Array<int>& customIntervals)
-    {
-        if (hz <= 0.0f) return 0.0f;
-        if (customIntervals.isEmpty()) return hz;
+        if (intervals.isEmpty()) return hz;
 
         const int midiRef = 69;
         const int currentMidi = static_cast<int> (std::round (12.0f * std::log2 (hz / 440.0f))) + midiRef;
         const int noteInOctave = ((currentMidi % 12) + 12) % 12;
 
-        // Normalise les intervalles dans [0, 11].
-        juce::Array<int> shifted;
-        for (int i : customIntervals) shifted.add (((i % 12) + 12) % 12);
-        if (shifted.contains (noteInOctave)) return hz;
+        // Deja sur une note de la gamme : on conserve (sans correction finie).
+        if (intervals.contains (noteInOctave)) return hz;
 
         auto circularDist = [] (int a, int b) -> int
         {
@@ -233,7 +179,7 @@ namespace atdsp
 
         int bestShift = 0;
         int bestDist = 100;
-        for (int s : shifted)
+        for (int s : intervals)
         {
             int sh = circularDist (noteInOctave, s);
             int d = std::abs (sh);

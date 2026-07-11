@@ -136,6 +136,24 @@ namespace atdsp
     }
 
     /**
+     * Returns the list of all parameter IDs that a morph can drive.
+     * Used to detect which parameters are currently controlled externally
+     * (e.g. DAW/UI automation) so the morph can avoid fighting them.
+     */
+    inline juce::StringArray getMorphParameterIds()
+    {
+        juce::StringArray ids;
+        ids.addArray ({ "speed", "amount", "formant", "harmony_gain", "harmony_blend",
+                        "harmony_tone_color", "reverb_mix", "flex_tune", "humanize",
+                        "noise_gate_threshold", "key", "scale", "harmony_type",
+                        "harmony_tone", "harmony_shifted_voices", "latency_mode",
+                        "editor_measures", "formant_enable", "bypass", "harmony_enable",
+                        "harmony_use_voice", "reverb_enable", "noise_gate_enable",
+                        "correction_mode" });
+        return ids;
+    }
+
+    /**
      * Applies an interpolated state to the processor parameters.
      * Continuous parameters are lerped, discrete and boolean parameters
      * step at the 50% threshold.
@@ -144,17 +162,25 @@ namespace atdsp
      * @param source      Source morph state
      * @param target      Target morph state
      * @param morphAmount Interpolation amount (0 = source, 1 = target)
+     * @param exclude     Optional list of parameter IDs to skip. Use this to
+     *                    avoid overwriting parameters that are being driven by
+     *                    external automation (e.g. DAW lanes for speed/amount
+     *                    running concurrently with a morph automation).
      */
     inline void applyInterpolatedState (juce::AudioProcessorValueTreeState& params,
                                         const MorphState& source,
                                         const MorphState& target,
-                                        float morphAmount)
+                                        float morphAmount,
+                                        const juce::StringArray* exclude = nullptr)
     {
         const float t = morphAmount; // 0.0 = source, 1.0 = target
 
-        // Helper lambda to set a parameter value (normalized 0..1)
-        auto setParam = [&params] (const juce::String& id, float normValue)
+        // Helper lambda to set a parameter value (normalized 0..1).
+        // Skips any parameter present in the exclusion list.
+        auto setParam = [&params, exclude] (const juce::String& id, float normValue)
         {
+            if (exclude != nullptr && exclude->contains (id))
+                return;
             if (auto* p = params.getParameter (id))
                 p->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, normValue));
         };

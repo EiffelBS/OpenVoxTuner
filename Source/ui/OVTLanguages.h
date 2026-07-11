@@ -185,6 +185,10 @@ namespace ovt
         static const char* kTooltipFormant     = "tooltip.formant_enable";
         static const char* kTooltipFlexTune    = "tooltip.flex_tune";
         static const char* kTooltipHumanize    = "tooltip.humanize";
+        static const char* kTooltipSpeed       = "tooltip.speed";
+        static const char* kTooltipAmount      = "tooltip.amount";
+        static const char* kTooltipVolume      = "tooltip.volume";
+        static const char* kTooltipBlend       = "tooltip.blend";
         static const char* kTooltipToneColor   = "tooltip.tone_color";
         static const char* kTooltipAB          = "tooltip.ab_comparison";
         static const char* kTooltipReset       = "tooltip.reset_transport";
@@ -334,6 +338,10 @@ namespace ovt
             { kLabelRoot,          "Root" },
             { kLabelVolume,        "Volume" },
             { kLabelBlend,         "Blend" },
+            { kTooltipSpeed,        "Correction speed in milliseconds. Lower = faster pitch tracking." },
+            { kTooltipAmount,       "Correction amount (0% = natural, 100% = fully corrected to target)." },
+            { kTooltipVolume,       "Harmony voices output volume." },
+            { kTooltipBlend,        "Balance between the lead vocal and the generated harmony voices." },
             { kLabelFlex,          "Flex" },
             { kLabelHumanize,      "Humanize" },
             { kLabelFormant,       "Formant" },
@@ -557,6 +565,10 @@ namespace ovt
             { kLabelRoot,          "Tonalite" },
             { kLabelVolume,        "Volume" },
             { kLabelBlend,         "Mixage" },
+            { kTooltipSpeed,        "Vitesse de correction en millisecondes. Plus bas = suivi de hauteur plus rapide." },
+            { kTooltipAmount,       "Intensite de correction (0 % = naturel, 100 % = entierement corrige vers la cible)." },
+            { kTooltipVolume,       "Volume de sortie des voix d'harmonie." },
+            { kTooltipBlend,        "Equilibre entre la voix principale et les voix d'harmonie generees." },
             { kLabelFlex,          "Flex" },
             { kLabelHumanize,      "Humaniser" },
             { kLabelFormant,       "Formant" },
@@ -780,6 +792,10 @@ namespace ovt
             { kLabelRoot,          "Grundton" },
             { kLabelVolume,        "Lautstaerke" },
             { kLabelBlend,         "Mischung" },
+            { kTooltipSpeed,        "Korrekturgeschwindigkeit in Millisekunden. Niedriger = schnellere Tonhohenverfolgung." },
+            { kTooltipAmount,       "Korrekturmenge (0 % = natuerlich, 100 % = vollstaendig zur Zieltonhoehe korrigiert)." },
+            { kTooltipVolume,       "Ausgabelautstaerke der Harmoniestimmen." },
+            { kTooltipBlend,        "Balance zwischen Hauptgesang und erzeugten Harmoniestimmen." },
             { kLabelFlex,          "Flex" },
             { kLabelHumanize,      "Humanisieren" },
             { kLabelFormant,       "Formant" },
@@ -1003,6 +1019,10 @@ namespace ovt
             { kLabelRoot,          "Tono base" },
             { kLabelVolume,        "Volumen" },
             { kLabelBlend,         "Mezcla" },
+            { kTooltipSpeed,        "Velocidad de correccion en milisegundos. Mas bajo = seguimiento de tono mas rapido." },
+            { kTooltipAmount,       "Cantidad de correccion (0 % = natural, 100 % = totalmente corregido al objetivo)." },
+            { kTooltipVolume,       "Volumen de salida de las voces de armonia." },
+            { kTooltipBlend,        "Equilibrio entre la voz principal y las voces de armonia generadas." },
             { kLabelFlex,          "Flex" },
             { kLabelHumanize,      "Humanizar" },
             { kLabelFormant,       "Formante" },
@@ -1226,6 +1246,10 @@ namespace ovt
             { kLabelRoot,          "キー" },
             { kLabelVolume,        "音量" },
             { kLabelBlend,         "ブレンド" },
+            { kTooltipSpeed,        "補正速度（ミリ秒）。低いほどピッチ追従が速くなります。" },
+            { kTooltipAmount,       "補正量（0% = 自然、100% = 目標音程に完全補正）。" },
+            { kTooltipVolume,       "ハーモニーボイスの出力音量。" },
+            { kTooltipBlend,        "メインボーカルと生成されたハーモニーボイスのバランス。" },
             { kLabelFlex,          "フレックス" },
             { kLabelHumanize,      "人性化" },
             { kLabelFormant,       "フォルマント" },

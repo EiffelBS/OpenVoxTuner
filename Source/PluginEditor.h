@@ -7,6 +7,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <array>
+#include <map>
 #include <memory>
 #include "PluginProcessor.h"
 #include "ui/PitchVisualizer.h"
@@ -294,6 +295,13 @@ private:
     juce::String morphSourceName = "Source";
     juce::String morphTargetName = "Target";
     std::unique_ptr<atdsp::MorphState> morphUndoState; // pre-morph snapshot for undo
+
+    // Tracks the normalized value the morph last applied to each parameter.
+    // Used to detect parameters that are being driven externally (DAW/UI
+    // automation): if a parameter's live value differs from this baseline, the
+    // morph skips it so concurrent automation lanes (e.g. speed/amount) are not
+    // overwritten by the morph crossfade.
+    std::map<juce::String, float> lastMorphIntendedValues;
 
     void onMorphSliderChanged (float value);
     void showMorphContextMenu();
