@@ -132,9 +132,9 @@ public:
     int getWaveformDisplayType() const { return waveformDisplayType; }
     void setWaveformDisplayType (int type) { waveformDisplayType = type; }
 
-    // Morph slider amount accessors.
-    float getMorphAmount() const { return morphAmount.load(); }
-    void setMorphAmount (float v) { morphAmount.store (v); }
+    // Morph slider amount accessors (backed by the automatable "morph_amount" parameter).
+    float getMorphAmount() const { return morphAmountParam != nullptr ? morphAmountParam->load (std::memory_order_relaxed) : 0.0f; }
+    void setMorphAmount (float v);
 
     // A/B slot persistence (called by Editor during state save/load).
     void setAbSlotMorphState (int slot, atdsp::MorphState ms)
@@ -302,8 +302,9 @@ private:
     // Waveform display type preference (persisted across sessions).
     int waveformDisplayType = 1; // 0=Line, 1=Mirror (default)
 
-    // Morph slider amount (persisted across sessions).
-    std::atomic<float> morphAmount { 0.0f };
+    // Morph slider amount (automatable parameter "morph_amount").
+    std::atomic<float>* morphAmountParam = nullptr;
+    juce::AudioParameterFloat* morphParam = nullptr;
 
     // === ARA2 Waveform overlay cache ===
     juce::AudioBuffer<float> araWaveformBuffer;
