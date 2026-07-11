@@ -1,6 +1,6 @@
 # OpenVoxTuner - Implementation Roadmap
 
-> Last updated: 2026-07-10 16:40 CEST
+> Last updated: 2026-07-11 16:40 CEST
 
 ## Legend
 
@@ -62,6 +62,8 @@
 - [x] CPU Usage Meter (header strip display with color-coded bar, positioned left of A/B button)
 - [x] A/B Comparison (two separate buttons with morph slider between them, green border for valid data, right-click save, MorphState-based persistence — no exponential XML growth)
 - [x] PresetMorpher interpolation engine (header-only, captures/applies/morphs states + PitchCurves)
+- [x] DAW automation coexistence: morph no longer overwrites parameters driven by concurrent host automation (e.g. speed/amount lanes running alongside a morph automation lane)
+- [x] Morph slider A<->B toggle bug fixed 2026-07-11: the external-automation exclusion map (`lastMorphIntendedValues`) was not cleared on slot switch, so toggling A<->B several times accumulated exclusions until the slider had no effect. Now cleared on slot switch and on the A->B context-menu action.
 - [x] Keyboard shortcuts help overlay (? key or hamburger menu)
 
 ## 4. UI / GUI - Pitch Visualizer (Live Tab)
@@ -95,7 +97,7 @@
 
 - [x] Graphical pitch curve editing (click to add/move points)
 - [x] Time ruler with measures/beats
-- [x] Snap to scale (quantize points to scale notes)
+- [x] Snap to scale (quantize points to scale notes) — bug fixed 2026-07-11: the snap now uses the authoritative scale interval set (same as the on-screen display). The real root cause was the Scale/Key ComboBox not updating the parameter (see entry below), so the snap used a stale/default scale; that binding is now fixed.
 - [x] Snap to grid (quantize points to beat grid)
 - [x] Step mode (staircase interpolation)
 - [x] Clear all points
@@ -117,6 +119,7 @@
 - [x] Blue highlight for active scale notes
 - [x] Bidirectional sync with AudioParameterInt (custom0..custom11)
 - [x] Auto-switch to Custom mode on user interaction
+- [x] Scale/Key ComboBox -> parameter binding fixed 2026-07-11 (hardened 2026-07-11): the combo -> parameter direction is owned by JUCE's `ComboBoxAttachment` Listener (`comboBoxChanged`), which writes `scale`/`key` on genuine user selection. The `onChange` handlers were changed to ONLY mirror the per-note custom flags / piano keys and never write `scale`/`key` back. This removes a transient morph-regression where `onChange` (which JUCE fires during morph/automation via `sendNotificationSync`, unguarded) could momentarily overwrite the morph's new scale while the display lagged. Key getters corrected to read the normalized value (`round(load*11)`) so non-C roots work.
 
 ## 7. Build and Release
 

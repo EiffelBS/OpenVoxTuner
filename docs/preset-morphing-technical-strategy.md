@@ -181,10 +181,22 @@ Consequences:
   reconstructed from the A/B slot `MorphState` snapshots.
 
 **Implementation**: `timerCallback()` polls `morph_amount` and calls
-`atdsp::applyInterpolatedState(parameters, source, target, value)` when it
+`atdsp::applyInterpolatedState(parameters, source, target, value, exclude)` when it
 changes, which writes the interpolated underlying parameters via
 `setValueNotifyingHost()`. The morph appears in the DAW's parameter list as
 "Morph".
+
+**Coexistence with concurrent parameter automation**: When `morph_amount` is
+automated by the DAW at the same time as other parameters (e.g. `speed`,
+`amount`), the morph must not fight those lanes. Before applying the morph, the
+editor detects parameters currently driven externally (DAW automation or UI): a
+parameter is considered externally driven when its live value differs from the
+value the morph last applied to it (tracked in `lastMorphIntendedValues`). Those
+parameters are passed as the `exclude` list so `applyInterpolatedState` skips
+them. As a result the morph crossfade and the concurrent automation lanes
+coexist — the morph only drives parameters that are not being automated
+elsewhere. The exclusion is reset when a new morph starts (`morphSource` is
+recaptured) or when `resetMorph()` is called.
 
 ### 3.5 Standalone vs Plugin
 
@@ -352,7 +364,7 @@ operations, and state save/restore cycles.
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | **Audio glitches during parameter changes** | High — unacceptable artifacts | Use existing smoothing infrastructure (`RetargetEnvelope`, `LinearSmoothedValue`). Test with all parameter combinations. Apply ramp time for discrete parameter flips. |
-| **Host automation on underlying parameters during morph** | Medium — DAW automation of speed/amount/etc. may fight the morph | The morph writes underlying params via `setValueNotifyingHost()`, so the host sees genuine parameter changes. Document that morph is a manual performance tool; users should avoid automating the same params while morphing. |
+| **Host automation on underlying parameters during morph** | Resolved — DAW automation of speed/amount/etc. no longer fights the morph | The morph detects parameters driven externally (live value differs from the value the morph last applied) and excludes them via `applyInterpolatedState(..., exclude)`. All lanes (morph + speed + amount, etc.) now remain effective simultaneously. |
 | **PitchCurve interpolation artifacts** | Medium — musically incoherent curves | Limit morph speed. Add visual preview before committing. Use 128-sample resolution which is sufficient for smooth curves. |
 
 ### 6.2 Medium Risks

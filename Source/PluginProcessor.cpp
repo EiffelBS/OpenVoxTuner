@@ -729,7 +729,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                             }
                             
                             // Mettre a jour les parametres si changement (notifie l'UI et l'hote)
-                            if (keyParam && static_cast<int>(keyParam->load()) != chromatic)
+                            if (keyParam && static_cast<int> (std::round (keyParam->load() * 11.0f)) != chromatic)
                             {
                                 if (auto* param = parameters.getParameter("key"))
                                     param->setValueNotifyingHost (param->convertTo0to1 (chromatic));
@@ -1147,7 +1147,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             && (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f))
         {
             // Extraire les paramètres pour l'engine d'harmonie
-            int currentKey = (keyParam != nullptr) ? static_cast<int>(keyParam->load()) : 0;
+            int currentKey = (keyParam != nullptr) ? static_cast<int> (std::round (keyParam->load() * 11.0f)) : 0;
             int currentScaleIdx = (scaleParam != nullptr) ? static_cast<int>(scaleParam->load()) : 0;
 
             // Récupère les intervalles de la gamme depuis le quantizer
@@ -1679,7 +1679,7 @@ void OpenVoxTunerAudioProcessor::syncParameters()
         return;
 
     // Gamme musicale.
-    const int keyIdx = static_cast<int> (keyParam->load());
+    const int keyIdx = static_cast<int> (std::round (keyParam->load() * 11.0f));
     // Use AudioParameterChoice::getIndex() for reliable conversion,
     // avoiding fragile round(load() * 13.0f) arithmetic that can fail
     // after setStateInformation restores a non-normalized stored value.

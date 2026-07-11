@@ -5,7 +5,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "ScaleQuantizer.h" // pour l'enum Scale utilise par snapToScale
+#include "ScaleQuantizer.h" // pour l'enum Scale et les types lies a la gamme
 
 // On utilise "atdsp" (autotune dsp) plutot que "dsp" pour eviter toute
 // ambiguite avec le namespace "juce::dsp" apporte par JuceHeader.h.
@@ -106,14 +106,12 @@ namespace atdsp
 
         // === Gamme / snapping ===
 
-        /// Calcule la note la plus proche (en Hz) d'une frequence donnee
-        /// selon les parametres du quantifier passe en argument.
-        /// Fonction utilitaire pour le snap interactif dans l'UI.
-        static float snapToScale (float hz, int keyInSemitones, Scale scale);
-
-        /// Variante de snapToScale avec une liste d'intervalles explicite
-        /// (utilisee pour le mode Custom).
-        static float snapToScaleCustom (float hz, const juce::Array<int>& customIntervals);
+        /// Snap a frequency to the nearest note of an explicit interval set.
+        /// "intervals" holds absolute semitone offsets within [0, 11] (one octave),
+        /// already shifted by the musical key. This is the single source of truth
+        /// shared with the on-screen scale display, so the interactive snap always
+        /// matches the visible scale.
+        static float snapToIntervals (float hz, const juce::Array<int>& intervals);
 
         // === Serialisation ===
 
