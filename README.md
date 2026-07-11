@@ -359,10 +359,14 @@ Detailed build guides:
 
 - [docs/architecture.md](docs/architecture.md) — software architecture overview
 - [docs/default-parameters.md](docs/default-parameters.md) — all plugin parameters reference
+- [docs/implementation-roadmap.md](docs/implementation-roadmap.md) — feature roadmap
+- [docs/ARA_Specifications.md](docs/ARA_Specifications.md) — ARA2 support technical specifications
 - [docs/deployment-and-packaging-guide.md](docs/deployment-and-packaging-guide.md) — release workflow
 - [docs/GITHUB_SETUP_AND_RELEASE.md](docs/GITHUB_SETUP_AND_RELEASE.md) — GitHub repository setup
-- [docs/pitch-detection-rollback-guide.md](docs/pitch-detection-rollback-guide.md) — pitch detector rollback procedures
-- [docs/pitch-shifting-library-comparison.md](docs/pitch-shifting-library-comparison.md) — pitch shifting library evaluation
+- [docs/MACOS_VST3_BUILD_GUIDE.md](docs/MACOS_VST3_BUILD_GUIDE.md) — macOS VST3 build guide
+- [docs/MACOS_AU_AND_INSTALLER_GUIDE.md](docs/MACOS_AU_AND_INSTALLER_GUIDE.md) — macOS AU + installer guide
+- [docs/preset-morphing-technical-strategy.md](docs/preset-morphing-technical-strategy.md) — A/B preset morphing strategy
+- [docs/releases/v0.1.1.md](docs/releases/v0.1.1.md) — release notes
 
 ## License
 
