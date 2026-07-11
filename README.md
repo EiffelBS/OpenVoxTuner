@@ -75,10 +75,8 @@
 
 ### Pitch Detection
 
-- **Modular pipeline** — abstract `IPitchDetector` interface with runtime switching
-- **YIN** — time-domain autocorrelation (original, fast, low CPU)
-- **SWIPE'** — spectral algorithm (FFT-based, robust on noisy vocals)
-- **PYIN** — probabilistic YIN with HMM Viterbi smoothing *(removed — see changelog 2026-07-02)*
+- **YIN** — time-domain autocorrelation (fast, low CPU, the only detector used)
+- SWIPE' and PYIN were evaluated and removed (see changelogs 2026-06-29, 2026-07-02)
 
 ### ARA2 Integration
 
@@ -140,8 +138,7 @@
 ├─ Source/
 │  ├─ dsp/                        # DSP modules
 │  │  ├─ IPitchDetector.h         # Abstract pitch detector interface
-│  │  ├─ YinPitchDetector.*       # YIN algorithm
-│  │  ├─ SwipePitchDetector.*     # SWIPE' spectral algorithm
+│  │  ├─ YinPitchDetector.*       # YIN algorithm (active)
 │  │  ├─ ScaleQuantizer.*         # Scale quantization engine
 │  │  ├─ PitchShifter.*           # PSOLA pitch shifter
 │  │  ├─ RetargetEnvelope.*       # Speed envelope smoother

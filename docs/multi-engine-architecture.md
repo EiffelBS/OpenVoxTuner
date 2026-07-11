@@ -1,5 +1,7 @@
 # Architecture Multi-Moteurs de Pitch Shifting
 
+> **📁 ARCHIVÉ (2026-07-11) :** Document historique. OpenVoxTuner utilise désormais **un seul moteur de pitch-shifting (PSOLA)**. Les moteurs RubberBand et SoundTouch ont été retirés de la base de code. Cette architecture à moteurs multiples a été évaluée puis abandonnée au profit d'une solution PSOLA unifiée.
+
 Cette implémentation permet de basculer dynamiquement entre plusieurs moteurs de pitch-shifting à la volée.
 
 ## 1. Interface Commune : `IPitchShifter`

@@ -13,7 +13,7 @@
 ## 1. Core DSP Engine
 
 - [x] Pitch detection (YIN algorithm)
-- [x] Pitch detection (SWIPE' algorithm)
+- [x] Pitch detection (YIN algorithm — SWIPE'/PYIN evaluated and removed)
 - [x] Pitch shifting (Phase vocoder)
 - [x] Formant preservation
 - [x] Scale quantizer (14 scale types including Custom)
