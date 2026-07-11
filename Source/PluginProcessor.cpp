@@ -252,10 +252,10 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       std::make_unique<juce::AudioParameterFloat> (
                           "speed", "Speed",
                           juce::NormalisableRange<float> (0.0f, 200.0f, 1.0f),
-                          50.0f),
+                          20.0f),
                       std::make_unique<juce::AudioParameterChoice> (
                           "latency_mode", "Latency Mode",
-                          juce::StringArray { "Direct Monitoring", "Low Latency", "Quality", "Safe" }, 2),
+                          juce::StringArray { "Direct Monitoring", "Low Latency", "Quality", "Safe" }, 1),
 
                       // Amount : intensite de la correction (0-100%)
                       std::make_unique<juce::AudioParameterFloat> (
@@ -330,7 +330,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       // Harmony Gain : niveau de volume des harmonies — 1.0 by default
                       std::make_unique<juce::AudioParameterFloat> (
                           "harmony_gain", "Harmony Volume",
-                          juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f),
+                          juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.75f),
 
                       // Harmony Blend : melange voix principale / harmonies — 0.5 by default
                       std::make_unique<juce::AudioParameterFloat> (
@@ -371,15 +371,15 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             juce::NormalisableRange<float> (-80.0f, 0.0f, 1.0f), -40.0f)
                       , std::make_unique<juce::AudioParameterFloat> (
                             "reverb_mix", "Reverb Mix",
-                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
                       // FlexTune: deadband around the target note (0-100 cents)
                       , std::make_unique<juce::AudioParameterFloat> (
                             "flex_tune", "FlexTune",
-                            juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f)
+                            juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 10.0f)
                       // Humanize: random pitch fluctuations (0-50 cents)
                       , std::make_unique<juce::AudioParameterFloat> (
                             "humanize", "Humanize",
-                            juce::NormalisableRange<float> (0.0f, 50.0f, 1.0f), 0.0f)
+                            juce::NormalisableRange<float> (0.0f, 50.0f, 1.0f), 40.0f)
                       // Correction mode: Modern (false) / Transparent (true)
                       , std::make_unique<juce::AudioParameterBool> (
                             "correction_mode", "Correction Mode", false)

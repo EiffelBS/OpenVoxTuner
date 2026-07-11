@@ -158,6 +158,30 @@
 └─ .gitmodules
 ```
 
+## Licensing
+
+OpenVoxTuner is available under a **dual license** model:
+
+### Free — GPLv3 (Personal & Education)
+
+- Personal use, learning, education, academic research
+- Open source projects compatible with GPLv3
+- Full source code available on GitHub
+- See [LICENSE](LICENSE) for the full GPLv3 text
+
+### Commercial — Paid License (Coming Soon)
+
+For professional studios, commercial productions, or any closed-source usage:
+
+| License | Price | Includes |
+|---------|-------|----------|
+| **User** | 99$ one-time *or* 5$/month (Patreon) | Unlimited updates, personal commercial use |
+| **Studio/Enterprise** | 20$/month (Patreon) | Unlimited updates, multi-seat, priority support |
+
+Commercial licenses grant the right to use OpenVoxTuner in professional productions without the GPLv3 copyleft obligation.
+
+> **Note:** The commercial license offering is planned for a future release. For now, OpenVoxTuner is available under GPLv3 only. If you are interested in a commercial license, please open an issue or contact the maintainer.
+
 ## Build
 
 ### Windows (Visual Studio)
