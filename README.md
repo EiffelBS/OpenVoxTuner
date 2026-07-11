@@ -151,6 +151,10 @@
 - **ARA2 native** — deep DAW integration means key, scale, and tempo are read directly from your project. No manual setup, no guesswork — OpenVoxTuner follows your arrangement automatically.
 - **Built for real vocals** — YIN pitch detection, formant-preserving PSOLA, and a Melodyne-style curve editor are tuned for the nuances of sung performances, not just proof-of-concept demos.
 
+### AI-Assisted Development
+
+OpenVoxTuner uses AI coding assistants to accelerate development, always under strict human supervision. Every line of code is reviewed, tested, and fully open for community audit. No unverified AI-generated code is merged.
+
 ## Repository Structure
 
 ```text
@@ -285,6 +289,10 @@ Contributions are welcome! You can help by:
 - Testing DAW compatibility
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+### AI-Generated Code Review
+
+Some parts of OpenVoxTuner are written with the assistance of AI coding agents, always under human supervision. All code is reviewed before merging, and community pull requests are highly encouraged to audit, improve, or replace AI-assisted sections.
 
 ## Build
 
