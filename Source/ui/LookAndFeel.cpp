@@ -161,13 +161,13 @@ namespace ui
             juce::String text = button.getButtonText();
             bool hasText = text.isNotEmpty() && text != "ON" && text != "Power";
 
-            float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.4f;
+            float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.3f;
             float iconWidth = radius * 2.0f;
             
             float textWidth = 0.0f;
             if (hasText)
             {
-                g.setFont(ovt::fontLabel());
+                g.setFont(ovt::fontComboBox());
                 textWidth = g.getCurrentFont().getStringWidthFloat(text) + 8.0f; // 8px spacing
             }
 

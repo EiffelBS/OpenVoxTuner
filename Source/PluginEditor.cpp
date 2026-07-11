@@ -961,6 +961,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     setupIconButton(resetTransportButton, svgReset, false, "Reset playhead");
     resetTransportButton.onClick = [this] {
         processorRef.resetTransportTime();
+        if (curveEditor != nullptr)
+            curveEditor->clearInputTrace();
     };
     resetTransportButton.setTooltip (ovt::tr(ovt::Keys::kTooltipResetTransportDetail));
     setupIconButton(bypassButton, svgPower, true, "Bypass audio processing");
@@ -1168,11 +1170,17 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     translatableLabels.push_back ({ &flexTuneLabel, ovt::Keys::kLabelFlex });
     flexTuneSlider.setRange (0.0, 100.0, 1.0);
     flexTuneSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipFlexTune));
+    flexTuneSlider.onValueChange = [this] {
+        flexTuneSlider.setTooltip (juce::String ((int) flexTuneSlider.getValue()) + " cents");
+    };
 
     setupKnob (humanizeSlider, &humanizeLabel, "Humanize");
     translatableLabels.push_back ({ &humanizeLabel, ovt::Keys::kLabelHumanize });
     humanizeSlider.setRange (0.0, 50.0, 1.0);
     humanizeSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipHumanize));
+    humanizeSlider.onValueChange = [this] {
+        humanizeSlider.setTooltip (juce::String ((int) humanizeSlider.getValue()) + " cents");
+    };
 
     // FlexTune and Humanize: no textbox, smaller inline labels
     flexTuneLabel.setText ("Flex", juce::dontSendNotification);
@@ -1572,14 +1580,14 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // --- Block 4 : Effects (Formant + Reverb, side by side, same size as Speed/Amount) ---
     auto b4 = block4Bounds.reduced(10);
-    // Effects: Formant / Reverb / Gate — 3 columns, toggle + knob each
-    auto effectKnobArea = b4.removeFromTop (90);
+    // Effects: Gate / Reverb / Formant — 3 columns, toggle + knob each
+    auto effectKnobArea = b4.removeFromTop (81);
     int effectThird = (effectKnobArea.getWidth() - 12) / 3;
 
-    // Formant (column 1)
-    auto formantCol = effectKnobArea.removeFromLeft(effectThird);
-    formantEnableButton.setBounds(formantCol.removeFromTop(18));
-    formantSlider.setBounds(formantCol);
+    // Noise Gate (column 1)
+    auto gateCol = effectKnobArea.removeFromLeft(effectThird);
+    noiseGateEnableButton.setBounds(gateCol.removeFromTop(18));
+    noiseGateThresholdSlider.setBounds(gateCol);
     effectKnobArea.removeFromLeft(6);
 
     // Reverb (column 2)
@@ -1588,9 +1596,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     reverbMixSlider.setBounds (reverbCol);
     effectKnobArea.removeFromLeft(6);
 
-    // Noise Gate (column 3) — same style: toggle + knob, no separate label
-    noiseGateEnableButton.setBounds(effectKnobArea.removeFromTop(18));
-    noiseGateThresholdSlider.setBounds(effectKnobArea);
+    // Formant (column 3)
+    formantEnableButton.setBounds(effectKnobArea.removeFromTop(18));
+    formantSlider.setBounds(effectKnobArea);
 
     // Harmony controls block (rightmost block)
     {
@@ -1876,7 +1884,17 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
     pitchVisualizer->pushInputPitch  (hzIn);
     pitchVisualizer->pushOutputPitch (hzOut);
     if (curveEditor != nullptr)
+    {
         curveEditor->getPianoKeyboard().setCurrentPitches (hzIn, hzOut);
+        // Detect DAW transport jump (loop, seek) and clear trace
+        const double now = processorRef.getTransportTime();
+        const double delta = std::abs (now - lastTransportTime);
+        if (delta > 0.5 && lastTransportTime > 0.0) // >0.5s jump = not normal playback
+            curveEditor->clearInputTrace();
+        lastTransportTime = now;
+        if (hzIn > 0.0f)
+            curveEditor->addInputTraceSample (now, hzIn);
+    }
 
     // Note info for the header display.
     const atdsp::NoteInfo info = atdsp::describePitch (hzIn, hzOut);

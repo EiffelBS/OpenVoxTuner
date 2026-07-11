@@ -335,6 +335,28 @@ namespace ui
             }
         }
 
+        // Draw input pitch trace (red line, same as PitchVisualizer)
+        if (inputTraceTimes.size() > 1)
+        {
+            juce::Colour inputCol = juce::Colour (0xffe91e63).withAlpha (0.5f);
+            juce::Path ip;
+            bool started = false;
+            for (int i = 0; i < inputTraceTimes.size(); ++i)
+            {
+                float hz = inputTracePitches[i];
+                if (hz <= 0.0f) { started = false; continue; }
+                float x = static_cast<float> (timeToX (inputTraceTimes[i]));
+                float y = pitchToY (hz);
+                if (!started) { ip.startNewSubPath (x, y); started = true; }
+                else ip.lineTo (x, y);
+            }
+            if (!ip.isEmpty())
+            {
+                g.setColour (inputCol);
+                g.strokePath (ip, juce::PathStrokeType (1.5f));
+            }
+        }
+
         if (isMarqueeSelecting)
         {
             juce::Rectangle<float> r = marqueeRect;
@@ -543,6 +565,24 @@ namespace ui
                 pitches.remove(0);
             }
         }
+    }
+
+    void PitchCurveEditor::addInputTraceSample (double time, float hz)
+    {
+        inputTraceTimes.add (time);
+        inputTracePitches.add (hz);
+        // Trim old samples outside the visible window
+        while (inputTraceTimes.size() > 0 && inputTraceTimes[0] < (playheadTime - timeVisible))
+        {
+            inputTraceTimes.remove (0);
+            inputTracePitches.remove (0);
+        }
+    }
+
+    void PitchCurveEditor::clearInputTrace()
+    {
+        inputTraceTimes.clear();
+        inputTracePitches.clear();
     }
 
     // === Conversions coordonnees ===

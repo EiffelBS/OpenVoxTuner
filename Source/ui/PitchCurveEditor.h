@@ -117,6 +117,11 @@ namespace ui
         /// editor can draw harmony traces aligned with the curve timeline.
         void addHarmonySamples (double time, const juce::Array<float>& freqs);
 
+        /// Push an input pitch sample with its timestamp for trace display.
+        void addInputTraceSample (double time, float hz);
+        /// Clear the input pitch trace.
+        void clearInputTrace();
+
         /// Definit la position du playhead (en PPQ) et l'etat de lecture
         /// du DAW. L'auto-scroll n'est actif que si le DAW joue vraiment.
         void setPlayheadTime (double time, bool isHostPlaying);
@@ -230,6 +235,10 @@ namespace ui
         static constexpr int maxHarmonyVoices = 8;
         juce::Array<juce::Array<double>> harmonyTimes;
         juce::Array<juce::Array<float>>  harmonyPitches;
+
+        // Input pitch trace (red line, same as PitchVisualizer)
+        juce::Array<double> inputTraceTimes;
+        juce::Array<float>  inputTracePitches;
 
         // Position du playhead (secondes). 0 par defaut.
         double playheadTime = 0.0;

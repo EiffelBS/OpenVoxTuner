@@ -289,6 +289,7 @@ private:
     std::unique_ptr<atdsp::MorphState> morphTarget;
     bool morphActive = false;
     float lastMorphValue = 0.0f;
+    double lastTransportTime = 0.0; // for DAW transport jump detection
     juce::String morphSourceName = "Source";
     juce::String morphTargetName = "Target";
     std::unique_ptr<atdsp::MorphState> morphUndoState; // pre-morph snapshot for undo
