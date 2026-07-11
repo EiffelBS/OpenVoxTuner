@@ -1,12 +1,33 @@
 # Technical Specifications: ARA2 Support (Audio Random Access)
 
-## 1. Fallback mechanism for non-ARA DAWs
-The plugin uses a "Hybrid" architecture. When inserted into a DAW that does not support ARA2 (such as Ableton Live or FL Studio), or when used in Standalone mode, the plugin operates as a standard real-time VST3 effect.
+## 1. Processing model — ARA does NOT bypass the real-time DSP pipeline
+The plugin uses a "Hybrid" delivery model. When inserted into a DAW that does
+not support ARA2 (such as Ableton Live or FL Studio), or when used in
+Standalone mode, the plugin operates as a standard real-time VST3 effect.
+When the host provides ARA2, the plugin gains access to the host's musical
+metadata and waveform cache.
 
-**Technical implementation:**
-In the `processBlock` method, the plugin calls `processBlockForARA()`.
-- If the host provides a valid ARA context and audio regions are assigned, ARA processing is performed and the method returns `true`. Real-time processing (YIN, etc.) is then bypassed.
-- If the method returns `false`, the plugin continues its normal sequential execution, capturing the current block's audio, performing real-time YIN analysis, and applying correction via `PitchShifter`.
+**Important correction — there is no `processBlockForARA()` and `processBlock`
+does NOT branch or early-return for ARA.**
+
+- The single entry point is `processBlock()`. It always runs the **full DSP
+  pipeline** regardless of ARA: `NoiseGate` -> `YIN` pitch detection ->
+  `ScaleQuantizer` -> `RetargetEnvelope` (Speed) -> `PitchShifter`/PSOLA (with
+  native Formant Shift) -> `HarmonyEngine` (shifted voices) -> post-processing
+  effects (`ReverbEffect`, etc.).
+- ARA only **augments** `processBlock` with two additions that run *before*
+  the DSP chain:
+  1. **Metadata reads**: when `isBoundToARA()` is true, the plugin reads the
+     host's key signature and bar (time) signature via the
+     `ARAMusicalContext` and pushes them into the `key`/`scale` parameters and
+     the `araBarSignatures` cache (used by the Curve Editor ruler).
+  2. **`araWaveformBuffer` cache**: captured before DSP, a mono downmix of the
+     input block is stored so the visualizer can display the waveform.
+- Because the DSP path is identical, the audio result (correction quality,
+  harmony, reverb, noise gate) is the same in ARA and non-ARA modes. ARA's
+  added value is metadata-driven (key/scale/bar sync) and the waveform cache,
+  not a separate processing path or "offline" analysis.
+
 The user experience is thus preserved 100% across all environments.
 
 ## 2. Clip vs Track behavior (ARA hierarchy)
@@ -25,12 +46,36 @@ The plugin's UI editor is designed to iterate over the root `ARADocument` object
 
 ## 3. Key signature extraction (Chord Track / Key Signature)
 When the plugin is in ARA2 mode, it queries the `ARAMusicalContext` object provided by the host.
-- `ARAKeySignature` (Key) and `ARAChord` (Chords) data are extracted.
-- If the project contains a defined key (e.g. C Major), the plugin's `ScaleQuantizer` module automatically locks onto that scale, eliminating the need for the user to select it manually in the interface.
+
+- Only **`ARAKeySignature`** (key) and **`ARABarSignature`** (time signature)
+  data are extracted via `kARAContentTypeKeySignatures` and
+  `kARAContentTypeBarSignatures`.
+- **Chord extraction is NOT implemented.** There is no `ARAChord` / 
+  `kARAContentTypeChords` reader anywhere in the codebase. The plugin never
+  reads per-chord harmonic information from the host.
+- If the project contains a defined key (e.g. C Major), the plugin derives a
+  `scale` value and the `ScaleQuantizer` module locks onto that scale.
+- **Scale derivation is limited** to three cases resolved from the key
+  signature intervals:
+  - 12 active pitch classes -> `Chromatic` (index 0)
+  - Major third interval present (`intervals[4]`) -> `Major` (index 1)
+  - Minor third interval present (`intervals[3]`) -> `Natural Minor` (index 4)
+  
+  Any other scale (Melodic/Harmonic Minor, modes, pentatonics, Blues, Custom,
+  etc.) is **not** inferred from ARA metadata; the user must still select it
+  manually in the interface.
 
 ## 4. Compatibility matrix and validation
-- **Studio One (PreSonus)**: Native ARA2 support (Clip & Track). Chord and key extraction 100% supported.
-- **Cubase / Nuendo (Steinberg)**: Native ARA2 VST3 support. Chord track extraction supported.
+- **Studio One (PreSonus)**: Native ARA2 support (Clip & Track). Key signature
+  and bar (time) signature extraction supported. **Chord extraction: NOT
+  implemented.**
+- **Cubase / Nuendo (Steinberg)**: Native ARA2 VST3 support. Key and bar
+  signature extraction supported. **Chord track extraction: NOT implemented.**
 - **Logic Pro (Apple)**: ARA2 AudioUnit support. Track instantiation recommended.
-- **Reaper (Cockos)**: ARA2 VST3 support. Excellent for offline audio; chord extraction limited depending on configuration.
-- **Ableton Live / FL Studio**: Automatic real-time fallback (standard processing with no loss of functionality).
+  Key and bar signature extraction supported. **Chord extraction: NOT
+  implemented.**
+- **Reaper (Cockos)**: ARA2 VST3 support. Excellent for offline audio; key and
+  bar signature extraction supported. **Chord extraction is not implemented in
+  any configuration.**
+- **Ableton Live / FL Studio**: Automatic real-time fallback (standard
+  processing with no loss of functionality). No ARA metadata is used.

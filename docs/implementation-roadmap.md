@@ -14,10 +14,10 @@
 
 - [x] Pitch detection (YIN algorithm)
 - [x] Pitch detection (YIN algorithm — SWIPE'/PYIN evaluated and removed)
-- [x] Pitch shifting (Phase vocoder)
+- [x] Pitch shifting (PSOLA)
 - [x] Formant preservation
 - [x] Scale quantizer (14 scale types including Custom)
-- [x] Harmony engine (20 harmony types)
+- [x] Harmony engine (21 harmony types + None; 22 entries)
 - [x] Reverb effect (post-processing)
 - [x] Noise Gate (input, before pitch detection)
 - [x] FlexTune / Humanize parameters
@@ -52,7 +52,7 @@
 - [x] Harmony controls (enable, type, gain, blend, tone)
 - [x] Use Voice / shifted voices selector
 - [x] Harmony tone color knob
-- [x] Latency mode selection (Low Latency / Quality / Safe)
+- [x] Latency mode selection (Direct Monitoring / Low Latency / Quality / Safe)
 - [x] Update checker (GitHub releases)
 - [x] Internationalization (i18n) - English, French, German, Spanish, Japanese (menu items, labels, all tooltips)
 - [x] Language selector in hamburger menu with persistence

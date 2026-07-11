@@ -46,7 +46,7 @@ adapt automatically.
 ### 2.1 What changes for the user
 
 **Before:** A fixed ruler of 16 beats (4 measures of 4/4). No way to change it.
-**After:** A ComboBox allowing the user to choose **1, 2, 4, or 8 measures** visible.
+**After:** A ComboBox allowing the user to choose **1, 2, 4, 8, 16, or 32 measures** visible.
 The ruler adapts to the DAW's current time signature.
 
 Examples of the new ruler display:
@@ -199,10 +199,10 @@ linear scan over 2-3 events is sub-microsecond.
 | `Source/PluginProcessor.h` | Add `TimeSignature` storage: `currentNumerator`, `currentDenominator` atomics + `araBarSignatures` vector + `BarSignatureEvent` struct |
 | `Source/PluginProcessor.cpp` | Read `ARAContentTypeBarSignatures` in ARA block; read `getTimeSignature()` in VST3 transport block; add accessor methods |
 | `Source/PluginEditor.h` | Add `measuresCombo` member + `ComboBoxAttachment`; add `initMeasureBox()` helper |
-| `Source/PluginEditor.cpp` | Create ComboBox with "1", "2", "4", "8" measures; bind to processor parameter; call `curveEditor->setMeasuresVisible() + setTimeSignature()` each timer tick |
+| `Source/PluginEditor.cpp` | Create ComboBox with "1", "2", "4", "8", "16", "32" measures; bind to processor parameter; call `curveEditor->setMeasuresVisible() + setTimeSignature()` each timer tick |
 | `Source/ui/PitchCurveEditor.h` | Add members: `measuresVisible`, `timeSignatureNum`, `timeSignatureDen`; new methods: `setMeasuresVisible(int)`, `setTimeSignature(int num, int den)`; update `timeVisible` calculation |
 | `Source/ui/PitchCurveEditor.cpp` | Rewrite ruler paint with time-signature-aware bars and beats; recalculate `timeVisible` on `setMeasuresVisible()` or `setTimeSignature()` |
-| `Source/PluginProcessor.cpp` (params) | New `AudioParameterInt` "editor_measures" (1-8, default 4) |
+| `Source/PluginProcessor.cpp` (params) | New `AudioParameterInt` "editor_measures" (1-32, default 4) |
 
 ### 2.6 Implementation steps (detailed)
 
@@ -263,7 +263,7 @@ if (!isBoundToARA()) {
 
 2.1 In `PluginProcessor` constructor, add parameter:
 ```cpp
-std::make_unique<juce::AudioParameterInt>("editor_measures", "Editor Measures", 1, 8, 4)
+std::make_unique<juce::AudioParameterInt>("editor_measures", "Editor Measures", 1, 32, 4)
 ```
 
 2.2 Add atomic pointer:
@@ -292,7 +292,7 @@ int timeSigDen = 4;
 3.2 In `PitchCurveEditor.cpp`, implement:
 ```cpp
 void PitchCurveEditor::setMeasuresVisible(int measures) {
-    measuresVisible = juce::jlimit(1, 8, measures);
+    measuresVisible = juce::jlimit(1, 32, measures);
     recalculateTimeVisible();
     repaint();
 }
@@ -358,7 +358,7 @@ measuresLabel.setColour(juce::Label::textColourId, kText);
 measuresLabel.setFont(juce::Font(12.0f, juce::Font::bold));
 addAndMakeVisible(measuresLabel);
 
-measuresBox.addItemList({"1", "2", "4", "8"}, 1);
+measuresBox.addItemList({"1", "2", "4", "8", "16", "32"}, 1);
 measuresBox.setSelectedItemIndex(2, juce::dontSendNotification); // 4 by default
 measuresBox.setColour(juce::ComboBox::backgroundColourId, kBgPanel);
 measuresBox.setColour(juce::ComboBox::textColourId, kText);
@@ -395,24 +395,27 @@ past the right edge, the view stays fixed. The user must manually scroll the
 playhead's button to see later beats.
 
 **After:** When auto-scroll is enabled, the view follows the playhead during
-DAW playback. The playhead stays at ~75% of the visible width. When playback
-stops, the view stays where it is.
+DAW playback. The playhead stays centered at ~50% of the visible width. When
+playback stops, the view stays where it is.
 
 An **Auto-Scroll toggle button** is added to the Curve Editor toolbar. It is
-enabled by default when ARA is active.
+always visible (not ARA-gated) and defaults to ON (`auto_scroll` parameter
+defaults to `true`).
 
 ### 3.2 Architecture & scrolling algorithm
 
-**Scrolling algorithm (smooth continuous):**
+**Scrolling algorithm (smooth, centered):**
 
 The playhead position is `cachedTransportTime` (PPQ). The scroll offset is
-calculated to keep the playhead at 75% of the visible width:
+calculated to keep the playhead centered at 50% of the visible width. The
+scroll is smoothed with a LERP factor of `0.15` (not a hard snap):
 
 ```cpp
 // In timerCallback or setPlayheadTime:
 if (autoScrollEnabled && isPlaying) {
-    double targetScroll = playheadTime - timeVisible * 0.75;
-    scrollOffset = juce::jmax(0.0, targetScroll);
+    double targetScroll = playheadTime - timeVisible * 0.5;
+    targetScroll = juce::jmax(0.0, targetScroll);
+    scrollOffset = scrollOffset + (targetScroll - scrollOffset) * 0.15;
     repaint();
 }
 ```
@@ -441,19 +444,36 @@ double PitchCurveEditor::xToTime(float x) const {
 - No hard limit at end (user can scroll past the last point)
 - When playback stops, scroll stays in place
 
-**Activation logic:**
+**Activation logic (actual implementation):**
+
+The feature is **not ARA-gated**. The toggle is always visible (`setAutoScrollVisible(true)`
+every timer tick) and `auto_scroll` defaults to `true`. Scrolling is applied
+whenever `autoScrollEnabled && autoScrollVisible`:
+
 ```cpp
-if (autoScrollEnabled) {
-    bool isPlaying = (playheadTime != lastPlayheadTime); // simple heuristic
-    // In ARA mode, use playback state from host
-    if (isPlaying) {
-        // apply scroll formula above
-        // hide the playhead visual when it's beyond the right edge
-    } else {
-        // playback stopped -> keep current scroll, don't reset
+// In setPlayheadTime(double time, bool isHostPlaying):
+const bool playing = (time != playheadTime); // transport is advancing
+wasPlayingLastFrame = playing;
+
+if (autoScrollEnabled && autoScrollVisible)
+{
+    // Smooth, centered scroll (LERP 0.15), playhead at 50%:
+    double targetScroll = juce::jmax(0.0, time - timeVisible * 0.5);
+    scrollOffset = scrollOffset + (targetScroll - scrollOffset) * 0.15;
+}
+else if (autoScrollVisible)
+{
+    // Stopped: snap instantly only on a manual seek (delta > 0.01)
+    if (std::abs(time - stoppedPlayheadTime) > 0.01)
+    {
+        scrollOffset = juce::jmax(0.0, time - timeVisible * 0.5);
+        stoppedPlayheadTime = time;
     }
 }
 ```
+
+There is **no** `lastPlayheadTime` member; the implementation tracks
+`wasPlayingLastFrame` and `stoppedPlayheadTime` instead.
 
 **Overlap with playhead paint:**
 ```cpp
@@ -471,8 +491,8 @@ if (displayPlayhead >= scrollOffset && displayPlayhead <= scrollOffset + timeVis
 |------|--------------------|
 | `Source/PluginProcessor.h` | Add `AudioParameterBool` "auto_scroll" |
 | `Source/PluginProcessor.cpp` | Add parameter declaration, get pointer |
-| `Source/ui/PitchCurveEditor.h` | Add members: `scrollOffset`, `autoScrollEnabled`, `lastPlayheadTime`; methods: `setAutoScroll(bool)`, `setPlayheadTime()` override |
-| `Source/ui/PitchCurveEditor.cpp` | Modify `timeToX()`, `xToTime()`, `paint()` ruler loop, `paint()` playhead, `setPlayheadTime()` scroll logic |
+| `Source/ui/PitchCurveEditor.h` | Add members: `scrollOffset`, `autoScrollEnabled`, `autoScrollVisible`, `wasPlayingLastFrame`, `stoppedPlayheadTime`; methods: `setAutoScroll(bool)`, `setAutoScrollVisible(bool)`, `setPlayheadTime()` override |
+| `Source/ui/PitchCurveEditor.cpp` | Modify `timeToX()`, `xToTime()`, `paint()` ruler loop, `paint()` playhead, `setPlayheadTime()` scroll logic (centered 50%, LERP 0.15) |
 | `Source/PluginEditor.h` | Add `autoScrollButton` toggle |
 | `Source/PluginEditor.cpp` | Create toggle button in Curve Editor toolbar; bind to parameter; update curve editor each timer tick |
 
@@ -484,10 +504,12 @@ In `PitchCurveEditor.h`, add:
 ```cpp
 double scrollOffset = 0.0;
 bool autoScrollEnabled = false;
-double lastPlayheadTime = -1.0;
+bool autoScrollVisible = false; // toggle visibility (always true in practice)
+bool wasPlayingLastFrame = false;
+double stoppedPlayheadTime = -1.0;
 
 void setAutoScroll(bool enabled);
-void checkAutoScroll();
+void setAutoScrollVisible(bool visible);
 ```
 
 Override `setPlayheadTime` (already exists) to add auto-scroll logic.
@@ -496,14 +518,22 @@ Override `setPlayheadTime` (already exists) to add auto-scroll logic.
 
 In `PitchCurveEditor.cpp`:
 ```cpp
-void PitchCurveEditor::setPlayheadTime(double time) {
-    bool isPlaying = (time != lastPlayheadTime && time > 0.0);
-    lastPlayheadTime = time;
+void PitchCurveEditor::setPlayheadTime(double time, bool /*isHostPlaying*/) {
+    const bool playing = (time != playheadTime); // transport is advancing
+    wasPlayingLastFrame = playing;
     playheadTime = time;
 
-    if (autoScrollEnabled && isPlaying) {
-        double targetScroll = time - timeVisible * 0.75;
-        scrollOffset = juce::jmax(0.0, targetScroll);
+    if (autoScrollEnabled && autoScrollVisible) {
+        // Smooth, centered scroll (LERP 0.15); playhead at 50%
+        double targetScroll = juce::jmax(0.0, time - timeVisible * 0.5);
+        scrollOffset = scrollOffset + (targetScroll - scrollOffset) * 0.15;
+    }
+    else if (autoScrollVisible) {
+        // Stopped: snap only on manual seek
+        if (std::abs(time - stoppedPlayheadTime) > 0.01) {
+            scrollOffset = juce::jmax(0.0, time - timeVisible * 0.5);
+            stoppedPlayheadTime = time;
+        }
     }
 
     repaint();
@@ -511,9 +541,14 @@ void PitchCurveEditor::setPlayheadTime(double time) {
 
 void PitchCurveEditor::setAutoScroll(bool enabled) {
     autoScrollEnabled = enabled;
-    if (!enabled && scrollOffset > 0.0) {
-        // Optionally reset scroll to 0 when disabling? No, keep position.
+    if (!enabled) {
+        // Keep current scroll position; just disable following.
     }
+}
+
+void PitchCurveEditor::setAutoScrollVisible(bool visible) {
+    autoScrollVisible = visible;
+    // Toggle visibility is unconditional (not ARA-gated).
 }
 ```
 
@@ -582,7 +617,7 @@ curveEditor->setAutoScroll(autoScrollToggle.getToggleState());
 | Change from 4 measures to 1 | View shrinks, no visual artifacts | F1 |
 | Load project with 3/4 signature | Ruler shows 3 beats per bar, labels correct | F1 |
 | ARA project with time signature change mid-song | Ruler adapts after the change point | F1 |
-| Toggle auto-scroll ON in Standalone | Playhead scrolls the view, stays at 75% | F2 |
+| Toggle auto-scroll ON in Standalone | Playhead scrolls the view, stays centered at 50% (smoothed) | F2 |
 | Toggle auto-scroll OFF | Playhead moves but view stays fixed | F2 |
 | Drag points while auto-scrolling | Drag still works, coordinates correct | F2 |
 | Start playback at bar 5 in ARA | View scrolls to show bar 5 and beyond | F2 |
@@ -597,21 +632,25 @@ The following new entries will be added to `roadmap.md`:
 
 ### Phase 14 — Curve Editor: Customizable Measures
 
-- [ ] **Time signature infrastructure**: Read `ARAContentTypeBarSignatures` (ARA) and `AudioPlayHead::getTimeSignature()` (VST3) in `PluginProcessor`
-- [ ] **Parameter `editor_measures`**: `AudioParameterInt` 1-8, default 4, persisted
-- [ ] **Ruler rewrite**: Time-signature-aware bars/beats labels (M1, M2...)
-- [ ] **ComboBox in toolbar**: Measures selector (1, 2, 4, 8) in Curve Editor
-- [ ] **ARA multi-signature**: Bar signature changes mid-project in ARA mode
-- [ ] **Validation**: Visual check on 3/4, 4/4, 6/8, 12/8 with 1-8 measures
+**Status**: Implemented.
+
+- [x] **Time signature infrastructure**: Read `ARAContentTypeBarSignatures` (ARA) and `AudioPlayHead::getTimeSignature()` (VST3) in `PluginProcessor`
+- [x] **Parameter `editor_measures`**: `AudioParameterInt` 1-32, default 4, persisted
+- [x] **Ruler rewrite**: Time-signature-aware bars/beats labels (M1, M2...)
+- [x] **ComboBox in toolbar**: Measures selector (1, 2, 4, 8, 16, 32) in Curve Editor
+- [x] **ARA multi-signature**: Bar signature changes mid-project in ARA mode
+- [x] **Validation**: Visual check on 3/4, 4/4, 6/8, 12/8 with 1-32 measures
 
 ### Phase 15 — Curve Editor: ARA Auto-Scroll
 
-- [ ] **Auto-scroll algorithm**: Smooth continuous scroll, playhead at 75%
-- [ ] **Coordinate update**: `timeToX`/`xToTime` with `scrollOffset`
-- [ ] **Toggle button**: Auto-Scroll in Curve Editor toolbar
-- [ ] **Parameter `auto_scroll`**: `AudioParameterBool`, persisted
-- [ ] **Default ON in ARA**: Auto-detect ARA mode
-- [ ] **Validation**: Drag during scroll, resize, playback start/stop
+**Status**: Implemented.
+
+- [x] **Auto-scroll algorithm**: Smooth centered scroll (LERP 0.15), playhead at 50%
+- [x] **Coordinate update**: `timeToX`/`xToTime` with `scrollOffset`
+- [x] **Toggle button**: Auto-Scroll in Curve Editor toolbar (always visible, not ARA-gated)
+- [x] **Parameter `auto_scroll`**: `AudioParameterBool`, defaults to `true`, persisted
+- [x] **Default ON**: `auto_scroll` defaults to `true`; toggle visible unconditionally
+- [x] **Validation**: Drag during scroll, resize, playback start/stop
 
 ### Files created
 

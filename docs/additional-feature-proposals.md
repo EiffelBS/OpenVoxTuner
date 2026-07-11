@@ -34,6 +34,13 @@ into a contextual audio editing tool.
 waveform data through ARA2 extensions, others don't. Fallback to pitch-only
 display for unsupported hosts.
 
+**Status**: Implemented. The waveform is captured as a mono downmix of the
+input audio directly inside `processBlock()` (all modes, not only ARA), cached
+in `OpenVoxTunerAudioProcessor` (`araWaveformBuffer` / `copyAraWaveform()`),
+and forwarded to the visualizer by the editor. It is toggled from the
+hamburger menu ("Show Waveform"), not from ARA content-reader extraction
+(which is not yet used).
+
 ---
 
 ## 2. Per-Voice Harmony Tuning Controls
@@ -76,7 +83,8 @@ without relying solely on auditory feedback.
 parameters. Add a "morph slider" that smoothly transitions between the
 current settings and a target preset.
 
-**Status**: Technical strategy documented in
+**Status**: Implemented. See the `PresetMorpher` class
+(`Source/dsp/PresetMorpher.h`) and the technical strategy documented in
 [docs/preset-morphing-technical-strategy.md](preset-morphing-technical-strategy.md).
 
 **Use Case**: The user has two vocal presets (one for verses, one for choruses)
@@ -103,6 +111,9 @@ UI for undo/redo buttons).
 
 **UX Impact**: High - essential for any graphical editing workflow. Currently
 the only way to recover from mistakes is "Clear All".
+
+**Status**: Implemented. `PitchCurveEditor` holds a `juce::UndoManager`;
+undo/redo is bound to Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (or Ctrl/Cmd+Y).
 
 ---
 
@@ -139,8 +150,11 @@ time, helping them improve their performance.
 ## 8. MIDI Learn for All Parameters
 
 **Description**: Enable MIDI CC mapping for all plugin parameters. The user
-assigns a MIDI controller knob/slider to any parameter via right-click
-context menu.
+assigns a MIDI controller knob/slider to any parameter via the hamburger menu
+("MIDI Learn" submenu), not via right-click context menu.
+
+**Status**: Implemented. Accessed from the hamburger menu "MIDI Learn" submenu
+(`PluginEditor.cpp`), which arms a parameter for the next incoming MIDI CC.
 
 **Use Case**: The user controls the correction amount, speed, and formant
 in real-time using a MIDI keyboard or control surface during live performance.
@@ -181,6 +195,10 @@ the DAW's real-time processing budget.
 
 **UX Impact**: Medium - important for power users running multiple plugin
 instances.
+
+**Status**: Implemented. `OpenVoxTunerAudioProcessor::getCpuUsage()` (smoothed
+ratio of `processBlock` time to available block time) is shown in the editor's
+header bar (`currentCpuUsage`, refreshed every `timerCallback()`).
 
 ---
 
