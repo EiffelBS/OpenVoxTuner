@@ -1,43 +1,43 @@
 # Changelog - 2026-06-14
 
-## Modifications
+## Changes
 - **DSP / Formant Shift** :
-  - Séparation complète du Formant Shift de la chaîne d'Autotune : le Formant Shift est maintenant traité par une instance dédiée (`formantShifter`) qui intervient en post-traitement après l'Autotune. Cela résout le bug où le Formant Shift annulait la correction de justesse.
-  - Isolement du Formant Shift par rapport au mécanisme de préservation des formants de l'autotune (`formantPreserver`).
-  - Réduction de la plage du paramètre Formant de `[-12, +12]` à `[-5, +5]` pour éviter les dépassements de buffer (buffer overruns) et les clics audio.
-  - Réécriture complète de la gestion des formants dans `PitchShifter::process` : utilisation de la technique WSOLA avec manipulation de la vitesse de lecture intra-grain (`currentFormantRatio`) et saut de phase (`virtualInputTime`) pour obtenir un véritable effet "ogre" ou "chipmunk" sans annuler la correction de justesse.
+  - Complete separation of the Formant Shift from the Autotune chain: the Formant Shift is now handled by a dedicated instance (`formantShifter`) that runs in post-processing after the Autotune. This solves the bug where the Formant Shift cancelled the pitch correction.
+  - Isolation of the Formant Shift from the autotune's formant preservation mechanism (`formantPreserver`).
+  - Reduction of the Formant parameter range from `[-12, +12]` to `[-5, +5]` to avoid buffer overruns and audio clicks.
+  - Complete rewrite of the formant handling in `PitchShifter::process`: use of the WSOLA technique with manipulation of the intra-grain playback speed (`currentFormantRatio`) and phase jump (`virtualInputTime`) to obtain a true "ogre" or "chipmunk" effect without cancelling the pitch correction.
 
 - **DSP / Graphic Mode** :
-  - Résolution des artefacts audio (clics, scratchs) en mode Graphic : correction d'un bug majeur où la fenêtre de recherche d'alignement de phase (WSOLA) était restreinte à `0.5` période, l'empêchant de trouver la continuité de phase lors des changements de ratio brutaux dictés par la courbe. La fenêtre a été étendue à `1.2` période minimum.
-  - Rétablissement de la vitesse de lecture intra-grain à `1.0f` pour l'Autotune afin de garantir un lissage parfait des formants naturels et de prévenir les sauts temporels hors limites.
+  - Resolution of audio artefacts (clicks, scratch) in Graphic mode: fix of a major bug where the phase alignment search window (WSOLA) was restricted to `0.5` period, preventing it from finding phase continuity during the brutal ratio changes dictated by the curve. The window was extended to a minimum of `1.2` period.
+  - Restoration of the intra-grain playback speed to `1.0f` for the Autotune to guarantee perfect smoothing of the natural formants and prevent out-of-range temporal jumps.
 
 - **DSP / Formant Shift & Autotune** :
-  - Refonte majeure de l'algorithme `PitchShifter` pour résoudre la perte d'autotune et les "echos/scratchs" en fin de note.
-  - Remplacement du pointeur d'écriture tournant (`writePos`) par un pointeur d'écriture absolu (`absoluteWritePos`) et passage de `virtualInputTime` en `double` au lieu de `float`. Cela élimine définitivement les bugs de dépassement de tampon (`wraparound`) qui causaient la répétition aléatoire d'anciens fragments audio (les "échos" entendus après l'arrêt du chant).
-  - Suppression de l'égaliseur `FormantPreserver` et de la seconde instance `FormantShifter`. Le moteur granulaire effectue désormais le Formant Shifting et le Pitch Shifting en un seul et unique passage, de manière parfaitement mathématique et avec une qualité supérieure, ce qui réduit drastiquement la consommation CPU.
+  - Major rework of the `PitchShifter` algorithm to solve the loss of autotune and the "echoes/scratch" at the end of notes.
+  - Replacement of the rotating write pointer (`writePos`) by an absolute write pointer (`absoluteWritePos`) and switching `virtualInputTime` to `double` instead of `float`. This definitively eliminates the buffer wraparound bugs that caused the random repetition of old audio fragments (the "echoes" heard after singing stopped).
+  - Removal of the `FormantPreserver` equalizer and the second `FormantShifter` instance. The granular engine now performs Formant Shifting and Pitch Shifting in a single pass, in a perfectly mathematical way and with superior quality, which drastically reduces CPU consumption.
 
-- **UI / Graphic Mode & Ergonomie** :
-  - **Réorganisation spatiale inspirée de Pro-Q3** : Les outils spécifiques au mode d'édition graphique (`Snap to scale`, `Clear Curve`, `Reset Playhead`) ont été complètement retirés du bloc inférieur de l'interface. Ils sont désormais intégrés de manière horizontale dans la bannière supérieure (Top Bar), alignés sur la droite à côté du bouton Bypass.
-  - Cette réorganisation a permis de supprimer un bloc d'interface entier en bas, offrant beaucoup plus d'espace de respiration (padding) aux boutons rotatifs de traitement (`Speed`, `Amount`, `Formant`) et au clavier de sélection de gamme (`Scale`).
-  - **Affichage conditionnel renforcé** : Ces trois outils graphiques placés dans la barre supérieure apparaissent *exclusivement* lorsque l'onglet "Graphic (Advanced)" est actif. En mode "Auto (Live)", la barre supérieure redevient parfaitement épurée pour ne pas polluer l'attention de l'utilisateur.
-  - **Correction d'affichage au redimensionnement** : Ajout d'une limite de taille minimale absolue (800x550) pour le plugin. Cela empêche les boutons (knobs) et la vue graphique de disparaître ou d'être écrasés lorsqu'on rétrécit trop la fenêtre depuis le DAW.
-  - **Refonte graphique (Thème Studio One)** : L'interface utilisateur a été complètement modernisée pour correspondre à vos références (Fat Channel, Compressor, Vocal Tune). Les fonds sont désormais d'un gris/noir mat très professionnel (`#1A1A1A`), les éléments actifs (barres de progression, combobox) s'illuminent en bleu cyan (`#1A9AF0`), et les boutons inactifs sont grisés. Les potentiomètres (knobs) ont été redessinés dans un style "plat" (flat design) avec une pointe lumineuse.
-  - **Bouton Formant Power** : Le bouton de Formant a été transformé en une véritable icône "Power" (cercle ouvert avec ligne verticale) qui s'illumine avec un halo jaune/doré (comme sur le Fat Channel) lorsqu'il est activé, et devient sombre lorsqu'il est coupé.
-  - Le slider de Formant se grise automatiquement lorsque l'effet est désactivé, offrant un retour visuel intuitif.
-  - Correction définitive de la visibilité et fonctionnalité du bouton `Reset Playhead` : il est désormais grisé (désactivé) lorsque le plugin est chargé en mode ARA (où la timeline est gérée exclusivement par le séquenceur). En mode plugin VST3 classique, il permet de réinitialiser la lecture locale en appliquant un offset temporel interne sans perdre la synchronisation de base avec l'hôte.
+- **UI / Graphic Mode & Ergonomics** :
+  - **Pro-Q3-inspired spatial reorganization** : The tools specific to the graphic editing mode (`Snap to scale`, `Clear Curve`, `Reset Playhead`) were completely removed from the bottom block of the interface. They are now integrated horizontally in the top banner (Top Bar), aligned to the right next to the Bypass button.
+  - This reorganization made it possible to remove an entire interface block at the bottom, offering much more breathing room (padding) to the processing rotary buttons (`Speed`, `Amount`, `Formant`) and to the scale selection keyboard (`Scale`).
+  - **Strengthened conditional display** : These three graphic tools placed in the top bar appear *exclusively* when the "Graphic (Advanced)" tab is active. In "Auto (Live)" mode, the top bar becomes perfectly clean again so as not to distract the user.
+  - **Display fix on resize** : Addition of an absolute minimum size limit (800x550) for the plugin. This prevents the buttons (knobs) and the graphic view from disappearing or being crushed when the window is shrunk too much from the DAW.
+  - **Graphic rework (Studio One theme)** : The UI was completely modernized to match your references (Fat Channel, Compressor, Vocal Tune). The backgrounds are now a very professional matte gray/black (`#1A1A1A`), the active elements (progress bars, combobox) light up in cyan blue (`#1A9AF0`), and the inactive buttons are grayed out. The knobs (potentiometers) were redrawn in a "flat" style with a lighted tip.
+  - **Formant Power button** : The Formant button was turned into a real "Power" icon (open circle with vertical line) that lights up with a yellow/gold halo (like on the Fat Channel) when active, and goes dark when cut.
+  - The Formant slider automatically grays out when the effect is disabled, providing intuitive visual feedback.
+  - Definitive fix of the visibility and functionality of the `Reset Playhead` button: it is now grayed out (disabled) when the plugin is loaded in ARA mode (where the timeline is managed exclusively by the sequencer). In classic VST3 plugin mode, it resets the local playback by applying an internal time offset without losing the base synchronization with the host.
 
-- **DSP / Détection de Pitch (Spikes)** :
-  - **Amélioration majeure de la latence** : La latence interne du moteur a été ramenée de 60ms à **20ms**. Le plugin signale désormais dynamiquement cette valeur (`setLatencySamples`) au DAW pour que la compensation (PDC) soit parfaite. C'est le délai optimal pour conserver une excellente qualité d'Autotune et de Formant tout en permettant le jeu en direct ("Live").
-  - Ajout d'un filtre médian (Median Filter de taille 5) directement dans le cœur du `PitchDetector` (algorithme YIN). Cela élimine complètement les "spikes" (sauts d'octave aléatoires d'une ou deux frames) qui causaient des erreurs de tracking et des artefacts métalliques dans le Pitch Shifter. La courbe verte dans l'éditeur sera désormais parfaitement lisse et stable, même sur les voix difficiles.
-  - Ajustement de la visibilité des boutons : `Clear Curve` et `Reset Playhead` sont désormais exclusivement visibles dans l'onglet **Graphic**.
+- **DSP / Pitch Detection (Spikes)** :
+  - **Major latency improvement** : The engine's internal latency was brought from 60ms to **20ms**. The plugin now dynamically reports this value (`setLatencySamples`) to the DAW so the compensation (PDC) is perfect. This is the optimal delay to keep excellent Autotune and Formant quality while allowing live playing.
+  - Addition of a median filter (Median Filter of size 5) directly in the core of the `PitchDetector` (YIN algorithm). This completely eliminates the "spikes" (random octave jumps of one or two frames) that caused tracking errors and metallic artefacts in the Pitch Shifter. The green curve in the editor will now be perfectly smooth and stable, even on difficult voices.
+  - Adjustment of button visibility: `Clear Curve` and `Reset Playhead` are now exclusively visible in the **Graphic** tab.
 
-- **Presets de l'éditeur graphique (Tessitures vocales)** :
-  - **Analyse des anciens presets** : Les anciens presets (`default`, `robot`, `spoken`, `lyric`) étaient calés sur des fréquences génériques (440 Hz / A4 ou 200 Hz). Ces valeurs étaient souvent trop aiguës de 1 à 2 octaves pour des voix parlées ou chantées masculines (Baryton/Basse), forçant le moteur DSP à "tirer" excessivement sur le signal et créant une perception artificielle.
-  - **Refonte et ajout de presets réalistes** : Création d'un menu de presets complet et catégorisé par tessitures vocales humaines (Soprano, Mezzo, Alto, Ténor, Baryton, Basse).
-  - Nouveaux presets plats (Robot) : ciblés sur **C3 (130 Hz)** pour voix grave, et **C4 (261 Hz)** pour voix aiguë.
-  - Nouveaux presets parlés (Spoken) : oscillation naturelle pour **Homme (~120 Hz)** et **Femme (~220 Hz)**.
-  - Nouveaux presets de mélodies : courbes expressives générées pour chaque tessiture vocale avec leurs limites de fréquences respectives (ex: Basse de E2 à C3, Soprano de C4 à G4).
-  - Validation complète par tests unitaires : toutes les courbes chargent correctement et n'écrasent pas le comportement de l'éditeur (Snap-to-scale fonctionnel sur les nouvelles courbes).
+- **Graphic editor presets (vocal tessituras)** :
+  - **Analysis of old presets** : The old presets (`default`, `robot`, `spoken`, `lyric`) were based on generic frequencies (440 Hz / A4 or 200 Hz). These values were often 1 to 2 octaves too high for spoken or sung male voices (Baritone/Bass), forcing the DSP engine to "pull" excessively on the signal and creating an artificial perception.
+  - **Rework and addition of realistic presets** : Creation of a complete preset menu categorized by human vocal tessituras (Soprano, Mezzo, Alto, Tenor, Baritone, Bass).
+  - New flat presets (Robot): targeted on **C3 (130 Hz)** for low voice, and **C4 (261 Hz)** for high voice.
+  - New spoken presets (Spoken): natural oscillation for **Man (~120 Hz)** and **Woman (~220 Hz)**.
+  - New melody presets: expressive curves generated for each vocal tessitura with their respective frequency limits (e.g. Bass from E2 to C3, Soprano from C4 to G4).
+  - Complete validation by unit tests: all curves load correctly and do not overwrite the editor's behavior (Snap-to-scale functional on the new curves).
 
 - **Documentation** :
-  - Mise à jour du `roadmap.md` pour refléter l'ajout de `Reset Playhead` et l'ajustement de `Clear Curve`.
+  - Update of `roadmap.md` to reflect the addition of `Reset Playhead` and the adjustment of `Clear Curve`.

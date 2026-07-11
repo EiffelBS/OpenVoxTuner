@@ -1,125 +1,125 @@
-# Changelog - 10 juin 2026
+# Changelog - June 10, 2026
 
-## Nouvelles fonctionnalites UI (ameliorations demandees par Jerome)
+## New UI features (improvements requested by Jérôme)
 
-### Affichage de la note chantee et de l'offset en cents
+### Display of the sung note and the offset in cents
 
-- **Header du PitchVisualizer** : affiche en gros le nom de la note
-  actuellement chantee (ex: "F3") + un texte plus petit indiquant
-  la note cible (ex: "-> F3") si differente.
-- **Offset en cents** : un grand texte affiche "+/- 50 c" a droite du
-  nom de la note. La couleur change selon la gravite :
-  - vert (|c| < 5) : dans la note
-  - jaune (|c| < 25) : proche de la note
-  - rouge (|c| >= 25) : clairement a cote
-- **Meter de tuning vertical** (style Antares / Studio One) : une aiguille
-  horizontale deplace selon l'offset en cents, avec une barre centrale
-  verte (0 cents) et des graduations a +/-50 et +/-100 cents.
+- **PitchVisualizer header**: displays in large the name of the currently
+  sung note (e.g. "F3") + a smaller text indicating the target note
+  (e.g. "-> F3") if different.
+- **Cents offset**: a large text displays "+/- 50 c" to the right of the
+  note name. The color changes according to severity:
+  - green (|c| < 5): on the note
+  - yellow (|c| < 25): close to the note
+  - red (|c| >= 25): clearly off
+- **Vertical tuning meter** (Antares / Studio One style): a horizontal
+  needle moves according to the cents offset, with a green center bar
+  (0 cents) and ticks at +/-50 and +/-100 cents.
 
-### Affichage des notes de la gamme
+### Display of the scale notes
 
-- **Lignes jaunes semi-transparentes** tracees dans le PitchVisualizer
-  pour toutes les notes de la gamme (sur 4 octaves, C2 -> C6).
-- Ces notes sont mises a jour en temps reel selon le Key + Scale choisi.
+- **Semi-transparent yellow lines** drawn in the PitchVisualizer for all
+  the scale notes (over 4 octaves, C2 -> C6).
+- These notes are updated in real time according to the chosen Key + Scale.
 
-### Gamme personnalisee (Custom)
+### Custom scale
 
-- **Nouveau mode `Scale::Custom`** (indice 5) ajoute a `atdsp::Scale`.
-- **12 booleens AudioParameterBool** (`custom0` a `custom11`) : chaque
-  note peut etre cochee/decochee individuellement (C, C#, D, ..., B).
-- **12 booleens ToggleButton** dans la GUI, organises en 1 rangee
-  horizontale sous les knobs. Visibles uniquement si Scale = "Custom".
-- **`ScaleQuantizer::setCustomIntervals()`** permet de pousser la liste
-  des notes actives vers le quantifier.
-- **Default** : majeur en C (C, D, E, F, G, A, B).
+- **New `Scale::Custom` mode** (index 5) added to `atdsp::Scale`.
+- **12 AudioParameterBool booleans** (`custom0` to `custom11`): each note
+  can be individually checked/unchecked (C, C#, D, ..., B).
+- **12 ToggleButton booleans** in the GUI, arranged in 1 horizontal row
+  below the knobs. Visible only if Scale = "Custom".
+- **`ScaleQuantizer::setCustomIntervals()`** pushes the list of active
+  notes to the quantizer.
+- **Default**: C major (C, D, E, F, G, A, B).
 
-### Clavier de piano vertical (PianoKeyboard)
+### Vertical piano keyboard (PianoKeyboard)
 
-- **Nouveau composant `ui::PianoKeyboard`** : dessine un clavier de piano
-  vertical (notes graves en bas, aigues en haut) avec touches blanches
-  et noires correctement alignees.
-- **Place a gauche du PitchCurveEditor** (largeur 40 px) : permet
-  d'identifier visuellement les notes de la pitch curve.
-- **Notes de la gamme surlignees en jaune** : on voit immediatement
-  quelles notes sont "autorisees" par la gamme courante.
-- **Labels des octaves (C2, C3, C4, ...)** sur la gauche du clavier.
+- **New `ui::PianoKeyboard` component**: draws a vertical piano keyboard
+  (low notes at the bottom, high notes at the top) with white and black
+  keys correctly aligned.
+- **Placed to the left of the PitchCurveEditor** (40 px wide): helps
+  visually identify the notes of the pitch curve.
+- **Scale notes highlighted in yellow**: see at a glance which notes are
+  "allowed" by the current scale.
+- **Octave labels (C2, C3, C4, ...)** on the left of the keyboard.
 
-## Architecture et implementation
+## Architecture and implementation
 
-### Nouveau fichier d'utilitaires DSP
+### New DSP utilities file
 
-- **`Source/dsp/NoteUtils.h`** : fonctions inline de conversion
-  Hz <-> note MIDI, centieme de demi-ton (cents), et struct `NoteInfo`
-  pour regrouper toutes les informations affichees dans l'UI.
+- **`Source/dsp/NoteUtils.h`**: inline conversion functions
+  Hz <-> MIDI note, cent (hundredth of a semitone), and `NoteInfo` struct
+  to group all information displayed in the UI.
 
-### Modifications des modules existants
+### Modifications to existing modules
 
-- **`ScaleQuantizer.h/.cpp`** :
-  - Nouvelle valeur d'enum `Scale::Custom` (= 5).
-  - Nouvelle methode `setCustomIntervals(const juce::Array<int>&)`.
-  - `rebuildIntervals()` distingue le cas Custom (utilise la liste
-    custom directement, sans decalage de key) des autres modes.
-- **`PitchCurve.h/.cpp`** :
-  - Nouvelle methode `snapToScaleCustom()` pour le snap avec gamme custom.
-  - Le snap interactif du `PitchCurveEditor` choisit automatiquement
-    entre `snapToScale` (modes presets) et `snapToScaleCustom` (Custom).
-- **`PluginProcessor.h/.cpp`** :
-  - Nouveau parametre `custom0..custom11` (12 AudioParameterBool).
-  - Plage du parametre `scale` passee a 0..5.
-  - Nouveau getter `getCurrentCentsOffset()` et champ atomique
-    `lastCentsOffset` mis a jour a chaque bloc.
-  - `syncParameters()` pousse les notes custom vers le quantifier
-    si `scaleIdx == 5`.
+- **`ScaleQuantizer.h/.cpp`**:
+  - New enum value `Scale::Custom` (= 5).
+  - New `setCustomIntervals(const juce::Array<int>&)` method.
+  - `rebuildIntervals()` distinguishes the Custom case (uses the custom
+    list directly, without key shift) from the other modes.
+- **`PitchCurve.h/.cpp`**:
+  - New `snapToScaleCustom()` method for snapping with a custom scale.
+  - The interactive snap of `PitchCurveEditor` automatically chooses
+    between `snapToScale` (preset modes) and `snapToScaleCustom` (Custom).
+- **`PluginProcessor.h/.cpp`**:
+  - New `custom0..custom11` parameter (12 AudioParameterBool).
+  - `scale` parameter range changed to 0..5.
+  - New `getCurrentCentsOffset()` getter and atomic field
+    `lastCentsOffset` updated every block.
+  - `syncParameters()` pushes the custom notes to the quantizer
+    if `scaleIdx == 5`.
 
-### Modifications UI
+### UI modifications
 
-- **`PitchVisualizer.h/.cpp`** :
-  - Nouveau bandeau en haut (60 px) avec note + cents.
-  - Nouvelle zone de meter de tuning a droite (60 px de large).
-  - Tracage des lignes de la gamme en arriere-plan.
-  - Nouvelles methodes `setNoteInfo()` et `setScaleIntervals()`.
-- **`PitchCurveEditor.h/.cpp`** :
-  - PianoKeyboard integre comme enfant, redessine a gauche.
-  - `timeToX` / `xToTime` tiennent compte de la largeur du piano.
-  - Mode Custom propage a `snapToScaleCustom`.
-  - `setCustomIntervals()` pour recevoir les notes custom.
-- **`PianoKeyboard.h/.cpp`** (nouveau) :
-  - Dessin de touches blanches (C, D, E, F, G, A, B) en pleine largeur.
-  - Touches noires (C#, D#, F#, G#, A#) plus courtes, par-dessus.
-  - Couleurs differentes pour les notes dans la gamme (jaune).
-  - Label des octaves (C2, C3, ...) sur les touches C.
-- **`PluginEditor.h/.cpp`** :
-  - 12 nouveaux `ToggleButton customButtons[0..11]` + leurs attachments.
-  - `updateCustomVisibility()` : affiche/masque les 12 boutons
-    selon que Scale = Custom ou pas.
-  - `refreshVisualizer()` enrichi : envoie NoteInfo + scaleIntervals
-    au PitchVisualizer et au PitchCurveEditor (qui les propage au piano).
-  - Layout ajuste : barre du bas passee de 160 a 220 px pour laisser
-    la place a la rangee des 12 booleens custom.
+- **`PitchVisualizer.h/.cpp`**:
+  - New top banner (60 px) with note + cents.
+  - New tuning meter area on the right (60 px wide).
+  - Scale lines drawn in the background.
+  - New `setNoteInfo()` and `setScaleIntervals()` methods.
+- **`PitchCurveEditor.h/.cpp`**:
+  - PianoKeyboard integrated as a child, redrawn on the left.
+  - `timeToX` / `xToTime` account for the piano width.
+  - Custom mode propagated to `snapToScaleCustom`.
+  - `setCustomIntervals()` to receive the custom notes.
+- **`PianoKeyboard.h/.cpp`** (new):
+  - White keys (C, D, E, F, G, A, B) drawn full width.
+  - Black keys (C#, D#, F#, G#, A#) shorter, on top.
+  - Different colors for in-scale notes (yellow).
+  - Octave labels (C2, C3, ...) on the C keys.
+- **`PluginEditor.h/.cpp`**:
+  - 12 new `ToggleButton customButtons[0..11]` + their attachments.
+  - `updateCustomVisibility()`: shows/hides the 12 buttons depending on
+    whether Scale = Custom or not.
+  - `refreshVisualizer()` enriched: sends NoteInfo + scaleIntervals to the
+    PitchVisualizer and to the PitchCurveEditor (which propagates to piano).
+  - Layout adjusted: bottom bar increased from 160 to 220 px to make room
+    for the 12 custom boolean row.
 
 ## CMakeLists.txt
 
-- Ajout de `Source/dsp/NoteUtils.h`, `Source/ui/PianoKeyboard.h`,
-  `Source/ui/PianoKeyboard.cpp` dans les sources de la cible
-  `AutotuneClone`.
+- Added `Source/dsp/NoteUtils.h`, `Source/ui/PianoKeyboard.h`,
+  `Source/ui/PianoKeyboard.cpp` to the sources of the `AutotuneClone`
+  target.
 
 ## Build
 
-- Build Release x64 reussi :
-  - `Autotune Clone.vst3` produit.
-  - `Autotune Clone.exe` (Standalone) produit.
-- 1 warning MSVC C4172 (PitchCurve.h:68-69) : "retour de l'adresse de
-  la variable locale ou temporaire" sur `getPoint(int)` ; pre-existant
-  (de la version precedente), non corrige car inoffensif (les references
-  sont utilisees immediatement dans le meme scope).
+- Release x64 build succeeded:
+  - `Autotune Clone.vst3` produced.
+  - `Autotune Clone.exe` (Standalone) produced.
+- 1 MSVC C4172 warning (PitchCurve.h:68-69): "returning address of local
+  or temporary variable" on `getPoint(int)`; pre-existing (from the
+  previous version), not fixed because harmless (references are used
+  immediately in the same scope).
 
-## Correction de bug : assertion JUCE au premier paint du PianoKeyboard
+## Bug fix: JUCE assertion on first PianoKeyboard paint
 
-### Symptome
-Au premier appel de `PianoKeyboard::paint()`, Visual Studio (mode Debug)
-declenchait un breakpoint sur l'assertion `jassertquiet` dans
-`juce::`anonymous namespace'::coordsToRectangle<float>` (ligne 91 de
-`juce_GraphicsContext.cpp`), avec la pile d'appels :
+### Symptom
+On the first call to `PianoKeyboard::paint()`, Visual Studio (Debug mode)
+triggered a breakpoint on the `jassertquiet` assertion in
+`juce::`anonymous namespace'::coordsToRectangle<float>` (line 91 of
+`juce_GraphicsContext.cpp`), with the call stack:
 
 ```
 coordsToRectangle<float>             [juce_GraphicsContext.cpp:91]
@@ -128,201 +128,195 @@ ui::PianoKeyboard::paint             [PianoKeyboard.cpp:109]
 ```
 
 ### Cause
-Dans `PianoKeyboard::paint`, pour chaque touche blanche on calcule :
+In `PianoKeyboard::paint`, for each white key we compute:
 ```cpp
 const float y    = midiToY (midi);
 const float keyH = midiToY (midi + 1) - y;
 ```
-Or pour `midi = highestMidi` (=96, C7) :
+But for `midi = highestMidi` (=96, C7):
 - `midiToY(96) = H - (96-36)/60 * H = 0`
-- `midiToY(97) = H - (97-36)/60 * H = -0.0167 * H` (NEGATIF)
-- Donc `keyH = -0.0167 * H < 0`, ce qui viole l'assertion `(int) h >= 0`.
+- `midiToY(97) = H - (97-36)/60 * H = -0.0167 * H` (NEGATIVE)
+- So `keyH = -0.0167 * H < 0`, which violates the `(int) h >= 0` assertion.
 
-Le meme probleme affectait les touches noires du dernier demi-ton.
+The same problem affected the black keys of the last semitone.
 
 ### Fix
-Clamp de la hauteur a 1 pixel minimum pour les deux types de touches
-(blanche et noire), afin d'eviter tout `fillRect` avec une hauteur
-nulle ou negative.
+Clamp the height to a minimum of 1 pixel for both key types (white and
+black), to avoid any `fillRect` with a null or negative height.
 
-Voir `debug-pianokeyboard-negative-height.md` pour la session complete.
+See `debug-pianokeyboard-negative-height.md` for the full session.
 
 ### Verification
-- Build Release x64 reussi apres le fix.
-- Lancement du standalone : pas d'assertion declenchee.
-- Le composant `PianoKeyboard` s'affiche correctement a gauche du
+- Release x64 build succeeded after the fix.
+- Standalone launch: no assertion triggered.
+- The `PianoKeyboard` component displays correctly to the left of the
   `PitchCurveEditor`.
 
-## Corrections de bugs et clarifications suite au feedback
+## Bug fixes and clarifications following feedback
 
-### Reorganisation du layout (UI illisible)
-- **Bouton Bypass** : deplace en haut a droite avec libelle "Bypass"
-  et tooltip explicatif. La version "v0.1.0 - Phase 1" du bandeau
-  n'est plus chevauchee par le bouton.
-- **Boutons de gamme custom** : deplaces dans leur PROPRE rangee en
-  bas (28 px de hauteur, apres la rangee knobs/ComboBox), au lieu
-  d'etre superposes aux knobs.
-- **3 rangees distinctes** dans la barre du bas :
+### Layout reorganization (unreadable UI)
+- **Bypass button**: moved to the top right with "Bypass" label and an
+  explanatory tooltip. The "v0.1.0 - Phase 1" version label in the banner
+  is no longer overlapped by the button.
+- **Custom scale buttons**: moved to their OWN row at the bottom (28 px
+  high, after the knobs/ComboBox row), instead of being overlaid on the
+  knobs.
+- **3 distinct rows** in the bottom bar:
   1. Mode / Snap (28 px)
   2. Knobs (Speed, Amount) + ComboBox (Key, Scale) (90 px)
-  3. 12 booleens de gamme Custom (28 px, visible uniquement en Custom)
-- **Espacement** : padding 10 px entre les rangees, plus de chevauchement.
+  3. 12 Custom scale booleans (28 px, visible only in Custom)
+- **Spacing**: 10 px padding between rows, no more overlap.
 
-### Piano keyboard plus lisible
-- **Largeur passee de 40 a 60 pixels** dans `PitchCurveEditor::resized()`.
-- **Largeur des touches noires** passee de 60% a 65% de la largeur totale.
-- **Taille des labels** passee de 9pt a 11pt bold pour les C2, C3, etc.
+### More readable piano keyboard
+- **Width increased from 40 to 60 pixels** in `PitchCurveEditor::resized()`.
+- **Black key width** increased from 60% to 65% of the total width.
+- **Label size** increased from 9pt to 11pt bold for C2, C3, etc.
 
-### Clarification du role du Bypass
-- **Tooltip ajoute** sur le bouton Bypass : explique que cocher le
-  Bypass fait passer l'audio sans traitement (dry pass-through),
-  et que le visualiseur continue a fonctionner dans les deux cas.
-- Note dans la documentation : le "Mute audio input" dans les Audio/MIDI
-  Settings du standalone est un toggle distinct qui coupe le monitoring
-  hardware du standalone (independamment du bypass du plugin).
+### Clarification of the Bypass role
+- **Tooltip added** on the Bypass button: explains that enabling Bypass
+  passes the audio through unprocessed (dry pass-through), and that the
+  visualizer keeps working in both cases.
+- Note in the documentation: the "Mute audio input" in the standalone's
+  Audio/MIDI Settings is a distinct toggle that cuts the standalone's
+  hardware monitoring (independent of the plugin's bypass).
 
-### Correction du bug audio : appel systematique du PSOLA
+### Audio bug fix: systematic PSOLA call
 
-**Symptome** : avec bypass OFF, l'audio etait "incorrect" (silence ou
-distorsion) quand l'utilisateur passait rapidement de in-scale a
-out-of-scale. Avec "Mute audio input" coche, rien n'etait audible.
+**Symptom**: with bypass OFF, the audio was "wrong" (silence or
+distortion) when the user quickly moved from in-scale to out-of-scale.
+With "Mute audio input" checked, nothing was audible.
 
-**Cause identifiee** : dans `PluginProcessor::processBlock`, l'appel
-a `pitchShifter->process` etait conditionne par `|ratio - 1.0f| > 1e-3f`.
-Quand l'utilisateur chantait dans la gamme (ratio proche de 1), le
-`pitchShifter->process` n'etait PAS appele, donc :
-- Le ring buffer n'etait pas alimente avec les nouveaux echantillons.
-- `totalSamplesWritten` et `nextSynthMarkSample` restaient figes.
-- Aucune pitch mark n'etait detectee.
+**Identified cause**: in `PluginProcessor::processBlock`, the call to
+`pitchShifter->process` was conditioned by `|ratio - 1.0f| > 1e-3f`.
+When the user sang in scale (ratio close to 1), `pitchShifter->process`
+was NOT called, so:
+- The ring buffer was not fed with the new samples.
+- `totalSamplesWritten` and `nextSynthMarkSample` stayed frozen.
+- No pitch mark was detected.
 
-Quand l'utilisateur passait ensuite out-of-scale (ratio != 1), le
-`pitchShifter->process` etait appele avec un ring buffer obsolete
-contenant des echantillons d'il y a N blocs. La synthese pouvait
-produire du silence ou des artefacts.
+When the user then moved out-of-scale (ratio != 1), `pitchShifter->process`
+was called with a stale ring buffer containing samples from N blocks ago.
+The synthesis could produce silence or artefacts.
 
-**Fix** : on appelle TOUJOURS `pitchShifter->process`, sans condition
-sur le ratio. C'est `PitchShifter::process` lui-meme qui decide de
-faire du passthrough (ratio proche de 1 ou f0 <= 0) ou de la
-synthese OLA. Le ring buffer est donc continuellement a jour.
+**Fix**: we ALWAYS call `pitchShifter->process`, without any condition on
+the ratio. It is `PitchShifter::process` itself that decides whether to do
+passthrough (ratio close to 1 or f0 <= 0) or OLA synthesis. The ring buffer
+is therefore continuously up to date.
 
-**Fichier** : `Source/PluginProcessor.cpp` (ligne ~210).
+**File**: `Source/PluginProcessor.cpp` (around line 210).
 
-**Session de debug** : `debug-psola-audio-incorrect.md` (marquee [OPEN],
-a confirmer apres test utilisateur).
+**Debug session**: `debug-psola-audio-incorrect.md` (marked [OPEN], to be
+confirmed after user testing).
 
-### Note sur le drag des points du PitchCurveEditor
-Le drag ne fonctionne QUE quand le mode est "Graphic" (pas "Auto").
-L'overlay gris "Mode Auto : passez en mode Graphic pour editer" est
-affiche dans l'editeur quand le mode Auto est actif. C'est un
-comportement desire, pas une regression : on ne peut pas editer la
-courbe manuellement en mode Auto (le plugin suit la gamme
-automatiquement).
+### Note on PitchCurveEditor point drag
+The drag only works when the mode is "Graphic" (not "Auto").
+The gray overlay "Mode Auto : switch to Graphic mode to edit" is shown in
+the editor when Auto mode is active. This is desired behavior, not a
+regression: you cannot edit the curve manually in Auto mode (the plugin
+follows the scale automatically).
 
-## Round 2 de corrections suite au feedback (10 juin 2026 PM)
+## Round 2 of fixes following feedback (June 10, 2026 PM)
 
-### Fix A (CONFIRME) : overlap visualiseur / curve editor
-**Symptome** : la zone du visualiseur etait completement vide (le
-header avec note/cents, le meter de tuning, les lignes de la gamme
-n'etaient pas visibles). Seul le curve editor (avec ses points)
-etait affiche, dans une zone qui aurait du etre partagee.
+### Fix A (CONFIRMED): visualizer / curve editor overlap
+**Symptom**: the visualizer area was completely empty (the header with
+note/cents, the tuning meter, the scale lines were not visible). Only the
+curve editor (with its points) was displayed, in an area that should have
+been shared.
 
-**Cause** : dans `PluginEditor::resized`, j'avais ecrit :
+**Cause**: in `PluginEditor::resized`, I had written:
 ```cpp
 auto vizArea   = centerArea.reduced (pad).removeFromTop (...);
-auto curveArea = centerArea.reduced (pad);  // BUG : zone complete, pas restante
+auto curveArea = centerArea.reduced (pad);  // BUG: full area, not remaining
 ```
-Le `removeFromTop` etait appele sur un Rectangle temporaire (le
-resultat de `centerArea.reduced(pad)`), donc le Rectangle original
-n'etait pas modifie. `curveArea` etait la zone COMPLETE, et
-recouvrait entierement le visualiseur.
+The `removeFromTop` was called on a temporary Rectangle (the result of
+`centerArea.reduced(pad)`), so the original Rectangle was not modified.
+`curveArea` was the COMPLETE area and fully covered the visualizer.
 
-**Fix** : utiliser une variable intermediate pour que
-`removeFromTop` modifie reellement le rectangle :
+**Fix**: use an intermediate variable so that `removeFromTop` actually
+modifies the rectangle:
 ```cpp
 auto reducedCenter = centerArea.reduced (pad);
 auto vizArea       = reducedCenter.removeFromTop (...);
 auto curveArea     = reducedCenter;
 ```
 
-**Fichier** : `Source/PluginEditor.cpp` (ligne ~240).
+**File**: `Source/PluginEditor.cpp` (around line 240).
 
-### Fix B (suspicion forte) : drag impossible en mode Graphic
-**Symptome** : meme en mode Graphic, le drag des points du
-PitchCurveEditor ne fonctionnait pas.
+### Fix B (strong suspicion): drag impossible in Graphic mode
+**Symptom**: even in Graphic mode, dragging the PitchCurveEditor points
+did not work.
 
-**Cause probable** : le `PianoKeyboard` (enfant du `PitchCurveEditor`,
-60 px a gauche) avait `setInterceptsMouseClicks(true, true)` par
-defaut, ce qui pouvait interferer avec le dispatching des events
-souris vers le parent (curve editor).
+**Probable cause**: the `PianoKeyboard` (child of `PitchCurveEditor`, 60 px
+on the left) had `setInterceptsMouseClicks(true, true)` by default, which
+could interfere with mouse event dispatch to the parent (curve editor).
 
-**Fix** : `pianoKeyboard.setInterceptsMouseClicks(false, false)`
-dans le constructeur du `PitchCurveEditor`. Le piano est un
-affichage pur, il n'a pas besoin d'intercepter les events.
+**Fix**: `pianoKeyboard.setInterceptsMouseClicks(false, false)` in the
+`PitchCurveEditor` constructor. The piano is a pure display, it does not
+need to intercept events.
 
-**Fichier** : `Source/ui/PitchCurveEditor.cpp` (constructeur).
+**File**: `Source/ui/PitchCurveEditor.cpp` (constructor).
 
-### Fix C (preventif) : audio glitches "decrochages rapides"
-**Symptome** : l'utilisateur rapporte des glitchs tres rapides
-quand il chante out-of-tune (avec bypass OFF).
+### Fix C (preventive): audio glitches "fast dropouts"
+**Symptom**: the user reports very fast glitches when singing out-of-tune
+(with bypass OFF).
 
-**Cause probable** : le coefficient de lissage du ratio dans le
-PSOLA etait beaucoup trop lent :
-- `smoothingCoeff = 0.995` -> tau ~4.6 secondes (avec blocks
-  de 1024 samples a 44.1 kHz).
-- `currentF0` smoothing 0.95 -> tau ~0.45 secondes.
+**Probable cause**: the ratio smoothing coefficient in the PSOLA was much
+too slow:
+- `smoothingCoeff = 0.995` -> tau ~4.6 seconds (with 1024-sample blocks at
+  44.1 kHz).
+- `currentF0` smoothing 0.95 -> tau ~0.45 seconds.
 
-Le PSOLA mettait des secondes a converger apres un changement de
-target ratio, produisant des artefacts audibles (decrochages).
+The PSOLA took seconds to converge after a target ratio change, producing
+audible artefacts (dropouts).
 
-**Fix** :
-- `smoothingCoeff` 0.995 -> 0.9 (tau ~0.23 s, reponse rapide)
+**Fix**:
+- `smoothingCoeff` 0.995 -> 0.9 (tau ~0.23 s, fast response)
 - `currentF0` smoothing 0.95 -> 0.85 (tau ~0.13 s)
 
-**Fichiers** : `Source/dsp/PitchShifter.h`, `Source/dsp/PitchShifter.cpp`.
+**Files**: `Source/dsp/PitchShifter.h`, `Source/dsp/PitchShifter.cpp`.
 
 ### Verification
-- Build Release x64 reussi.
-- Standalone se lance sans probleme.
-- A confirmer par test utilisateur.
+- Release x64 build succeeded.
+- Standalone launches without problem.
+- To be confirmed by user testing.
 
-### Session de debug
-`debug-visualizer-overlap-and-drag.md` (statut : FIXED).
+### Debug session
+`debug-visualizer-overlap-and-drag.md` (status: FIXED).
 
-## Round 3 - Fix performance audio : crash et glitches a petit buffer
+## Round 3 - Audio performance fix: crash and glitches at small buffer
 
-### Symptome
-- Glitches audio audibles meme a 2048 samples.
-- Beaucoup plus de glitches a 144 samples (3.3ms par bloc).
-- Crash intermittent dans `AudioProcessorPlayer::audioDeviceIOCallbackWithContext`
-  en manipulant les controles (Scale, Speed, etc.).
+### Symptom
+- Audible audio glitches even at 2048 samples.
+- Many more glitches at 144 samples (3.3ms per block).
+- Intermittent crash in `AudioProcessorPlayer::audioDeviceIOCallbackWithContext`
+  while manipulating the controls (Scale, Speed, etc.).
 
-### Cause identifiee
-Dans `PitchShifter::process`, le buffer de sortie etait cree LOCALEMENT
-a chaque appel via `juce::AudioBuffer<float> output; output.setSize(...);`
-C'est une **heap allocation** dans le thread audio.
+### Identified cause
+In `PitchShifter::process`, the output buffer was created LOCALLY at each
+call via `juce::AudioBuffer<float> output; output.setSize(...);`. This is a
+**heap allocation** in the audio thread.
 
-- 144 samples @ 44.1 kHz -> 306 blocs/sec -> 306 allocations/sec
-- 2048 samples @ 44.1 kHz -> 22 blocs/sec -> 22 allocations/sec
-- La pression sur le heap (Windows allocator) cause des real-time
-  deadline misses -> glitches.
-- Quand le thread audio manque trop de deadlines, Windows peut le tuer
-  -> crash dans le callback.
+- 144 samples @ 44.1 kHz -> 306 blocks/sec -> 306 allocations/sec
+- 2048 samples @ 44.1 kHz -> 22 blocks/sec -> 22 allocations/sec
+- The pressure on the heap (Windows allocator) causes real-time deadline
+  misses -> glitches.
+- When the audio thread misses too many deadlines, Windows may kill it ->
+  crash in the callback.
 
 ### Fix
-- `outputBuffer` est maintenant un membre du `PitchShifter` (header
+- `outputBuffer` is now a member of `PitchShifter` (header
   [PitchShifter.h](file:///c:/Users/User/Documents/trae_projects/VST3/Source/dsp/PitchShifter.h#L107-L113)).
-- Pre-alloue UNE SEULE fois dans `prepare()` a `juce::jmax(bs*2, 2048)`
-  samples, ce qui couvre tous les cas realistes.
-- Dans `process()`, on ne fait plus que `std::memset` (zero copy memoire,
-  pas d'allocation).
-- Fallback securite : si un bloc plus grand que la capacite allouee
-  arrive (improbable avec 2x preallocation), on laisse passer l'entree
-  telle quelle (return early) au lieu de risquer un crash.
+- Pre-allocated ONCE in `prepare()` to `juce::jmax(bs*2, 2048)` samples,
+  which covers all realistic cases.
+- In `process()`, we only do `std::memset` (zero-copy memory, no allocation).
+- Safety fallback: if a block larger than the allocated capacity arrives
+  (unlikely with 2x preallocation), we let the input pass through unchanged
+  (early return) instead of risking a crash.
 
 ### Verification
-- Build Release x64 reussi.
-- Standalone se lance.
-- A confirmer par test utilisateur a 144 et 2048 samples.
+- Release x64 build succeeded.
+- Standalone launches.
+- To be confirmed by user testing at 144 and 2048 samples.
 
-### Session de debug
-`debug-audio-callback-crash-and-glitches.md` (statut : FIXED).
+### Debug session
+`debug-audio-callback-crash-and-glitches.md` (status: FIXED).

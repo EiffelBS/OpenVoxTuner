@@ -1,42 +1,42 @@
 # Changelog - 2026-06-13
 
-## Optimisations de Performance (CPU)
+## Performance optimizations (CPU)
 * **PitchDetector (YIN)** :
-  * Restructuration de la boucle interne de la fonction de différence pour permettre l'auto-vectorisation par le compilateur (SIMD).
-  * Réduction de la plage de recherche de la boucle externe (`maxTau`) pour ne calculer que jusqu'à la limite inférieure de fréquence requise, évitant des calculs inutiles.
+  * Restructuring of the inner loop of the difference function to enable compiler auto-vectorization (SIMD).
+  * Reduction of the outer loop search range (`maxTau`) to only compute up to the required lower frequency limit, avoiding unnecessary calculations.
 * **PluginProcessor** :
-  * Implémentation d'une décimation par 4 du signal d'entrée avant l'analyse YIN. La fenêtre d'analyse de 2048 échantillons est compressée à 512 échantillons, ce qui divise le nombre de calculs du détecteur de pitch par 16.
-  * Augmentation de `analysisHopSize` de 512 à 1024 échantillons. Le calcul du pitch s'effectue désormais toutes les ~23ms (au lieu de ~11ms).
+  * Implementation of a 4x decimation of the input signal before YIN analysis. The 2048-sample analysis window is compressed to 512 samples, dividing the pitch detector's computation count by 16.
+  * Increase of `analysisHopSize` from 512 to 1024 samples. Pitch is now computed every ~23ms (instead of ~11ms).
 * **PitchShifter (Internal Engine)** :
-  * Optimisation drastique de la méthode `findBestOffset` (calcul de corrélation croisée pour l'alignement de phase granulaire). Remplacement des accès par interpolation flottante et des boucles `while` de wrapping par un accès direct entier avec masquage binaire (`bitwise AND`).
-  * Augmentation du pas de recherche de phase (step) de 2 à 4, et décimation de la comparaison de corrélation (1 échantillon sur 2 évalué), réduisant considérablement la charge CPU lors de la génération de chaque nouveau grain audio.
+  * Drastic optimization of the `findBestOffset` method (cross-correlation computation for granular phase alignment). Replaced float-interpolation accesses and `while` wrapping loops with direct integer access using binary masking (`bitwise AND`).
+  * Increase of the phase search step from 2 to 4, and decimation of the correlation comparison (1 sample out of 2 evaluated), considerably reducing CPU load when generating each new audio grain.
 
-## Fonctionnalités (Features)
-* **Formant Shift** : 
-  * Ajout d'un nouveau paramètre de décalage de formants (Formant Shift) contrôlable via un bouton rotatif dans l'interface principale, allant de -12 à +12 demi-tons.
-  * Connecté au moteur DSP `FormantPreserver`. Permet d'assombrir ou d'éclaircir artificiellement le timbre de la voix indépendamment du pitch.
+## Features
+* **Formant Shift** :
+  * Addition of a new formant shift parameter (Formant Shift) controllable via a rotary button in the main interface, ranging from -12 to +12 semitones.
+  * Connected to the `FormantPreserver` DSP engine. Allows artificially darkening or brightening the timbre of the voice independently of the pitch.
 
-## Architecture & Dépendances
-* **Préparation au support ARA2 (Audio Random Access)** :
-  * Intégration du Celemony ARA SDK (v2.2.0) au projet via CMake (`juce_set_ara_sdk_path`).
-  * Activation du flag `IS_ARA_EFFECT TRUE` dans la configuration CMake. Le plugin est désormais compilé avec les interfaces d'extension ARA2.
-  * Implémentation du contrôleur de base `AutotuneCloneARADocumentController` et du générateur `createARAFactory()`.
-  * Implémentation d'un mécanisme de secours robuste dans `processBlock` : si le DAW ne supporte pas ARA, le plugin bascule silencieusement sur le moteur temps-réel habituel.
-  * Lecture et Extraction dynamique de la **Tonalité (Key Signature)** : Interrogation de l'`ARAMusicalContext` via `HostContentReader` pour décoder le `root` (conversion du Cycle des Quintes en Chromatique) et le mode (Majeur/Mineur).
-  * Synchronisation automatisée des paramètres de l'UI (`key` et `scale`) avec la tonalité détectée par ARA.
-  * **Correction de l'extraction ARA Key Signature** : Le décodage du tableau `intervals` distingue désormais correctement le Majeur, le Mineur Naturel, et le Chromatique.
-  * **Éditeur Graphique synchronisé au BPM** : La timeline (axe X) utilise désormais le `PPQ` du DAW pour boucler sur 16 Beats (4 mesures en 4/4) au lieu de 4 secondes fixes, avec affichage des marqueurs de mesures ("M 1", "M 2", etc.).
-  * **Synchronisation Playhead (ARA et Live)** : Si l'hôte boucle, le playhead soustrait le point de départ de la boucle pour toujours recommencer à gauche de l'écran. En mode Live/Standalone, le playhead continue d'avancer visuellement même s'il y a du silence.
-  * **Bouton Clear Curve** : Ajout d'un bouton pour vider la courbe et réinitialiser le compteur de temps Standalone à zéro.
-  * **VRAI Formant Shift Intégré (WSOLA)** : Remplacement complet du filtre Peaking par une modification profonde du moteur granulaire WSOLA. Le micro-timing (Formant) est désormais totalement découplé du macro-timing (Pitch), permettant de changer la taille du conduit vocal de -5 à +5 demi-tons sans annuler le tuning et sans artefacts.
-  * Rédaction du document de spécifications ARA2 (`docs/ARA_Specifications.md`) détaillant la hiérarchie Clip/Track et les DAW cibles.
-* **Suppression des moteurs externes** : 
-  * Retrait complet de **RubberBand** et **SoundTouch** de la base de code (`CMakeLists.txt`, headers, cpp).
-  * Le moteur `Internal` maison étant désormais supérieur en termes de CPU (0%) et de qualité (aucun clic ni pop), conserver ces dépendances externes n'avait plus de sens, d'autant plus qu'elles imposaient des licences contraignantes (GPL / LGPL).
-  * Retrait du menu déroulant "Engine" de l'interface utilisateur et des paramètres internes du plugin. Le routage s'effectue exclusivement et directement vers l'instance de `PitchShifter`.
+## Architecture & Dependencies
+* **Preparation for ARA2 (Audio Random Access) support** :
+  * Integration of the Celemony ARA SDK (v2.2.0) into the project via CMake (`juce_set_ara_sdk_path`).
+  * Activation of the `IS_ARA_EFFECT TRUE` flag in the CMake configuration. The plugin is now compiled with the ARA2 extension interfaces.
+  * Implementation of the base `AutotuneCloneARADocumentController` controller and the `createARAFactory()` generator.
+  * Implementation of a robust fallback mechanism in `processBlock`: if the DAW does not support ARA, the plugin silently falls back to the usual real-time engine.
+  * Dynamic reading and extraction of the **Key Signature** : Querying the `ARAMusicalContext` via `HostContentReader` to decode the `root` (conversion from Circle of Fifths to Chromatic) and the mode (Major/Minor).
+  * Automated synchronization of the UI parameters (`key` and `scale`) with the key detected by ARA.
+  * **Fix of ARA Key Signature extraction** : The decoding of the `intervals` array now correctly distinguishes Major, Natural Minor, and Chromatic.
+  * **BPM-synced Graphic Editor** : The timeline (X axis) now uses the DAW's `PPQ` to loop over 16 Beats (4 bars in 4/4) instead of a fixed 4 seconds, with measure markers displayed ("M 1", "M 2", etc.).
+  * **Playhead synchronization (ARA and Live)** : If the host loops, the playhead subtracts the loop start point to always restart at the left of the screen. In Live/Standalone mode, the playhead keeps advancing visually even if there is silence.
+  * **Clear Curve button** : Added a button to empty the curve and reset the Standalone time counter to zero.
+  * **TRUE Integrated Formant Shift (WSOLA)** : Complete replacement of the Peaking filter by a deep modification of the WSOLA granular engine. The micro-timing (Formant) is now fully decoupled from the macro-timing (Pitch), allowing the vocal tract size to be changed from -5 to +5 semitones without cancelling the tuning and without artefacts.
+  * Writing of the ARA2 specification document (`docs/ARA_Specifications.md`) detailing the Clip/Track hierarchy and the target DAWs.
+* **Removal of external engines** :
+  * Complete removal of **RubberBand** and **SoundTouch** from the codebase (`CMakeLists.txt`, headers, cpp).
+  * The in-house `Internal` engine being now superior in terms of CPU (0%) and quality (no click or pop), keeping these external dependencies no longer made sense, especially as they imposed restrictive licenses (GPL / LGPL).
+  * Removal of the "Engine" dropdown from the UI and from the plugin's internal parameters. The routing is done exclusively and directly to the `PitchShifter` instance.
 
-## Correction de Bugs
-* **Moteur Internal (WSOLA)** : 
-  * Fix de légers "pops" audio ("clics") survenant lorsque l'utilisateur maintient une note parfaitement juste (`ratio ≈ 1.0`). La logique de "passthrough" brutale qui désactivait l'alignement de phase (et provoquait une interférence destructive à la frontière du grain) a été supprimée. Le moteur WSOLA reste désormais toujours actif pour garantir une continuité de phase parfaite en toute circonstance.
-  * Restriction de la fenêtre de recherche de corrélation (`searchWindowMs`) à 10ms (strictement inférieure à la latence granulaire de 15ms) afin de garantir mathématiquement que la tête de lecture ne tentera jamais de lire des échantillons audio du "futur" (non encore écrits dans le ring buffer).
-* Validation et confirmation de la réussite des 60 tests unitaires, incluant ceux de `ScaleQuantizer`.
+## Bug fixes
+* **Internal engine (WSOLA)** :
+  * Fix of slight audio "pops" (clicks) occurring when the user holds a perfectly in-tune note (`ratio ≈ 1.0`). The brutal "passthrough" logic that disabled phase alignment (and caused destructive interference at the grain boundary) was removed. The WSOLA engine now stays always active to guarantee perfect phase continuity in all circumstances.
+  * Restriction of the correlation search window (`searchWindowMs`) to 10ms (strictly below the 15ms granular latency) to mathematically guarantee that the read head will never attempt to read audio samples from the "future" (not yet written to the ring buffer).
+* Validation and confirmation of the success of the 60 unit tests, including those of `ScaleQuantizer`.

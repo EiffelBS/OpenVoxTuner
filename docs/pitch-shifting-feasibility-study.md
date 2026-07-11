@@ -1,54 +1,54 @@
-# Étude de faisabilité : Algorithmes alternatifs de Pitch Shifting & Time Stretching
+# Feasibility Study: Alternative Pitch Shifting & Time Stretching Algorithms
 
-> **📁 ARCHIVÉ (2026-07-11) :** Étude historique. OpenVoxTuner utilise désormais uniquement le moteur PSOLA maison. RubberBand et SoundTouch ont été retirés.
+> **📁 ARCHIVED (2026-07-11):** Historical study. OpenVoxTuner now uses only the in-house PSOLA engine. RubberBand and SoundTouch have been removed.
 
-Suite à l'implémentation de **RubberBand**, **SoundTouch** et d'un moteur **Delay-Line Crossfade (WSOLA-like)**, cette étude évalue d'autres moteurs et algorithmes disponibles sur le marché pour une intégration dans le projet Autotune Clone.
+Following the implementation of **RubberBand**, **SoundTouch** and a **Delay-Line Crossfade (WSOLA-like)** engine, this study evaluates other engines and algorithms available on the market for integration into the Autotune Clone project.
 
-## 1. Algorithmes Temporels (Time-Domain)
+## 1. Time-Domain Algorithms
 
 ### 1.1. WSOLA (Waveform Similarity Overlap-Add)
-- **Description** : Amélioration de l'algorithme OLA classique. Cherche la meilleure corrélation croisée (cross-correlation) entre le grain à synthétiser et le flux audio pour aligner parfaitement les phases.
-- **Compatibilité** : Très bonne. C'est le standard de l'industrie pour les algorithmes temporels open-source (SoundTouch utilise une variante de TD-PSOLA/WSOLA).
-- **Performances** : Très rapide (faible CPU). Latence très faible (généralement la taille de la fenêtre d'analyse, ~30-50ms).
-- **Qualité Audio** : Très bonne pour la voix et les instruments monophoniques. Peut créer des artefacts de "flanging" ou de "phasiness" sur des mixages polyphoniques complexes ou des percussions.
-- **Recommandation** : **Déjà implémenté.** Notre moteur "PSOLA/Legacy" actuel a été réécrit pour utiliser un Delay-Line Crossfade qui est l'architecture fondamentale sur laquelle repose WSOLA. Pour aller plus loin, il faudrait ajouter une étape d'alignement de phase (cross-correlation) sur les têtes de lecture, mais la version actuelle est déjà robuste.
+- **Description**: An improvement over the classic OLA algorithm. It searches for the best cross-correlation between the grain to be synthesized and the audio stream in order to perfectly align the phases.
+- **Compatibility**: Very good. It is the industry standard for open-source time-domain algorithms (SoundTouch uses a TD-PSOLA/WSOLA variant).
+- **Performance**: Very fast (low CPU). Very low latency (generally the size of the analysis window, ~30-50ms).
+- **Audio Quality**: Very good for voice and monophonic instruments. Can create "flanging" or "phasiness" artefacts on complex polyphonic mixes or percussion.
+- **Recommendation**: **Already implemented.** Our current "PSOLA/Legacy" engine was rewritten to use a Delay-Line Crossfade, which is the fundamental architecture on which WSOLA is built. To go further, we would need to add a phase-alignment (cross-correlation) step on the read heads, but the current version is already robust.
 
-## 2. Algorithmes Spectraux (Frequency-Domain)
+## 2. Spectral Algorithms (Frequency-Domain)
 
 ### 2.1. Phase Vocoder (Rubber Band)
-- **Description** : Analyse le signal via STFT (Short-Time Fourier Transform), modifie les fréquences ou le temps, puis resynthétise via iSTFT tout en préservant/corrigeant la phase des bins fréquentiels.
-- **Compatibilité** : Excellente.
-- **Performances** : CPU moyen à élevé. Latence inhérente liée à la taille de la fenêtre STFT (souvent > 1024 samples, soit ~25-50ms).
-- **Qualité Audio** : Excellente pour la polyphonie et les grands ratios de transposition.
-- **Recommandation** : **Déjà implémenté.** `RubberBand` est actuellement notre meilleur moteur. C'est l'algorithme spectral open-source de référence.
+- **Description**: Analyzes the signal via STFT (Short-Time Fourier Transform), modifies frequencies or time, then resynthesizes via iSTFT while preserving/correcting the phase of the frequency bins.
+- **Compatibility**: Excellent.
+- **Performance**: Medium to high CPU. Inherent latency tied to the STFT window size (often > 1024 samples, i.e. ~25-50ms).
+- **Audio Quality**: Excellent for polyphony and large transposition ratios.
+- **Recommendation**: **Already implemented.** `RubberBand` is currently our best engine. It is the reference open-source spectral algorithm.
 
 ### 2.2. zplane Élastique Pro
-- **Description** : L'algorithme de pitch-shifting/time-stretching commercial le plus réputé de l'industrie audio (utilisé par Ableton Live, FL Studio, Reaper, Cubase, etc.).
-- **Compatibilité** : Excellente (fourni sous forme d'une SDK C++ facile à intégrer dans JUCE). Latence extrêmement faible.
-- **Performances** : Extrêmement optimisé (SIMD/AVX).
-- **Qualité Audio** : La référence absolue. Formant preservation parfaite, aucun artefact de transient, respect de la polyphonie.
-- **Licence** : Commerciale uniquement, très onéreuse (plusieurs milliers d'euros pour une licence de distribution commerciale, ou redevance par unité vendue).
-- **Recommandation** : **Non recommandé** à ce stade du projet en raison des coûts de licence prohibitifs. C'est la solution ultime si le plugin est destiné à être vendu à grande échelle.
+- **Description**: The most renowned commercial pitch-shifting/time-stretching algorithm in the audio industry (used by Ableton Live, FL Studio, Reaper, Cubase, etc.).
+- **Compatibility**: Excellent (provided as a C++ SDK that is easy to integrate into JUCE). Extremely low latency.
+- **Performance**: Extremely optimized (SIMD/AVX).
+- **Audio Quality**: The absolute benchmark. Perfect formant preservation, no transient artefacts, full polyphony support.
+- **Licence**: Commercial only, very expensive (several thousand euros for a commercial distribution licence, or royalty per unit sold).
+- **Recommendation**: **Not recommended** at this stage of the project due to the prohibitive licence costs. It is the ultimate solution if the plugin is intended to be sold at large scale.
 
-## 3. Algorithmes basés sur l'Intelligence Artificielle (Deep Learning)
+## 3. Artificial Intelligence Based Algorithms (Deep Learning)
 
 ### 3.1. RVC (Retrieval-based Voice Conversion) / DDSP
-- **Description** : Modèles de deep learning (souvent basés sur des architectures vocoder neurales comme HiFi-GAN, ou des modèles de diffusion) capables de resynthétiser complètement une voix. Ils peuvent transposer le pitch tout en préservant parfaitement le timbre (voire en le changeant pour imiter quelqu'un d'autre).
-- **Compatibilité** : Très difficile. Nécessite l'intégration de runtimes d'inférence lourds (ONNX Runtime, libtorch/PyTorch C++). Les dépendances font exploser la taille du plugin (> 500 Mo).
-- **Performances** : CPU/GPU extrêmement gourmand. Sans GPU (CUDA/CoreML/Metal), l'inférence en temps réel sur CPU est très difficile voire impossible sans craquements sur des machines moyennes. Latence très élevée (souvent > 100-200ms) incompatible avec du monitoring live (chant en direct).
-- **Qualité Audio** : Phénoménale pour la voix (qualité humaine indiscernable), mais uniquement pour la voix monophonique propre.
-- **Licence** : Souvent open-source (MIT/Apache) pour le code, mais les poids des modèles peuvent avoir des licences restrictives.
-- **Recommandation** : **Non recommandé pour du Live.** Incompatible avec un usage Autotune "Zero-Latency" ou "Low-Latency". C'est l'avenir pour du post-processing (édition offline), mais l'architecture actuelle du plugin (temps réel, traitement bloc par bloc) n'est pas adaptée.
+- **Description**: Deep learning models (often based on neural vocoder architectures such as HiFi-GAN, or diffusion models) capable of fully resynthesizing a voice. They can transpose the pitch while perfectly preserving the timbre (or even changing it to imitate someone else).
+- **Compatibility**: Very difficult. Requires the integration of heavy inference runtimes (ONNX Runtime, libtorch/PyTorch C++). The dependencies blow up the plugin size (> 500 MB).
+- **Performance**: Extremely CPU/GPU intensive. Without a GPU (CUDA/CoreML/Metal), real-time inference on CPU is very difficult or even impossible without crackling on average machines. Very high latency (often > 100-200ms) incompatible with live monitoring (live singing).
+- **Audio Quality**: Phenomenal for voice (indistinguishable human quality), but only for clean monophonic voice.
+- **Licence**: Often open-source (MIT/Apache) for the code, but the model weights may have restrictive licences.
+- **Recommendation**: **Not recommended for Live use.** Incompatible with a "Zero-Latency" or "Low-Latency" Autotune use case. It is the future for post-processing (offline editing), but the plugin's current architecture (real-time, block-by-block processing) is not suited to it.
 
-## 4. Synthèse et Classement des Solutions
+## 4. Synthesis and Solution Ranking
 
-Pour un plugin VST3 "Auto-Tune" (temps réel, faible latence, focus voix), voici le classement des moteurs par pertinence :
+For a VST3 "Auto-Tune" plugin (real-time, low latency, voice focus), here is the ranking of engines by relevance:
 
-1. **Rubber Band (Spectral / Phase Vocoder)** : *Intégré.* Meilleur rapport qualité / open-source.
-2. **SoundTouch (Temporel / WSOLA-like)** : *Intégré.* Excellente alternative low-CPU, très bon sur la voix.
-3. **Delay-Line Crossfade (Temporel pur)** : *Intégré.* Le plus basique, utile pour des effets "robotiques" ou Chorus.
-4. **zplane Élastique Pro** : L'idéal absolu, mais bloqué par son coût commercial.
-5. **RVC / Neural Vocoders** : Qualité vocale parfaite, mais totalement inadapté au temps réel en raison de la latence et de la charge CPU/GPU.
+1. **Rubber Band (Spectral / Phase Vocoder)**: *Integrated.* Best quality / open-source ratio.
+2. **SoundTouch (Time-Domain / WSOLA-like)**: *Integrated.* Excellent low-CPU alternative, very good on voice.
+3. **Delay-Line Crossfade (Pure Time-Domain)**: *Integrated.* The most basic, useful for "robotic" effects or Chorus.
+4. **zplane Élastique Pro**: The absolute ideal, but blocked by its commercial cost.
+5. **RVC / Neural Vocoders**: Perfect voice quality, but totally unsuited to real-time due to latency and CPU/GPU load.
 
-### Conclusion de l'étude
-Notre infrastructure actuelle couvre déjà les meilleures options open-source disponibles. L'ajout d'une étape de *cross-correlation* (alignement de phase) à notre moteur Delay-Line permettrait d'atteindre la qualité de WSOLA sans dépendre de SoundTouch, ce qui serait l'amélioration logique suivante si l'on souhaite se détacher des bibliothèques tierces.
+### Study Conclusion
+Our current infrastructure already covers the best open-source options available. Adding a *cross-correlation* step (phase alignment) to our Delay-Line engine would allow us to reach WSOLA quality without depending on SoundTouch, which would be the logical next improvement if we want to move away from third-party libraries.

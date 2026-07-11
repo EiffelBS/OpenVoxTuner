@@ -1,11 +1,11 @@
-# Architecture Multi-Moteurs de Pitch Shifting
+# Multi-Engine Pitch Shifting Architecture
 
-> **📁 ARCHIVÉ (2026-07-11) :** Document historique. OpenVoxTuner utilise désormais **un seul moteur de pitch-shifting (PSOLA)**. Les moteurs RubberBand et SoundTouch ont été retirés de la base de code. Cette architecture à moteurs multiples a été évaluée puis abandonnée au profit d'une solution PSOLA unifiée.
+> **📁 ARCHIVED (2026-07-11):** Historical document. OpenVoxTuner now uses **a single pitch-shifting engine (PSOLA)**. The RubberBand and SoundTouch engines have been removed from the codebase. This multi-engine architecture was evaluated and then abandoned in favor of a unified PSOLA solution.
 
-Cette implémentation permet de basculer dynamiquement entre plusieurs moteurs de pitch-shifting à la volée.
+This implementation allows dynamically switching between several pitch-shifting engines on the fly.
 
-## 1. Interface Commune : `IPitchShifter`
-Tous les moteurs implémentent l'interface `IPitchShifter` (`Source/dsp/IPitchShifter.h`) qui garantit l'interchangeabilité.
+## 1. Common Interface: `IPitchShifter`
+All engines implement the `IPitchShifter` interface (`Source/dsp/IPitchShifter.h`) which guarantees interchangeability.
 
 ```cpp
 class IPitchShifter
@@ -19,41 +19,41 @@ public:
 };
 ```
 
-## 2. Moteurs implémentés
+## 2. Implemented engines
 
 ### 2.1. RubberBand (`RubberBandPitchShifter`)
-- **Qualité** : Très élevée.
-- **Latence** : Modérée.
-- **Licence** : GPL v2+.
-- **Caractéristiques** : Moteur par défaut, très fluide, aucune désynchronisation à grand buffer. Adapté avec un système de FIFO car il requiert des blocs fixes de 512 échantillons.
+- **Quality**: Very high.
+- **Latency**: Moderate.
+- **Licence**: GPL v2+.
+- **Characteristics**: Default engine, very smooth, no desynchronization at large buffer. Adapted with a FIFO system because it requires fixed blocks of 512 samples.
 
 ### 2.2. SoundTouch (`SoundTouchPitchShifter`)
-- **Qualité** : Élevée (bien pour la voix et la musique en général).
-- **Latence** : Plus faible / Variable.
-- **Licence** : LGPL.
-- **Caractéristiques** : Compilation statique des fichiers sources inclus dans `external/soundtouch/source/SoundTouch`. Nécessite un tampon entrelacé pour le traitement.
+- **Quality**: High (good for voice and music in general).
+- **Latency**: Lower / Variable.
+- **Licence**: LGPL.
+- **Characteristics**: Static compilation of the source files included in `external/soundtouch/source/SoundTouch`. Requires an interleaved buffer for processing.
 
 ### 2.3. PSOLA Legacy / Delay-Line Crossfade (`PitchShifter`)
-- **Qualité** : Correcte (effet "robotique" / Chorus plus marqué, style delay-line).
-- **Latence** : Faible (environ 50ms fixée).
-- **Licence** : Custom (Maison).
-- **Caractéristiques** : Historiquement basée sur PSOLA, l'implémentation a été entièrement réécrite pour utiliser un algorithme robuste de type "Delay-Line Crossfade" (proche de WSOLA). Elle utilise un buffer circulaire glissant avec deux têtes de lecture et un fenêtrage (Hann) synchrone sur la phase. Cela supprime totalement les coupures et les artefacts de pitch-tracking défaillants de l'ancien algorithme.
+- **Quality**: Fair (more pronounced "robotic" / Chorus effect, delay-line style).
+- **Latency**: Low (about 50ms fixed).
+- **Licence**: Custom (In-house).
+- **Characteristics**: Historically based on PSOLA, the implementation was completely rewritten to use a robust "Delay-Line Crossfade" type algorithm (close to WSOLA). It uses a sliding circular buffer with two read heads and a (Hann) windowing synchronous to the phase. This completely removes the cuts and artefacts from faulty pitch-tracking of the old algorithm.
 
-## 3. Comment ajouter un nouveau moteur
-Pour ajouter un moteur "X" :
-1. Créez les fichiers `Source/dsp/XPitchShifter.h` et `.cpp`.
-2. Faites hériter `XPitchShifter` de `IPitchShifter`.
-3. Implémentez les méthodes virtuelles.
-4. Dans `Source/PluginProcessor.cpp`, ajoutez l'option à la création de `AudioParameterChoice` :
+## 3. How to add a new engine
+To add an engine "X":
+1. Create the files `Source/dsp/XPitchShifter.h` and `.cpp`.
+2. Make `XPitchShifter` inherit from `IPitchShifter`.
+3. Implement the virtual methods.
+4. In `Source/PluginProcessor.cpp`, add the option to the `AudioParameterChoice` creation:
    ```cpp
    std::make_unique<juce::AudioParameterChoice> (
        "engine", "Engine", juce::StringArray { "RubberBand", "SoundTouch", "PSOLA (Legacy)", "MoteurX" }, 0)
    ```
-5. Dans `PluginProcessor::processBlock`, ajoutez un `case 3:` au switch de sélection dynamique.
-6. Dans `Source/PluginEditor.cpp`, ajoutez la ligne correspondante dans la ComboBox :
+5. In `PluginProcessor::processBlock`, add a `case 3:` to the dynamic selection switch.
+6. In `Source/PluginEditor.cpp`, add the corresponding line to the ComboBox:
    ```cpp
    engineBox.addItem ("MoteurX", 4);
    ```
 
-## 4. Sélection utilisateur
-Le changement s'effectue via le paramètre "Engine" de l'UI (qui est un `juce::AudioParameterChoice`). Lorsqu'il change, le `PluginProcessor` libère l'ancien moteur, alloue le nouveau et appelle immédiatement `prepare()` avant de continuer le traitement du bloc.
+## 4. User selection
+The change is made via the "Engine" UI parameter (which is a `juce::AudioParameterChoice`). When it changes, the `PluginProcessor` releases the old engine, allocates the new one and immediately calls `prepare()` before continuing the block processing.

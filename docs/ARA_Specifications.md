@@ -1,36 +1,36 @@
-# Spécifications Techniques : Support ARA2 (Audio Random Access)
+# Technical Specifications: ARA2 Support (Audio Random Access)
 
-## 1. Mécanisme de secours (Fallback) pour les DAW non-ARA
-Le plugin intègre une architecture "Hybride". Lorsqu'il est inséré dans un DAW ne supportant pas ARA2 (comme Ableton Live ou FL Studio), ou lorsqu'il est utilisé en mode Standalone, le plugin fonctionne comme un effet VST3 standard en temps réel.
+## 1. Fallback mechanism for non-ARA DAWs
+The plugin uses a "Hybrid" architecture. When inserted into a DAW that does not support ARA2 (such as Ableton Live or FL Studio), or when used in Standalone mode, the plugin operates as a standard real-time VST3 effect.
 
-**Implémentation technique :**
-Dans la méthode `processBlock`, le plugin appelle `processBlockForARA()`. 
-- Si l'hôte fournit un contexte ARA valide et que des régions audio sont assignées, le traitement ARA est effectué et la méthode retourne `true`. Le traitement temps réel (YIN, etc.) est alors bypassé.
-- Si la méthode retourne `false`, le plugin poursuit son exécution séquentielle normale, capturant l'audio du bloc courant, effectuant l'analyse YIN en temps réel et appliquant la correction via `PitchShifter`.
-L'expérience utilisateur est ainsi préservée à 100% dans tous les environnements.
+**Technical implementation:**
+In the `processBlock` method, the plugin calls `processBlockForARA()`.
+- If the host provides a valid ARA context and audio regions are assigned, ARA processing is performed and the method returns `true`. Real-time processing (YIN, etc.) is then bypassed.
+- If the method returns `false`, the plugin continues its normal sequential execution, capturing the current block's audio, performing real-time YIN analysis, and applying correction via `PitchShifter`.
+The user experience is thus preserved 100% across all environments.
 
-## 2. Comportement Clip vs Piste (Hiérarchie ARA)
-L'extension ARA permet d'insérer le plugin de deux manières distinctes selon le DAW :
+## 2. Clip vs Track behavior (ARA hierarchy)
+The ARA extension allows the plugin to be inserted in two distinct ways depending on the DAW:
 
-### A. Instanciation sur un Clip / Événement (ex: Studio One)
-- L'utilisateur glisse le plugin directement sur un événement audio dans la timeline.
-- **Comportement ARA** : L'hôte crée une `ARARegionSequence` contenant exclusivement ce clip. Le plugin n'aura accès et n'analysera que la portion d'audio délimitée par ce clip. L'éditeur graphique affichera cette région spécifique.
+### A. Instantiation on a Clip / Event (e.g. Studio One)
+- The user drags the plugin directly onto an audio event in the timeline.
+- **ARA behavior**: The host creates an `ARARegionSequence` containing exclusively this clip. The plugin will only have access to and will only analyze the audio portion delimited by this clip. The graphical editor will display this specific region.
 
-### B. Instanciation sur une Piste complète (ex: Logic Pro, Cubase)
-- L'utilisateur insère le plugin dans le rack d'effets de la piste vocale entière.
-- **Comportement ARA** : L'hôte crée une `ARARegionSequence` englobant tous les clips présents sur cette piste. Le plugin aura accès à l'intégralité du contenu audio de la piste. L'éditeur graphique affichera la timeline complète de la piste avec l'ensemble des événements vocaux successifs.
+### B. Instantiation on a full Track (e.g. Logic Pro, Cubase)
+- The user inserts the plugin into the effect rack of the entire vocal track.
+- **ARA behavior**: The host creates an `ARARegionSequence` encompassing all clips present on this track. The plugin will have access to the entire track's audio content. The graphical editor will display the complete track timeline with all successive vocal events.
 
-**Note de conception :**
-L'éditeur UI du plugin est conçu pour itérer sur l'objet racine `ARADocument` et agréger toutes les `ARARegionSequence` associées à l'instance courante. Ainsi, le plugin affichera de manière transparente et exacte le contenu que le DAW a décidé de lui assigner, garantissant une cohérence visuelle parfaite sans aucune manipulation de l'utilisateur.
+**Design note:**
+The plugin's UI editor is designed to iterate over the root `ARADocument` object and aggregate all `ARARegionSequence` objects associated with the current instance. Thus, the plugin will transparently and accurately display the content that the DAW has decided to assign to it, ensuring perfect visual consistency without any user intervention.
 
-## 3. Extraction de la Tonalité (Chord Track / Key Signature)
-Lorsque le plugin est en mode ARA2, il interroge l'objet `ARAMusicalContext` fourni par l'hôte.
-- Les données de `ARAKeySignature` (Tonalité) et `ARAChord` (Accords) sont extraites.
-- Si le projet contient une tonalité définie (ex: Do Majeur), le module `ScaleQuantizer` du plugin se verrouille automatiquement sur cette gamme, désactivant le besoin pour l'utilisateur de la sélectionner manuellement dans l'interface.
+## 3. Key signature extraction (Chord Track / Key Signature)
+When the plugin is in ARA2 mode, it queries the `ARAMusicalContext` object provided by the host.
+- `ARAKeySignature` (Key) and `ARAChord` (Chords) data are extracted.
+- If the project contains a defined key (e.g. C Major), the plugin's `ScaleQuantizer` module automatically locks onto that scale, eliminating the need for the user to select it manually in the interface.
 
-## 4. Matrice de compatibilité et validation
-- **Studio One (PreSonus)** : Support ARA2 natif (Clip & Track). Extraction des accords et tonalité 100% supportée.
-- **Cubase / Nuendo (Steinberg)** : Support ARA2 VST3 natif. Extraction de la piste d'accords supportée.
-- **Logic Pro (Apple)** : Support ARA2 AudioUnit. Instanciation sur piste recommandée.
-- **Reaper (Cockos)** : Support ARA2 VST3. Excellent pour l'audio hors-ligne, extraction des accords limitée selon la configuration.
-- **Ableton Live / FL Studio** : Fallback temps réel automatique (Traitement standard sans perte de fonctionnalité).
+## 4. Compatibility matrix and validation
+- **Studio One (PreSonus)**: Native ARA2 support (Clip & Track). Chord and key extraction 100% supported.
+- **Cubase / Nuendo (Steinberg)**: Native ARA2 VST3 support. Chord track extraction supported.
+- **Logic Pro (Apple)**: ARA2 AudioUnit support. Track instantiation recommended.
+- **Reaper (Cockos)**: ARA2 VST3 support. Excellent for offline audio; chord extraction limited depending on configuration.
+- **Ableton Live / FL Studio**: Automatic real-time fallback (standard processing with no loss of functionality).

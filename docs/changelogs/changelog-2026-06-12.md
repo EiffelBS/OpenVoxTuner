@@ -1,79 +1,79 @@
-# Changelog - 12 Juin 2026
+# Changelog - June 12, 2026
 
-## 1. Resolution des artefacts sur buffers non-standards (Round 13)
-* **Probleme** : Le traitement audio avec `RubberBand` etait fonctionnel aux buffers 1024 et 2048, mais des artefacts (chops/clicks) apparaissaient sur d'autres tailles (ex: 1280, 1920) car le shifter exige exactement 512 echantillons par appel, et notre ancien buffer circulaire ne gerait pas correctement les desynchronisations entre l'hote (Variable Block Size) et le shifter (Fixed Block Size).
-* **Solution** : 
-  - Remplacement complet des buffers circulaires manuels par des `juce::AbstractFifo` dans `RubberBandPitchShifter`.
-  - Separation totale entre l'entree (host -> inputFifo), le traitement DSP (inputFifo -> shifter -> outputFifo) par blocs stricts de 512, et la sortie (outputFifo -> host).
-  - Pre-remplissage du buffer de sortie avec un silence de securite (bufferingLatency) afin d'eviter tout risque de buffer underrun lie au jitter de consommation du VST3.
+## 1. Resolution of artefacts on non-standard buffers (Round 13)
+* **Problem**: The audio processing with `RubberBand` worked at buffers 1024 and 2048, but artefacts (chops/clicks) appeared on other sizes (e.g. 1280, 1920) because the shifter requires exactly 512 samples per call, and our old circular buffer did not correctly handle the desynchronization between the host (Variable Block Size) and the shifter (Fixed Block Size).
+* **Solution**:
+  - Complete replacement of the manual circular buffers by `juce::AbstractFifo` in `RubberBandPitchShifter`.
+  - Total separation between input (host -> inputFifo), DSP processing (inputFifo -> shifter -> outputFifo) in strict 512-sample blocks, and output (outputFifo -> host).
+  - Pre-filling the output buffer with a safety silence (bufferingLatency) to avoid any risk of buffer underrun linked to VST3 consumption jitter.
 
-## 2. Refonte de l'interface graphique (Style Auto-Tune Pro)
-* **Theme & Couleurs** : Creation d'un `AutotuneLookAndFeel` heritant de `juce::LookAndFeel_V4`.
-* **Knobs (Sliders)** : Remplacement de l'affichage par defaut par des boutons rotatifs sombres avec un anneau lumineux peripherique (glow) dependant de l'etat d'activation.
-* **ComboBox** : Redessinees pour etre plates et modernes avec une fleche d'indication personnalisee.
-* **PianoKeyboard** : Refonte totale pour un effet 3D. 
-  - Touches blanches avec gradient vertical et bordures fines.
-  - Touches noires avec ombre portee, gradient asymetrique et coins droits arrondis.
-  - Fix d'un bug ou la hauteur des touches n'etait que d'un pixel.
-* **Layout General** : Ajout d'un gradient global en arriere-plan dans `PluginEditor` (de sombre a noir/violet). Les fonds de `PitchCurveEditor` et `PianoKeyboard` ont ete rendus transparents afin de laisser apparaitre le beau degrade d'arriere-plan.
-* **Visualiseur** : Ajout d'un effet de remplissage sous la courbe de pitch corrige (vert neon avec transparence) pour un effet de brillance "glow".
+## 2. GUI rework (Auto-Tune Pro style)
+* **Theme & Colors**: Creation of an `AutotuneLookAndFeel` inheriting from `juce::LookAndFeel_V4`.
+* **Knobs (Sliders)**: Replacement of the default display by dark rotary buttons with a peripheral glowing ring depending on the activation state.
+* **ComboBox**: Redrawn to be flat and modern with a custom indicator arrow.
+* **PianoKeyboard**: Full rework for a 3D effect.
+  - White keys with vertical gradient and thin borders.
+  - Black keys with drop shadow, asymmetric gradient and rounded right corners.
+  - Fix of a bug where key height was only one pixel.
+* **General Layout**: Addition of a global background gradient in `PluginEditor` (from dark to black/purple). The backgrounds of `PitchCurveEditor` and `PianoKeyboard` were made transparent to reveal the nice background gradient.
+* **Visualizer**: Added a fill effect under the corrected pitch curve (neon green with transparency) for a "glow" brightness effect.
 
-## 3. Architecture Multi-Moteurs de Pitch-Shifting
-* **Conception et Interface** : Création d'une interface commune `IPitchShifter` (`Source/dsp/IPitchShifter.h`) garantissant l'interchangeabilité de plusieurs moteurs en exposant des méthodes standard (`prepare`, `reset`, `process`, `getLatencySamples`).
-* **Intégration SoundTouch** : Téléchargement et intégration de la bibliothèque SoundTouch (LGPL) directement via `CMakeLists.txt`. Création d'un wrapper `SoundTouchPitchShifter`.
-* **Restauration de PSOLA** : Restauration de l'ancien code d'analyse-synthèse PSOLA maison, converti pour utiliser l'interface `IPitchShifter`.
-* **Switch Dynamique** : Ajout d'une option `AudioParameterChoice` (`engine`) et d'un menu déroulant (`ComboBox`) "Engine" dans l'UI pour basculer à la volée entre **RubberBand**, **SoundTouch** et **PSOLA**.
-* **Documentation** : Ajout du fichier `docs/multi-engine-architecture.md` décrivant le fonctionnement, la sélection, et l'ajout ultérieur de moteurs.
+## 3. Multi-Engine Pitch-Shifting Architecture
+* **Design and Interface**: Creation of a common interface `IPitchShifter` (`Source/dsp/IPitchShifter.h`) guaranteeing the interchangeability of several engines by exposing standard methods (`prepare`, `reset`, `process`, `getLatencySamples`).
+* **SoundTouch integration**: Download and integration of the SoundTouch library (LGPL) directly via `CMakeLists.txt`. Creation of a `SoundTouchPitchShifter` wrapper.
+* **PSOLA restoration**: Restoration of the old in-house analysis-synthesis PSOLA code, converted to use the `IPitchShifter` interface.
+* **Dynamic switching**: Addition of an `AudioParameterChoice` option (`engine`) and a "Engine" dropdown (`ComboBox`) in the UI to switch on the fly between **RubberBand**, **SoundTouch** and **PSOLA**.
+* **Documentation**: Addition of the `docs/multi-engine-architecture.md` file describing the operation, selection, and later addition of engines.
 
-## 4. Fix des moteurs alternatifs (SoundTouch & PSOLA)
-* **SoundTouch** : Résolution du problème de "clics" audibles à chaque changement de pitch. 
-  - *Cause* : Sans FIFO, l'hôte recevait des zéros lors des latences internes. De plus, la FIFO insérée était purgée brutalement en cas de dérive, et le paramètre de ratio n'était pas lissé.
-  - *Correction* : Ajout d'un lissage du ratio sur 50ms (pour ne pas perturber l'algorithme interne de SoundTouch), et retrait complet de la purge de FIFO, laissant l'algorithme stabiliser la phase de sortie naturellement.
-* **PSOLA / Maison** : L'algorithme PSOLA original a été totalement supprimé car fondamentalement instable (il "choppait" dès qu'une correction était appliquée).
-  - *Cause* : Les têtes de lecture "sautaient" lors des modulations de ratio sans respecter le passage par zéro des fenêtres d'amplitude, et sans vérifier la cohérence de phase (ce qui créait des "chops" et des annulations de phase).
-  - *Correction* : Réécriture complète sous la forme d'un algorithme robuste de type "Delay-Line Crossfade". Implémentation complète de **WSOLA (Waveform Similarity Overlap-Add)** : au moment du saut de tête de lecture (wrap), l'algorithme recherche la meilleure cross-corrélation (alignement de phase maximal) entre le signal "passé" et le signal "présent" dans une fenêtre temporelle donnée. Le décalage optimal est appliqué avant le fondu croisé. Le résultat est garanti sans aucune coupure et préserve l'intégrité de la forme d'onde, éliminant totalement l'effet "hélicoptère/chops".
+## 4. Fix of the alternative engines (SoundTouch & PSOLA)
+* **SoundTouch**: Resolution of the "clicks" audible at each pitch change.
+  - *Cause*: Without FIFO, the host received zeros during internal latencies. Moreover, the inserted FIFO was brutally purged in case of drift, and the ratio parameter was not smoothed.
+  - *Fix*: Added a 50ms ratio smoothing (so as not to disturb SoundTouch's internal algorithm), and complete removal of the FIFO purge, letting the algorithm naturally stabilize the output phase.
+* **PSOLA / In-house**: The original PSOLA algorithm was entirely removed because fundamentally unstable (it "chopped" as soon as a correction was applied).
+  - *Cause*: The read heads "jumped" during ratio modulations without respecting the zero-crossing of the amplitude windows, and without checking phase coherence (which created "chops" and phase cancellations).
+  - *Fix*: Complete rewrite as a robust "Delay-Line Crossfade" algorithm. Full implementation of **WSOLA (Waveform Similarity Overlap-Add)**: at the moment of the read-head jump (wrap), the algorithm searches for the best cross-correlation (maximal phase alignment) between the "past" signal and the "present" signal in a given time window. The optimal offset is applied before the crossfade. The result is guaranteed seamless and preserves the waveform integrity, totally eliminating the "helicopter/chops" effect.
 
-## 5. Étude de faisabilité des algorithmes alternatifs
-* Rédaction d'un rapport détaillé dans `docs/pitch-shifting-feasibility-study.md` évaluant la pertinence de :
-  - **Algorithmes temporels** : WSOLA (recommandé et proche de notre implémentation Delay-Line).
-  - **Algorithmes spectraux** : Rubber Band (déjà intégré), zplane Élastique Pro (qualité ultime mais bloqué par le coût de licence).
-  - **Algorithmes IA** : RVC / DDSP (qualité phénoménale mais inadapté pour un "Autotune" en temps réel).
+## 5. Feasibility study of alternative algorithms
+* Writing of a detailed report in `docs/pitch-shifting-feasibility-study.md` evaluating the relevance of:
+  - **Time-domain algorithms**: WSOLA (recommended and close to our Delay-Line implementation).
+  - **Spectral algorithms**: Rubber Band (already integrated), zplane Elastique Pro (ultimate quality but blocked by license cost).
+  - **AI algorithms**: RVC / DDSP (phenomenal quality but unsuitable for a real-time "Autotune").
 
-## 6. Correctifs UX & Configuration
-* **Configuration par défaut** : Le moteur "PSOLA (Legacy)" a été renommé "Internal" et défini comme moteur de traitement audio par défaut au démarrage du plugin.
-* **Éditeur de pitch (PitchCurveEditor)** : 
-  - Réparation de la fonctionnalité de glisser-déposer (Drag & Drop) des points de la courbe.
-  - Ajout d'une infobulle (Tooltip) dynamique affichant la note (ex: C4) et le temps (ex: 1.25s) lors du survol et du déplacement.
-  - Clarification de la grille temporelle avec l'affichage explicite des secondes (1.0s, 2.0s, etc.).
-  - Implémentation du bouclage temporel continu (modulo 4.0s) pour que l'éditeur graphique soit fonctionnel en mode Standalone.
-  - Ajout du magnétisme intelligent (Snap) : snap-to-grid temporel (à 0.05s près) et snap-to-note (à 15 cents près) même lorsque la correction de gamme globale est désactivée.
-  - **Playhead** : Ajout d'une barre de lecture verticale rouge qui suit la position actuelle du séquenceur ou le temps continu en mode Standalone.
-* **Refonte de la Sélection de Gamme** : 
-  - Suppression complète des 12 cases à cocher de la gamme personnalisée.
-  - Création d'un nouveau composant `ScaleKeyboardComponent` : un mini-clavier de piano horizontal et interactif.
-  - En mode *Preset* (Majeur, Mineur, etc.), le clavier affiche de manière lisible toutes les notes actives de la gamme correspondante (read-only).
-  - En mode *Custom*, le clavier devient interactif : un clic sur chaque touche (blanche ou noire) active ou désactive la note avec un retour visuel coloré instantané, tout en restant parfaitement synchronisé avec le moteur audio.
-  - Bascule intelligente : interagir avec une touche sur n'importe quelle gamme préconfigurée bascule automatiquement l'interface et le moteur DSP sur le mode "Custom" pour conserver la modification de l'utilisateur.
-  - Extension majeure de la liste des gammes : Ajout de *Melodic Minor, Harmonic Minor, Natural Minor, Dorian, Phrygian, Lydian, Mixolydian, Locrian, Blues, Major Triad et Minor Triad* pour un total de 15 modes + Custom.
-* **Interface des Modes** : Suppression de la liste déroulante redondante "Mode (Auto/Graphic)". Le changement de mode est désormais piloté de façon fluide et exclusive par les onglets.
-* **Refonte Visuelle Bas de Page** : 
-  - Réorganisation des contrôles inférieurs en 3 blocs thématiques distincts (Correction, Moteur, Gamme) pour une meilleure lisibilité.
-  - Correction du bug d'affichage (hauteur excessive) des listes déroulantes.
+## 6. UX & Configuration fixes
+* **Default configuration**: The "PSOLA (Legacy)" engine was renamed "Internal" and set as the default audio processing engine at plugin startup.
+* **Pitch editor (PitchCurveEditor)**:
+  - Repair of the drag & drop functionality of the curve points.
+  - Addition of a dynamic tooltip displaying the note (e.g. C4) and the time (e.g. 1.25s) on hover and during move.
+  - Clarification of the time grid with explicit display of seconds (1.0s, 2.0s, etc.).
+  - Implementation of continuous time looping (modulo 4.0s) so the graphic editor is functional in Standalone mode.
+  - Addition of smart snapping (Snap): time snap-to-grid (to 0.05s) and snap-to-note (to 15 cents) even when the global scale correction is disabled.
+  - **Playhead**: Added a red vertical playhead bar that follows the current position of the sequencer or the continuous time in Standalone mode.
+* **Scale selection rework**:
+  - Complete removal of the 12 custom scale checkboxes.
+  - Creation of a new `ScaleKeyboardComponent` component: a small horizontal and interactive piano keyboard.
+  - In *Preset* mode (Major, Minor, etc.), the keyboard readably displays all the active notes of the corresponding scale (read-only).
+  - In *Custom* mode, the keyboard becomes interactive: a click on each key (white or black) activates or deactivates the note with instant colored visual feedback, while staying perfectly synchronized with the audio engine.
+  - Smart toggle: interacting with a key on any preconfigured scale automatically switches the UI and the DSP engine to "Custom" mode to preserve the user's modification.
+  - Major extension of the scale list: Addition of *Melodic Minor, Harmonic Minor, Natural Minor, Dorian, Phrygian, Lydian, Mixolydian, Locrian, Blues, Major Triad and Minor Triad* for a total of 15 modes + Custom.
+* **Mode interface**: Removal of the redundant "Mode (Auto/Graphic)" dropdown. The mode change is now smoothly and exclusively driven by the tabs.
+* **Bottom visual rework**:
+  - Reorganization of the bottom controls into 3 distinct thematic blocks (Correction, Engine, Scale) for better readability.
+  - Fix of the display bug (excessive height) of the dropdowns.
 
-## 8. Optimisation CPU (Sleep Mode)
-* **Détection Intelligente de Silence** :
-  - Ajout d'une analyse rapide du RMS/Peak de l'entrée audio.
-  - Mise en veille automatique (bypass interne) du plugin après 500 ms de silence total (<-80 dB).
-  - Désactivation totale du détecteur YIN, de la préservation des formants et des algorithmes de pitch-shifting (RubberBand, SoundTouch, Internal) pendant la veille.
-  - **Résultat** : La consommation CPU du plugin chute de 14% (Internal) / 49% (RubberBand) à **~1%** lorsqu'il n'y a pas d'audio à traiter, sans aucun artefact (clic ou décrochage) lors de la reprise de l'audio.
-* **Déclaration de Latence Dynamique (PDC)** :
-  - Le plugin déclare désormais correctement sa latence de traitement au DAW (ex: Studio One) via l'appel `setLatencySamples()`.
-  - La valeur de latence s'ajuste dynamiquement en fonction du moteur sélectionné et est transmise instantanément au séquenceur. Le DAW affiche désormais correctement la latence (~10ms) au lieu de 0.0ms.
+## 8. CPU optimization (Sleep Mode)
+* **Smart silence detection**:
+  - Addition of a fast RMS/Peak analysis of the audio input.
+  - Automatic sleep (internal bypass) of the plugin after 500 ms of total silence (<-80 dB).
+  - Complete disabling of the YIN detector, formant preservation and pitch-shifting algorithms (RubberBand, SoundTouch, Internal) during sleep.
+  - **Result**: The plugin's CPU consumption drops from 14% (Internal) / 49% (RubberBand) to **~1%** when there is no audio to process, with no artefact (click or dropout) when audio resumes.
+* **Dynamic Latency Declaration (PDC)**:
+  - The plugin now correctly declares its processing latency to the DAW (e.g. Studio One) via the `setLatencySamples()` call.
+  - The latency value adjusts dynamically according to the selected engine and is transmitted instantly to the sequencer. The DAW now correctly displays the latency (~10ms) instead of 0.0ms.
 
-## 7. Correction DSP (Quantificateur)
-* **Gamme Chromatique** : Correction du bug qui empêchait la gamme chromatique d'autoriser toutes les notes. Le quantificateur a été réécrit pour corriger le pitch vers le demi-ton le plus proche, agissant comme un véritable effet "T-Pain" sur l'ensemble des 12 notes sans les filtrer vers la gamme Majeure de C.
-* **Synchronisation UI/DSP** : Correction d'un bug majeur où le changement de gamme (Scale) dans l'interface graphique n'était pas propagé au moteur audio. Les gammes (ex: Chromatic, Major, Minor) s'appliquent désormais instantanément.
-* Fix d'un probleme de compilation des tests unitaires cause par une visibilite `private` des constantes de couleur dans `PluginEditor.h`.
-* Fix des chemins d'inclusion (`#include`) dans les tests unitaires.
-* Fix d'un bug de retour de reference locale dans `PitchCurve.h` detecte par le compilateur.
-* Fix de l'initialisation du moteur par défaut : le plugin chargeait silencieusement RubberBand au démarrage tout en affichant "Internal" dans l'UI. Cela causait des artefacts audio sur certains buffers jusqu'à ce que l'utilisateur force un aller-retour dans la liste déroulante. L'initialisation dynamique garantit désormais que le véritable moteur "Internal" est chargé dès le lancement.
+## 7. DSP correction (Quantizer)
+* **Chromatic scale**: Fix of the bug that prevented the chromatic scale from allowing all notes. The quantizer was rewritten to correct the pitch to the nearest semitone, acting as a true "T-Pain" effect on all 12 notes without filtering them to the C Major scale.
+* **UI/DSP synchronization**: Fix of a major bug where a scale change (Scale) in the GUI was not propagated to the audio engine. The scales (e.g. Chromatic, Major, Minor) now apply instantly.
+* Fix of a unit test compilation problem caused by a `private` visibility of the color constants in `PluginEditor.h`.
+* Fix of the include paths (`#include`) in the unit tests.
+* Fix of a local reference return bug in `PitchCurve.h` detected by the compiler.
+* Fix of the default engine initialization: the plugin silently loaded RubberBand at startup while displaying "Internal" in the UI. This caused audio artefacts on some buffers until the user forced a round-trip in the dropdown. The dynamic initialization now guarantees that the real "Internal" engine is loaded from launch.

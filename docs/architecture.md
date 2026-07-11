@@ -1,17 +1,16 @@
-# Architecture du plugin Autotune Clone
+# Architecture of the Autotune Clone Plugin
 
-## Vue d'ensemble
+## Overview
 
-Le plugin est un **effet audio** (pas un instrument) : il recoit un signal audio
-mono ou stereo et le renvoie transpose en pitch selon une gamme musicale choisie.
+The plugin is an **audio effect** (not an instrument): it receives a mono or stereo audio signal and returns it transposed in pitch according to a chosen musical scale.
 
-Il est implemente en **C++** avec le framework **JUCE 8**, qui fournit :
-- l'interface `AudioProcessor` (le pipeline audio) ;
-- l'interface `AudioProcessorEditor` (la GUI) ;
-- l'integration VST3/Standalone/AU/AAX ;
-- les outils DSP (FFT, fenetrage, smoothing).
+It is implemented in **C++** using the **JUCE 8** framework, which provides:
+- the `AudioProcessor` interface (the audio pipeline);
+- the `AudioProcessorEditor` interface (the GUI);
+- VST3/Standalone/AU/AAX integration;
+- DSP tools (FFT, windowing, smoothing).
 
-## Arborescence des sources
+## Source Tree
 
 ```
 Source/
@@ -29,7 +28,7 @@ Source/
     PianoKeyboard.h / .cpp        # Clavier de piano vertical (gauche)
 ```
 
-## Pipeline DSP
+## DSP Pipeline
 
 ```
                    +-------------------+   f0_in
@@ -48,253 +47,207 @@ Source/
                    +--------------------+
 ```
 
-## Algorithmes utilises
+## Algorithms Used
 
-### Phase 1 - MVP fonctionnel
+### Phase 1 - Functional MVP
 
-- **Detection de pitch** : algorithme YIN (de Cheveigne & Kawahara, 2002)
+- **Pitch detection**: YIN algorithm (by Cheveigne & Kawahara, 2002)
   - Difference function
-  - Fonction d'auto-correlation cumulee normalisee
-  - Seuil de clarte (0.10-0.15)
-  - Parabolic interpolation pour la precision sub-sample
+  - Normalized cumulative auto-correlation function
+  - Clarity threshold (0.10-0.15)
+  - Parabolic interpolation for sub-sample precision
 
-- **Quantification** : projection sur la gamme la plus proche
-  - Conversion Hz -> demi-tons (par rapport a A4 = 440 Hz)
-  - Recherche du demi-ton le plus proche appartenant a la gamme
-  - Conversion inverse vers Hz
+- **Quantization**: projection onto the nearest scale note
+  - Hz -> semitones conversion (relative to A4 = 440 Hz)
+  - Search for the nearest semitone belonging to the scale
+  - Inverse conversion back to Hz
 
-- **Pitch shifting** : PSOLA simplifie
-  - Detection des marques de pitch (zero-crossings du pitch detecte)
-  - Decoupage en grains fenetres (Hann, 2-4 periodes fondamentales)
-  - Overlap-add avec les positions recalculees selon le ratio
-  - Phase vocoder simplifie pour la composante stationnaire (Phase 4)
+- **Pitch shifting**: simplified PSOLA
+  - Pitch mark detection (zero-crossings of the detected pitch)
+  - Windowed grain segmentation (Hann, 2-4 fundamental periods)
+  - Overlap-add with positions recalculated according to the ratio
+  - Simplified phase vocoder for the stationary component (Phase 4)
 
-### Phase 4 - Qualite
+### Phase 4 - Quality
 
 #### PSOLA (Phase 4 implementation)
 
-L'algorithme PSOLA (Pitch-Synchronous Overlap-Add) est la technique standard
-pour transposer des signaux quasi-periodiques comme la voix sans modifier
-la duree.
+The PSOLA (Pitch-Synchronous Overlap-Add) algorithm is the standard technique for transposing quasi-periodic signals such as voice without altering the duration.
 
-**Pipeline** :
-1. **Detection de f0** : appel du `PitchDetector` (YIN) sur le buffer d'entree.
-2. **Detection des pitch marks** : pour chaque periode fondamentale (echantillon
-   `period = sr / f0`), on cherche le maximum local d'amplitude dans une
-   fenetre de +/- 25% de la periode. Cela fixe la "phase" de chaque grain.
-3. **Grain PSOLA** : pour chaque pitch mark d'analyse, on extrait un grain de
-   2 periodes fenetre par Hann, centre sur la mark.
-4. **Re-positionnement** : on depose ce grain a la position de synthese
-   (`synthMark = m * synthPeriod`, ou `synthPeriod = period / ratio`).
-5. **Overlap-Add (OLA)** : on additionne les grains dans le buffer de sortie
-   avec une fenetre Hann 2-periodes / hop-1-periode, ce qui satisfait la
-   condition COLA (Constant OverLap-Add factor = 1 sur les zones stationnaires).
+**Pipeline**:
+1. **f0 detection**: call the `PitchDetector` (YIN) on the input buffer.
+2. **Pitch mark detection**: for each fundamental period (sample `period = sr / f0`), search for the local amplitude maximum within a window of +/- 25% of the period. This sets the "phase" of each grain.
+3. **PSOLA grain**: for each analysis pitch mark, extract a 2-period Hann-windowed grain centered on the mark.
+4. **Re-positioning**: place this grain at the synthesis position (`synthMark = m * synthPeriod`, where `synthPeriod = period / ratio`).
+5. **Overlap-Add (OLA)**: add the grains into the output buffer with a 2-period Hann window / 1-period hop, which satisfies the COLA condition (Constant OverLap-Add factor = 1 over stationary regions).
 
-**Notes** :
-- Le grain fait 2 periodes pour eviter les coupures brutales.
-- La fenetre Hann est normalisee par /2 (gain d'overlap theorique).
-- L'algorithme est en O(N) ou N est le nombre de pitch marks.
+**Notes**:
+- The grain is 2 periods wide to avoid abrupt cuts.
+- The Hann window is normalized by /2 (theoretical overlap gain).
+- The algorithm is O(N) where N is the number of pitch marks.
 
-#### Compensation de formants (Phase 4)
+#### Formant Compensation (Phase 4)
 
-Quand on transpose un signal vocal par PSOLA, les formants (resonances du
-conduit vocal) sont deplaces avec le pitch. Cela donne un effet "chipmunk"
-non naturel (la voix devient plus "fine" quand on monte).
+When transposing a vocal signal via PSOLA, the formants (vocal tract resonances) are shifted along with the pitch. This produces an unnatural "chipmunk" effect (the voice becomes "thinner" when raised).
 
-**Solution implementee** : technique "LP-filter + resample" simplifiee.
-- **Etude du probleme** : les formants se trouvent dans la partie haute du
-  spectre. En montant le pitch, on les deplace vers le haut en valeur absolue
-  mais leur position relative par rapport a f0 change.
-- **Solution** : avant le PSOLA, on applique un filtre passe-bas Butterworth
-  2nd ordre dont la frequence de coupure est inversement proportionnelle au
-  ratio de transposition (compensation par `sqrt(ratio)`).
-- **Pourquoi sqrt** : un simple `1/ratio` serait trop agressif ; un simple
-  `1.0` ne corrige rien. Le compromis `sqrt` donne un resultat naturel.
-- **Limites** : on ne preserve pas exactement les formants, on les deforme
-  de maniere plausible. Pour une preservation exacte, il faudrait un modele
-  de prediction lineaire (LPC) et resampling non-uniforme.
+**Implemented solution**: simplified "LP-filter + resample" technique.
+- **Problem analysis**: formants lie in the upper part of the spectrum. Raising the pitch shifts them upward in absolute value, but their relative position with respect to f0 changes.
+- **Solution**: before PSOLA, apply a 2nd-order Butterworth low-pass filter whose cutoff frequency is inversely proportional to the transposition ratio (compensation via `sqrt(ratio)`).
+- **Why sqrt**: a simple `1/ratio` would be too aggressive; a plain `1.0` corrects nothing. The `sqrt` compromise yields a natural result.
+- **Limitations**: we do not exactly preserve the formants; we deform them in a plausible way. Exact preservation would require a linear prediction (LPC) model and non-uniform resampling.
 
-#### Retarget Envelope (style Antares "Speed")
+#### Retarget Envelope (Antares "Speed" style)
 
-Le parametre `Speed` controle la rapidite avec laquelle le pitch suit la
-note cible :
-- `Speed = 0 ms` : correction instantanee (effet "robotique" type T-Pain)
-- `Speed = 50 ms` : correction rapide mais douce (defaut Antares)
-- `Speed = 200 ms` : correction lente et tres naturelle (presque pas d'effet)
+The `Speed` parameter controls how quickly the pitch follows the target note:
+- `Speed = 0 ms`: instant correction (T-Pain style "robotic" effect)
+- `Speed = 50 ms`: fast but smooth correction (Antares default)
+- `Speed = 200 ms`: slow and very natural correction (almost no effect)
 
-**Implementation** : un filtre IIR 1er ordre (exponential smoothing) :
+**Implementation**: a 1st-order IIR filter (exponential smoothing):
 ```
 y[n] = y[n-1] + alpha * (target - y[n-1])
-alpha = 1 - exp(-dt / tau)   ou  tau = speedMs / 1000
+alpha = 1 - exp(-dt / tau)   where  tau = speedMs / 1000
 ```
 
-Cela donne une reponse exponentielle de constante de temps `tau` :
-- Apres `tau` : 63% de la cible atteinte
-- Apres `3*tau` : 95%
-- Apres `5*tau` : 99%
+This gives an exponential response with time constant `tau`:
+- After `tau`: 63% of the target reached
+- After `3*tau`: 95%
+- After `5*tau`: 99%
 
-### Phase future
+### Future Phase
 
-- Detection de pitch par MPM (McLeod Pitch Method) en complement de YIN
-- Preservation exacte des formants par LPC + resampling non-uniforme
-- Preservation des transitoires (detection onset -> bypass du PSOLA)
-- Mode "graphique" editable de la pitch curve (style Melodyne) : VOIR CI-DESSOUS
+- Pitch detection via MPM (McLeod Pitch Method) in addition to YIN
+- Exact formant preservation via LPC + non-uniform resampling
+- Transient preservation (onset detection -> PSOLA bypass)
+- Editable "graphical" pitch curve mode (Melodyne style): SEE BELOW
 
-## Mode "Graphic" (Phase 4 - Style Melodyne)
+## "Graphic" Mode (Phase 4 - Melodyne style)
 
-Le mode Graphic permet a l'utilisateur de **dessiner la pitch curve ideale**
-que l'audio doit suivre au fil du temps. C'est ce qui distingue un Auto-Tune
-Pro d'un plugin basique.
+Graphic mode lets the user **draw the ideal pitch curve** that the audio should follow over time. This is what distinguishes an Auto-Tune Pro from a basic plugin.
 
-### Mode Auto vs Mode Graphic
+### Auto Mode vs Graphic Mode
 
-| Mode    | Source du pitch cible                                    | Usage                       |
+| Mode    | Target pitch source                                      | Usage                       |
 |---------|----------------------------------------------------------|-----------------------------|
-| Auto    | Quantification automatique vers la gamme (Key/Scale)     | Chant en direct, rapide     |
-| Graphic | Pitch curve dessinee a la souris (points + interpolation)| Mixage offline, perfection  |
+| Auto    | Automatic quantization to the scale (Key/Scale)          | Live singing, fast          |
+| Graphic | Pitch curve drawn with the mouse (points + interpolation)| Offline mixing, perfection  |
 
-L'utilisateur bascule entre les deux via la ComboBox "Mode" dans la GUI.
-Le mode est sauvegarde dans l'etat du plugin.
+The user switches between the two via the "Mode" ComboBox in the GUI. The mode is saved in the plugin state.
 
-### PitchCurve : structure de donnees
+### PitchCurve: Data Structure
 
-`atdsp::PitchCurve` est une liste triee de `PitchPoint { time (s), pitch (Hz) }`.
-- Minimum 0 point : mode auto par defaut.
-- 1 point : valeur constante (la pitch curve tient cette valeur).
-- N points : interpolation lineaire entre 2 points consecutifs.
-- Avant le 1er point / apres le dernier : on tient la valeur de l'extremite.
-- L'evaluation se fait par recherche dichotomique (O(log N)).
+`atdsp::PitchCurve` is a sorted list of `PitchPoint { time (s), pitch (Hz) }`.
+- Minimum 0 points: default auto mode.
+- 1 point: constant value (the pitch curve holds this value).
+- N points: linear interpolation between 2 consecutive points.
+- Before the first point / after the last: hold the endpoint value.
+- Evaluation is done by binary search (O(log N)).
 
-### Edition interactive (`ui::PitchCurveEditor`)
+### Interactive Editing (`ui::PitchCurveEditor`)
 
-Le composant `PitchCurveEditor` permet de :
-- **Drag** d'un point : deplace le point verticalement (change le pitch).
-- **Double-clic** : ajoute un point a la position du curseur.
-- **Clic droit sur un point** (ou Alt+clic) : supprime le point.
-- **Clic droit dans le vide** : menu preset (default, spoken, lyric, rap, robot).
-- **Snap to scale** : si active, les points sont arrondis a la note la plus
-  proche de la gamme courante (Key/Scale sliders).
+The `PitchCurveEditor` component allows to:
+- **Drag** a point: move the point vertically (changes the pitch).
+- **Double-click**: add a point at the cursor position.
+- **Right-click on a point** (or Alt+click): delete the point.
+- **Right-click in empty space**: preset menu (default, spoken, lyric, rap, robot).
+- **Snap to scale**: if enabled, points are rounded to the nearest note of the current scale (Key/Scale sliders).
 
-Le composant est connecte au processor via un pattern Listener : a chaque
-modification, `pitchCurveChanged()` est appele, et l'editeur copie la
-courbe vers `processorRef.getPitchCurve()`.
+The component is connected to the processor via a Listener pattern: on each modification, `pitchCurveChanged()` is called, and the editor copies the curve to `processorRef.getPitchCurve()`.
 
-### Presets factory
+### Factory Presets
 
 | Preset     | Description                                               |
 |------------|-----------------------------------------------------------|
-| default    | Courbe plate a 440 Hz (correction minimale)               |
-| spoken     | Voix parlee : legere oscillation autour de 200 Hz         |
-| lyric      | Chant lyrique : grandes variations expressives A3..A4     |
-| rap        | Montée et descente montees (~200-250 Hz)                  |
-| robot      | Identique a default (placeholder pour effet "T-Pain"     |
-|            | extreme -> necessiterait Speed=0)                         |
+| default    | Flat curve at 440 Hz (minimal correction)                 |
+| spoken     | Spoken voice: slight oscillation around 200 Hz            |
+| lyric      | Lyrical singing: large expressive variations A3..A4       |
+| rap        | Rising and falling ascents (~200-250 Hz)                  |
+| robot      | Same as default (placeholder for extreme "T-Pain" effect -> would require Speed=0) |
 
-### Cablage dans processBlock
+### Wiring in processBlock
 
-Le `processBlock` du processor interroge `getPlayHead()->getPosition()` pour
-connaitre le temps de transport en secondes. En mode Graphic, ce temps est
-passe a `pitchCurve->getPitchAt(t, f0_in)` qui retourne le Hz cible. Le
-reste du pipeline (amount blend, retarget, formants, PSOLA) est inchange.
+The processor's `processBlock` queries `getPlayHead()->getPosition()` to get the transport time in seconds. In Graphic mode, this time is passed to `pitchCurve->getPitchAt(t, f0_in)` which returns the target Hz. The rest of the pipeline (amount blend, retarget, formants, PSOLA) is unchanged.
 
-Le mode est sauvegarde dans l'etat du plugin via le paramètre "mode"
-(AudioParameterInt 0/1). La PitchCurve elle-meme est serialisee comme
-sous-element XML `<PITCH_CURVE>` dans `getStateInformation()`.
+The mode is saved in the plugin state via the "mode" parameter (AudioParameterInt 0/1). The PitchCurve itself is serialized as an XML sub-element `<PITCH_CURVE>` in `getStateInformation()`.
 
-### Limites actuelles
+### Current Limitations
 
-- Pas de courbes de Bezier (interpolation lineaire uniquement).
-- Pas de magnétisme autre que le snap a la gamme.
-- Pas de capture directe du pitch courant par clic (mais possible via
-  `capturePitch()` expose dans l'API).
-- Pas de zoom (la plage est fixee a 4 secondes, 50-1000 Hz).
+- No Bezier curves (linear interpolation only).
+- No snapping other than snap-to-scale.
+- No direct capture of the current pitch by clicking (but possible via `capturePitch()` exposed in the API).
+- No zoom (the range is fixed to 4 seconds, 50-1000 Hz).
 
-## Parametres exposes
+## Exposed Parameters
 
-| Nom      | Type      | Plage              | Defaut | Description                            |
-|----------|-----------|--------------------|--------|----------------------------------------|
-| Speed    | float ms  | 0 - 200            | 50     | Temps de retargeting de la correction   |
-| Amount   | float 0-1 | 0.0 - 1.0          | 1.0    | Intensite (0 = passthrough)            |
-| Key      | int       | 0 - 11             | 0 (C)  | Tonique de la gamme                    |
-| Scale    | int       | 0 - 5              | 0 (Maj)| Mode (Maj, Min, Pent Maj, Pent Min, Chr, Custom) |
-| Bypass   | bool      | off / on           | off    | Bypass du traitement                   |
-| custom0..custom11 | bool | off / on      | (Maj)  | Notes actives pour la gamme Custom (C, C#, D, ..., B) |
+| Name     | Type      | Range              | Default | Description                            |
+|----------|-----------|--------------------|---------|----------------------------------------|
+| Speed    | float ms  | 0 - 200            | 50      | Correction retargeting time            |
+| Amount   | float 0-1 | 0.0 - 1.0          | 1.0     | Intensity (0 = passthrough)            |
+| Key      | int       | 0 - 11             | 0 (C)   | Scale tonic                            |
+| Scale    | int       | 0 - 5              | 0 (Maj) | Mode (Maj, Min, Pent Maj, Pent Min, Chr, Custom) |
+| Bypass   | bool      | off / on           | off     | Processing bypass                      |
+| custom0..custom11 | bool | off / on      | (Maj)   | Active notes for the Custom scale (C, C#, D, ..., B) |
 
-## Gamme personnalisee (mode Custom)
+## Custom Scale (Custom mode)
 
-Le mode `Scale::Custom` (indice 5) permet a l'utilisateur de choisir
-lui-meme quelles notes (en demi-tons 0..11) appartiennent a la gamme.
-Implementation :
-- 12 `AudioParameterBool` exposes au host (automation individuelle possible)
-- 12 `juce::ToggleButton` dans la GUI, organises en rangee horizontale
-- Visibles uniquement si Scale = "Custom" (gere par `updateCustomVisibility()`)
-- Le `ScaleQuantizer` recoit la liste des notes via `setCustomIntervals()`
-  (sans decalage de key, contrairement aux autres modes)
-- Le snap interactif du `PitchCurveEditor` utilise `snapToScaleCustom()`
-  pour la quantif sur les notes choisies
+The `Scale::Custom` mode (index 5) lets the user choose which notes (in semitones 0..11) belong to the scale.
+Implementation:
+- 12 `AudioParameterBool` exposed to the host (individual automation possible)
+- 12 `juce::ToggleButton` in the GUI, arranged in a horizontal row
+- Visible only if Scale = "Custom" (handled by `updateCustomVisibility()`)
+- The `ScaleQuantizer` receives the note list via `setCustomIntervals()` (without key offset, unlike other modes)
+- The interactive snap of `PitchCurveEditor` uses `snapToScaleCustom()` for quantization on the chosen notes
 
-## Affichage temps reel (note chantee + cents + meter)
+## Real-Time Display (sung note + cents + meter)
 
-Le `PitchVisualizer` affiche en permanence :
-- **Le nom de la note chantee** (ex: "F3") dans son header.
-- **Le nom de la note cible** (ex: "-> F3") si elle differe.
-- **L'offset en cents** (ex: "-50 c") avec code couleur :
-  - vert (|c| < 5) : dans la note
-  - jaune (|c| < 25) : proche
-  - rouge (|c| >= 25) : clairement a cote
-- **Un meter de tuning vertical** (aiguille selon les cents, graduations
-  a +/-50 et +/-100, style Antares / Studio One).
-- **Les lignes des notes de la gamme courante** en arriere-plan (jaune
-  semi-transparent) sur 4 octaves (C2 -> C6).
+The `PitchVisualizer` permanently displays:
+- **The sung note name** (e.g., "F3") in its header.
+- **The target note name** (e.g., "-> F3") if it differs.
+- **The cents offset** (e.g., "-50 c") with color coding:
+  - green (|c| < 5): within the note
+  - yellow (|c| < 25): close
+  - red (|c| >= 25): clearly off
+- **A vertical tuning meter** (needle according to cents, graduations at +/-50 and +/-100, Antares / Studio One style).
+- **The current scale note lines** in the background (semi-transparent yellow) over 4 octaves (C2 -> C6).
 
-Le calcul des informations est fait par `atdsp::describePitch()` dans
-`NoteUtils.h` (conversion Hz -> MIDI -> nom + calcul des cents d'offset
-entre pitch d'entree et pitch quantifie).
+The information computation is done by `atdsp::describePitch()` in `NoteUtils.h` (Hz -> MIDI -> name conversion + cents offset calculation between input pitch and quantized pitch).
 
-## Clavier de piano vertical (PianoKeyboard)
+## Vertical Piano Keyboard (PianoKeyboard)
 
-Le `ui::PianoKeyboard` est un composant place a gauche du `PitchCurveEditor`
-(40 px de large) qui dessine un clavier de piano vertical :
-- **Touches blanches** (C, D, E, F, G, A, B) en pleine largeur
-- **Touches noires** (C#, D#, F#, G#, A#) par-dessus, 60% plus courtes
-- **Notes de la gamme surlignees en jaune** (permet de voir immediatement
-  quelles notes sont "autorisees" par la gamme courante)
-- **Label des octaves** (C2, C3, ...) sur la gauche des touches C
+The `ui::PianoKeyboard` is a component placed to the left of `PitchCurveEditor` (40 px wide) that draws a vertical piano keyboard:
+- **White keys** (C, D, E, F, G, A, B) full width
+- **Black keys** (C#, D#, F#, G#, A#) overlaid, 60% shorter
+- **Scale notes highlighted in yellow** (lets you immediately see which notes are "allowed" by the current scale)
+- **Octave labels** (C2, C3, ...) on the left of the C keys
 
-L'axe Y est vertical : notes graves en BAS, notes aigues en HAUT.
-Plage par defaut : C2 (MIDI 36) -> C7 (MIDI 96), suffisante pour la voix.
+The Y axis is vertical: low notes at the BOTTOM, high notes at the TOP.
+Default range: C2 (MIDI 36) -> C7 (MIDI 96), sufficient for voice.
 
-## Latence
+## Latency
 
-La latence depend de la fenetre d'analyse du PSOLA.
-Cible MVP : **20-30 ms** (acceptable pour monitoring).
-La latence exacte est declaree au host via `AudioProcessor::getLatencySamples()`.
+Latency depends on the PSOLA analysis window.
+MVP target: **20-30 ms** (acceptable for monitoring).
+The exact latency is declared to the host via `AudioProcessor::getLatencySamples()`.
 
 ## Multi-format
 
-| Format  | Statut         | Plateforme      | Notes                              |
-|---------|----------------|-----------------|------------------------------------|
-| VST3    | Actif          | Windows         | Compile et testable                |
-| Standalone | Actif       | Windows         | Application .exe, test sans DAW    |
-| AU      | Configure      | macOS           | Necessite un Mac pour compiler     |
-| AAX     | Configure      | macOS           | Necessite Mac + dev Avid           |
-| LV2     | Non configure  | Linux           | A ajouter si besoin                |
+| Format  | Status         | Platform      | Notes                              |
+|---------|----------------|---------------|------------------------------------|
+| VST3    | Active         | Windows       | Compiled and testable              |
+| Standalone | Active       | Windows       | .exe application, test without DAW |
+| AU      | Configured     | macOS         | Requires a Mac to compile          |
+| AAX     | Configured     | macOS         | Requires Mac + Avid dev            |
+| LV2     | Not configured | Linux         | Add if needed                     |
 
-## Decisions architecturales
+## Architectural Decisions
 
-1. **Dsp modules isoles** : PitchDetector, ScaleQuantizer et PitchShifter sont
-   des classes separees avec une responsabilite unique. Cela permet de les
-   tester independamment et de les remplacer.
+1. **Isolated DSP modules**: PitchDetector, ScaleQuantizer and PitchShifter are separate classes with a single responsibility. This allows testing them independently and replacing them.
 
-2. **AudioProcessorValueTreeState** : les parametres sont geres par l'arbre
-   de valeurs de JUCE, qui synchronise automatiquement host <-> GUI <-> DSP.
+2. **AudioProcessorValueTreeState**: parameters are managed by JUCE's value tree, which automatically synchronizes host <-> GUI <-> DSP.
 
-3. **Pas de dependance externe** : on utilise uniquement JUCE (fourni).
-   Pas de librairie tierce pour le DSP (pas de libsoxr, pas de rubberband)
-   afin de garder le projet simple et maitrise.
+3. **No external dependency**: we use only JUCE (provided). No third-party library for DSP (no libsoxr, no rubberband) in order to keep the project simple and controlled.
 
-4. **C++17** : on cible ce standard (defini par Projucer) pour beneficiaire
-   de `<optional>`, `if constexpr`, etc. sans necessiter C++20.
+4. **C++17**: we target this standard (defined by Projucer) to benefit from `<optional>`, `if constexpr`, etc. without requiring C++20.
 
 ## References
 
