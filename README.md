@@ -203,6 +203,17 @@
 
 OpenVoxTuner is **free for everyone** under the [AGPLv3](LICENSE) license — musicians, producers, studios, educators. No restrictions on commercial use.
 
+### Third-party licenses
+
+| Library | License | Compatibility |
+|---------|---------|--------------|
+| JUCE 8 | AGPLv3 | Same license |
+| ARA SDK | Apache 2.0 | Fully compatible |
+| PreSonus Extensions | Public Domain | Fully compatible |
+| Catch2 (tests) | Boost (BSL-1.0) | Fully compatible |
+
+All third-party licenses are compatible with AGPLv3.
+
 ### What AGPLv3 means for you
 
 | You are... | Can you use it for free? | Any obligation? |
@@ -223,6 +234,7 @@ OpenVoxTuner is free for everyone. If you'd like to support its development, her
 |------|----------|-------|-------|
 | **Free** | — | 0$ | Full plugin, all features |
 | **Buy me a coffee** | [Ko-fi](https://ko-fi.com/) | One-time | A quick thank-you ❤️ |
+| **Sponsor** | [GitHub Sponsors](https://github.com/sponsors/) | Monthly | Support ongoing development |
 | **Supporter** | [Patreon](https://patreon.com/) | 5$/month | Private Discord + vote on upcoming features |
 | **Gold** | [Patreon](https://patreon.com/) | 20$/month | All Supporter perks + early access / beta builds + name in credits |
 
@@ -231,6 +243,19 @@ Every contribution helps keep the project alive and free for everyone.
 ### Developer license
 
 A commercial license is available for developers or companies who want to integrate OpenVoxTuner into a **closed-source product** without the AGPLv3 copyleft obligation. Open an issue or contact the maintainer.
+
+## Contributing
+
+Contributions are welcome! You can help by:
+
+- Fixing bugs
+- Improving DSP algorithms
+- Adding language translations
+- Enhancing the UI
+- Writing documentation
+- Testing DAW compatibility
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Build
 
