@@ -42,7 +42,7 @@ jobs:
         shell: pwsh
         run: |
           $env:JUCE_PATH = "${{ github.workspace }}\JUCE"
-          .\build_installer.ps1
+          .\scripts\build_installer.ps1
 
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
@@ -84,7 +84,7 @@ jobs:
           mkdir -p OpenVoxTuner-macOS
           cp -R VST3/OpenVoxTuner.vst3 OpenVoxTuner-macOS/
           cp -R Standalone/OpenVoxTuner.app OpenVoxTuner-macOS/
-          ditto -c -k --sequesterForMacOS --keepParent OpenVoxTuner-macOS OpenVoxTuner-macOS.zip
+          ditto -c -k --keepParent OpenVoxTuner-macOS OpenVoxTuner-macOS.zip
           mv OpenVoxTuner-macOS.zip "${{ github.workspace }}/"
 
       - name: Upload macOS artifact
