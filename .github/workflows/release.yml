@@ -131,11 +131,43 @@ jobs:
           name: OpenVoxTuner-macOS-Pkg
           path: release-assets
 
+      - name: Checkout (needed to build release notes from git history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Build release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          CUR="${GITHUB_REF_NAME}"
+          NOTES="release_notes.md"
+          {
+            echo "## Nouveautés — ${CUR}"
+            echo ""
+            PREV="$(git describe --tags --abbrev=0 "${CUR}^" 2>/dev/null || true)"
+            if [ -z "${PREV}" ]; then
+              echo "Première version publiée."
+            else
+              echo "### Changements (${PREV} → ${CUR})"
+              echo ""
+              git log --no-merges --pretty=format:"- %s (%h)" "${PREV}..${CUR}" \
+                | sed 's/^/  /'
+              echo ""
+              echo ""
+              echo "**Comparaison complète** : https://github.com/${{ github.repository }}/compare/${PREV}...${CUR}"
+            fi
+          } > "${NOTES}"
+          echo "----- release notes -----"
+          cat "${NOTES}"
+        shell: bash
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release_notes.md
           files: |
             release-assets/OpenVoxTuner_Windows_Installer.exe
             release-assets/OpenVoxTuner-macOS.zip
             release-assets/OpenVoxTuner-macOS.pkg
-          generate_release_notes: true
