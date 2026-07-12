@@ -85,11 +85,9 @@ if (-not $NoBuild) {
     $buildScript = Join-Path $PSScriptRoot "build_helper.cmd"
     $cmakeExe = (Get-Command cmake -ErrorAction SilentlyContinue).Source
     
-    # Read the MSVC environment paths from init_vs_env.ps1
-    $vsToolsRoot = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207"
-    $sdkRoot = "C:\Program Files (x86)\Windows Kits\10"
-    $sdkVersion = "10.0.19041.0"
-    $vsRoot = "C:\Program Files\Microsoft Visual Studio\2022\Community"
+    # Les chemins VS/SDK proviennent de init_vs_env.ps1 (sourcé ci-dessus) et
+    # sont resolus dynamiquement via vswhere : cela fonctionne pour toute edition
+    # de VS 2022 (Community en local, Enterprise sur les runners CI).
     
     $msvcBin = "$vsToolsRoot\bin\Hostx64\x64"
     $sdkBin = "$sdkRoot\bin\$sdkVersion\x64"
@@ -102,7 +100,7 @@ set INCLUDE=$vsToolsRoot\include;$sdkRoot\Include\$sdkVersion\ucrt;$sdkRoot\Incl
 set LIB=$vsToolsRoot\lib\onecore\x64;$vsToolsRoot\lib\x64;$sdkRoot\Lib\$sdkVersion\ucrt\x64;$sdkRoot\Lib\$sdkVersion\um\x64
 set VCINSTALLDIR=$vsRoot\VC
 set VCToolsInstallDir=$vsToolsRoot
-set VCToolsVersion=14.44.35207
+set VCToolsVersion=$msvcVer
 set WindowsSdkDir=$sdkRoot\
 set WindowsSDKVersion=$sdkVersion\
 set UniversalCRTSdkDir=$sdkRoot\

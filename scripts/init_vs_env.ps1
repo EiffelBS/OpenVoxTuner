@@ -5,10 +5,40 @@
 # A sourcer avec :  . .\init_vs_env.ps1
 # ============================================================================
 
-$vsToolsRoot = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207"
-$sdkRoot     = "C:\Program Files (x86)\Windows Kits\10"
-$sdkVersion  = "10.0.19041.0"
-$vsRoot      = "C:\Program Files\Microsoft Visual Studio\2022\Community"
+$ErrorActionPreference = 'Stop'
+
+# --- Localisation dynamique de Visual Studio 2022 (edition-agnostique) ---
+# vswhere est installe avec VS (Community/Professional/Enterprise) et renvoie
+# le chemin reel d'installation, peu importe l'edition. Cela permet au meme
+# script de fonctionner aussi bien sur une machine locale (VS Community) que
+# sur un runner CI (VS Enterprise).
+function Get-VS2022InstallPath {
+    $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path $vswhere)) { return $null }
+    $path = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+    if ($path) { return $path.Trim() }
+    return $null
+}
+
+# Chemin par defaut (fallback si vswhere indisponible, ex. VS Community local)
+$vsRoot = Get-VS2022InstallPath
+if (-not $vsRoot) {
+    $vsRoot = "C:\Program Files\Microsoft Visual Studio\2022\Community"
+}
+
+# MSVC : on prend la version installee la plus recente (robuste entre editions)
+$msvcBase = Join-Path $vsRoot "VC\Tools\MSVC"
+$msvcVer  = (Get-ChildItem $msvcBase -Directory -ErrorAction SilentlyContinue |
+             Sort-Object Name | Select-Object -Last 1).Name
+if (-not $msvcVer) { $msvcVer = "14.44.35207" }   # fallback
+$vsToolsRoot = Join-Path $msvcBase $msvcVer
+
+# Windows SDK : on prend la version 10.0.* la plus recente installee
+$sdkRoot = "C:\Program Files (x86)\Windows Kits\10"
+$sdkVersion = (Get-ChildItem "$sdkRoot\Include" -Directory -ErrorAction SilentlyContinue |
+               Where-Object { $_.Name -like "10.0.*" } |
+               Sort-Object Name | Select-Object -Last 1).Name
+if (-not $sdkVersion) { $sdkVersion = "10.0.19041.0" }  # fallback
 
 if (-not (Test-Path $vsToolsRoot))
 {
@@ -39,9 +69,8 @@ $env:INCLUDE = @(
 ) -join ";"
 
 # === LIB ===
-# Note : dans cette installation, MSVC a seulement le sous-dossier "onecore".
-# En installation standard, ce serait $vsToolsRoot\lib\x64. On inclut les deux
-# pour etre robuste aux deux configurations.
+# Note : dans certaines installations, MSVC n'a que le sous-dossier "onecore".
+# On inclut les deux pour etre robuste aux deux configurations.
 $env:LIB = @(
     "$vsToolsRoot\lib\onecore\x64"
     "$vsToolsRoot\lib\x64"
@@ -58,8 +87,8 @@ $env:LIBPATH = @(
 
 # === Variables standards MSVC ===
 $env:VCINSTALLDIR = "$vsRoot\VC"
-$env:VCToolsInstallDir = "$vsRoot\VC\Tools\MSVC\14.44.35207"
-$env:VCToolsVersion = "14.44.35207"
+$env:VCToolsInstallDir = "$vsRoot\VC\Tools\MSVC\$msvcVer"
+$env:VCToolsVersion = $msvcVer
 $env:WindowsSdkDir = "$sdkRoot\"
 $env:WindowsSDKVersion = "$sdkVersion\"
 $env:UniversalCRTSdkDir = "$sdkRoot\"
@@ -68,8 +97,10 @@ $env:VSINSTALLDIR = $vsRoot
 $env:DevEnvDir = "$vsRoot\Common7\IDE"
 $env:VS170COMNTOOLS = "$vsRoot\Common7\Tools\"
 
-# === CMake dans le PATH ===
-$env:Path = "C:\Program Files\CMake\bin;$env:Path"
+# === CMake dans le PATH (fallback, generalement deja present) ===
+if (Test-Path "C:\Program Files\CMake\bin") {
+    $env:Path = "C:\Program Files\CMake\bin;$env:Path"
+}
 
 # === Verifications ===
 $cl = (Get-Command cl.exe -ErrorAction SilentlyContinue).Source
@@ -77,6 +108,7 @@ $cmake = (Get-Command cmake -ErrorAction SilentlyContinue).Source
 $ninja = (Get-Command ninja -ErrorAction SilentlyContinue).Source
 
 Write-Host "Environnement MSVC initialise :" -ForegroundColor Green
+Write-Host "  VS edition root : $vsRoot"
 Write-Host "  MSVC version   : $env:VCToolsVersion"
 Write-Host "  Windows SDK    : $env:WindowsSDKVersion"
 Write-Host "  cl.exe         : $cl"
