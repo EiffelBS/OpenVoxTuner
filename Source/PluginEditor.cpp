@@ -1595,10 +1595,20 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto centerArea = bounds.removeFromTop (bounds.getHeight() - 170);
     tabbedComponent.setBounds (centerArea.reduced (pad));
     
-    // Graphic Mode specific tools aligned to the right of the tab bar
+    // Graphic Mode specific tools aligned over the tab bar row.
     auto tabBounds = tabbedComponent.getBounds();
     auto toolsArea = tabBounds.removeFromTop(30).reduced(2, 4); // height is 22
-    
+
+    // The "Live" / "Curve Editor" tab labels occupy the left of this row.
+    // Push the left-aligned controls past them so they don't overlap the tabs.
+    const auto& tabBar = tabbedComponent.getTabbedButtonBar();
+    const int numTabs = tabBar.getNumTabs();
+    if (numTabs > 0)
+    {
+        if (auto* lastTab = tabBar.getTabButton (numTabs - 1))
+            toolsArea.removeFromLeft (lastTab->getRight() + 6);
+    }
+
     int iconSize = toolsArea.getHeight(); // 22
 
     // Toolbar left group (curve-editor mode): standalone transport + measures.
