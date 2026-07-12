@@ -13,6 +13,7 @@
 ## 1. Core DSP Engine
 
 - [x] Pitch detection (YIN algorithm)
+- [x] Pitch detection (YIN algorithm) — robustness fix 2026-07-12: replaced the over-strict `numSamples < maxLag * 2` guard (which returned 0 for 2048-sample buffers at 44.1 kHz, failing the 440/220 Hz unit tests) with an adaptive `searchMax = min(maxLag, numSamples/2)` range, applied to both `PitchDetector.cpp` (test) and `YinPitchDetector.cpp` (production); unit tests now 52 OK / 0 KO.
 - [x] Pitch detection (YIN algorithm — SWIPE'/PYIN evaluated and removed)
 - [x] Pitch shifting (PSOLA)
 - [x] Formant preservation
@@ -116,7 +117,12 @@
 - [x] "Curve Presets" promoted to a direct submenu of the Options menu (no extra click-to-open step) 2026-07-12.
 - [x] Options menu "Auto-Scroll" item is now a ticked toggle (replaces the old embedded checkbox+label) 2026-07-12.
 - [x] Standalone transport: a single Play/Pause toggle (Play glyph when stopped, Stop glyph when playing) plus a "Return to start" (rewind) button on the Curve Editor toolbar (standalone only) 2026-07-12. The toggle freezes/runs the timeline so the curve can be edited while stopped; the rewind button resets the playhead and clears the input trace.
+- [x] Standalone window maximise button (JUCE's StandaloneFilterWindow only requested minimise + close by default; re-added via parentHierarchyChanged) 2026-07-12.
 - [x] Standalone tempo: "Tempo" submenu in the Options menu (standalone only) lets the user fix the BPM instead of being locked at 120 BPM; the fallback transport advances at the chosen tempo 2026-07-12.
+- [x] Curve Editor "Show Input Trace" toggle (Options menu) shows/hides the live input pitch trace (red line); ON by default 2026-07-12.
+- [x] Reset Playhead reliability fix: new `returnToStart()` resets the scroll offset AND the playhead on the first click (icon + Options menu) in every context; the earlier 3–4 click defect came from the view only snapping back via `setPlayheadTime`'s >0.5-beat seek detector, leaving the playhead off-screen when auto-scroll was OFF 2026-07-12.
+- [x] Ruler click moves the playhead to the clicked position, quantized to the project grid (0.5 beat); works in Curve and Live modes; `onSeek` callback bridges editor → transport (DAW/standalone) 2026-07-12.
+- [x] Middle-button drag horizontal scroll (beats) in the curve editor + ruler, active only when auto-scroll is OFF; hand cursor + yellow feedback overlay while dragging; `clampScrollOffset` bounds the scroll to >= 0 2026-07-12.
 
 ## 6. Scale Keyboard Component
 
@@ -134,6 +140,7 @@
 - [x] Release workflow (tagged builds)
 - [x] Version bump workflow
 - [x] Installer for macOS (.pkg)
+- [x] `scripts/build_helper.cmd` reconciled with the remote (CI/release) version 2026-07-12: the machine-specific Windows build helper was restored to `origin/main` (commit `aeeb438`) via `git checkout -- scripts/build_helper.cmd` so the installer/CI build matches the committed configuration.
 
 ## 8. Documentation
 

@@ -60,15 +60,25 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
     if (samples == nullptr || numSamples < 2)
         return 0.0f;
 
-    if (numSamples < maxLag * 2)
-        return 0.0f;
-
     // Step 1+2: cumulative mean normalized difference.
     yinBuffer[0] = 1.0f;
     float cumSum = 0.0f;
 
     const int halfSize = numSamples / 2;
     const int maxTau = juce::jmin (maxLag, numSamples - 1);
+
+    // Portee de recherche limitee par la taille du buffer disponible : on ne
+    // peut pas evaluer une periode plus longue que numSamples/2. On recherche
+    // donc jusqu'a searchMax = min(maxLag, numSamples/2) au lieu d'exiger
+    // 2*maxLag echantillons. Cela rend YIN fonctionnel avec des buffers
+    // realistes (ex. la fenetre decimee de 1024 echantillons utilisee en
+    // temps reel) et couvre la plage [freqMax, sampleRate/searchMax]
+    // physiquement disponible dans le buffer.
+    const int minLag = juce::jmax (2, static_cast<int> (sampleRate / freqMaxHz));
+    const int searchMax = juce::jmin (maxLag, halfSize);
+    if (searchMax < minLag)
+        return 0.0f;
+
     for (int tau = 1; tau <= maxTau; ++tau)
     {
         int len = std::min (numSamples - tau, halfSize);
@@ -85,17 +95,16 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
         yinBuffer[tau] = (cumSum > 0.0f) ? (sum * tau / cumSum) : 1.0f;
     }
 
-    for (int tau = maxTau + 1; tau < halfSize; ++tau)
+    for (int tau = maxTau + 1; tau < searchMax; ++tau)
         yinBuffer[tau] = 1.0f;
 
     // Step 3: find first minimum below threshold.
     int tauEstimate = -1;
-    const int minLag = juce::jmax (2, static_cast<int> (sampleRate / freqMaxHz));
-    for (int tau = minLag; tau < halfSize; ++tau)
+    for (int tau = minLag; tau < searchMax; ++tau)
     {
         if (yinBuffer[tau] < threshold)
         {
-            while (tau + 1 < halfSize && yinBuffer[tau + 1] < yinBuffer[tau])
+            while (tau + 1 < searchMax && yinBuffer[tau + 1] < yinBuffer[tau])
                 ++tau;
             tauEstimate = tau;
             break;
@@ -121,10 +130,10 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
     // Strategy: always prefer the fundamental (tau*2) as long as its clarity
     // is below fundamentalSoftThreshold. This is safer than continuity-based
     // selection which blocks genuine octave transitions.
-    if (tauEstimate * 2 < halfSize)
+    if (tauEstimate * 2 < searchMax)
     {
         int tauDouble = tauEstimate * 2;
-        while (tauDouble + 1 < halfSize && yinBuffer[tauDouble + 1] < yinBuffer[tauDouble])
+        while (tauDouble + 1 < searchMax && yinBuffer[tauDouble + 1] < yinBuffer[tauDouble])
             ++tauDouble;
         const float doubleClarity = yinBuffer[tauDouble];
 
@@ -145,7 +154,7 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
     if (!octaveCorrected && tauEstimate % 2 == 0 && tauEstimate / 2 >= minLag)
     {
         int tauHalf = tauEstimate / 2;
-        while (tauHalf + 1 < halfSize && yinBuffer[tauHalf + 1] < yinBuffer[tauHalf])
+        while (tauHalf + 1 < searchMax && yinBuffer[tauHalf + 1] < yinBuffer[tauHalf])
             ++tauHalf;
         if (yinBuffer[tauHalf] < bestClarity)
         {
@@ -159,7 +168,7 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
 
     // Step 4: parabolic interpolation for sub-sample precision.
     float betterTau = (float)tauEstimate;
-    if (tauEstimate > 0 && tauEstimate < halfSize - 1)
+    if (tauEstimate > 0 && tauEstimate < searchMax - 1)
     {
         const float s0 = yinBuffer[tauEstimate - 1];
         const float s1 = yinBuffer[tauEstimate];

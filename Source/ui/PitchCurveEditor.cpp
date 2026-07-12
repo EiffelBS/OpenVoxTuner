@@ -314,8 +314,9 @@ namespace ui
             }
         }
 
-        // Draw input pitch trace (red line, same as PitchVisualizer)
-        if (inputTraceTimes.size() > 1)
+        // Draw input pitch trace (red line, same as PitchVisualizer).
+        // Hidden by default (showInputTrace) so the editable curve is clean on launch.
+        if (showInputTrace && inputTraceTimes.size() > 1)
         {
             juce::Colour inputCol = juce::Colour (0xffe91e63).withAlpha (0.5f);
             juce::Path ip;
@@ -477,6 +478,15 @@ namespace ui
                         plotArea.getX(), plotArea.getY(), plotArea.getWidth(), plotArea.getHeight(),
                         juce::Justification::centred);
         }
+
+        // Feedback visuel du scroll horizontal (bouton milieu) : teinte + cadre.
+        if (isMiddleScrolling)
+        {
+            g.setColour (juce::Colours::yellow.withAlpha (0.12f));
+            g.fillRect (plotArea);
+            g.setColour (juce::Colours::yellow.withAlpha (0.55f));
+            g.drawRect (plotArea.toFloat(), 2.0f);
+        }
     }
 
     void PitchCurveEditor::resized()
@@ -606,7 +616,37 @@ namespace ui
     void PitchCurveEditor::mouseDown (const juce::MouseEvent& e)
     {
         grabKeyboardFocus(); // pour les raccourcis clavier
-        // Si l'editeur est desactive (mode Auto), on ignore tout.
+
+        // Scroll horizontal a la souris (bouton milieu), uniquement si
+        // l'auto-scroll est desactive (evite tout conflit avec le suivi auto).
+        // Fonctionne quel que soit le mode d'edition (Curve ou Live).
+        if (e.mods.isMiddleButtonDown())
+        {
+            if (!autoScrollEnabled)
+            {
+                isMiddleScrolling = true;
+                middleDragStartX = e.position.x;
+                middleDragStartScroll = scrollOffset;
+                setMouseCursor (juce::MouseCursor::DraggingHandCursor);
+                repaint();
+            }
+            return;
+        }
+
+        // Clic gauche dans la regle : deplacement instantane du playhead
+        // (quantifie a la grille du projet). Action de transport (pas
+        // d'edition) : disponible en mode Curve et Live.
+        if (e.mods.isLeftButtonDown() && e.position.y <= 24)
+        {
+            double t = juce::jmax (0.0, xToTime (e.position.x));
+            t = snapTimeToGrid (t, snapToGridEnabled);
+            if (onSeek) onSeek (t);
+            setPlayheadTime (t, false); // retour visuel immediat (+ reveal si hors ecran)
+            repaint();
+            return;
+        }
+
+        // Si l'editeur est desactive (mode Auto/Live), on ignore l'edition.
         if (!editorEnabled) return;
 
         // Snapshot pour undo
@@ -677,6 +717,18 @@ namespace ui
 
     void PitchCurveEditor::mouseDrag (const juce::MouseEvent& e)
     {
+        // Scroll horizontal (bouton milieu) : deplacement naturel "grab and drag".
+        if (isMiddleScrolling)
+        {
+            const int pianoW = pianoKeyboard.getWidth();
+            const double plotW = static_cast<double> (juce::jmax (1, getWidth() - pianoW));
+            const double pxPerBeat = plotW / timeVisible;
+            const double dxBeats = (e.position.x - middleDragStartX) / (pxPerBeat > 0.0 ? pxPerBeat : 1.0);
+            scrollOffset = clampScrollOffset (middleDragStartScroll - dxBeats);
+            repaint();
+            return;
+        }
+
         if (!editorEnabled) return;
         if (isMarqueeSelecting)
         {
@@ -820,6 +872,15 @@ namespace ui
 
     void PitchCurveEditor::mouseUp (const juce::MouseEvent& /*e*/)
     {
+        // Fin du scroll horizontal (bouton milieu).
+        if (isMiddleScrolling)
+        {
+            isMiddleScrolling = false;
+            setMouseCursor (juce::MouseCursor::NormalCursor);
+            repaint();
+            return;
+        }
+
         // Verifier si une modification a eu lieu
         bool wasModified = isDragging || isDraggingSelection;
         bool hadPoints = (pendingUndoSnapshot.getNumPoints() > 0 || curve.getNumPoints() > 0);
@@ -1256,6 +1317,17 @@ namespace ui
         // else: auto-scroll OFF and continuous playback -> leave the view untouched.
 
         playheadTime = time;
+        repaint();
+    }
+
+    void PitchCurveEditor::returnToStart()
+    {
+        // Explicit "return to start": reveal time 0 by resetting the horizontal
+        // scroll. Independent of setPlayheadTime's seek detector (which only fires
+        // for large jumps), so it is reliable on the first click in every context.
+        // Preserves zoom and pitch range.
+        scrollOffset = 0.0;
+        playheadTime = 0.0;
         repaint();
     }
 

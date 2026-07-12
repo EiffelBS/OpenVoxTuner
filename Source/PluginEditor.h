@@ -29,6 +29,11 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+
+    /** Re-enable the maximise button on the Standalone window (JUCE's StandaloneFilterWindow
+        only requests minimise + close by default). No-op inside a DAW host. */
+    void parentHierarchyChanged() override;
+
     void mouseDown (const juce::MouseEvent& event) override;
     bool keyPressed (const juce::KeyPress& key) override;
 
