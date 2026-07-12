@@ -895,8 +895,13 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
       // Fallback pour le Standalone (ou host sans playhead)
       if (!hostProvidesTime && getSampleRate() > 0.0)
       {
-          // 120 BPM = 2 beats per second
-          currentTime += (static_cast<double>(buffer.getNumSamples()) / getSampleRate()) * 2.0;
+          // Standalone transport: when stopped, freeze the timeline so the user can edit
+          // the curve. When playing, advance at the standalone tempo (BPM).
+          if (transportPlaying.load())
+          {
+              const double beatsPerSecond = static_cast<double> (bpm.load()) / 60.0;
+              currentTime += (static_cast<double>(buffer.getNumSamples()) / getSampleRate()) * beatsPerSecond;
+          }
       }
 
       transportTime.store (currentTime);

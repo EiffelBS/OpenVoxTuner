@@ -76,6 +76,14 @@ namespace ovt
         static const char* kMenuDeletePreset   = "menu.delete_preset";
         static const char* kMenuFactory        = "menu.factory";
         static const char* kMenuCustom         = "menu.custom";
+        static const char* kMenuCleanCurves    = "menu.clean_curves";
+        static const char* kMenuResetPlayhead  = "menu.reset_playhead";
+        static const char* kMenuCurvePresets   = "menu.curve_presets";
+        static const char* kMenuAutoScroll     = "menu.auto_scroll";
+        static const char* kMenuTempo          = "menu.tempo";
+        static const char* kTooltipCurveOptions = "tooltip.curve_options";
+        static const char* kTooltipPlay        = "tooltip.play";
+        static const char* kTooltipStop        = "tooltip.stop";
 
         // Tab keys
         static const char* kTabLive            = "tab.live";
@@ -330,6 +338,14 @@ namespace ovt
             { kMenuDeletePreset,   "Delete..." },
             { kMenuFactory,        "Factory" },
             { kMenuCustom,         "Custom" },
+            { kMenuCleanCurves,    "Clean Curves" },
+            { kMenuResetPlayhead,  "Reset Playhead" },
+            { kMenuCurvePresets,   "Curve Presets" },
+            { kMenuAutoScroll,     "Auto-Scroll" },
+            { kMenuTempo,          "Tempo" },
+            { kTooltipCurveOptions, "Curve editor options" },
+            { kTooltipPlay,        "Play (start the standalone timeline)" },
+            { kTooltipStop,        "Stop (freeze the standalone timeline for editing)" },
             { kTabLive,            "Live" },
             { kTabCurveEditor,     "Curve Editor" },
             { kLabelSpeed,         "Speed (ms)" },
@@ -557,6 +573,12 @@ namespace ovt
             { kMenuDeletePreset,   "Supprimer..." },
             { kMenuFactory,        "Usine" },
             { kMenuCustom,         "Personnalise" },
+            { kMenuCurvePresets,   "Presets de courbe" },
+            { kMenuAutoScroll,     "Auto-Scroll" },
+            { kMenuTempo,          "Tempo" },
+            { kTooltipCurveOptions, "Options de l'editeur de courbe" },
+            { kTooltipPlay,        "Lecture (demarrer la ligne temporelle standalone)" },
+            { kTooltipStop,        "Stop (figer la ligne temporelle standalone pour l'edition)" },
             { kTabLive,            "Live" },
             { kTabCurveEditor,     "Editeur de courbe" },
             { kLabelSpeed,         "Vitesse (ms)" },
@@ -784,6 +806,12 @@ namespace ovt
             { kMenuDeletePreset,   "Loeschen..." },
             { kMenuFactory,        "Werkseinstellung" },
             { kMenuCustom,         "Benutzerdefiniert" },
+            { kMenuCurvePresets,   "Kurven-Presets" },
+            { kMenuAutoScroll,     "Auto-Scroll" },
+            { kMenuTempo,          "Tempo" },
+            { kTooltipCurveOptions, "Kurveneditor-Optionen" },
+            { kTooltipPlay,        "Wiedergabe (Standalone-Zeitleiste starten)" },
+            { kTooltipStop,        "Stopp (Standalone-Zeitleiste zum Bearbeiten einfrieren)" },
             { kTabLive,            "Live" },
             { kTabCurveEditor,     "Kurveneditor" },
             { kLabelSpeed,         "Geschwindigkeit (ms)" },
@@ -1011,6 +1039,12 @@ namespace ovt
             { kMenuDeletePreset,   "Eliminar..." },
             { kMenuFactory,        "Fabrica" },
             { kMenuCustom,         "Personalizado" },
+            { kMenuCurvePresets,   "Presets de curva" },
+            { kMenuAutoScroll,     "Auto-Scroll" },
+            { kMenuTempo,          "Tempo" },
+            { kTooltipCurveOptions, "Opciones del editor de curva" },
+            { kTooltipPlay,        "Reproducir (iniciar la linea de tiempo standalone)" },
+            { kTooltipStop,        "Detener (congelar la linea de tiempo standalone para editar)" },
             { kTabLive,            "En vivo" },
             { kTabCurveEditor,     "Editor de curva" },
             { kLabelSpeed,         "Velocidad (ms)" },
@@ -1238,6 +1272,12 @@ namespace ovt
             { kMenuDeletePreset,   "削除..." },
             { kMenuFactory,        "ファクトリ" },
             { kMenuCustom,         "カスタム" },
+            { kMenuCurvePresets,   "カーブプリセット" },
+            { kMenuAutoScroll,     "自動スクロール" },
+            { kMenuTempo,          "テンポ" },
+            { kTooltipCurveOptions, "カーブエディタのオプション" },
+            { kTooltipPlay,        "再生（スタンドアロンのタイムラインを開始）" },
+            { kTooltipStop,        "停止（編集のためにスタンドアロンのタイムラインを停止）" },
             { kTabLive,            "ライブ" },
             { kTabCurveEditor,     "カーブエディタ" },
             { kLabelSpeed,         "スピード (ms)" },

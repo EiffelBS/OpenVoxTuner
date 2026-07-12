@@ -938,8 +938,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // === SVG icons as full XML strings (Lucide-style, 24x24 viewBox) ===
     // Each uses stroke="#010101" as a placeholder for per-state coloring.
 
-    static const char* svgPresets = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.5l-2-3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></svg>)";
-
     static const char* svgScale = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="18" r="3"/><path d="M10 18V4l11-2v15"/></svg>)";
 
     static const char* svgGrid = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>)";
@@ -948,26 +946,35 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     static const char* svgClear = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>)";
 
-    static const char* svgReset = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>)";
-
     static const char* svgPower = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/></svg>)";
 
     static const char* svgGear = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>)";
 
+    // Zoom/scroll/reset icons (shared with the Visualizer toolbar).
+    static const char* svgZoomIn = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>)";
+    static const char* svgZoomOut = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>)";
+    static const char* svgScrollUp = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>)";
+    static const char* svgScrollDown = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>)";
+    static const char* svgResetView = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>)";
+
+    // Transport (standalone only).
+    static const char* svgPlay = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>)";
+    static const char* svgStop = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>)";
+
     // Setup Toolbar Buttons
     // Custom button: icon + text (PresetsButton uses setIcon path).
 {
-    auto normal   = createDrawableSVG(svgPresets, juce::Colours::grey);
-    auto over     = createDrawableSVG(svgPresets, juce::Colours::lightgrey);
-    auto down     = createDrawableSVG(svgPresets, juce::Colours::white);
+    auto normal   = createDrawableSVG(svgGear, juce::Colours::grey);
+    auto over     = createDrawableSVG(svgGear, juce::Colours::lightgrey);
+    auto down     = createDrawableSVG(svgGear, juce::Colours::white);
 
-    presetsButton.setIcon(std::move(normal));
+    optionsButton.setIcon(std::move(normal));
 
-    presetsButton.setSize(80, 22);
-    addAndMakeVisible(presetsButton);
+    optionsButton.setSize(80, 22);
+    addAndMakeVisible(optionsButton);
 
-    presetsButton.onClick = [this] { showPresetsMenu(); };
-    presetsButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPresets));
+    optionsButton.onClick = [this] { showCurveOptionsMenu(); };
+    optionsButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCurveOptions));
 }
 
     setupIconButton(snapButton, svgScale, true, "Snap to scale");
@@ -991,20 +998,51 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     };
     stepModeButton.setTooltip(ovt::tr(ovt::Keys::kTooltipStepMode));
 
-    setupIconButton(clearCurveButton, svgClear, false, "Clear all points");
-    clearCurveButton.onClick = [this] {
-        if (curveEditor != nullptr) curveEditor->clearCurve();
-        processorRef.resetTransportTime();
-    };
-    clearCurveButton.setTooltip(ovt::tr(ovt::Keys::kTooltipClearAll));
+    // Curve Editor view controls (mirror the Visualizer toolbar: zoom / scroll / reset).
+    setupIconButton(zoomInButton, svgZoomIn, false, ovt::tr(ovt::Keys::kTooltipZoomIn));
+    zoomInButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->zoomIn(); };
 
-    setupIconButton(resetTransportButton, svgReset, false, "Reset playhead");
-    resetTransportButton.onClick = [this] {
-        processorRef.resetTransportTime();
+    setupIconButton(zoomOutButton, svgZoomOut, false, ovt::tr(ovt::Keys::kTooltipZoomOut));
+    zoomOutButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->zoomOut(); };
+
+    setupIconButton(scrollUpButton, svgScrollUp, false, ovt::tr(ovt::Keys::kTooltipScrollUp));
+    scrollUpButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->scrollUp(); };
+
+    setupIconButton(scrollDownButton, svgScrollDown, false, ovt::tr(ovt::Keys::kTooltipScrollDown));
+    scrollDownButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->scrollDown(); };
+
+    setupIconButton(resetViewButton, svgResetView, false, ovt::tr(ovt::Keys::kTooltipResetView));
+    resetViewButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->resetView(); };
+
+    // "Measures" control: number of measures shown in the curve editor time window.
+    // Moved here from the embedded editor controls so it does not cover the ruler.
+    measuresLabel.setText (ovt::tr(ovt::Keys::kLabelMeasures), juce::dontSendNotification);
+    measuresLabel.setJustificationType (juce::Justification::left);
+    measuresLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
+    measuresLabel.setFont (ovt::fontMeasuresLabel());
+    addAndMakeVisible (measuresLabel);
+
+    measuresComboBox.addItemList ({ "1", "2", "4", "8", "16", "32" }, 1);
+    measuresComboBox.setSelectedItemIndex (2, juce::dontSendNotification); // default "4"
+    measuresComboBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
+    measuresComboBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
+    measuresComboBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
+    measuresComboBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
+    measuresComboBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
+    measuresComboBox.setColour (juce::PopupMenu::textColourId, juce::Colour (0xffcccccc));
+    measuresComboBox.onChange = [this] {
         if (curveEditor != nullptr)
-            curveEditor->clearInputTrace();
+            curveEditor->setMeasuresVisible (measuresComboBox.getText().getIntValue());
     };
-    resetTransportButton.setTooltip (ovt::tr(ovt::Keys::kTooltipResetTransportDetail));
+    addAndMakeVisible (measuresComboBox);
+
+    // Standalone transport: Play / Stop (freeze the timeline so the curve can be edited).
+    setupIconButton(playButton, svgPlay, true, ovt::tr(ovt::Keys::kTooltipPlay));
+    playButton.onClick = [this] { processorRef.setTransportPlaying (true); syncTransportButtons(); };
+
+    setupIconButton(stopButton, svgStop, true, ovt::tr(ovt::Keys::kTooltipStop));
+    stopButton.onClick = [this] { processorRef.setTransportPlaying (false); syncTransportButtons(); };
+
     setupIconButton(bypassButton, svgPower, true, "Bypass audio processing");
     bypassButton.setTooltip (ovt::tr(ovt::Keys::kTooltipBypassIcon));
     addAndMakeVisible (bypassButton);
@@ -1330,12 +1368,19 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     }
 
     // Make sure tools are drawn over the tabbed component
-    presetsButton.toFront(false);
+    optionsButton.toFront(false);
     snapButton.toFront(false);
     snapGridButton.toFront(false);
     stepModeButton.toFront(false);
-    clearCurveButton.toFront(false);
-    resetTransportButton.toFront(false);
+    zoomInButton.toFront(false);
+    zoomOutButton.toFront(false);
+    scrollUpButton.toFront(false);
+    scrollDownButton.toFront(false);
+    resetViewButton.toFront(false);
+    playButton.toFront(false);
+    stopButton.toFront(false);
+    measuresLabel.toFront(false);
+    measuresComboBox.toFront(false);
 
     // Add overlay LAST so it renders on top of all other components
     addAndMakeVisible (helpOverlay);
@@ -1556,18 +1601,44 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     
     int iconSize = toolsArea.getHeight(); // 22
 
-    // Existing toolbar icons (from right to left)
-    resetTransportButton.setBounds (toolsArea.removeFromRight(iconSize));
+    // Toolbar left group (curve-editor mode): standalone transport + measures.
+    const bool isStandalone = processorRef.isStandaloneWrapper();
+    const int leftGap = 8;
+    if (isStandalone)
+    {
+        // Standalone transport: freeze the timeline (Stop) to edit, or play it (Play).
+        playButton.setBounds (toolsArea.removeFromLeft(iconSize));
+        toolsArea.removeFromLeft(4);
+        stopButton.setBounds (toolsArea.removeFromLeft(iconSize));
+        toolsArea.removeFromLeft(leftGap);
+    }
+    // "Measures" control (number of measures shown in the curve editor time window).
+    // Kept on the toolbar row so it no longer covers the ruler.
+    const int measuresLabelW = static_cast<int> (measuresLabel.getFont().getStringWidth (measuresLabel.getText())) + 6;
+    measuresLabel.setBounds (toolsArea.removeFromLeft (measuresLabelW));
+    toolsArea.removeFromLeft(4);
+    measuresComboBox.setBounds (toolsArea.removeFromLeft (56));
+    toolsArea.removeFromLeft(leftGap);
+
+    // Toolbar (right to left): Options | zoom / scroll / reset | snap / grid / step
+    optionsButton.setBounds (toolsArea.removeFromRight(80));
+
+    resetViewButton.setBounds (toolsArea.removeFromRight(iconSize));
     toolsArea.removeFromRight(8);
-    clearCurveButton.setBounds (toolsArea.removeFromRight(iconSize));
+    scrollDownButton.setBounds (toolsArea.removeFromRight(iconSize));
     toolsArea.removeFromRight(8);
+    scrollUpButton.setBounds (toolsArea.removeFromRight(iconSize));
+    toolsArea.removeFromRight(8);
+    zoomOutButton.setBounds (toolsArea.removeFromRight(iconSize));
+    toolsArea.removeFromRight(8);
+    zoomInButton.setBounds (toolsArea.removeFromRight(iconSize));
+    toolsArea.removeFromRight(8);
+
     stepModeButton.setBounds (toolsArea.removeFromRight(iconSize));
     toolsArea.removeFromRight(8);
     snapGridButton.setBounds (toolsArea.removeFromRight(iconSize));
     toolsArea.removeFromRight(8);
     snapButton.setBounds (toolsArea.removeFromRight(iconSize));
-    toolsArea.removeFromRight(8);
-    presetsButton.setBounds (toolsArea.removeFromRight(80));
 
     // === Bottom bar: 4 blocks ===
     auto bottomArea = bounds.reduced (pad);
@@ -1793,11 +1864,21 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     if (isCurveEditorMode && curveEditor != nullptr)
         curveEditor->clearHarmonyTraces();
     
-    presetsButton.setVisible (isCurveEditorMode);
+    optionsButton.setVisible (isCurveEditorMode);
     snapButton.setVisible (isCurveEditorMode);
     snapGridButton.setVisible (isCurveEditorMode);
     stepModeButton.setVisible (isCurveEditorMode);
-    clearCurveButton.setVisible (isCurveEditorMode);
+    zoomInButton.setVisible (isCurveEditorMode);
+    zoomOutButton.setVisible (isCurveEditorMode);
+    scrollUpButton.setVisible (isCurveEditorMode);
+    scrollDownButton.setVisible (isCurveEditorMode);
+    resetViewButton.setVisible (isCurveEditorMode);
+
+    // Measures control + standalone transport live on the toolbar row.
+    measuresLabel.setVisible (isCurveEditorMode);
+    measuresComboBox.setVisible (isCurveEditorMode);
+    playButton.setVisible (isCurveEditorMode && processorRef.isStandaloneWrapper());
+    stopButton.setVisible (isCurveEditorMode && processorRef.isStandaloneWrapper());
 
     // Gray out Formant slider if disabled
     bool isFormantEnabled = formantEnableButton.getToggleState();
@@ -1826,10 +1907,8 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     harmonyToneColorSlider.setVisible (isHarmonyEnabled && !useVoice);
     harmonyToneColorLabel.setVisible (isHarmonyEnabled && !useVoice);
 
-    // The Reset Playhead button only makes sense if we are not in ARA mode.
-    // It allows to offset the plugin's timeline compared to the DAW in classic VST3.
-    resetTransportButton.setVisible (isCurveEditorMode); // Only in Curve Editor mode
-    resetTransportButton.setEnabled (!processorRef.isBoundToARA_custom());
+    // "Reset Playhead" is now in the Curve Editor Options menu; it is disabled
+    // there when bound to ARA (the host owns the timeline in ARA mode).
 
     auto* modeParam = processorRef.getParameters().getParameter("mode");
     
@@ -1841,56 +1920,46 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // Update edit state and playhead
     if (curveEditor != nullptr) {
         curveEditor->setEditorEnabled(tabIndex == 1);
-        // Auto-scroll toggle: always visible. Only functional in ARA mode.
-        curveEditor->setAutoScrollVisible (true);
         curveEditor->setPlayheadTime(processorRef.getTransportTime(), processorRef.getIsPlaying());
         // Propagate time signature (Feature 1) — read from processor
         int num = processorRef.getCurrentTimeSigNumerator();
         int den = processorRef.getCurrentTimeSigDenominator();
         curveEditor->setTimeSignature (num, den);
-        // Sync embedded controls with persisted parameters
-        // (controls are children of PitchCurveEditor, not PluginEditor)
+        // Sync controls with persisted parameters (first time only).
         if (!measuresSyncDone) {
-            // First time: restore ComboBox and toggle from persisted parameters
-            auto& mBox = curveEditor->getMeasuresBox();
+            // Restore Measures combo from the persisted parameter.
             auto* measuresRaw = processorRef.getParameters().getRawParameterValue("editor_measures");
             float measures = measuresRaw ? measuresRaw->load() : 4.0f;
-            int mIdx = mBox.getText().getIntValue();
-            if (mIdx != static_cast<int>(measures))
-            {
-                for (int i = 0; i < mBox.getNumItems(); ++i)
-                {
-                    if (mBox.getItemText(i).getIntValue() == static_cast<int>(measures))
-                    {
-                        mBox.setSelectedItemIndex (i, juce::dontSendNotification);
+            const int mVal = static_cast<int> (measures);
+            if (measuresComboBox.getText().getIntValue() != mVal) {
+                for (int i = 0; i < measuresComboBox.getNumItems(); ++i) {
+                    if (measuresComboBox.getItemText(i).getIntValue() == mVal) {
+                        measuresComboBox.setSelectedItemIndex (i, juce::dontSendNotification);
                         break;
                     }
                 }
             }
-            curveEditor->setMeasuresVisible (static_cast<int> (measures));
+            curveEditor->setMeasuresVisible (mVal);
 
+            // Restore Auto-Scroll from the persisted parameter.
             auto* scrollRaw = processorRef.getParameters().getRawParameterValue("auto_scroll");
             bool scrollOn = scrollRaw ? (scrollRaw->load() > 0.5f) : true;
-            curveEditor->getAutoScrollToggle().setToggleState (scrollOn, juce::dontSendNotification);
             curveEditor->setAutoScroll (scrollOn);
 
             measuresSyncDone = true;
         }
-        // Persist embedded control states -> AudioProcessor parameters
-        // (Parameters are automatically saved/loaded by the host)
-        // Measures: write back from ComboBox to parameter
+        // Persist control states -> AudioProcessor parameters (saved/loaded by the host).
         auto* measuresParam = processorRef.getParameters().getRawParameterValue("editor_measures");
-        if (measuresParam && curveEditor) {
-            int curVal = curveEditor->getMeasuresBox().getText().getIntValue();
+        if (measuresParam) {
+            int curVal = measuresComboBox.getText().getIntValue();
             if (curVal > 0)
                 const_cast<std::atomic<float>*>(measuresParam)->store(static_cast<float>(curVal));
         }
-        // Auto-scroll: write back from ToggleButton to parameter
         auto* scrollParam = processorRef.getParameters().getRawParameterValue("auto_scroll");
-        if (scrollParam && curveEditor) {
-            const_cast<std::atomic<float>*>(scrollParam)->store(
-                curveEditor->getAutoScrollToggle().getToggleState() ? 1.0f : 0.0f);
-        }
+        if (scrollParam)
+            const_cast<std::atomic<float>*>(scrollParam)->store(curveEditor->getAutoScroll() ? 1.0f : 0.0f);
+        // Reflect standalone transport state on the toolbar buttons.
+        syncTransportButtons();
         // Sync curve from processor to editor after state restore or editor recreation
         if (processorRef.getPendingCurveRestore().load() && curveEditor != nullptr)
         {
@@ -2360,17 +2429,25 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
     buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
     buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));
-    resetTransportButton.setTooltip (ovt::tr (ovt::Keys::kTooltipResetTransportDetail));
     morphSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipMorphDrag));
     morphSliderLabel.setTooltip (ovt::tr(ovt::Keys::kTooltipMorphLabel));
     morphSliderLabel.setText (ovt::tr(ovt::Keys::kLabelMorph), juce::dontSendNotification);
 
     // Refresh drawable button tooltips (already use ovt::tr but need refresh)
-    presetsButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPresets));
+    optionsButton.setTooltip (ovt::tr (ovt::Keys::kTooltipCurveOptions));
     snapButton.setTooltip (ovt::tr (ovt::Keys::kTooltipSnapToScale));
     snapGridButton.setTooltip (ovt::tr (ovt::Keys::kTooltipSnapToGrid));
     stepModeButton.setTooltip (ovt::tr (ovt::Keys::kTooltipStepMode));
-    clearCurveButton.setTooltip (ovt::tr (ovt::Keys::kTooltipClearAll));
+    zoomInButton.setTooltip (ovt::tr (ovt::Keys::kTooltipZoomIn));
+    zoomOutButton.setTooltip (ovt::tr (ovt::Keys::kTooltipZoomOut));
+    scrollUpButton.setTooltip (ovt::tr (ovt::Keys::kTooltipScrollUp));
+    scrollDownButton.setTooltip (ovt::tr (ovt::Keys::kTooltipScrollDown));
+    resetViewButton.setTooltip (ovt::tr (ovt::Keys::kTooltipResetView));
+    playButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPlay));
+    stopButton.setTooltip (ovt::tr (ovt::Keys::kTooltipStop));
+
+    // "Measures" control label follows the active language.
+    measuresLabel.setText (ovt::tr (ovt::Keys::kLabelMeasures), juce::dontSendNotification);
 
     // Update tab names
     tabbedComponent.setTabName (0, ovt::tr(ovt::Keys::kTabLive));
@@ -2699,61 +2776,62 @@ void OpenVoxTunerAudioProcessorEditor::handleMidiMessage (const juce::MidiMessag
     }
 }
 
-void OpenVoxTunerAudioProcessorEditor::showPresetsMenu (const juce::MouseEvent* mouseEvent)
+juce::PopupMenu OpenVoxTunerAudioProcessorEditor::buildPresetsMenu()
 {
-    if (curveEditor == nullptr)
-        return;
+    auto loadFactory = [this] (const juce::String& name) {
+        if (curveEditor == nullptr)
+            return;
+        resetMorph(); // cancel any active morph when loading a preset
+        atdsp::PitchCurve newCurve;
+        newCurve.loadPreset (name);
+        curveEditor->setCurve (newCurve);
+        syncEditButtons();
+    };
 
     juce::PopupMenu factory;
-    struct Action
-    {
-        enum class Type { LoadFactory, LoadCustom, SaveCustom, DeleteCustom };
-        Type type {};
-        juce::String name;
-        juce::File file;
-    };
-
-    juce::Array<Action> actions;
-
-    auto addAction = [&] (juce::PopupMenu& menu, Action a, const juce::String& label, bool enabled)
-    {
-        actions.add (std::move (a));
-        menu.addItem (actions.size(), label, enabled);
-    };
-
-    addAction (factory, { Action::Type::LoadFactory, "default", {} }, "Default", true);
+    factory.addItem ("Default",   [loadFactory] { loadFactory ("default"); });
     factory.addSeparator();
-    addAction (factory, { Action::Type::LoadFactory, "robot_c3", {} }, "Robot (C3)", true);
-    addAction (factory, { Action::Type::LoadFactory, "robot_c4", {} }, "Robot (C4)", true);
+    factory.addItem ("Robot (C3)", [loadFactory] { loadFactory ("robot_c3"); });
+    factory.addItem ("Robot (C4)", [loadFactory] { loadFactory ("robot_c4"); });
     factory.addSeparator();
-    addAction (factory, { Action::Type::LoadFactory, "spoken_male", {} }, "Spoken Voice (Male)", true);
-    addAction (factory, { Action::Type::LoadFactory, "spoken_female", {} }, "Spoken Voice (Female)", true);
+    factory.addItem ("Spoken Voice (Male)",   [loadFactory] { loadFactory ("spoken_male"); });
+    factory.addItem ("Spoken Voice (Female)", [loadFactory] { loadFactory ("spoken_female"); });
     factory.addSeparator();
-    addAction (factory, { Action::Type::LoadFactory, "bass", {} }, "Bass", true);
-    addAction (factory, { Action::Type::LoadFactory, "baritone", {} }, "Baritone", true);
-    addAction (factory, { Action::Type::LoadFactory, "tenor", {} }, "Tenor", true);
-    addAction (factory, { Action::Type::LoadFactory, "alto", {} }, "Alto", true);
-    addAction (factory, { Action::Type::LoadFactory, "mezzo", {} }, "Mezzo", true);
-    addAction (factory, { Action::Type::LoadFactory, "soprano", {} }, "Soprano", true);
+    factory.addItem ("Bass",     [loadFactory] { loadFactory ("bass"); });
+    factory.addItem ("Baritone", [loadFactory] { loadFactory ("baritone"); });
+    factory.addItem ("Tenor",    [loadFactory] { loadFactory ("tenor"); });
+    factory.addItem ("Alto",     [loadFactory] { loadFactory ("alto"); });
+    factory.addItem ("Mezzo",    [loadFactory] { loadFactory ("mezzo"); });
+    factory.addItem ("Soprano",  [loadFactory] { loadFactory ("soprano"); });
 
     juce::PopupMenu custom;
     const auto dir = getUserPresetsDirectory();
     const auto files = dir.findChildFiles (juce::File::findFiles, false, "*.xml");
     for (const auto& f : files)
-        addAction (custom, { Action::Type::LoadCustom, {}, f }, f.getFileNameWithoutExtension(), true);
+        custom.addItem (f.getFileNameWithoutExtension(), [this, f] { loadCustomPresetFromFile (f); });
 
     custom.addSeparator();
-    addAction (custom, { Action::Type::SaveCustom, {}, {} }, ovt::tr(ovt::Keys::kMenuSavePresetAs).toStdString(), true);
+    custom.addItem (ovt::tr (ovt::Keys::kMenuSavePresetAs), [this] { promptSaveCustomPreset(); });
 
     juce::PopupMenu deleteMenu;
     for (const auto& f : files)
-        addAction (deleteMenu, { Action::Type::DeleteCustom, {}, f }, f.getFileNameWithoutExtension(), true);
+        deleteMenu.addItem (f.getFileNameWithoutExtension(), [this, f] { deleteCustomPresetFile (f); });
 
-    custom.addSubMenu (ovt::tr(ovt::Keys::kMenuDeletePreset), deleteMenu, ! files.isEmpty());
+    custom.addSubMenu (ovt::tr (ovt::Keys::kMenuDeletePreset), deleteMenu, ! files.isEmpty());
 
     juce::PopupMenu menu;
-    menu.addSubMenu (ovt::tr(ovt::Keys::kMenuFactory), factory);
-    menu.addSubMenu (ovt::tr(ovt::Keys::kMenuCustom), custom);
+    menu.addSubMenu (ovt::tr (ovt::Keys::kMenuFactory), factory);
+    menu.addSubMenu (ovt::tr (ovt::Keys::kMenuCustom), custom);
+    return menu;
+}
+
+void OpenVoxTunerAudioProcessorEditor::showPresetsMenu (const juce::MouseEvent* mouseEvent)
+{
+    if (curveEditor == nullptr)
+        return;
+
+    juce::PopupMenu menu = buildPresetsMenu();
+    applyMenuLookAndFeel (menu, customLookAndFeel);
 
     auto opts = juce::PopupMenu::Options();
     if (mouseEvent != nullptr)
@@ -2763,42 +2841,81 @@ void OpenVoxTunerAudioProcessorEditor::showPresetsMenu (const juce::MouseEvent* 
     }
     else
     {
-        opts = opts.withTargetComponent (&presetsButton)
+        opts = opts.withTargetComponent (&optionsButton)
                    .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards);
     }
 
+    menu.showMenuAsync (opts, [] (int) {});
+}
+
+void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
+{
+    if (curveEditor == nullptr)
+        return;
+
+    const bool isStandalone = processorRef.isStandaloneWrapper();
+    juce::PopupMenu menu;
+
+    // Auto-Scroll (ticked): follows the playhead during playback (ARA / standalone).
+    const bool autoScroll = curveEditor->getAutoScroll();
+    menu.addItem (ovt::tr (ovt::Keys::kMenuAutoScroll), true, autoScroll, [this] {
+        if (curveEditor == nullptr)
+            return;
+        const bool next = ! curveEditor->getAutoScroll();
+        curveEditor->setAutoScroll (next);
+        if (auto* p = processorRef.getParameters().getRawParameterValue ("auto_scroll"))
+            const_cast<std::atomic<float>*>(p)->store (next ? 1.0f : 0.0f);
+    });
+
+    // Clean Curves: clears the pitch curve and resets the transport playhead.
+    menu.addItem (ovt::tr (ovt::Keys::kMenuCleanCurves), [this] {
+        if (curveEditor != nullptr) curveEditor->clearCurve();
+        processorRef.resetTransportTime();
+    });
+
+    // Reset Playhead: resets the internal timeline offset (classic VST3 / Standalone).
+    // Disabled when bound to ARA, where the host owns the timeline.
+    const bool canResetPlayhead = ! processorRef.isBoundToARA_custom();
+    menu.addItem (ovt::tr (ovt::Keys::kMenuResetPlayhead), canResetPlayhead, false, [this] {
+        processorRef.resetTransportTime();
+        if (curveEditor != nullptr) curveEditor->clearInputTrace();
+    });
+
+    menu.addSeparator();
+
+    // Curve Presets: opens the preset manager as a submenu.
+    menu.addSubMenu (ovt::tr (ovt::Keys::kMenuCurvePresets), buildPresetsMenu(), true);
+
+    // Standalone-only controls.
+    if (isStandalone)
+    {
+        menu.addSeparator();
+
+        // Tempo (BPM): the standalone timeline advances at this rate.
+        juce::PopupMenu tempo;
+        const float currentBpm = processorRef.getBpm();
+        static constexpr float tempoChoices[] = { 60.0f, 70.0f, 80.0f, 90.0f, 100.0f,
+                                                  110.0f, 120.0f, 130.0f, 140.0f, 150.0f,
+                                                  160.0f, 180.0f };
+        for (float b : tempoChoices)
+            tempo.addItem (juce::String (static_cast<int> (b)) + " BPM",
+                           true, std::abs (b - currentBpm) < 0.5f,
+                           [this, b] { processorRef.setBpm (b); });
+        menu.addSubMenu (ovt::tr (ovt::Keys::kMenuTempo), tempo, true);
+    }
 
     applyMenuLookAndFeel (menu, customLookAndFeel);
-    menu.showMenuAsync (opts, [this, actions] (int result) mutable
-    {
-        if (result <= 0 || curveEditor == nullptr)
-            return;
+    menu.showMenuAsync (juce::PopupMenu::Options()
+                            .withTargetComponent (&optionsButton)
+                            .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards),
+                        [] (int) {});
+}
 
-        if (result > actions.size())
-            return;
-
-        const auto& a = actions.getReference (result - 1);
-        if (a.type == Action::Type::LoadFactory)
-        {
-            resetMorph(); // cancel any active morph when loading a preset
-            atdsp::PitchCurve newCurve;
-            newCurve.loadPreset (a.name);
-            curveEditor->setCurve (newCurve);
-            syncEditButtons();
-        }
-        else if (a.type == Action::Type::LoadCustom)
-        {
-            loadCustomPresetFromFile (a.file);
-        }
-        else if (a.type == Action::Type::SaveCustom)
-        {
-            promptSaveCustomPreset();
-        }
-        else if (a.type == Action::Type::DeleteCustom)
-        {
-            deleteCustomPresetFile (a.file);
-        }
-    });
+void OpenVoxTunerAudioProcessorEditor::syncTransportButtons()
+{
+    const bool playing = processorRef.isTransportPlaying();
+    playButton.setToggleState (playing, juce::dontSendNotification);
+    stopButton.setToggleState (! playing, juce::dontSendNotification);
 }
 
 void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
@@ -2884,10 +3001,10 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     buttonB.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
     buttonB.setColour (juce::TextButton::textColourOffId, ovt::text());
 
-    // Re-apply to curve editor buttons (only presetsButton is a TextButton)
-    presetsButton.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
-    presetsButton.setColour (juce::TextButton::textColourOffId, ovt::text());
-    presetsButton.setColour (juce::TextButton::textColourOnId,  ovt::accent());
+    // Re-apply to curve editor buttons (only optionsButton is a TextButton)
+    optionsButton.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
+    optionsButton.setColour (juce::TextButton::textColourOffId, ovt::text());
+    optionsButton.setColour (juce::TextButton::textColourOnId,  ovt::accent());
 
     // Re-apply DrawableButton colours (background and text)
     auto applyDrawableBtnColours = [] (juce::DrawableButton& btn) {
@@ -2898,24 +3015,11 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyDrawableBtnColours (snapButton);
     applyDrawableBtnColours (snapGridButton);
     applyDrawableBtnColours (stepModeButton);
-    applyDrawableBtnColours (clearCurveButton);
-    applyDrawableBtnColours (resetTransportButton);
-
-    // Re-apply curve editor internal components (always dark theme)
-    if (curveEditor != nullptr)
-    {
-        auto& mb = curveEditor->getMeasuresBox();
-        mb.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
-        mb.setColour (juce::ComboBox::textColourId,       juce::Colour (0xffcccccc));
-        mb.setColour (juce::ComboBox::outlineColourId,    juce::Colour (0x441A9AF0));
-        mb.setColour (juce::ComboBox::arrowColourId,      juce::Colour (0xff1A9AF0));
-        mb.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
-        mb.setColour (juce::PopupMenu::textColourId,       juce::Colour (0xffcccccc));
-
-        auto& ml = curveEditor->getMeasuresLabel();
-        ml.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
-        ml.setFont (ovt::fontLabel());
-    }
+    applyDrawableBtnColours (zoomInButton);
+    applyDrawableBtnColours (zoomOutButton);
+    applyDrawableBtnColours (scrollUpButton);
+    applyDrawableBtnColours (scrollDownButton);
+    applyDrawableBtnColours (resetViewButton);
 
     // Re-apply to tabbed component
     tabbedComponent.setColour (juce::TabbedComponent::backgroundColourId, ovt::bgDark());
