@@ -98,14 +98,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$JUCE_PATH_ARG" ]]; then
-  echo "Erreur: JUCE introuvable (defaut: ~/dev/JUCE8, ou utilisez --juce-path / JUCE_PATH)." >&2
-  exit 1
-fi
+if [[ "$SKIP_BUILD" == false ]]; then
+  if [[ -z "$JUCE_PATH_ARG" ]]; then
+    echo "Erreur: JUCE introuvable (defaut: ~/dev/JUCE8, ou utilisez --juce-path / JUCE_PATH)." >&2
+    exit 1
+  fi
 
-if [[ ! -d "$JUCE_PATH_ARG" ]]; then
-  echo "Erreur: JUCE_PATH introuvable: $JUCE_PATH_ARG" >&2
-  exit 1
+  if [[ ! -d "$JUCE_PATH_ARG" ]]; then
+    echo "Erreur: JUCE_PATH introuvable: $JUCE_PATH_ARG" >&2
+    exit 1
+  fi
 fi
 
 for cmd in cmake pkgbuild productbuild rsync; do
