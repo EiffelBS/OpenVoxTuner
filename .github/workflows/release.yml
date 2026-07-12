@@ -145,13 +145,13 @@ jobs:
           CUR="${GITHUB_REF_NAME}"
           NOTES="release_notes.md"
           {
-            echo "## Nouveautés — ${CUR}"
+            echo "## What's Changed — ${CUR}"
             echo ""
             PREV="$(git describe --tags --abbrev=0 "${CUR}^" 2>/dev/null || true)"
             if [ -z "${PREV}" ]; then
-              echo "Première version publiée."
+              echo "Initial release."
             else
-              echo "### Changements (${PREV} → ${CUR})"
+              echo "### Changes (${PREV} → ${CUR})"
               echo ""
               CHANGES="$(git log --no-merges --pretty=format:"%s|%h" "${PREV}..${CUR}" \
                 | while IFS='|' read -r subj hash; do
@@ -161,13 +161,13 @@ jobs:
                     echo "  - ${subj} (${hash})"
                   done)"
               if [ -z "${CHANGES}" ]; then
-                echo "  _Aucun changement visible par l'utilisateur dans cette version (corrections internes / infrastructure)._"
+                echo "  _No user-visible changes in this release (internal fixes / infrastructure)._"
               else
                 echo "${CHANGES}"
               fi
               echo ""
               echo ""
-              echo "**Comparaison complète** : https://github.com/${{ github.repository }}/compare/${PREV}...${CUR}"
+              echo "**Full changelog**: https://github.com/${{ github.repository }}/compare/${PREV}...${CUR}"
             fi
           } > "${NOTES}"
           echo "----- release notes -----"
