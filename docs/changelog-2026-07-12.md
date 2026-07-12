@@ -122,3 +122,31 @@ The now-unused `stoppedPlayheadTime` member was removed from `PitchCurveEditor`.
 - Auto-scroll OFF: the view stays put while the song plays; the playhead moves and exits the
   visible window. A Reset Playhead jumps the view back to reveal the start.
 
+## UI Bug: transport icons and "Measures" control overlapped the tabs
+
+### Problem
+The standalone transport (Play/Stop) buttons and the "Measures" label+combo were placed on the
+left of the Curve Editor toolbar row and overlapped the "Live" / "Curve Editor" tab labels.
+
+### Root cause
+The toolbar overlay row is the top 30px of the `TabbedComponent` — i.e. the tab strip itself.
+The right-aligned view/snap icons sat over the empty right side of the strip, so they never
+clashed with the tabs. Moving the transport + Measures controls to the **left** of that same
+row put them directly on top of the tab labels.
+
+### Fix
+Before laying out the left-aligned controls, the code now skips past the tab labels by measuring
+the right edge of the last tab button (`TabbedButtonBar::getTabButton(numTabs-1)->getRight()`) and
+removing that width (+ 6px gap) from the left of the toolbar area. The controls now start just
+right of the "Curve Editor" tab and no longer overlap it.
+
+### Files changed
+- `Source/PluginEditor.cpp` — `resized()`: offset the toolbar's left group past the tab strip
+  using `tabbedComponent.getTabbedButtonBar()`.
+
+### Verification
+- VST3 target builds cleanly (exit 0).
+- In the Curve Editor tab, the Play/Stop buttons and the Measures control sit to the right of
+  the "Curve Editor" tab label, with no overlap.
+
+
