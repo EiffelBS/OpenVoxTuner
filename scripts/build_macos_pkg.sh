@@ -22,13 +22,13 @@ Options:
   --help                  Affiche cette aide
 
 Exemples:
-  ./build_macos_pkg.sh --juce-path ~/dev/JUCE
-  ./build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,STANDALONE
-  ./build_macos_pkg.sh --juce-path ~/dev/JUCE --sign-installer "Developer ID Installer: ACME (TEAMID)"
+  ./build_macos_pkg.sh --juce-path ~/dev/JUCE8
+  ./build_macos_pkg.sh --juce-path ~/dev/JUCE8 --formats VST3,STANDALONE
+  ./build_macos_pkg.sh --juce-path ~/dev/JUCE8 --sign-installer "Developer ID Installer: ACME (TEAMID)"
 EOF
 }
 
-JUCE_PATH_ARG="${JUCE_PATH:-}"
+JUCE_PATH_ARG="${JUCE_PATH:-$HOME/dev/JUCE8}"
 BUILD_DIR="build-mac-pkg"
 CONFIG="Release"
 ARCHS="arm64;x86_64"
@@ -99,7 +99,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$JUCE_PATH_ARG" ]]; then
-  echo "Erreur: --juce-path est requis (ou variable JUCE_PATH)." >&2
+  echo "Erreur: JUCE introuvable (defaut: ~/dev/JUCE8, ou utilisez --juce-path / JUCE_PATH)." >&2
   exit 1
 fi
 

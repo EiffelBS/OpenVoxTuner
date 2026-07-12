@@ -1,5 +1,19 @@
 name: Release
 
+# Builds OpenVoxTuner for Windows and macOS and publishes the artifacts as a
+# GitHub Release. No code signing is performed: the macOS artifact is an
+# unsigned zip containing the VST3 + Standalone (the AU is omitted because an
+# unsigned AU cannot be loaded by a DAW). This keeps distribution free and
+# open-source friendly.
+#
+# Triggers: push of a tag "v*" (e.g. v0.1.47) or manual dispatch.
+#
+# Prerequisites (must be committed to the repo):
+#   - CMakeLists.txt must declare `project(... LANGUAGES C CXX)` so the ARA SDK
+#     (C code) compiles on macOS.
+#   - JUCE is pinned to 8.0.8 (the version this codebase compiles against);
+#     do NOT use the JUCE default branch (it removed Font::getStringWidth).
+
 on:
   workflow_dispatch:
   push:
@@ -14,11 +28,14 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Checkout JUCE
+      - name: Checkout JUCE 8.0.8
         uses: actions/checkout@v4
         with:
           repository: juce-framework/JUCE
+          ref: 8.0.8
           path: JUCE
 
       - name: Build Windows installer
@@ -37,23 +54,44 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Checkout JUCE
+      - name: Checkout JUCE 8.0.8
         uses: actions/checkout@v4
         with:
           repository: juce-framework/JUCE
+          ref: 8.0.8
           path: JUCE
 
-      - name: Build macOS package
+      - name: Configure (macOS, VST3 + Standalone, AU disabled)
         run: |
-          chmod +x ./build_macos_pkg.sh
-          ./build_macos_pkg.sh --juce-path "${{ github.workspace }}/JUCE" --output "dist/OpenVoxTuner-macOS.pkg"
+          cmake -S . -B build-mac-release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DJUCE_PATH="${{ github.workspace }}/JUCE" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DOVT_ENABLE_AU=OFF
 
-      - name: Upload macOS package artifact
+      - name: Build VST3 + Standalone (macOS)
+        run: |
+          cmake --build build-mac-release --config Release --target OpenVoxTuner_VST3
+          cmake --build build-mac-release --config Release --target OpenVoxTuner_Standalone
+
+      - name: Package macOS zip (unsigned)
+        run: |
+          cd "${{ github.workspace }}/build-mac-release/OpenVoxTuner_artefacts/Release"
+          mkdir -p OpenVoxTuner-macOS
+          cp -R VST3/OpenVoxTuner.vst3 OpenVoxTuner-macOS/
+          cp -R Standalone/OpenVoxTuner.app OpenVoxTuner-macOS/
+          ditto -c -k --sequesterForMacOS --keepParent OpenVoxTuner-macOS OpenVoxTuner-macOS.zip
+          mv OpenVoxTuner-macOS.zip "${{ github.workspace }}/"
+
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenVoxTuner-macOS-PKG
-          path: dist/OpenVoxTuner-macOS.pkg
+          name: OpenVoxTuner-macOS
+          path: OpenVoxTuner-macOS.zip
 
   publish-release:
     needs: [windows-release, macos-release]
@@ -65,10 +103,10 @@ jobs:
           name: OpenVoxTuner-Windows-Installer
           path: release-assets
 
-      - name: Download macOS package artifact
+      - name: Download macOS artifact
         uses: actions/download-artifact@v4
         with:
-          name: OpenVoxTuner-MacOS-PKG
+          name: OpenVoxTuner-macOS
           path: release-assets
 
       - name: Publish GitHub Release
@@ -76,5 +114,5 @@ jobs:
         with:
           files: |
             release-assets/OpenVoxTuner_Windows_Installer.exe
-            release-assets/OpenVoxTuner-macOS.pkg
+            release-assets/OpenVoxTuner-macOS.zip
           generate_release_notes: true

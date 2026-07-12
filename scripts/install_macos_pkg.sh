@@ -15,7 +15,7 @@
 set -euo pipefail
 
 # === Defaults ===
-JUCE_PATH="${JUCE_PATH:-$HOME/dev/JUCE}"
+JUCE_PATH="${JUCE_PATH:-$HOME/dev/JUCE8}"
 BUILD_DIR="build-mac"
 CONFIG="Release"
 ARCHS="arm64;x86_64"
