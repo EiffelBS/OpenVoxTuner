@@ -960,6 +960,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Transport (standalone only).
     static const char* svgPlay = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>)";
     static const char* svgStop = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>)";
+    // "Return to start" (rewind): a left-pointing triangle plus a vertical bar,
+    // the classic DAW skip-to-beginning glyph.
+    static const char* svgRewind = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="5" x2="6" y2="19"/><polygon points="19 5 9 12 19 19"/></svg>)";
 
     // Setup Toolbar Buttons
     // Custom button: icon + text (PresetsButton uses setIcon path).
@@ -1036,12 +1039,36 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     };
     addAndMakeVisible (measuresComboBox);
 
-    // Standalone transport: Play / Stop (freeze the timeline so the curve can be edited).
-    setupIconButton(playButton, svgPlay, true, ovt::tr(ovt::Keys::kTooltipPlay));
-    playButton.onClick = [this] { processorRef.setTransportPlaying (true); syncTransportButtons(); };
+    // Standalone transport: a single Play/Pause toggle plus a "Return to start"
+    // (rewind) button. The toggle shows the Play glyph when stopped and the Stop
+    // glyph when playing (see syncTransportButtons).
+    {
+        auto playNorm = createDrawableSVG (svgPlay,  juce::Colours::grey);
+        auto playOver = createDrawableSVG (svgPlay,  juce::Colours::lightgrey);
+        auto playDown = createDrawableSVG (svgPlay,  juce::Colours::white);
+        auto stopNorm = createDrawableSVG (svgStop,  ovt::accent());
+        auto stopOver = createDrawableSVG (svgStop,  ovt::accent().brighter (0.2f));
+        auto stopDown = createDrawableSVG (svgStop,  juce::Colours::white);
+        // Normal images = Play, "on" images = Stop. Clicking does NOT auto-toggle
+        // (we drive the displayed state from the processor in syncTransportButtons).
+        playButton.setImages (playNorm.get(), playOver.get(), playDown.get(), nullptr,
+                              stopNorm.get(), stopOver.get(), stopDown.get(), nullptr);
+        playButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
+        playButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        playButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
+        playButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
+        playButton.onClick = [this] {
+            processorRef.setTransportPlaying (! processorRef.isTransportPlaying());
+            syncTransportButtons();
+        };
+        addAndMakeVisible (playButton);
+    }
 
-    setupIconButton(stopButton, svgStop, true, ovt::tr(ovt::Keys::kTooltipStop));
-    stopButton.onClick = [this] { processorRef.setTransportPlaying (false); syncTransportButtons(); };
+    setupIconButton(rewindButton, svgRewind, false, ovt::tr(ovt::Keys::kTooltipRewind));
+    rewindButton.onClick = [this] {
+        processorRef.resetTransportTime();
+        if (curveEditor != nullptr) curveEditor->clearInputTrace();
+    };
 
     setupIconButton(bypassButton, svgPower, true, "Bypass audio processing");
     bypassButton.setTooltip (ovt::tr(ovt::Keys::kTooltipBypassIcon));
@@ -1378,7 +1405,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     scrollDownButton.toFront(false);
     resetViewButton.toFront(false);
     playButton.toFront(false);
-    stopButton.toFront(false);
+    rewindButton.toFront(false);
     measuresLabel.toFront(false);
     measuresComboBox.toFront(false);
 
@@ -1616,10 +1643,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int leftGap = 8;
     if (isStandalone)
     {
-        // Standalone transport: freeze the timeline (Stop) to edit, or play it (Play).
+        // Standalone transport: a single Play/Pause toggle and a "Return to start" (rewind) button.
         playButton.setBounds (toolsArea.removeFromLeft(iconSize));
         toolsArea.removeFromLeft(4);
-        stopButton.setBounds (toolsArea.removeFromLeft(iconSize));
+        rewindButton.setBounds (toolsArea.removeFromLeft(iconSize));
         toolsArea.removeFromLeft(leftGap);
     }
     // "Measures" control (number of measures shown in the curve editor time window).
@@ -1888,7 +1915,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     measuresLabel.setVisible (isCurveEditorMode);
     measuresComboBox.setVisible (isCurveEditorMode);
     playButton.setVisible (isCurveEditorMode && processorRef.isStandaloneWrapper());
-    stopButton.setVisible (isCurveEditorMode && processorRef.isStandaloneWrapper());
+    rewindButton.setVisible (isCurveEditorMode && processorRef.isStandaloneWrapper());
 
     // Gray out Formant slider if disabled
     bool isFormantEnabled = formantEnableButton.getToggleState();
@@ -2453,8 +2480,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     scrollUpButton.setTooltip (ovt::tr (ovt::Keys::kTooltipScrollUp));
     scrollDownButton.setTooltip (ovt::tr (ovt::Keys::kTooltipScrollDown));
     resetViewButton.setTooltip (ovt::tr (ovt::Keys::kTooltipResetView));
-    playButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPlay));
-    stopButton.setTooltip (ovt::tr (ovt::Keys::kTooltipStop));
+    rewindButton.setTooltip (ovt::tr (ovt::Keys::kTooltipRewind));
 
     // "Measures" control label follows the active language.
     measuresLabel.setText (ovt::tr (ovt::Keys::kLabelMeasures), juce::dontSendNotification);
@@ -2924,8 +2950,11 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
 void OpenVoxTunerAudioProcessorEditor::syncTransportButtons()
 {
     const bool playing = processorRef.isTransportPlaying();
+    // Single Play/Pause toggle: shows the Stop glyph (and tooltip) while playing,
+    // the Play glyph (and tooltip) while stopped.
     playButton.setToggleState (playing, juce::dontSendNotification);
-    stopButton.setToggleState (! playing, juce::dontSendNotification);
+    playButton.setTooltip (playing ? ovt::tr (ovt::Keys::kTooltipStop)
+                                   : ovt::tr (ovt::Keys::kTooltipPlay));
 }
 
 void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
