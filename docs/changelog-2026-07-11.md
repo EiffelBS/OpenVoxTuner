@@ -328,4 +328,60 @@ reset `morphSource` / `morphTarget` / `morphUndoState` but **not** `lastMorphInt
 - The DAW-automation coexistence feature is unaffected: clearing only happens on slot switch / fresh A->B,
   not during a continuous morph drag.
 
+## UI: Curve Editor toolbar — mirror the Visualizer zoom/scroll buttons + Options menu
+
+### Change
+The Curve Editor toolbar now mirrors the Visualizer toolbar for view controls, and the
+curve-specific actions are grouped behind a text "Options" button.
+
+- Added 5 view-control icon buttons to the Curve Editor toolbar (reusing the Visualizer's
+  SVGs): **Zoom In**, **Zoom Out**, **Scroll Up**, **Scroll Down**, **Reset View**.
+- Snap / Grid / Step stay as direct toggle icons (kept on the toolbar, as requested).
+- The `presetsButton` (text "Presets") was replaced by a text **"Options"** button
+  (gear icon) that opens a Curve Editor options menu containing:
+  - **Clean Curves** (clears the curve + resets the transport playhead),
+  - **Reset Playhead** (resets the internal timeline offset; disabled when bound to ARA,
+    where the host owns the timeline — same guard the old button had),
+  - a separator,
+  - **Curve Presets** (opens the existing preset manager).
+- Presets remain reachable via right-click on the editor (unchanged).
+
+### View-control semantics (matched to the Visualizer)
+- **Zoom In / Zoom Out** change the pitch range (narrower / wider), centered on the current
+  center pitch — identical to the Visualizer's pitch zoom.
+- **Scroll Up / Scroll Down** pan the pitch view up / down. This matches both the Visualizer's
+  scroll buttons **and** the Curve Editor's own mouse-wheel behavior (the wheel already pans
+  pitch; it does not scroll time). So the buttons behave exactly like the Visualizer's, and the
+  up/down chevrons map intuitively to the Curve Editor's vertical pitch axis.
+- **Reset View** restores the default pitch range and resets the time scroll offset to the start.
+
+> Note: the original proposal suggested "scroll = time". The Curve Editor's time axis is driven
+> by the Measures control and ARA auto-scroll; the wheel does not scroll time, so matching the
+> Visualizer (pitch zoom + pitch pan) is the consistent, intuitive choice. Time-scroll buttons
+> could be added later if desired.
+
+### Files changed
+- `Source/ui/PitchCurveEditor.h` / `Source/ui/PitchCurveEditor.cpp`
+  - Added `zoomIn()`, `zoomOut()`, `scrollUp()`, `scrollDown()`, `resetView()`, and a private
+    `clampPitchRange()` (1..8 octaves, C0..C9 — mirrors `mouseWheelMove` limits).
+- `Source/PluginEditor.cpp`
+  - Renamed `presetsButton` -> `optionsButton` (gear icon, opens `showCurveOptionsMenu()`).
+  - Added `zoomInButton` / `zoomOutButton` / `scrollUpButton` / `scrollDownButton` / `resetViewButton`
+    (DrawableButtons) wired to the new `PitchCurveEditor` methods.
+  - Removed the standalone `clearCurveButton` and `resetTransportButton` icons (functionality moved
+    into the Options menu); removed their now-unused SVG strings.
+  - Rewrote the toolbar layout in `resized()` (right-to-left: Options | zoom/scroll/reset | snap/grid/step),
+    updated `toFront` order, visibility (curve-mode only) and `refreshTranslations`/`refreshDrawableButtonIcons`.
+  - Added `showCurveOptionsMenu()`.
+- `Source/ui/OVTLanguages.h`
+  - Added keys `kMenuCleanCurves`, `kMenuResetPlayhead`, `kMenuCurvePresets`, `kTooltipCurveOptions`
+    (EN translation; other languages fall back to EN via `tr()`).
+
+### Verification
+- VST3 target builds cleanly (`cmake --build build --config Release --target OpenVoxTuner_VST3`, exit 0).
+- Curve Editor toolbar shows snap/grid/step + the 5 zoom/scroll icons + "Options".
+- Zoom/Scroll/Reset behave like the Visualizer; Options menu shows Clean Curves / Reset Playhead
+  (disabled in ARA) / Curve Presets.
+
+
 

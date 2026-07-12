@@ -78,6 +78,17 @@ namespace ui
         /// Definit le zoom en temps (secondes affichees) et le zoom en pitch.
         void setViewRange (double secondsVisible, float minHz, float maxHz);
 
+        /// Zoom la vue en pitch (range plus etroit), centre sur le pitch central courant.
+        void zoomIn();
+        /// Dezoom la vue en pitch (range plus large).
+        void zoomOut();
+        /// Pan la vue en pitch vers le haut (pitches plus aigus).
+        void scrollUp();
+        /// Pan la vue en pitch vers le bas (pitches plus graves).
+        void scrollDown();
+        /// Reinitialise la vue : range de pitch par defaut et scroll temporel au debut.
+        void resetView();
+
         /// Active/desactive le snap a la gamme.
         void setSnapEnabled (bool b);
         bool isSnapEnabled() const { return snapEnabled; }
@@ -132,25 +143,15 @@ namespace ui
         /// Definit la time signature courante (numerator/denominator).
         void setTimeSignature (int numerator, int denominator);
 
-        /// Active/desactive le defilement automatique (auto-scroll ARA).
+        /// Active/desactive le defilement automatique (auto-scroll ARA / standalone timeline).
         void setAutoScroll (bool enabled);
+        /// Retourne l'etat de l'auto-scroll (utilise par le menu Options).
+        bool getAutoScroll() const { return autoScrollEnabled; }
 
-        /// Affiche/masque le bouton Auto-Scroll. En mode non-ARA (standalone ou
-        /// VST3 insert), le toggle est invisible car il n'y a pas de timeline
-        /// projet significative. L'auto-scroll est alors forcement desactive.
-        void setAutoScrollVisible (bool visible);
         void setWaveformOverlay (const float* samples, int numSamples, double sampleRate);
 
         /// Set the waveform display type (0=Bars, 1=Filled, 2=Line, 3=Mirror).
         void setDisplayType (int type) { currentDisplayType = type; repaint(); }
-
-        /// Definit le nombre de mesures sans passer par le combo.
-        void setMeasuresWithoutCombo (int measures);
-
-        /// Accesseurs pour les contrôles embarqués (synchronisation PluginEditor)
-        juce::ComboBox& getMeasuresBox() { return measuresBox; }
-        juce::Label& getMeasuresLabel() { return measuresLabel; }
-        juce::ToggleButton& getAutoScrollToggle() { return autoScrollToggle; }
 
         /// Active/desactive l'edition (utilise pour griser en mode Auto).
         void setEditorEnabled (bool b);
@@ -217,19 +218,13 @@ namespace ui
         int timeSigDen = 4;
         void recalculateTimeVisible();
 
+        // Borne le range de pitch (1..8 octaves, C0..C9) comme mouseWheelMove.
+        void clampPitchRange();
+
         // Auto-scroll (Feature 2).
         double scrollOffset = 0.0;
         bool autoScrollEnabled = false;
-        bool autoScrollVisible = false; // toggle visibility (true only in ARA)
         bool wasPlayingLastFrame = false;
-        double stoppedPlayheadTime = -1.0;
-
-        // Embedded controls (Feature 1 & 2).
-        // These are child components owned by PitchCurveEditor so they are
-        // properly parented inside the tab page (not overlapping tab buttons).
-        juce::ComboBox measuresBox;
-        juce::Label    measuresLabel;
-        juce::ToggleButton autoScrollToggle;
 
         // Harmony traces storage (per-voice time/pitch samples)
         static constexpr int maxHarmonyVoices = 8;

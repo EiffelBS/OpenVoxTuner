@@ -180,12 +180,24 @@ private:
         std::unique_ptr<juce::Drawable> icon;
     };
 
-    PresetsButton presetsButton {"Presets"};
+    PresetsButton optionsButton {"Options"};
     juce::DrawableButton snapButton {"Snap to scale", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton snapGridButton {"Snap to grid", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton stepModeButton {"Step mode", juce::DrawableButton::ImageOnButtonBackground};
-    juce::DrawableButton clearCurveButton {"Clear curve", juce::DrawableButton::ImageOnButtonBackground};
-    juce::DrawableButton resetTransportButton {"Reset playhead", juce::DrawableButton::ImageOnButtonBackground};
+    // Curve editor view controls (mirror the Visualizer toolbar: zoom/scroll/reset).
+    juce::DrawableButton zoomInButton   {"Zoom In",   juce::DrawableButton::ImageOnButtonBackground};
+    juce::DrawableButton zoomOutButton  {"Zoom Out",  juce::DrawableButton::ImageOnButtonBackground};
+    juce::DrawableButton scrollUpButton {"Scroll Up", juce::DrawableButton::ImageOnButtonBackground};
+    juce::DrawableButton scrollDownButton {"Scroll Down", juce::DrawableButton::ImageOnButtonBackground};
+    juce::DrawableButton resetViewButton {"Reset View", juce::DrawableButton::ImageOnButtonBackground};
+
+    // "Measures" control (curve editor time window). Moved from the embedded editor
+    // controls to the toolbar so it no longer covers the ruler.
+    juce::Label measuresLabel;
+    juce::ComboBox measuresComboBox;
+    // Standalone transport (Play / Stop). Only meaningful when not driven by a DAW host.
+    juce::DrawableButton playButton {"Play", juce::DrawableButton::ImageOnButtonBackground};
+    juce::DrawableButton stopButton {"Stop", juce::DrawableButton::ImageOnButtonBackground};
 
     // Update checker / release notification.
     juce::TextButton updateButton { "Check updates" };
@@ -249,6 +261,13 @@ private:
     void refreshVisualizer();
 
     void showPresetsMenu (const juce::MouseEvent* mouseEvent = nullptr);
+    /// Builds the curve preset manager as a PopupMenu (factory + custom submenus),
+    /// reusable as a standalone menu or as a submenu of the Options menu.
+    juce::PopupMenu buildPresetsMenu();
+    /// Curve Editor "Options" menu (clean curves, reset playhead, presets).
+    void showCurveOptionsMenu();
+    /// Reflects the standalone transport state on the Play/Stop toolbar buttons.
+    void syncTransportButtons();
     void setWaveformDisplayType (int type);
     void loadCustomPresetFromFile (const juce::File& file);
     void promptSaveCustomPreset();

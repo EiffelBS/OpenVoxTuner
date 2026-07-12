@@ -48,35 +48,6 @@ namespace ui
         // Plage par defaut : C2 -> C7 (suffit pour les voix).
         pianoKeyboard.setRange (36, 96);
 
-        // Embedded controls: Measures combo + Auto-Scroll toggle.
-        // These are children of PitchCurveEditor, not PluginEditor, so they
-        // cannot be blocked by the tabbedComponent's tab buttons.
-        measuresLabel.setText (ovt::tr(ovt::Keys::kLabelMeasures), juce::dontSendNotification);
-        measuresLabel.setJustificationType (juce::Justification::left);
-        measuresLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
-        measuresLabel.setFont (ovt::fontMeasuresLabel());
-        addAndMakeVisible (measuresLabel);
-
-        measuresBox.addItemList ({ "1", "2", "4", "8", "16", "32" }, 1);
-        measuresBox.setSelectedItemIndex (2, juce::dontSendNotification);
-        measuresBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
-        measuresBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
-        measuresBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
-        measuresBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
-        measuresBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
-        measuresBox.setColour (juce::PopupMenu::textColourId, juce::Colour (0xffcccccc));
-        measuresBox.onChange = [this] { setMeasuresVisible (measuresBox.getText().getIntValue()); };
-        addAndMakeVisible (measuresBox);
-
-        autoScrollToggle.setButtonText (ovt::tr(ovt::Keys::kLabelAutoScroll));
-        // Force dark mode colours (curve editor is always dark regardless of theme)
-        autoScrollToggle.setColour (juce::ToggleButton::textColourId, juce::Colour (0xffcccccc));
-        autoScrollToggle.setColour (juce::ToggleButton::tickColourId, juce::Colour (0xff1A9AF0));
-        autoScrollToggle.setColour (juce::ToggleButton::tickDisabledColourId, juce::Colour (0xff555555));
-        autoScrollToggle.setTooltip (ovt::tr(ovt::Keys::kTooltipAutoScroll));
-        autoScrollToggle.onClick = [this] { autoScrollEnabled = autoScrollToggle.getToggleState(); };
-        addAndMakeVisible (autoScrollToggle);
-
         // Keyboard focus for copy/paste, undo/redo
         setWantsKeyboardFocus (true);
         setFocusContainerType (juce::Component::FocusContainerType::none);
@@ -514,30 +485,6 @@ namespace ui
         const int pianoW = 60;
         const int rulerH = 24;
         pianoKeyboard.setBounds (0, rulerH, pianoW, getHeight() - rulerH);
-
-        // Embedded controls: top-right corner of the editor
-        const int controlY = 2;
-        const int controlH = 20;
-        const int rightEdge = getWidth() - 4;
-
-        // Auto-Scroll toggle at the far right (hidden when !autoScrollVisible)
-        if (autoScrollVisible)
-        {
-            autoScrollToggle.setBounds (rightEdge - 88, controlY, 88, controlH);
-        }
-        else
-        {
-            autoScrollToggle.setBounds (0, 0, 0, 0); // off-screen when hidden
-        }
-
-        // Measures combo right before the toggle (or at far right if hidden)
-        const int comboRight = autoScrollVisible ? (rightEdge - 88 - 4) : rightEdge;
-
-        // Measures combo right before the toggle
-        measuresBox.setBounds (comboRight - 54, controlY, 54, controlH);
-
-        // Measures label right before the combo
-        measuresLabel.setBounds (comboRight - 54 - 4 - 64, controlY, 64, controlH);
 
         // Undo/Redo buttons (bottom-left, below piano keyboard)
         const int btnSize = 22;
@@ -1068,6 +1015,87 @@ namespace ui
         repaint();
     }
 
+    void PitchCurveEditor::clampPitchRange()
+    {
+        // Keep the zoom within 1..8 octaves (mirrors mouseWheelMove limits).
+        const float rangeCents = 1200.0f * std::log2 (maxHz / minHz);
+        if (rangeCents < 1200.0f)
+        {
+            const float centerLog = 0.5f * (std::log (minHz) + std::log (maxHz));
+            const float half = 0.5f * std::log (2.0f); // 1 octave half-range
+            minHz = std::exp (centerLog - half);
+            maxHz = std::exp (centerLog + half);
+        }
+        else if (rangeCents > 1200.0f * 8.0f)
+        {
+            const float centerLog = 0.5f * (std::log (minHz) + std::log (maxHz));
+            const float half = 0.5f * 8.0f * std::log (2.0f); // 8 octaves half-range
+            minHz = std::exp (centerLog - half);
+            maxHz = std::exp (centerLog + half);
+        }
+        // Absolute limits (C0..C9).
+        if (minHz < 16.35f) { const float r = maxHz / minHz; minHz = 16.35f; maxHz = minHz * r; }
+        if (maxHz > 8372.0f) { const float r = maxHz / minHz; maxHz = 8372.0f; minHz = maxHz / r; }
+    }
+
+    void PitchCurveEditor::zoomIn()
+    {
+        const float centerLog = 0.5f * (std::log (minHz) + std::log (maxHz));
+        const float half = 0.5f * std::log (maxHz / minHz) * 0.8f; // 20% narrower
+        minHz = std::exp (centerLog - half);
+        maxHz = std::exp (centerLog + half);
+        clampPitchRange();
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        repaint();
+    }
+
+    void PitchCurveEditor::zoomOut()
+    {
+        const float centerLog = 0.5f * (std::log (minHz) + std::log (maxHz));
+        const float half = 0.5f * std::log (maxHz / minHz) * 1.25f; // 25% wider
+        minHz = std::exp (centerLog - half);
+        maxHz = std::exp (centerLog + half);
+        clampPitchRange();
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        repaint();
+    }
+
+    void PitchCurveEditor::scrollUp()
+    {
+        const float rangeLog = std::log (maxHz / minHz);
+        const float shiftLog = rangeLog * 0.15f;
+        minHz = std::exp (std::log (minHz) + shiftLog);
+        maxHz = std::exp (std::log (maxHz) + shiftLog);
+        clampPitchRange();
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        repaint();
+    }
+
+    void PitchCurveEditor::scrollDown()
+    {
+        const float rangeLog = std::log (maxHz / minHz);
+        const float shiftLog = -rangeLog * 0.15f;
+        minHz = std::exp (std::log (minHz) + shiftLog);
+        maxHz = std::exp (std::log (maxHz) + shiftLog);
+        clampPitchRange();
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        repaint();
+    }
+
+    void PitchCurveEditor::resetView()
+    {
+        minHz = 50.0f;
+        maxHz = 1000.0f;
+        scrollOffset = 0.0;
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        repaint();
+    }
+
     void PitchCurveEditor::setSnapEnabled (bool b)
     {
         snapEnabled = b;
@@ -1090,9 +1118,6 @@ namespace ui
 
     void PitchCurveEditor::refreshTranslations()
     {
-        measuresLabel.setText (ovt::tr(ovt::Keys::kLabelMeasures), juce::dontSendNotification);
-        autoScrollToggle.setButtonText (ovt::tr(ovt::Keys::kLabelAutoScroll));
-        autoScrollToggle.setTooltip (ovt::tr(ovt::Keys::kTooltipAutoScroll));
         undoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUndo));
         redoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipRedo));
         repaint();
@@ -1181,19 +1206,6 @@ namespace ui
         autoScrollEnabled = enabled;
     }
 
-    void PitchCurveEditor::setAutoScrollVisible (bool visible)
-    {
-        autoScrollVisible = visible;
-        autoScrollToggle.setVisible (visible);
-        if (!visible)
-        {
-            // Force disable auto-scroll when the control is hidden
-            autoScrollEnabled = false;
-            autoScrollToggle.setToggleState (false, juce::dontSendNotification);
-        }
-        resized();
-    }
-
     void PitchCurveEditor::setWaveformOverlay (const float* samples, int numSamples, double /*sampleRate*/)
     {
         if (samples == nullptr || numSamples <= 0)
@@ -1221,22 +1233,27 @@ namespace ui
         }
         wasPlayingLastFrame = playing;
 
-        if (autoScrollEnabled && autoScrollVisible)
+        // A manual seek (Reset Playhead / DAW scrub) produces a large discontinuity
+        // in the transport position, whereas normal playback only advances by a few
+        // hundredths of a beat per frame. We use this to tell the two apart.
+        const double delta = time - playheadTime;
+        const bool isSeek = std::abs (delta) > 0.5;
+
+        if (autoScrollEnabled)
         {
-            // Auto-scroll: LERP fluide, playhead reste au centre
+            // Auto-scroll ON: keep the playhead centered while it advances (smooth follow).
             double targetScroll = time - timeVisible * 0.5;
             targetScroll = juce::jmax (0.0, targetScroll);
             scrollOffset = scrollOffset + (targetScroll - scrollOffset) * 0.15;
         }
-        else if (autoScrollVisible)
+        else if (isSeek)
         {
-            // Stopped: snap instantane si seek manuel
-            if (std::abs (time - stoppedPlayheadTime) > 0.01)
-            {
-                scrollOffset = juce::jmax (0.0, time - timeVisible * 0.5);
-                stoppedPlayheadTime = time;
-            }
+            // Auto-scroll OFF: keep the view fixed during playback so the playhead
+            // can run past the visible window. Only reveal the playhead on an
+            // explicit seek so the user is not left staring at empty space.
+            scrollOffset = juce::jmax (0.0, time - timeVisible * 0.5);
         }
+        // else: auto-scroll OFF and continuous playback -> leave the view untouched.
 
         playheadTime = time;
         repaint();

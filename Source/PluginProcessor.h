@@ -97,6 +97,15 @@ public:
     void setTransportTime (double seconds) { transportTime.store (seconds); }   
     double getTransportTime() const { return transportTime.load(); }
     bool getIsPlaying() const { return hostIsPlaying.load() != 0; }
+
+    // Standalone transport: when stopped, the timeline (and the curve editor playhead /
+    // auto-scroll) freezes so the user can edit the curve. In a DAW the host owns transport.
+    void setTransportPlaying (bool p) { transportPlaying.store (p); }
+    bool isTransportPlaying() const { return transportPlaying.load(); }
+
+    // Standalone tempo (BPM). In a DAW the tempo comes from the host time signature.
+    void setBpm (float b) { bpm.store (juce::jlimit (20.0f, 400.0f, b)); }
+    float getBpm() const { return bpm.load(); }
     bool isTimeProvidedByHost() const { return timeProvidedByHost.load(); }
     std::atomic<bool>& getPendingCurveRestore() { return pendingCurveRestore; }     
     
@@ -294,6 +303,9 @@ private:
     // True host playback state (1 = playing, 0 = stopped).
     // Propagated to the UI to avoid delta-based heuristics.
     std::atomic<int> hostIsPlaying { 0 };
+    // Standalone-only transport state (see setTransportPlaying / setBpm in the public API).
+    std::atomic<bool> transportPlaying { true };
+    std::atomic<float> bpm { 120.0f };
     // Flag set when setStateInformation restores a pitch curve that the
     // editor needs to pick up. The processor always outlives the editor,
     // so this works regardless of createEditor() ordering.
