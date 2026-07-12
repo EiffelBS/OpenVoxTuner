@@ -167,6 +167,14 @@ public:
         transportTime.store(0.0);
     }
 
+    // Seeks the transport to an absolute time (ruler-click / programmatic seek).
+    // Updates both the standalone clock and the DAW host-time offset so the displayed
+    // playhead jumps to `t` in every context.
+    void seekToTime (double t) {
+        transportTime.store (t);
+        customTimeOffset.store (rawHostTime.load() - t);
+    }
+
     // ARA2 waveform overlay accessors (for the editor).
     bool isAraWaveformReady() const { return araWaveformReady; }
     /// Copy the cached waveform into the provided buffer (thread-safe).

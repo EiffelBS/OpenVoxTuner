@@ -13,8 +13,9 @@
 
 #pragma once
 
-#include <juce_audio_processors/juce_audio_processors.h>
 #include <functional>
+
+#include <juce_audio_processors/juce_audio_processors.h>
 #include "../dsp/PitchCurve.h"
 #include "../dsp/ScaleQuantizer.h"
 #include "PianoKeyboard.h"
@@ -133,9 +134,45 @@ namespace ui
         /// Clear the input pitch trace.
         void clearInputTrace();
 
+        /// Active/desactive l'affichage de la trace d'entree live (monitoring/capture).
+        /// Par defaut desactivee : la courbe editable s'affiche proprement au lancement,
+        /// sans la trace rouge de l'entree audio (qui peut capter un signal parasite).
+        void setShowInputTrace (bool show) { showInputTrace = show; if (! show) clearInputTrace(); repaint(); }
+        /// Retourne l'etat d'affichage de la trace d'entree live.
+        bool getShowInputTrace() const { return showInputTrace; }
+
         /// Definit la position du playhead (en PPQ) et l'etat de lecture
         /// du DAW. L'auto-scroll n'est actif que si le DAW joue vraiment.
         void setPlayheadTime (double time, bool isHostPlaying);
+
+        /// Replace le playhead au debut et fait defiler la vue pour reveler le
+        /// temps 0. Utilise par le bouton "Retour au debut" et l'item de menu
+        /// "Reset Playhead" pour garantir un retour fiable au premier clic
+        /// (sans dependre du detecteur de seek de setPlayheadTime). Preserve
+        /// le zoom et la plage de pitch.
+        void returnToStart();
+
+        /// Snap temporel (grille de projet) utilise par le clic sur la regle et
+        /// le double-clic. Public/statique pour permettre des tests unitaires.
+        static double snapTimeToGrid (double t, bool snapToGridEnabled)
+        {
+            const double gridStep = 0.5; // grille de projet (noire = 1.0 beat)
+            const double nearest = std::round (t / gridStep) * gridStep;
+            if (snapToGridEnabled)
+                return nearest;
+            if (std::abs (t - nearest) < 0.05)
+                return nearest;
+            return t;
+        }
+        /// Borne le decalage de scroll horizontal (>= 0). Public/statique pour tests.
+        static double clampScrollOffset (double offset)
+        {
+            return offset < 0.0 ? 0.0 : offset;
+        }
+
+        /// Callback de demande de seek (clic sur la regle). Relie l'editeur au
+        /// transport du processeur sans couplage direct editeur->processeur.
+        std::function<void(double)> onSeek;
 
         /// Definit le nombre de mesures visibles (1, 2, 4, 8).
         void setMeasuresVisible (int measures);
@@ -196,6 +233,11 @@ namespace ui
         juce::Array<float> selectionStartPitches;
         int selectionAnchorLocal = -1;
 
+        // Scroll horizontal a la souris (bouton milieu), actif quand auto-scroll OFF.
+        bool isMiddleScrolling = false;
+        double middleDragStartX = 0.0;
+        double middleDragStartScroll = 0.0;
+
         // Snap et gamme.
         bool snapEnabled = true;
         bool snapToGridEnabled = false;
@@ -234,6 +276,7 @@ namespace ui
         // Input pitch trace (red line, same as PitchVisualizer)
         juce::Array<double> inputTraceTimes;
         juce::Array<float>  inputTracePitches;
+        bool showInputTrace = true;
 
         // Position du playhead (secondes). 0 par defaut.
         double playheadTime = 0.0;

@@ -76,10 +76,6 @@ namespace atdsp
         if (samples == nullptr || numSamples < 2)
             return 0.0f;
 
-        // Verifie que le buffer est assez grand pour la plage de frequences.
-        if (numSamples < maxLag * 2)
-            return 0.0f;
-
         // Etape 1+2 : difference function cumulee normalisee.
         // d(tau) = sum_{j=0..W-1} (x[j] - x[j+tau])^2
         // d'(tau) = d(tau) / ((1/tau) * sum_{j=1..tau} d(j))  si tau > 0
@@ -90,6 +86,20 @@ namespace atdsp
         const int halfSize = numSamples / 2;
         // Allow detection up to the largest possible lag that fits in the buffer
         const int maxTau = juce::jmin(maxLag, numSamples - 1);
+
+        // Portee de recherche limitee par la taille du buffer disponible : on ne
+        // peut pas evaluer une periode plus longue que numSamples/2. On recherche
+        // donc jusqu'a searchMax = min(maxLag, numSamples/2) au lieu d'exiger
+        // 2*maxLag echantillons. Cela rend YIN fonctionnel avec des buffers
+        // realistes (ex. la fenetre decimee de 1024 echantillons utilisee en
+        // temps reel) et couvre la plage [freqMax, sampleRate/searchMax]
+        // physiquement disponible dans le buffer, sans tout rejeter quand le
+        // buffer est trop petit pour la frequence minimale.
+        const int minLag = juce::jmax (2, static_cast<int> (sampleRate / freqMaxHz));
+        const int searchMax = juce::jmin (maxLag, halfSize);
+        if (searchMax < minLag)
+            return 0.0f;
+
         for (int tau = 1; tau <= maxTau; ++tau)
         {
             int len = std::min(numSamples - tau, halfSize); // effective comparison length
@@ -107,19 +117,18 @@ namespace atdsp
         }
 
         // Fill the rest with 1.0f just in case
-        for (int tau = maxTau + 1; tau < halfSize; ++tau)
+        for (int tau = maxTau + 1; tau < searchMax; ++tau)
             yinBuffer[tau] = 1.0f;
 
         // Etape 3 : recherche du premier minimum sous le seuil.
         // On cherche le premier tau ou d'(tau) < threshold, puis on descend au minimum local.
         int tauEstimate = -1;
-        const int minLag = juce::jmax (2, static_cast<int> (sampleRate / freqMaxHz));
-        for (int tau = minLag; tau < halfSize; ++tau)
+        for (int tau = minLag; tau < searchMax; ++tau)
         {
             if (yinBuffer[tau] < threshold)
             {
                 // Descend jusqu'au minimum local.
-                while (tau + 1 < halfSize && yinBuffer[tau + 1] < yinBuffer[tau])
+                while (tau + 1 < searchMax && yinBuffer[tau + 1] < yinBuffer[tau])
                     ++tau;
                 tauEstimate = tau;
                 break;
@@ -160,10 +169,10 @@ namespace atdsp
 
         // --- Cas A : YIN a trouve la 2e harmonique -> on teste tau * 2 ---
         // (periode double = frequence moitie = un octave en dessous)
-        if (tauEstimate * 2 < halfSize)
+        if (tauEstimate * 2 < searchMax)
         {
             int tauDouble = tauEstimate * 2;
-            while (tauDouble + 1 < halfSize && yinBuffer[tauDouble + 1] < yinBuffer[tauDouble])
+            while (tauDouble + 1 < searchMax && yinBuffer[tauDouble + 1] < yinBuffer[tauDouble])
                 ++tauDouble;
             const float doubleClarity = yinBuffer[tauDouble];
 
@@ -213,7 +222,7 @@ namespace atdsp
         if (!octaveCorrected && tauEstimate % 2 == 0 && tauEstimate / 2 >= minLag)
         {
             int tauHalf = tauEstimate / 2;
-            while (tauHalf + 1 < halfSize && yinBuffer[tauHalf + 1] < yinBuffer[tauHalf])
+            while (tauHalf + 1 < searchMax && yinBuffer[tauHalf + 1] < yinBuffer[tauHalf])
                 ++tauHalf;
             const float halfClarity = yinBuffer[tauHalf];
 
@@ -233,7 +242,7 @@ namespace atdsp
         // Etape 4 : interpolation parabolique pour la precision sub-sample.
         // On ajuste tau autour du minimum grace a 3 points.
         float betterTau = static_cast<float> (tauEstimate);
-        if (tauEstimate > 0 && tauEstimate < halfSize - 1)
+        if (tauEstimate > 0 && tauEstimate < searchMax - 1)
         {
             const float s0 = yinBuffer[tauEstimate - 1];
             const float s1 = yinBuffer[tauEstimate];

@@ -186,6 +186,7 @@ target_sources(OpenVoxTunerTests PRIVATE
     test/dsp/RetargetEnvelopeTest.cpp
     test/dsp/FormantPreserverTest.cpp
     test/dsp/PitchCurveTest.cpp
+    test/ui/PitchCurveEditorTest.cpp
     
     # On lie les sources DSP a tester
     Source/dsp/PitchDetector.cpp

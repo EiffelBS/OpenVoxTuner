@@ -1067,7 +1067,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     setupIconButton(rewindButton, svgRewind, false, ovt::tr(ovt::Keys::kTooltipRewind));
     rewindButton.onClick = [this] {
         processorRef.resetTransportTime();
-        if (curveEditor != nullptr) curveEditor->clearInputTrace();
+        if (curveEditor != nullptr)
+        {
+            curveEditor->clearInputTrace();
+            curveEditor->returnToStart();
+        }
     };
 
     setupIconButton(bypassButton, svgPower, true, "Bypass audio processing");
@@ -1372,6 +1376,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     curveEditor->setViewRange (16.0, 50.0f, 1000.0f);
     curveEditor->onRightClick = [this] (const juce::MouseEvent& e) {
         showPresetsMenu (&e);
+    };
+    // Ruler-click seek: forward the requested playhead time to the transport.
+    curveEditor->onSeek = [this] (double t) {
+        processorRef.seekToTime (t);
     };
 
     // Initialize tabs
@@ -1822,6 +1830,22 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     scaleKeyboard.setBounds(b1.removeFromTop(55).withSizeKeepingCentre(180, 55));
 }
 
+void OpenVoxTunerAudioProcessorEditor::parentHierarchyChanged()
+{
+    AudioProcessorEditor::parentHierarchyChanged();
+
+    // JUCE's StandaloneFilterWindow is created requesting only the minimise and close
+    // title-bar buttons (see juce_StandaloneFilterWindow.h), so the maximise button is
+    // absent even though the window is resizable. Re-add it once we are attached to the
+    // top-level Standalone window so it can be maximised like a normal desktop app.
+    // In a DAW host the top-level component is not a DocumentWindow, so the cast yields
+    // nullptr and this is a safe no-op.
+    if (auto* w = dynamic_cast<juce::DocumentWindow*> (getTopLevelComponent()))
+        w->setTitleBarButtonsRequired (juce::DocumentWindow::minimiseButton
+                                        | juce::DocumentWindow::maximiseButton
+                                        | juce::DocumentWindow::closeButton, false);
+}
+
 void OpenVoxTunerAudioProcessorEditor::timerCallback()
 {
     currentCpuUsage = processorRef.getCpuUsage();
@@ -2063,7 +2087,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
         if (delta > 0.5 && lastTransportTime > 0.0) // >0.5s jump = not normal playback
             curveEditor->clearInputTrace();
         lastTransportTime = now;
-        if (hzIn > 0.0f)
+        if (hzIn > 0.0f && curveEditor->getShowInputTrace())
             curveEditor->addInputTraceSample (now, hzIn);
     }
 
@@ -2903,6 +2927,17 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
             const_cast<std::atomic<float>*>(p)->store (next ? 1.0f : 0.0f);
     });
 
+    // Show Input Trace (ticked): toggles the live input pitch trace (red line).
+    // Off by default so the editable curve shows clean on launch without the
+    // audio-input trace (which may capture spurious signals).
+    const bool showInputTrace = curveEditor->getShowInputTrace();
+    menu.addItem (ovt::tr (ovt::Keys::kMenuShowInputTrace), true, showInputTrace, [this] {
+        if (curveEditor == nullptr)
+            return;
+        const bool next = ! curveEditor->getShowInputTrace();
+        curveEditor->setShowInputTrace (next);
+    });
+
     // Clean Curves: clears the pitch curve and resets the transport playhead.
     menu.addItem (ovt::tr (ovt::Keys::kMenuCleanCurves), [this] {
         if (curveEditor != nullptr) curveEditor->clearCurve();
@@ -2914,7 +2949,11 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
     const bool canResetPlayhead = ! processorRef.isBoundToARA_custom();
     menu.addItem (ovt::tr (ovt::Keys::kMenuResetPlayhead), canResetPlayhead, false, [this] {
         processorRef.resetTransportTime();
-        if (curveEditor != nullptr) curveEditor->clearInputTrace();
+        if (curveEditor != nullptr)
+        {
+            curveEditor->clearInputTrace();
+            curveEditor->returnToStart();
+        }
     });
 
     menu.addSeparator();
