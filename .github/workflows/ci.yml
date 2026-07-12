@@ -10,11 +10,14 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Checkout JUCE
         uses: actions/checkout@v4
         with:
           repository: juce-framework/JUCE
+          ref: 8.0.8
           path: JUCE
 
       - name: Configure (Windows)
@@ -39,6 +42,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: juce-framework/JUCE
+          ref: 8.0.8
           path: JUCE
 
       - name: Configure (macOS)
