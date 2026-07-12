@@ -26,7 +26,11 @@
 </p>
 
 <p align="center">
-  <em>Translations welcome &mdash; see <a href="#contributing">Contributing</a>.</em>
+  <a href="readme_i18n/README_fr_FR.md">Fran&ccedil;ais</a> &mdash;
+  <a href="readme_i18n/README_de_DE.md">Deutsch</a> &mdash;
+  <a href="readme_i18n/README_es_ES.md">Espa&ntilde;ol</a> &mdash;
+  <a href="readme_i18n/README_ja_JP.md">&#26085;&#26412;&#35486;</a> &mdash;
+  <a href="readme_i18n/README_zh_CN.md">&#20013;&#25991;</a>
 </p>
 
 ## Download
