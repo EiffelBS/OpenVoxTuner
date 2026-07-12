@@ -10,6 +10,9 @@ permissions:
 jobs:
   bump:
     runs-on: ubuntu-latest
+    # Prevent an infinite loop: the Release workflow commits latest.json back to
+    # main (as github-actions[bot]); that push must NOT trigger another bump.
+    if: github.actor != 'github-actions[bot]'
     steps:
       - uses: actions/checkout@v4
         with:

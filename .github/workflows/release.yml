@@ -30,6 +30,9 @@ permissions:
 jobs:
   windows-release:
     runs-on: windows-2022
+    env:
+      # Forward the tag (e.g. "v0.1.61") to the build script, which strips the "v".
+      OVT_VERSION: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,6 +76,7 @@ jobs:
           cmake -S . -B build-mac-release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DJUCE_PATH="${{ github.workspace }}/JUCE" \
+            -DOVT_VERSION="${GITHUB_REF_NAME#v}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
             -DOVT_ENABLE_AU=OFF
@@ -182,3 +186,17 @@ jobs:
             release-assets/OpenVoxTuner_Windows_Installer.exe
             release-assets/OpenVoxTuner-macOS.zip
             release-assets/OpenVoxTuner-macOS.pkg
+
+      - name: Update latest.json (update-checker version info)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VER="${GITHUB_REF_NAME#v}"
+          CONTENT=$(printf '{\n  "version": "%s",\n  "url": "https://github.com/EiffelBS/OpenVoxTuner/releases/latest"\n}\n' "$VER" | base64 -w0)
+          SHA=$(gh api repos/EiffelBS/OpenVoxTuner/contents/docs/releases/latest.json --jq '.sha')
+          gh api -X PUT repos/EiffelBS/OpenVoxTuner/contents/docs/releases/latest.json \
+            -f message="release: update latest.json to ${GITHUB_REF_NAME}" \
+            -f content="$CONTENT" \
+            -f sha="$SHA"
+        shell: bash

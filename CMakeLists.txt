@@ -5,7 +5,13 @@
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.22)
-project(OpenVoxTuner VERSION 0.1.0 LANGUAGES C CXX)
+
+# Single source of truth for the plugin version.
+# Override at build time with -DOVT_VERSION=1.2.3 (done by the release pipeline
+# so the shipped binaries and the update checker agree with the git tag).
+set(OVT_VERSION "0.1.0" CACHE STRING "OpenVoxTuner version (e.g. 0.1.61). Override with -DOVT_VERSION.")
+
+project(OpenVoxTuner VERSION ${OVT_VERSION} LANGUAGES C CXX)
 
 # Standard C++17 (Projucer utilise ce standard pour les plugins).
 set(CMAKE_CXX_STANDARD 17)
@@ -72,7 +78,7 @@ juce_add_plugin(OpenVoxTuner
     NEEDS_MIDI_INPUT TRUE
     IS_ARA_EFFECT TRUE             # Active le support ARA2 (Audio Random Access)
     PRODUCT_NAME "OpenVoxTuner"
-    VERSION 0.1.0
+    VERSION ${OVT_VERSION}
     ICON_BIG "assets/icon.png"
     ICON_SMALL "assets/icon.png")
 

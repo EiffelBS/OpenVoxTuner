@@ -69,9 +69,15 @@ if (-not $NoBuild) {
     }
 
     # Configure CMake
-    & $cmake -S $ProjectRoot -B $BuildDir -G "Visual Studio 17 2022" -A x64 `
-        -DCMAKE_BUILD_TYPE=Release `
-        -DJUCE_PATH="$JucePath"
+    $cmakeArgs = @("-S", $ProjectRoot, "-B", $BuildDir, "-G", "Visual Studio 17 2022", "-A", "x64",
+        "-DCMAKE_BUILD_TYPE=Release", "-DJUCE_PATH=$JucePath")
+    # Allow the release pipeline to inject the exact version (e.g. -DOVT_VERSION=0.1.61)
+    # so the shipped binaries report the correct version to the update checker.
+    if (-not [string]::IsNullOrWhiteSpace($env:OVT_VERSION)) {
+        $ovtVer = $env:OVT_VERSION -replace '^v', ''
+        $cmakeArgs += "-DOVT_VERSION=$ovtVer"
+    }
+    & $cmake @cmakeArgs
     if ($LASTEXITCODE -ne 0) {
         Write-Error "CMake configuration failed."
         exit $LASTEXITCODE
