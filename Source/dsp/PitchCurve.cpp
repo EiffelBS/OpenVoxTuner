@@ -166,8 +166,15 @@ namespace atdsp
         const int currentMidi = static_cast<int> (std::round (12.0f * std::log2 (hz / 440.0f))) + midiRef;
         const int noteInOctave = ((currentMidi % 12) + 12) % 12;
 
-        // Deja sur une note de la gamme : on conserve (sans correction finie).
-        if (intervals.contains (noteInOctave)) return hz;
+        // Deja sur une note de la gamme : on "quantifie" quand meme vers la
+        // frequence EXACTE de la note (et non la valeur brute cliquee), sinon
+        // le point reste ou il a ete pose (leger decalage) et l'effet "snap"
+        // n'est pas visible pour les notes de la gamme. C'est ce comportement
+        // qui faisait que D/G/A# (notes de la gamme) ne semblaient pas snapper
+        // alors que les notes hors-gamme (corrigees par la boucle circulaire
+        // plus bas) bougeaient bel et bien.
+        if (intervals.contains (noteInOctave))
+            return 440.0f * std::pow (2.0f, (currentMidi - midiRef) / 12.0f);
 
         auto circularDist = [] (int a, int b) -> int
         {

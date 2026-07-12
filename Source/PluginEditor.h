@@ -195,9 +195,11 @@ private:
     // controls to the toolbar so it no longer covers the ruler.
     juce::Label measuresLabel;
     juce::ComboBox measuresComboBox;
-    // Standalone transport (Play / Stop). Only meaningful when not driven by a DAW host.
+    // Standalone transport. A single play/pause toggle (Play icon when stopped,
+    // Stop icon when playing) plus a "Return to start" (rewind) button.
+    // Only meaningful when not driven by a DAW host.
     juce::DrawableButton playButton {"Play", juce::DrawableButton::ImageOnButtonBackground};
-    juce::DrawableButton stopButton {"Stop", juce::DrawableButton::ImageOnButtonBackground};
+    juce::DrawableButton rewindButton {"Rewind", juce::DrawableButton::ImageOnButtonBackground};
 
     // Update checker / release notification.
     juce::TextButton updateButton { "Check updates" };

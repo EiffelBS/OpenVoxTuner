@@ -84,6 +84,7 @@ namespace ovt
         static const char* kTooltipCurveOptions = "tooltip.curve_options";
         static const char* kTooltipPlay        = "tooltip.play";
         static const char* kTooltipStop        = "tooltip.stop";
+        static const char* kTooltipRewind      = "tooltip.rewind";
 
         // Tab keys
         static const char* kTabLive            = "tab.live";
@@ -346,6 +347,7 @@ namespace ovt
             { kTooltipCurveOptions, "Curve editor options" },
             { kTooltipPlay,        "Play (start the standalone timeline)" },
             { kTooltipStop,        "Stop (freeze the standalone timeline for editing)" },
+            { kTooltipRewind,      "Return to start (reset the playhead to the beginning)" },
             { kTabLive,            "Live" },
             { kTabCurveEditor,     "Curve Editor" },
             { kLabelSpeed,         "Speed (ms)" },
@@ -579,6 +581,7 @@ namespace ovt
             { kTooltipCurveOptions, "Options de l'editeur de courbe" },
             { kTooltipPlay,        "Lecture (demarrer la ligne temporelle standalone)" },
             { kTooltipStop,        "Stop (figer la ligne temporelle standalone pour l'edition)" },
+            { kTooltipRewind,      "Retour au debut (reinitialiser le playhead)" },
             { kTabLive,            "Live" },
             { kTabCurveEditor,     "Editeur de courbe" },
             { kLabelSpeed,         "Vitesse (ms)" },
@@ -812,6 +815,7 @@ namespace ovt
             { kTooltipCurveOptions, "Kurveneditor-Optionen" },
             { kTooltipPlay,        "Wiedergabe (Standalone-Zeitleiste starten)" },
             { kTooltipStop,        "Stopp (Standalone-Zeitleiste zum Bearbeiten einfrieren)" },
+            { kTooltipRewind,      "Zum Anfang (Playhead zuruecksetzen)" },
             { kTabLive,            "Live" },
             { kTabCurveEditor,     "Kurveneditor" },
             { kLabelSpeed,         "Geschwindigkeit (ms)" },
@@ -1045,6 +1049,7 @@ namespace ovt
             { kTooltipCurveOptions, "Opciones del editor de curva" },
             { kTooltipPlay,        "Reproducir (iniciar la linea de tiempo standalone)" },
             { kTooltipStop,        "Detener (congelar la linea de tiempo standalone para editar)" },
+            { kTooltipRewind,      "Volver al inicio (reiniciar el playhead)" },
             { kTabLive,            "En vivo" },
             { kTabCurveEditor,     "Editor de curva" },
             { kLabelSpeed,         "Velocidad (ms)" },
@@ -1278,6 +1283,7 @@ namespace ovt
             { kTooltipCurveOptions, "カーブエディタのオプション" },
             { kTooltipPlay,        "再生（スタンドアロンのタイムラインを開始）" },
             { kTooltipStop,        "停止（編集のためにスタンドアロンのタイムラインを停止）" },
+            { kTooltipRewind,      "最初に戻る（再生位置をリセット）" },
             { kTabLive,            "ライブ" },
             { kTabCurveEditor,     "カーブエディタ" },
             { kLabelSpeed,         "スピード (ms)" },

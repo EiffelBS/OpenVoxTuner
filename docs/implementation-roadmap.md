@@ -97,7 +97,7 @@
 
 - [x] Graphical pitch curve editing (click to add/move points)
 - [x] Time ruler with measures/beats
-- [x] Snap to scale (quantize points to scale notes) — bug fixed 2026-07-11: the snap now uses the authoritative scale interval set (same as the on-screen display). The real root cause was the Scale/Key ComboBox not updating the parameter (see entry below), so the snap used a stale/default scale; that binding is now fixed.
+- [x] Snap to scale (quantize points to scale notes) — bug fixed 2026-07-11: the snap now uses the authoritative scale interval set (same as the on-screen display). The real root cause was the Scale/Key ComboBox not updating the parameter (see entry below), so the snap used a stale/default scale; that binding is now fixed. Further fixed 2026-07-12: in-scale notes now snap to their exact pitch (not the raw clicked frequency), so all scale notes — including D4/G4/A#4 in C Natural Minor — lock onto the note instead of staying where clicked.
 - [x] Snap to grid (quantize points to beat grid)
 - [x] Step mode (staircase interpolation)
 - [x] Clear all points
@@ -108,14 +108,14 @@
 - [x] Preset curves for common use cases
 - [x] Harmony trace visualization
 - [x] Right-click preset menu
-- [x] Reset playhead button (standalone/VST3)
+- [x] Reset playhead button (standalone/VST3) — also exposed as a "Return to start" (rewind) toolbar button in Standalone (vertical bar + left-pointing triangle glyph) 2026-07-12.
 - [x] Undo/Redo buttons (visual UI complement to keyboard shortcuts)
 - [x] Scale note lines (horizontal reference lines for current scale notes)
 - [x] Curve Editor toolbar mirrors Visualizer view controls (Zoom In/Out, Scroll Up/Down, Reset View) + "Options" menu (Clean Curves, Reset Playhead, Curve Presets) 2026-07-11: snap/grid/step kept as direct toggle icons; clear/reset moved into the Options menu; zoom/scroll reuse the Visualizer's SVGs and pitch-zoom/pitch-pan semantics (matching the Visualizer and the Curve Editor's own wheel behavior).
 - [x] "Measures" combo + label moved onto the toolbar row (same line as Options menu and view icons) so it no longer covers the ruler 2026-07-12.
 - [x] "Curve Presets" promoted to a direct submenu of the Options menu (no extra click-to-open step) 2026-07-12.
 - [x] Options menu "Auto-Scroll" item is now a ticked toggle (replaces the old embedded checkbox+label) 2026-07-12.
-- [x] Standalone transport: Play / Stop buttons on the Curve Editor toolbar (standalone only) freeze/run the timeline so the curve can be edited while stopped 2026-07-12.
+- [x] Standalone transport: a single Play/Pause toggle (Play glyph when stopped, Stop glyph when playing) plus a "Return to start" (rewind) button on the Curve Editor toolbar (standalone only) 2026-07-12. The toggle freezes/runs the timeline so the curve can be edited while stopped; the rewind button resets the playhead and clears the input trace.
 - [x] Standalone tempo: "Tempo" submenu in the Options menu (standalone only) lets the user fix the BPM instead of being locked at 120 BPM; the fallback transport advances at the chosen tempo 2026-07-12.
 
 ## 6. Scale Keyboard Component

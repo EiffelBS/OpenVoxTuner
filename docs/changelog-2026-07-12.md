@@ -149,4 +149,87 @@ right of the "Curve Editor" tab and no longer overlap it.
 - In the Curve Editor tab, the Play/Stop buttons and the Measures control sit to the right of
   the "Curve Editor" tab label, with no overlap.
 
+## Bug Fix: SnapToScale did not snap scale notes to their exact pitch (D4 / G4 / A#4)
+
+### Problem
+With SnapToScale ON in the Curve Editor, dragging or double-clicking a point near a
+**scale** note (e.g. D4, G4, A#4 in C Natural Minor) did not "snap": the point stayed at
+the exact clicked frequency instead of being pulled onto the note. Off-scale notes, by
+contrast, visibly moved to the nearest scale note, so the snap appeared to work only for
+non-scale notes.
+
+### Root cause
+`atdsp::PitchCurve::snapToIntervals()` (in `Source/dsp/PitchCurve.cpp`) returned the raw
+clicked frequency whenever the note's pitch class was already a member of the interval set:
+
+```cpp
+if (intervals.contains (noteInOctave)) return hz;   // returned the raw clicked hz
+```
+
+So an in-scale note was left where it was clicked (a few cents off the true note), while
+an out-of-scale note was corrected by the circular-distance branch. That asymmetry is
+exactly what the user saw: scale notes "don't snap", off-scale notes do.
+
+### Fix
+When the note is already in the scale, the function now quantizes to the **exact** note
+frequency (the same pitch the off-scale branch already returns) instead of echoing the raw
+input:
+
+```cpp
+if (intervals.contains (noteInOctave))
+    return 440.0f * std::pow (2.0f, (currentMidi - midiRef) / 12.0f);
+```
+
+`currentMidi` is the nearest semitone to the clicked pitch, so the point now lands exactly
+on the scale note regardless of where inside the note's zone it was clicked. All 7 notes of
+C Natural Minor (and every other scale) snap to their exact pitch.
+
+### Files changed
+- `Source/dsp/PitchCurve.cpp` — `snapToIntervals()` returns the exact note pitch for in-scale
+  notes.
+- `test/dsp/PitchCurveTest.cpp` — new regression test asserting that clicking slightly off
+  D4 / G4 / A#4 (C Natural Minor) snaps to the exact note frequency, plus the existing
+  out-of-scale and empty-set behaviours. Linked by the `OpenVoxTunerTests` target.
+
+### Verification
+- `cmake --build build --config Release --target OpenVoxTunerTests` then run `OpenVoxTunerTests.exe`:
+  the `PitchCurve` suite (8 assertions) passes, including the new "Note de la gamme cliquee
+  legerement a cote : SNAP vers la note exacte" case. (The 4 pre-existing YIN headless-audio
+  failures are unrelated to this change.)
+- Manual: in C Natural Minor with SnapToScale ON, points placed anywhere near D4 / G4 / A#4
+  now lock to the exact note.
+
+## UI: Standalone transport — single Play/Pause toggle + "Return to start" (rewind) button
+
+### Change
+Per user request, the standalone transport no longer uses two buttons (Play + Stop). It is
+now a single **Play/Pause** toggle plus a **"Return to start"** (rewind) button:
+
+- **Play/Pause toggle**: shows the Play glyph (and "Play" tooltip) when stopped and the Stop
+  glyph (and "Stop" tooltip) when playing — i.e. the icon switches to its opposite action,
+  like a typical media control. Clicking toggles `processorRef.setTransportPlaying()`.
+- **"Return to start" (rewind)**: a vertical bar + left-pointing triangle glyph (classic DAW
+  skip-to-beginning icon). It calls `processorRef.resetTransportTime()` and
+  `curveEditor->clearInputTrace()` — the same action as the Options-menu "Reset Playhead".
+
+### Files changed
+- `Source/PluginEditor.h` — replaced the `stopButton` member with `rewindButton`.
+- `Source/PluginEditor.cpp`
+  - Added the `svgRewind` icon (Lucide-style 24x24 SVG).
+  - `playButton` is now set up manually with Play as the normal image set and Stop as the
+    "on" image set; `onClick` toggles transport state.
+  - New `rewindButton` (non-toggle) wired to `resetTransportTime()` + `clearInputTrace()`.
+  - `resized()` / visibility / `toFront` / `refreshLabels` updated: `rewindButton` replaces
+    `stopButton`; `playButton` tooltip is driven by state in `syncTransportButtons()`.
+  - `syncTransportButtons()` now swaps the Play/Stop glyph + tooltip from the processor's
+    playing state (no `stopButton` toggle remains).
+- `Source/ui/OVTLanguages.h` — added `kTooltipRewind` ("Return to start / reset playhead")
+  with EN/FR/DE/ES/JA translations.
+
+### Verification
+- VST3 and Standalone targets build cleanly (exit 0).
+- In Standalone Curve Editor: the toolbar shows [Play/Pause][Rewind] (left), then Measures.
+  Clicking Play switches the icon to Stop; clicking again switches back to Play. The rewind
+  button resets the playhead and clears the input trace.
+
 

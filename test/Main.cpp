@@ -11,6 +11,7 @@
 #include "dsp/RetargetEnvelopeTest.cpp"
 #include "dsp/FormantPreserverTest.cpp"
 #include "dsp/PitchCurveTest.cpp"
+#include "ScaleSnapPipelineTest.cpp"
 
 int main (int argc, char* argv[])
 {
