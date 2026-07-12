@@ -1,10 +1,14 @@
 name: Release
 
 # Builds OpenVoxTuner for Windows and macOS and publishes the artifacts as a
-# GitHub Release. No code signing is performed: the macOS artifact is an
-# unsigned zip containing the VST3 + Standalone (the AU is omitted because an
-# unsigned AU cannot be loaded by a DAW). This keeps distribution free and
-# open-source friendly.
+# GitHub Release. No code signing is performed:
+#   - macOS ships BOTH an unsigned zip (drag-and-drop) AND an unsigned .pkg
+#     installer (VST3 + Standalone in /Library/Audio/Plug-Ins and /Applications).
+#     The .pkg is unsigned, so Gatekeeper requires a right-click > Open (or
+#     `sudo installer -pkg ... -target /`) to install locally.
+#   - The AU is omitted from both macOS artifacts because an unsigned AU cannot
+#     be loaded by a DAW.
+# This keeps distribution free and open-source friendly.
 #
 # Triggers: push of a tag "v*" (e.g. v0.1.47) or manual dispatch.
 #
@@ -93,6 +97,18 @@ jobs:
           name: OpenVoxTuner-macOS
           path: OpenVoxTuner-macOS.zip
 
+      - name: Build macOS installer (.pkg, unsigned)
+        run: |
+          scripts/build_macos_pkg.sh --skip-build --build-dir build-mac-release \
+            --formats VST3,STANDALONE --version "${GITHUB_REF_NAME#v}" \
+            --output OpenVoxTuner-macOS.pkg
+
+      - name: Upload macOS installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenVoxTuner-macOS-Pkg
+          path: OpenVoxTuner-macOS.pkg
+
   publish-release:
     needs: [windows-release, macos-release]
     runs-on: ubuntu-latest
@@ -109,10 +125,17 @@ jobs:
           name: OpenVoxTuner-macOS
           path: release-assets
 
+      - name: Download macOS installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: OpenVoxTuner-macOS-Pkg
+          path: release-assets
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             release-assets/OpenVoxTuner_Windows_Installer.exe
             release-assets/OpenVoxTuner-macOS.zip
+            release-assets/OpenVoxTuner-macOS.pkg
           generate_release_notes: true
