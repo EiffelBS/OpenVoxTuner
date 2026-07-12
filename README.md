@@ -26,13 +26,27 @@
 </p>
 
 <p align="center">
-  <a href="readme_i18n/README_fr_FR.md">Fran&ccedil;ais</a> &mdash;
-  <a href="readme_i18n/README_de_DE.md">Deutsch</a> &mdash;
-  <a href="readme_i18n/README_es_ES.md">Espa&ntilde;ol</a> &mdash;
-  <a href="readme_i18n/README_ja_JP.md">&#26085;&#26412;&#35486;</a>
+  <em>Translations welcome &mdash; see <a href="#contributing">Contributing</a>.</em>
 </p>
 
+## Download
+
+OpenVoxTuner is distributed as GitHub Releases for each version:
+
+| Platform | Artifact | Notes |
+|----------|----------|-------|
+| Windows  | `OpenVoxTuner_Windows_Installer.exe` | Installer (Inno Setup) |
+| macOS    | `OpenVoxTuner-macOS.zip` | Drag-and-drop: VST3 + Standalone (universal arm64/x86_64) |
+| macOS    | `OpenVoxTuner-macOS.pkg` | Installer (unsigned): VST3 &rarr; `/Library/Audio/Plug-Ins/VST3`, Standalone &rarr; `/Applications` |
+
+> The macOS `.pkg` is **unsigned**. To install it, right-click &rarr; *Open*, or run
+> `sudo installer -pkg OpenVoxTuner-macOS.pkg -target /`.
+> The **AU** plugin is not included in the unsigned releases (an unsigned AU cannot be
+> loaded by a DAW); build it from source if you need it.
+
 ## Table of Contents
+
+- [Download](#download)
 
 - [Screenshots](#screenshots)
 - [Features](#features)
@@ -89,7 +103,7 @@
 ### Pitch Detection
 
 - **YIN** — time-domain autocorrelation (fast, low CPU, the only detector used)
-- SWIPE' and PYIN were evaluated and removed (see changelogs 2026-06-29, 2026-07-02)
+- SWIPE' and PYIN were evaluated and removed (kept YIN only for speed and stability)
 
 ### ARA2 Integration
 
@@ -197,8 +211,7 @@ OpenVoxTuner uses AI coding assistants to accelerate development, always under s
 ├─ test/                          # Unit tests (Catch2)
 │  ├─ Main.cpp
 │  └─ dsp/                        # Test suites per module
-├─ docs/                          # Documentation and changelogs
-│  ├─ changelogs/                 # Daily changelogs
+├─ docs/                        # Documentation
 │  ├─ releases/                   # Release notes (latest.json, v0.1.1.md)
 │  ├─ architecture.md
 │  ├─ default-parameters.md
@@ -336,11 +349,13 @@ Build AU:
 ./scripts/build_macos_au.sh --juce-path ~/dev/JUCE --install
 ```
 
-Build macOS `.pkg` installer (VST3 + AU + Standalone):
+Build macOS `.pkg` installer. The official releases ship **VST3 + Standalone** (the AU is omitted because an unsigned AU cannot be loaded by a DAW):
 
 ```bash
-./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE
+./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,STANDALONE
 ```
+
+To also include the AU component in a local build, add it to `--formats` (e.g. `VST3,AU,STANDALONE`).
 
 Detailed build guides:
 - [docs/MACOS_VST3_BUILD_GUIDE.md](docs/MACOS_VST3_BUILD_GUIDE.md)
@@ -351,9 +366,13 @@ Detailed build guides:
 | Format   | Windows | macOS |
 |----------|---------|-------|
 | VST3     | ✅      | ✅    |
-| AU       | —       | ✅    |
+| AU       | —       | ✅*   |
 | Standalone | ✅    | ✅    |
 | ARA2     | ✅      | ✅    |
+
+> \* The AU component is buildable from source, but is **not shipped** in the unsigned
+> releases — an unsigned AU cannot be loaded by a DAW on macOS. The distributed releases
+> include **VST3 + Standalone** on both platforms.
 
 ## Documentation
 
