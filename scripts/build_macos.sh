@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # build_macos.sh
 # Script de compilation macOS pour OpenVoxTuner.
-# Utilise ~/dev/JUCE par defaut et integre les flags de compatibilite
+# Utilise ~/dev/JUCE8 par defaut et integre les flags de compatibilite
 # pour SDK macOS 26.x "insider" (deployment target 11.0,
 # -Wno-unguarded-availability).
 #
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 # === Defaults ===
-JUCE_PATH="${JUCE_PATH:-$HOME/dev/JUCE}"
+JUCE_PATH="${JUCE_PATH:-$HOME/dev/JUCE8}"
 BUILD_DIR="build-mac"
 CONFIG="Release"
 ARCHS="arm64;x86_64"

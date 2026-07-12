@@ -5,7 +5,7 @@
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.22)
-project(OpenVoxTuner VERSION 0.1.0 LANGUAGES CXX)
+project(OpenVoxTuner VERSION 0.1.0 LANGUAGES C CXX)
 
 # Standard C++17 (Projucer utilise ce standard pour les plugins).
 set(CMAKE_CXX_STANDARD 17)
