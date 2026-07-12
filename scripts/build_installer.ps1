@@ -5,6 +5,12 @@ param (
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path $PSScriptRoot -Parent
+
+# Normalize the release version (strip a leading "v") for CMake / Inno Setup.
+$ovtVer = $null
+if (-not [string]::IsNullOrWhiteSpace($env:OVT_VERSION)) {
+    $ovtVer = $env:OVT_VERSION -replace '^v', ''
+}
 $BuildDir = Join-Path $ProjectRoot "build"
 if ([string]::IsNullOrWhiteSpace($JucePath)) {
     $JucePath = "C:\JUCE"
@@ -73,8 +79,7 @@ if (-not $NoBuild) {
         "-DCMAKE_BUILD_TYPE=Release", "-DJUCE_PATH=$JucePath")
     # Allow the release pipeline to inject the exact version (e.g. -DOVT_VERSION=0.1.61)
     # so the shipped binaries report the correct version to the update checker.
-    if (-not [string]::IsNullOrWhiteSpace($env:OVT_VERSION)) {
-        $ovtVer = $env:OVT_VERSION -replace '^v', ''
+    if (-not [string]::IsNullOrWhiteSpace($ovtVer)) {
         $cmakeArgs += "-DOVT_VERSION=$ovtVer"
     }
     & $cmake @cmakeArgs
@@ -148,9 +153,26 @@ if (-not (Test-Path $standalonePath)) {
 
 # 4. Generate the installer using Inno Setup
 Write-Host "`n[3/3] Generating Windows Installer (.exe)..." -ForegroundColor Cyan
-Push-Location $ProjectRoot
-& $iscc "installer\OpenVoxTuner.iss"
-Pop-Location
+$issPath = Join-Path $ProjectRoot "installer\OpenVoxTuner.iss"
+$issBackup = $null
+if (-not [string]::IsNullOrWhiteSpace($ovtVer)) {
+    # Patch AppVersion in place so the installer reports the real release version,
+    # then restore the original so the repo working tree stays clean.
+    $issBackup = "$issPath.bak"
+    Copy-Item $issPath $issBackup -Force
+    $issContent = Get-Content $issPath -Raw
+    $issContent = $issContent -replace '(?m)^AppVersion=.*', "AppVersion=$ovtVer"
+    Set-Content -Path $issPath -Value $issContent -NoNewline
+}
+try {
+    Push-Location $ProjectRoot
+    & $iscc "installer\OpenVoxTuner.iss"
+} finally {
+    Pop-Location
+    if ($issBackup -and (Test-Path $issBackup)) {
+        Move-Item $issBackup $issPath -Force
+    }
+}
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`nSUCCESS! Installer generated at:" -ForegroundColor Green

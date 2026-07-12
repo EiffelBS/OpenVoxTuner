@@ -6,6 +6,7 @@
 JuceLibraryCode/
 Builds/
 *.jucer.bak
+*.iss.bak
 
 # --- Visual Studio ---
 .vs/

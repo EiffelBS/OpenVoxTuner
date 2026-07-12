@@ -160,7 +160,7 @@ jobs:
               CHANGES="$(git log --no-merges --pretty=format:"%s|%h" "${PREV}..${CUR}" \
                 | while IFS='|' read -r subj hash; do
                     case "$subj" in
-                      ci:*|build:*|release:*|chore:*|docs:*|windows:*) continue ;;
+                      ci:*|build:*|release:*|chore:*|windows:*) continue ;;
                     esac
                     echo "  - ${subj} (${hash})"
                   done)"
