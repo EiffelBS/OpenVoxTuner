@@ -152,8 +152,18 @@ jobs:
             else
               echo "### Changements (${PREV} → ${CUR})"
               echo ""
-              git log --no-merges --pretty=format:"- %s (%h)" "${PREV}..${CUR}" \
-                | sed 's/^/  /'
+              CHANGES="$(git log --no-merges --pretty=format:"%s|%h" "${PREV}..${CUR}" \
+                | while IFS='|' read -r subj hash; do
+                    case "$subj" in
+                      ci:*|build:*|release:*|chore:*|docs:*|windows:*) continue ;;
+                    esac
+                    echo "  - ${subj} (${hash})"
+                  done)"
+              if [ -z "${CHANGES}" ]; then
+                echo "  _Aucun changement visible par l'utilisateur dans cette version (corrections internes / infrastructure)._"
+              else
+                echo "${CHANGES}"
+              fi
               echo ""
               echo ""
               echo "**Comparaison complète** : https://github.com/${{ github.repository }}/compare/${PREV}...${CUR}"
