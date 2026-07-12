@@ -113,6 +113,13 @@ jobs:
     needs: [windows-release, macos-release]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout (needed to build release notes from git history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          clean: false
+
       - name: Download Windows installer artifact
         uses: actions/download-artifact@v4
         with:
@@ -130,12 +137,6 @@ jobs:
         with:
           name: OpenVoxTuner-macOS-Pkg
           path: release-assets
-
-      - name: Checkout (needed to build release notes from git history)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
       - name: Build release notes
         id: notes
