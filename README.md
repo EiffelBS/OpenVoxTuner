@@ -67,17 +67,17 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 
 ## Screenshots
 
-<!-- TODO: replace these with the real plugin screenshots.
-     Save your PNGs in docs/screenshots/ (e.g. main-view.png, live-visualizer.png,
-     curve-editor.png). Until the files exist, the images below render as broken —
-     that is expected; this is just the markdown template to fill in later. -->
+<!-- Placeholder images (project owner authorized dummy images, 2026-07-12).
+     Replace the placehold.co URLs with real screenshots in docs/screenshots/
+     once available, e.g.
+     <img src="docs/screenshots/main-view.png" width="80%" alt="OpenVoxTuner main window"> -->
 
 <p align="center">
-  <img src="docs/screenshots/main-view.png" width="80%" alt="OpenVoxTuner main window — waveform with pitch-curve overlay">
+  <img src="https://placehold.co/960x540/15151f/e0e0e0?text=OpenVoxTuner+Main+View" width="80%" alt="OpenVoxTuner main window — placeholder">
 </p>
 <p align="center">
-  <img src="docs/screenshots/live-visualizer.png" width="45%" alt="Live Visualizer">
-  <img src="docs/screenshots/curve-editor.png" width="45%" alt="Curve Editor">
+  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Live+Visualizer" width="45%" alt="Live Visualizer — placeholder">
+  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Curve+Editor" width="45%" alt="Curve Editor — placeholder">
 </p>
 
 ## Features
