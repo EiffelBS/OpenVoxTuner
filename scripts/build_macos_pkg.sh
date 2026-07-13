@@ -174,62 +174,89 @@ if [[ "$SKIP_BUILD" == false ]]; then
 fi
 
 echo "[3/4] Préparation du contenu package..."
-PKGROOT="$BUILD_DIR/pkgroot"
-rm -rf "$PKGROOT"
-mkdir -p "$PKGROOT/Library/Audio/Plug-Ins"
 
-if [[ "$WANT_VST3" == true ]]; then
-  SRC_VST3="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/VST3/OpenVoxTuner.vst3"
-  [[ -d "$SRC_VST3" ]] || { echo "VST3 introuvable: $SRC_VST3" >&2; exit 1; }
-  mkdir -p "$PKGROOT/Library/Audio/Plug-Ins/VST3"
-  rsync -a --delete "$SRC_VST3" "$PKGROOT/Library/Audio/Plug-Ins/VST3/"
-fi
+# Each format is packaged as its own component so the installer can let the user
+# choose which ones to install (Standalone / VST3 / AU). Each component carries a
+# unique package identifier, and (patched to a unique CFBundleIdentifier in the
+# loop below) a unique bundle id, so relocation/upgrade stays unambiguous.
+# Entry fields: artefactDir|installRelPath|bundleName|pkgId|choiceId|title|description
+COMP_DIR="$BUILD_DIR/components"
+rm -rf "$COMP_DIR"
+mkdir -p "$COMP_DIR"
 
-if [[ "$WANT_AU" == true ]]; then
-  SRC_AU="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/AU/OpenVoxTuner.component"
-  [[ -d "$SRC_AU" ]] || { echo "AU introuvable: $SRC_AU" >&2; exit 1; }
-  mkdir -p "$PKGROOT/Library/Audio/Plug-Ins/Components"
-  rsync -a --delete "$SRC_AU" "$PKGROOT/Library/Audio/Plug-Ins/Components/"
-fi
+NL=$'\n'
+OVT_COMP_ENTRIES=()
+[[ "$WANT_STANDALONE" == true ]] && OVT_COMP_ENTRIES+=( "Standalone|Applications|OpenVoxTuner.app|com.eiffelbs.openvoxtuner.standalone|choice_standalone|Standalone (Application)|Application autonome OpenVoxTuner." )
+[[ "$WANT_VST3" == true ]]      && OVT_COMP_ENTRIES+=( "VST3|Library/Audio/Plug-Ins/VST3|OpenVoxTuner.vst3|com.eiffelbs.openvoxtuner.vst3|choice_vst3|VST3|Plug-in VST3 pour les DAW." )
+[[ "$WANT_AU" == true ]]        && OVT_COMP_ENTRIES+=( "AU|Library/Audio/Plug-Ins/Components|OpenVoxTuner.component|com.eiffelbs.openvoxtuner.au|choice_au|Audio Unit (AU)|Plug-in Audio Unit (macOS)." )
 
-if [[ "$WANT_STANDALONE" == true ]]; then
-  SRC_APP="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/Standalone/OpenVoxTuner.app"
-  [[ -d "$SRC_APP" ]] || { echo "Standalone introuvable: $SRC_APP" >&2; exit 1; }
-  mkdir -p "$PKGROOT/Applications"
-  rsync -a --delete "$SRC_APP" "$PKGROOT/Applications/"
-fi
+OUTLINE_XML=""
+CHOICES_XML=""
+PKG_REFS_XML=""
+
+for entry in "${OVT_COMP_ENTRIES[@]}"; do
+  IFS='|' read -r fmt dest_rel bundle_name pkg_id choice_id title desc <<< "$entry"
+
+  SRC="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/$fmt/$bundle_name"
+  [[ -d "$SRC" ]] || { echo "Bundle introuvable: $SRC" >&2; exit 1; }
+
+  root="$COMP_DIR/$fmt"
+  rm -rf "$root"
+  mkdir -p "$root/$(dirname "$dest_rel")"
+  rsync -a --delete "$SRC" "$root/$dest_rel/"
+
+  # JUCE assigns EVERY plugin format the SAME CFBundleIdentifier
+  # (com.EiffelBS.OpenVoxTuner, derived from the base target). The macOS Installer
+  # builds its relocation rules from that id; identical ids make it collapse the
+  # three bundles and abort with "Unable to move 'OpenVoxTuner.component' to
+  # 'Applications'". Patch each format's Info.plist with a UNIQUE id so the
+  # relocations stay unambiguous. (The host-facing plugin id comes from
+  # PLUGIN_CODE/MANUFACTURER_CODE, not the bundle id, so this is safe.)
+  PLIST="$root/$dest_rel/$bundle_name/Contents/Info.plist"
+  if [[ -f "$PLIST" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $pkg_id" "$PLIST"
+  else
+    echo "Info.plist introuvable: $PLIST" >&2
+    exit 1
+  fi
+
+  comp_pkg="$COMP_DIR/OpenVoxTuner-$fmt.pkg"
+  pkgbuild --root "$root" --identifier "$pkg_id" --version "$VERSION" \
+           --install-location "/" "$comp_pkg"
+
+  kb=$(( $(stat -f%z "$comp_pkg") / 1024 ))
+  PKG_REFS_XML+="    <pkg-ref id=\"$pkg_id\" version=\"$VERSION\" installKBytes=\"$kb\">#OpenVoxTuner-$fmt.pkg</pkg-ref>${NL}"
+  OUTLINE_XML+="        <line choice=\"$choice_id\"/>${NL}"
+  CHOICES_XML+="    <choice id=\"$choice_id\" visible=\"true\" title=\"$title\" description=\"$desc\">${NL}        <pkg-ref id=\"$pkg_id\"/>${NL}    </choice>${NL}"
+done
 
 PKG_DIR="$(dirname "$OUTPUT")"
 mkdir -p "$PKG_DIR"
-COMP_PKG="$BUILD_DIR/OpenVoxTuner-component.pkg"
 
-PKGBUILD_CMD=(pkgbuild
-  --root "$PKGROOT"
-  --identifier "$IDENTIFIER.plugins"
-  --version "$VERSION"
-  --install-location "/"
-  "$COMP_PKG")
+# Build a Distribution that presents one selectable choice per component.
+DIST="$COMP_DIR/Distribution.xml"
+cat > "$DIST" <<DISTEOF
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="1">
+    <title>OpenVoxTuner</title>
+    <options customize="always" allow-external-scripts="no"/>
+    <choices-outline>
+${OUTLINE_XML}    </choices-outline>
 
-if [[ -n "$SIGN_INSTALLER" ]]; then
-  PKGBUILD_CMD=(pkgbuild
-    --root "$PKGROOT"
-    --identifier "$IDENTIFIER.plugins"
-    --version "$VERSION"
-    --install-location "/"
-    --sign "$SIGN_INSTALLER"
-    "$COMP_PKG")
-fi
-
-"${PKGBUILD_CMD[@]}"
+${CHOICES_XML}
+${PKG_REFS_XML}</installer-gui-script>
+DISTEOF
 
 PRODUCTBUILD_CMD=(productbuild
-  --package "$COMP_PKG"
+  --distribution "$DIST"
+  --package-path "$COMP_DIR"
   "$OUTPUT")
 
 if [[ -n "$SIGN_INSTALLER" ]]; then
   PRODUCTBUILD_CMD=(productbuild
     --sign "$SIGN_INSTALLER"
-    --package "$COMP_PKG"
+    --distribution "$DIST"
+    --package-path "$COMP_DIR"
     "$OUTPUT")
 fi
 

@@ -88,6 +88,18 @@ juce_add_plugin(OpenVoxTuner
     ICON_BIG "assets/icon.png"
     ICON_SMALL "assets/icon.png")
 
+# NOTE on per-format bundle identifiers:
+# JUCE assigns every plugin format (Standalone / VST3 / AU) the SAME
+# CFBundleIdentifier, derived from the base target as "com.EiffelBS.OpenVoxTuner".
+# The macOS Installer builds its <relocate> rules from that id, so three identical
+# ids make it collapse the bundles and abort the install
+# ("Unable to move 'OpenVoxTuner.component' to 'Applications'"). A clean fix needs
+# a UNIQUE id per format. JUCE only exposes the base-target id (the per-format
+# targets are not used for plist generation), so the unique ids are patched into
+# each bundle's Info.plist at packaging time in scripts/build_macos_pkg.sh.
+# (Host-facing plugin IDs come from PLUGIN_CODE/MANUFACTURER_CODE, not the bundle
+# id, so this is safe.)
+
 # --- Build info generation ---
 # Create a small header with a build id and timestamp so the UI/log can show which build is loaded.
 string(TIMESTAMP BUILD_TIME "%Y-%m-%d %H:%M:%S")
