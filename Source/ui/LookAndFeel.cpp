@@ -168,7 +168,7 @@ namespace ui
             if (hasText)
             {
                 g.setFont(ovt::fontComboBox());
-                textWidth = g.getCurrentFont().getStringWidthFloat(text) + 8.0f; // 8px spacing
+                textWidth = juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), text) + 8.0f; // 8px spacing
             }
 
             float totalWidth = iconWidth + textWidth;
@@ -266,7 +266,7 @@ namespace ui
         juce::StringArray lines;
         lines.addLines (tipText);
         for (const auto& line : lines)
-            widestLine = juce::jmax (widestLine, ovt::fontTooltip().getStringWidth (line));
+            widestLine = juce::jmax (widestLine, static_cast<int> (juce::GlyphArrangement::getStringWidth (ovt::fontTooltip(), line)));
 
         int width = juce::jlimit (minWidth, maxWidth, widestLine + 16);
 

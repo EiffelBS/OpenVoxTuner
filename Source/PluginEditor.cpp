@@ -1542,7 +1542,7 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (titleFont);
     
     // Measure width dynamically to perfectly stick the two words together
-    int openVoxWidth = titleFont.getStringWidth("OpenVox");
+    int openVoxWidth = static_cast<int> (juce::GlyphArrangement::getStringWidth (titleFont, "OpenVox"));
     
     // "OpenVox" in Accent Color
     g.setColour (ovt::accent());
@@ -1550,7 +1550,7 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     
     // "Tuner" in White
     g.setColour (ovt::text());
-    int tunerWidth = titleFont.getStringWidth("Tuner");
+    int tunerWidth = static_cast<int> (juce::GlyphArrangement::getStringWidth (titleFont, "Tuner"));
     g.drawText ("Tuner", 60 + openVoxWidth, 8, tunerWidth, 36, juce::Justification::centredLeft);
 
     g.setColour (ovt::textDim());
@@ -1671,7 +1671,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     }
     // "Measures" control (number of measures shown in the curve editor time window).
     // Kept on the toolbar row so it no longer covers the ruler.
-    const int measuresLabelW = static_cast<int> (measuresLabel.getFont().getStringWidth (measuresLabel.getText())) + 6;
+    const int measuresLabelW = static_cast<int> (juce::GlyphArrangement::getStringWidth (measuresLabel.getFont(), measuresLabel.getText())) + 6;
     measuresLabel.setBounds (toolsArea.removeFromLeft (measuresLabelW));
     toolsArea.removeFromLeft(4);
     measuresComboBox.setBounds (toolsArea.removeFromLeft (56));
@@ -1753,8 +1753,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // system font (SF Pro), which made the fixed 28/52px boxes clip "Flex" and
     // "Humanize" to "Fl..." / "Hum...". Measuring keeps the text fully visible
     // on every platform and for every translation.
-    const int flexLabelW  = static_cast<int> (flexTuneLabel.getFont().getStringWidth (flexTuneLabel.getText())) + 6;
-    const int humanLabelW = static_cast<int> (humanizeLabel.getFont().getStringWidth (humanizeLabel.getText())) + 6;
+    const int flexLabelW  = static_cast<int> (juce::GlyphArrangement::getStringWidth (flexTuneLabel.getFont(), flexTuneLabel.getText())) + 6;
+    const int humanLabelW = static_cast<int> (juce::GlyphArrangement::getStringWidth (humanizeLabel.getFont(), humanizeLabel.getText())) + 6;
 
     // FlexTune: label tight to the left, then knob fills the rest
     auto flexCol = smallArea.removeFromLeft(smallHalf);

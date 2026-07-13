@@ -529,7 +529,7 @@ namespace ui
             const juce::String hzText = juce::String (static_cast<int> (std::round (hoverHz))) + " Hz";
             const juce::String readout = noteName + "  " + hzText;
             g.setFont (ovt::fontReadout());
-            const int textW = g.getCurrentFont().getStringWidth (readout);
+            const int textW = static_cast<int> (juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), readout));
             const int boxW = textW + 10;
             const int boxH = 16;
             int boxX = plotArea.getX() + 4;
