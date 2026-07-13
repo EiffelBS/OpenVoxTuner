@@ -67,12 +67,18 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 
 ## Screenshots
 
-<!-- Add screenshots here:
+<!-- TODO: replace these with the real plugin screenshots.
+     Save your PNGs in docs/screenshots/ (e.g. main-view.png, live-visualizer.png,
+     curve-editor.png). Until the files exist, the images below render as broken —
+     that is expected; this is just the markdown template to fill in later. -->
+
+<p align="center">
+  <img src="docs/screenshots/main-view.png" width="80%" alt="OpenVoxTuner main window — waveform with pitch-curve overlay">
+</p>
 <p align="center">
   <img src="docs/screenshots/live-visualizer.png" width="45%" alt="Live Visualizer">
   <img src="docs/screenshots/curve-editor.png" width="45%" alt="Curve Editor">
 </p>
--->
 
 ## Features
 
