@@ -1981,7 +1981,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // Update edit state and playhead
     if (curveEditor != nullptr) {
         curveEditor->setEditorEnabled(tabIndex == 1);
-        curveEditor->setPlayheadTime(processorRef.getTransportTime(), processorRef.getIsPlaying());
+        curveEditor->setPlayheadTime(processorRef.getLoopTransportTime(), processorRef.getIsPlaying(), processorRef.isPlayheadLooping());
         // Propagate time signature (Feature 1) — read from processor
         int num = processorRef.getCurrentTimeSigNumerator();
         int den = processorRef.getCurrentTimeSigDenominator();
@@ -2082,7 +2082,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
     {
         curveEditor->getPianoKeyboard().setCurrentPitches (hzIn, hzOut);
         // Detect DAW transport jump (loop, seek) and clear trace
-        const double now = processorRef.getTransportTime();
+        const double now = processorRef.getLoopTransportTime();
         const double delta = std::abs (now - lastTransportTime);
         if (delta > 0.5 && lastTransportTime > 0.0) // >0.5s jump = not normal playback
             curveEditor->clearInputTrace();
@@ -2925,6 +2925,18 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
         curveEditor->setAutoScroll (next);
         if (auto* p = processorRef.getParameters().getRawParameterValue ("auto_scroll"))
             const_cast<std::atomic<float>*>(p)->store (next ? 1.0f : 0.0f);
+    });
+
+    // Loop Playhead (Measures): in ARA the host owns the timeline (disabled,
+    // follows host); in Standalone the playhead always loops on the Measures
+    // window (disabled, ticked); in plugin mode the user chooses (enabled).
+    const bool isARA = processorRef.isBoundToARA_custom();
+    const bool loopItemEnabled = ! isARA && ! isStandalone;
+    const bool loopItemTicked = isARA ? false : (isStandalone ? true : processorRef.getPlayheadLoop());
+    menu.addItem (ovt::tr (ovt::Keys::kMenuLoopPlayhead), loopItemEnabled, loopItemTicked, [this] {
+        if (curveEditor == nullptr)
+            return;
+        processorRef.setPlayheadLoop (! processorRef.getPlayheadLoop());
     });
 
     // Show Input Trace (ticked): toggles the live input pitch trace (red line).

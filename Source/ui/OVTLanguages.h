@@ -81,6 +81,7 @@ namespace ovt
         static const char* kMenuCurvePresets   = "menu.curve_presets";
         static const char* kMenuAutoScroll     = "menu.auto_scroll";
         static const char* kMenuShowInputTrace = "menu.show_input_trace";
+        static const char* kMenuLoopPlayhead   = "menu.loop_playhead";
         static const char* kMenuTempo          = "menu.tempo";
         static const char* kTooltipCurveOptions = "tooltip.curve_options";
         static const char* kTooltipPlay        = "tooltip.play";
@@ -345,6 +346,7 @@ namespace ovt
             { kMenuCurvePresets,   "Curve Presets" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Show Input Trace" },
+            { kMenuLoopPlayhead,   "Loop Playhead (Measures)" },
             { kMenuTempo,          "Tempo" },
             { kTooltipCurveOptions, "Curve editor options" },
             { kTooltipPlay,        "Play (start the standalone timeline)" },
@@ -580,6 +582,7 @@ namespace ovt
             { kMenuCurvePresets,   "Presets de courbe" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Afficher la trace d'entree" },
+            { kMenuLoopPlayhead,   "Boucle playhead (Mesures)" },
             { kMenuTempo,          "Tempo" },
             { kTooltipCurveOptions, "Options de l'editeur de courbe" },
             { kTooltipPlay,        "Lecture (demarrer la ligne temporelle standalone)" },
@@ -815,6 +818,7 @@ namespace ovt
             { kMenuCurvePresets,   "Kurven-Presets" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Eingangsspur anzeigen" },
+            { kMenuLoopPlayhead,   "Playhead-Schleife (Takte)" },
             { kMenuTempo,          "Tempo" },
             { kTooltipCurveOptions, "Kurveneditor-Optionen" },
             { kTooltipPlay,        "Wiedergabe (Standalone-Zeitleiste starten)" },
@@ -1050,6 +1054,7 @@ namespace ovt
             { kMenuCurvePresets,   "Presets de curva" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Mostrar traza de entrada" },
+            { kMenuLoopPlayhead,   "Bucle playhead (Compases)" },
             { kMenuTempo,          "Tempo" },
             { kTooltipCurveOptions, "Opciones del editor de curva" },
             { kTooltipPlay,        "Reproducir (iniciar la linea de tiempo standalone)" },
@@ -1285,6 +1290,7 @@ namespace ovt
             { kMenuCurvePresets,   "カーブプリセット" },
             { kMenuAutoScroll,     "自動スクロール" },
             { kMenuShowInputTrace, "入力トレースを表示" },
+            { kMenuLoopPlayhead,   "ループ再生 (小節)" },
             { kMenuTempo,          "テンポ" },
             { kTooltipCurveOptions, "カーブエディタのオプション" },
             { kTooltipPlay,        "再生（スタンドアロンのタイムラインを開始）" },

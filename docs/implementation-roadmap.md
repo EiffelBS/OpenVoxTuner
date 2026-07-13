@@ -1,6 +1,6 @@
 # OpenVoxTuner - Implementation Roadmap
 
-> Last updated: 2026-07-12 CEST
+> Last updated: 2026-07-13 CEST
 
 ## Legend
 
@@ -14,6 +14,7 @@
 
 - [x] Pitch detection (YIN algorithm)
 - [x] Pitch detection (YIN algorithm) — robustness fix 2026-07-12: replaced the over-strict `numSamples < maxLag * 2` guard (which returned 0 for 2048-sample buffers at 44.1 kHz, failing the 440/220 Hz unit tests) with an adaptive `searchMax = min(maxLag, numSamples/2)` range, applied to both `PitchDetector.cpp` (test) and `YinPitchDetector.cpp` (production); unit tests now 52 OK / 0 KO.
+- [x] Standalone transport clock ran slow (lost per-block increments through the 10 ms host-time cache) 2026-07-12: in Standalone `currentTime` is now re-based on `transportTime` every block (not the stale `cachedTransportTime`), so the standalone tempo matches the DAW (8 s to ruler label "5" at 120 BPM instead of ~32 s); host/ARA path unchanged.
 - [x] Pitch detection (YIN algorithm — SWIPE'/PYIN evaluated and removed)
 - [x] Pitch shifting (PSOLA)
 - [x] Formant preservation
@@ -65,6 +66,7 @@
 - [x] PresetMorpher interpolation engine (header-only, captures/applies/morphs states + PitchCurves)
 - [x] DAW automation coexistence: morph no longer overwrites parameters driven by concurrent host automation (e.g. speed/amount lanes running alongside a morph automation lane)
 - [x] Morph slider A<->B toggle bug fixed 2026-07-11: the external-automation exclusion map (`lastMorphIntendedValues`) was not cleared on slot switch, so toggling A<->B several times accumulated exclusions until the slider had no effect. Now cleared on slot switch and on the A->B context-menu action.
+- [x] Stray green curve on A/B slot switch fixed 2026-07-13: `interpolateCurves` (PresetMorpher.h) resampled over a fixed `timeRange = 10.0` SECONDS while the whole PitchCurve system works in BEATS (PPQ) — editor axis, DSP `getPitchAt(transportTime)`, user-drawn points. Switching slots triggers a morph via the automatable `morph_amount` param (timerCallback -> onMorphSliderChanged), so every curve was stretched/truncated to ~0..10 "beats" (≈ ruler "3.3") producing a garbled, over-dense curve persisted into the settings `PITCH_CURVE` (which is why deleting the settings file fixed it before). Fix: resample over the union time span of the two input curves, in beats. Unit test added in PitchCurveTest.cpp.
 - [x] Keyboard shortcuts help overlay (? key or hamburger menu)
 
 ## 4. UI / GUI - Pitch Visualizer (Live Tab)
@@ -123,6 +125,13 @@
 - [x] Reset Playhead reliability fix: new `returnToStart()` resets the scroll offset AND the playhead on the first click (icon + Options menu) in every context; the earlier 3–4 click defect came from the view only snapping back via `setPlayheadTime`'s >0.5-beat seek detector, leaving the playhead off-screen when auto-scroll was OFF 2026-07-12.
 - [x] Ruler click moves the playhead to the clicked position, quantized to the project grid (0.5 beat); works in Curve and Live modes; `onSeek` callback bridges editor → transport (DAW/standalone) 2026-07-12.
 - [x] Middle-button drag horizontal scroll (beats) in the curve editor + ruler, active only when auto-scroll is OFF; hand cursor + yellow feedback overlay while dragging; `clampScrollOffset` bounds the scroll to >= 0 2026-07-12.
+- [x] Curve Editor playhead loop mode (per transport context) 2026-07-12:
+  - ARA: playhead follows the DAW (unchanged).
+  - Standalone: playhead loops within the Measures window `[0, measuresVisible * ppqPerBar]` (end of beat 4 for "4 Measures" in 4/4 = 16 beats).
+  - Plugin (VST3, non-ARA): user choice between "Follow host" (default) and "Loop (Measures)" via a new Options-menu ticked item "Loop Playhead (Measures)" (disabled/greyed in ARA and Standalone, reflecting the forced mode).
+  - The loop length is shared by the playhead display AND the graphic pitch-curve sampling (replaces the hardcoded `fmod(currentTime, 16.0)` at PluginProcessor.cpp:1080), so playhead and curve loop on the same window. `transportTime` stays monotonic; a derived wrapped time (`getLoopTransportTime()`) is used for display/trace/sampling.
+  - New parameter `editor_playhead_loop` (default = false / Follow). Effective mode derived in `isPlayheadLooping()` (ARA→follow, standalone→loop, plugin→param).
+  - Edge case handled: at the loop wrap boundary with auto-scroll ON, the `L -> 0` jump is treated as normal advance (not a seek) to avoid a recadrage flicker each loop.
 
 ## 6. Scale Keyboard Component
 

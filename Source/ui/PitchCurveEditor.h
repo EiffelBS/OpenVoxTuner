@@ -143,7 +143,7 @@ namespace ui
 
         /// Definit la position du playhead (en PPQ) et l'etat de lecture
         /// du DAW. L'auto-scroll n'est actif que si le DAW joue vraiment.
-        void setPlayheadTime (double time, bool isHostPlaying);
+        void setPlayheadTime (double time, bool isHostPlaying, bool isLooping = false);
 
         /// Replace le playhead au debut et fait defiler la vue pour reveler le
         /// temps 0. Utilise par le bouton "Retour au debut" et l'item de menu

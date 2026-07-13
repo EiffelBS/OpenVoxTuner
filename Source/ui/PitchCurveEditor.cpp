@@ -1280,7 +1280,7 @@ namespace ui
         repaint();
     }
 
-    void PitchCurveEditor::setPlayheadTime (double time, bool /*isHostPlaying*/)
+    void PitchCurveEditor::setPlayheadTime (double time, bool /*isHostPlaying*/, bool isLooping)
     {
         // === Detect playing transitions for trace cleanup ===
         const bool playing = (time != playheadTime); // transport is advancing
@@ -1298,7 +1298,11 @@ namespace ui
         // in the transport position, whereas normal playback only advances by a few
         // hundredths of a beat per frame. We use this to tell the two apart.
         const double delta = time - playheadTime;
-        const bool isSeek = std::abs (delta) > 0.5;
+        // When looping, the wrap (L -> 0) looks like a large backward jump. Treat a
+        // near-full-window backward jump as normal advance (not a seek) so the
+        // auto-scroll follow is not interrupted / snapped at every loop boundary.
+        const bool isWrap = isLooping && (delta < 0.0) && (std::abs (delta) > timeVisible * 0.9);
+        const bool isSeek = (std::abs (delta) > 0.5) && ! isWrap;
 
         if (autoScrollEnabled)
         {

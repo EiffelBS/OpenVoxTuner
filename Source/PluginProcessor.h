@@ -113,6 +113,16 @@ public:
     bool isBoundToARA_custom() const { return isBoundToARA(); }
     bool isStandaloneWrapper() const { return wrapperType == juce::AudioProcessor::wrapperType_Standalone; }
 
+    // Curve Editor playhead loop mode.
+    //  - ARA:                follows the host timeline (no internal loop).
+    //  - Standalone:         always loops within the Measures window.
+    //  - Plugin (VST3/AU):   user choice via the editor_playhead_loop parameter.
+    bool isPlayheadLooping() const;
+    double getLoopLengthBeats() const;
+    double getLoopTransportTime() const;
+    bool getPlayheadLoop() const { return editorPlayheadLoopParam != nullptr && editorPlayheadLoopParam->load() > 0.5f; }
+    void setPlayheadLoop (bool on) { if (editorPlayheadLoopParam) const_cast<std::atomic<float>*>(editorPlayheadLoopParam)->store (on ? 1.0f : 0.0f); }
+
     // Parameter tree access (for the editor).
     juce::AudioProcessorValueTreeState& getParameters() { return parameters; }
 
@@ -208,6 +218,7 @@ private:
     std::atomic<float>* harmonyToneColorParam = nullptr; // synth harmony tone color (continuous)
     std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
+    std::atomic<float>* editorPlayheadLoopParam = nullptr; // Curve Editor playhead loop (0=follow host, 1=loop on Measures)
     std::atomic<float>* reverbEnableParam = nullptr; // Reverb on/off
     std::atomic<float>* reverbMixParam = nullptr;   // Reverb wet mix (0-1)
     std::atomic<float>* noiseGateEnableParam = nullptr;    // Noise gate on/off

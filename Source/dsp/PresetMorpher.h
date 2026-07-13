@@ -110,13 +110,25 @@ namespace atdsp
         PitchCurve result;
         result.clear();
 
-        // Default editor time range in seconds
-        const double timeRange = 10.0;
+        // The whole PitchCurve system works in BEATS (PPQ): the editor time
+        // axis, the DSP (getPitchAt is fed transportTime in beats) and
+        // user-drawn points are all expressed in beats. Resampling over a
+        // fixed SECOND-based range (the old 10.0 s) therefore stretched/truncated
+        // every curve to the wrong time span, producing a garbled, over-dense
+        // "stray green curve" when switching A/B slots (which triggers a morph
+        // via the automatable morph_amount parameter). We now resample over the
+        // union time span of the two curves, in beats.
+        const double maxA = a.getNumPoints() > 0 ? a.getPoint (a.getNumPoints() - 1).time : 0.0;
+        const double maxB = b.getNumPoints() > 0 ? b.getPoint (b.getNumPoints() - 1).time : 0.0;
+        const double maxTime = juce::jmax (maxA, maxB);
+
+        // Nothing meaningful to interpolate if both curves are empty.
+        if (maxTime <= 0.0)
+            return result;
 
         for (int i = 0; i < N; ++i)
         {
-            const double normTime = (double) i / (double) (N - 1);
-            const double time = normTime * timeRange;
+            const double time = (double) i / (double) (N - 1) * maxTime;
 
             const float pitchA = a.getPitchAt (time, 0.0f);
             const float pitchB = b.getPitchAt (time, 0.0f);

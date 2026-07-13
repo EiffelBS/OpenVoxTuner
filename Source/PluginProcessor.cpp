@@ -358,6 +358,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterInt> (
                             "editor_measures", "Editor Measures", 1, 32, 4)
                       , std::make_unique<juce::AudioParameterBool> (
+                            "editor_playhead_loop", "Editor Playhead Loop", false)
+                      , std::make_unique<juce::AudioParameterBool> (
                             "auto_scroll", "Auto Scroll", true)
                       , std::make_unique<juce::AudioParameterChoice> (
                             "pitch_detector", "Pitch Detector",
@@ -428,6 +430,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     morphAmountParam = parameters.getRawParameterValue ("morph_amount");
     morphParam = dynamic_cast<juce::AudioParameterFloat*>(parameters.getParameter ("morph_amount"));
     editorMeasuresParam = parameters.getRawParameterValue ("editor_measures");
+    editorPlayheadLoopParam = parameters.getRawParameterValue ("editor_playhead_loop");
     detectorParam = parameters.getRawParameterValue ("pitch_detector");
     reverbEnableParam = parameters.getRawParameterValue ("reverb_enable");
     reverbMixParam = parameters.getRawParameterValue ("reverb_mix");
@@ -879,7 +882,12 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         // Utilise la valeur en cache pour eviter les appels synchrones
         // au DAW (getPlayHead) qui degraderaient les performances temps reel.
-        currentTime = cachedTransportTime.load();
+        // En Standalone (aucun host), on se base sur transportTime pour que
+        // l'avance de CHAQUE block s'accumule correctement : la cache 10 ms
+        // ferait sinon perdre les blocks intermediaires et ralentirait
+        // l'horloge (facteur dependant de la taille de block, ~4x a 48 kHz /
+        // 120 echantillons). Le mode host garde la valeur en cache.
+        currentTime = hostProvidesTime ? cachedTransportTime.load() : transportTime.load();
     }
 
       rawHostTime.store(currentTime);
@@ -1076,8 +1084,13 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             // === Mode GRAPHIC : on suit la pitch curve dessinee ===
             // En Standalone, transportTime continue d'augmenter a l'infini.
-            // On boucle sur 16 beats (4 mesures de 4/4).
-            double currentTransportTime = std::fmod(currentTime, 16.0);
+            // On boucle la lecture de la courbe sur la meme fenetre que le
+            // playhead quand la boucle est active (standalone, ou plugin en
+            // mode Loop) ; en ARA / plugin-follow, c'est la position DAW qui
+            // pilote la courbe (pas de wrap). La longueur vaut par defaut
+            // 16 beats (4 mesures 4/4), identique a l'ancien fmod(..., 16.0).
+            const double loopLen = isPlayheadLooping() ? getLoopLengthBeats() : 0.0;
+            const double currentTransportTime = (loopLen > 0.0) ? std::fmod (currentTime, loopLen) : currentTime;
             f0_target = pitchCurve->getPitchAt (currentTransportTime, f0_in);
         }
         else
@@ -1746,6 +1759,38 @@ void OpenVoxTunerAudioProcessor::getTimeSignatureAt (double ppq, int& num, int& 
     num = currentTimeSigNumerator.load();
     den = currentTimeSigDenominator.load();
 }
+
+// === Curve Editor playhead loop mode ===
+bool OpenVoxTunerAudioProcessor::isPlayheadLooping() const
+{
+    if (isBoundToARA())                                   // ARA: follow the host timeline
+        return false;
+    if (wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+        return true;                                      // Standalone: always loop
+    return getPlayheadLoop();                             // Plugin: user choice
+}
+
+double OpenVoxTunerAudioProcessor::getLoopLengthBeats() const
+{
+    const double measures = editorMeasuresParam != nullptr ? editorMeasuresParam->load() : 4.0;
+    const int num = currentTimeSigNumerator.load();
+    const int den = currentTimeSigDenominator.load();
+    const double beatUnit = 4.0 / (den > 0 ? static_cast<double> (den) : 4.0);
+    return measures * static_cast<double> (num) * beatUnit;   // = measures * ppqPerBar
+}
+
+double OpenVoxTunerAudioProcessor::getLoopTransportTime() const
+{
+    double t = transportTime.load();
+    if (isPlayheadLooping())
+    {
+        const double L = getLoopLengthBeats();
+        if (L > 0.0)
+            t = std::fmod (t, L);
+    }
+    return t;
+}
+
 
 // === Detection de pitch sur le bloc courant via FIFO glissante ===
 float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<float>& buffer)
