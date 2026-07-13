@@ -65,6 +65,11 @@ namespace ui
         }
 
         addAndMakeVisible (pianoKeyboard);
+        // The piano keyboard is display-only: do NOT let it swallow mouse
+        // events (wheel / pinch) meant for the visualizer, which would block
+        // scroll & zoom when the cursor is over the left piano strip.
+        // Mirrors the Curve Editor's setup.
+        pianoKeyboard.setInterceptsMouseClicks (false, false);
         pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (fMin)),
                                 static_cast<int> (atdsp::hzToMidiFloat (fMax)));
 
@@ -669,6 +674,12 @@ namespace ui
 
     void PitchVisualizer::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
     {
+        // If a pinch (mouseMagnify) is in progress, the trackpad may also emit a
+        // smooth scroll from finger translation. Let the pinch own the gesture and
+        // ignore the concurrent scroll so zoom and scroll don't fight.
+        if (juce::Time::getMillisecondCounter() - lastMagnifyMs < 120)
+            return;
+
         float scrollAmount = wheel.deltaY;
 
         if (e.mods.isCtrlDown() || e.mods.isCommandDown())
@@ -687,21 +698,65 @@ namespace ui
             float halfRangeLog = (newRangeCents / 1200.0f) * std::log (2.0f) / 2.0f;
             float centerLog = std::log (centerPitch);
 
-            targetFMin = std::exp (centerLog - halfRangeLog);
-            targetFMax = std::exp (centerLog + halfRangeLog);
+            fMin = targetFMin = std::exp (centerLog - halfRangeLog);
+            fMax = targetFMax = std::exp (centerLog + halfRangeLog);
         }
         else
         {
             float currentRangeLog = std::log (fMax / fMin);
             float shiftLog = scrollAmount * currentRangeLog * 0.5f;
-            targetFMin = std::exp (std::log (fMin) + shiftLog);
-            targetFMax = std::exp (std::log (fMax) + shiftLog);
+            fMin = targetFMin = std::exp (std::log (fMin) + shiftLog);
+            fMax = targetFMax = std::exp (std::log (fMax) + shiftLog);
         }
 
-        if (targetFMin < 16.35f) { float r = targetFMax / targetFMin; targetFMin = 16.35f; targetFMax = targetFMin * r; }
-        if (targetFMax > 8372.0f) { float r = targetFMax / targetFMin; targetFMax = 8372.0f; targetFMin = targetFMax / r; }
+        if (targetFMin < 16.35f) { float r = targetFMax / targetFMin; targetFMin = fMin = 16.35f; targetFMax = fMax = targetFMin * r; }
+        if (targetFMax > 8372.0f) { float r = targetFMax / targetFMin; targetFMax = fMax = 8372.0f; targetFMin = fMin = targetFMax / r; }
 
-        animating = true;
+        // Apply immediately (no animation) so trackpad gestures feel as responsive
+        // as the Curve Editor. The animated transition is kept for the toolbar
+        // buttons only.
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (fMin)),
+                                static_cast<int> (atdsp::hzToMidiFloat (fMax)));
+        animating = false;
+        repaint();
+    }
+
+    void PitchVisualizer::mouseMagnify (const juce::MouseEvent& e, float scaleFactor)
+    {
+        lastMagnifyMs = juce::Time::getMillisecondCounter();
+
+        // macOS trackpad pinch: scaleFactor > 1 => pinch out => zoom in (narrower
+        // range). Mirrors the Curve Editor's mouseMagnify/applyZoom. Zoom is
+        // centred on the pitch under the cursor (or the view centre).
+        const int headerH = juce::jmin (50, getHeight() / 4);
+        const int pianoW = pianoKeyboard.getWidth() > 0 ? pianoKeyboard.getWidth() : 60;
+        const auto plotArea = juce::Rectangle<int> (pianoW, headerH, getWidth() - pianoW, getHeight() - headerH);
+
+        const float anchor = (e.position.y >= plotArea.getY() && e.position.y <= plotArea.getBottom())
+                                    ? yToHz (static_cast<float> (e.position.y - plotArea.getY()), plotArea.getHeight())
+                                    : std::sqrt (fMin * fMax);
+
+        // Multiplicative zoom: range /= scaleFactor (same convention as the
+        // Curve Editor, so pinch-out zooms in).
+        float currentRangeCents = 1200.0f * std::log2 (fMax / fMin);
+        float newRangeCents = currentRangeCents / juce::jlimit (0.1f, 10.0f, scaleFactor);
+        if (newRangeCents < 1200.0f)         newRangeCents = 1200.0f;
+        if (newRangeCents > 1200.0f * 8.0f) newRangeCents = 1200.0f * 8.0f;
+
+        const float halfRangeLog = (newRangeCents / 1200.0f) * std::log (2.0f) / 2.0f;
+        const float centerLog = std::log (anchor);
+        fMin = targetFMin = std::exp (centerLog - halfRangeLog);
+        fMax = targetFMax = std::exp (centerLog + halfRangeLog);
+
+        if (targetFMin < 16.35f) { float r = targetFMax / targetFMin; targetFMin = fMin = 16.35f; targetFMax = fMax = targetFMin * r; }
+        if (targetFMax > 8372.0f) { float r = targetFMax / targetFMin; targetFMax = fMax = 8372.0f; targetFMin = fMin = targetFMax / r; }
+
+        // Apply immediately (no animation) so the pinch tracks the fingers 1:1,
+        // matching the Curve Editor.
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (fMin)),
+                                static_cast<int> (atdsp::hzToMidiFloat (fMax)));
+        animating = false;
+        repaint();
     }
 
     void PitchVisualizer::scrollUp()

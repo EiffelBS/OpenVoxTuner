@@ -30,6 +30,9 @@ namespace ui
         void resized() override;
         void timerCallback() override;
         void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
+        /// Trackpad pinch-to-zoom (macOS delivers a pinch as mouseMagnify;
+        /// the Ctrl/Cmd + wheel equivalent is handled in mouseWheelMove).
+        void mouseMagnify (const juce::MouseEvent& e, float scaleFactor) override;
         void mouseMove (const juce::MouseEvent& e) override;
         void mouseExit (const juce::MouseEvent& e) override;
 
@@ -139,10 +142,16 @@ namespace ui
         /** Recalculate tuning statistics (avg, stddev, in-tune %) from centsHistory. */
         void updateStatistics();
 
-        // Animated zoom/scroll (smooth transitions).
+        // Animated zoom/scroll (smooth transitions) — used by the toolbar
+        // buttons. Trackpad gestures apply immediately instead (see mouseWheelMove /
+        // mouseMagnify) so they track the fingers 1:1 like the Curve Editor.
         float targetFMin = 50.0f;
         float targetFMax = 1500.0f;
         bool  animating = false;
+
+        // Timestamp (ms) of the last pinch gesture, used to suppress the
+        // concurrent trackpad scroll that can accompany a pinch.
+        juce::uint32 lastMagnifyMs = 0;
 
         // Setup helper for SVG icon buttons.
         void setupIconBtn (juce::DrawableButton& btn, const char* svgXml,
