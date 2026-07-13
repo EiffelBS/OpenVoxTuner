@@ -77,6 +77,12 @@ juce_add_plugin(OpenVoxTuner
     # on project reload. The MIDI input is not processed by the plugin.
     NEEDS_MIDI_INPUT TRUE
     IS_ARA_EFFECT TRUE             # Active le support ARA2 (Audio Random Access)
+    # VST3 category: effect ("Fx") with the "Pitch" sub-category so DAWs (Cubase,
+    # Nuendo, Studio One, ...) file the plugin under "Pitch & Time" alongside other
+    # pitch-correction plug-ins (Auto-Tune, Melodyne, Graillon, ...). Without this,
+    # JUCE defaults to a generic effect category and the plug-in lands in the
+    # generic Effects folder instead.
+    VST3_CATEGORIES "Fx" "Pitch"
     PRODUCT_NAME "OpenVoxTuner"
     VERSION ${OVT_VERSION}
     ICON_BIG "assets/icon.png"

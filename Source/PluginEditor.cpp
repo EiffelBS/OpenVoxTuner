@@ -598,12 +598,14 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
         menu.addSeparator();
 
-        // 7. Export visualizer as image
+        // 7. Export the CURRENTLY VISIBLE tab as image (Live visualizer or
+        // Curve Editor), instead of always capturing the Live tab.
         menu.addItem (ovt::tr(ovt::Keys::kMenuExportImage), [this] {
-            // Find the PitchVisualizer from the Live tab
-            auto* vizContent = tabbedComponent.getTabContentComponent (0);
-            auto* pitchViz = dynamic_cast<ui::PitchVisualizer*> (vizContent);
-            if (pitchViz == nullptr)
+            const bool isCurveEditor = (tabbedComponent.getCurrentTabIndex() == 1);
+            auto* pitchViz = dynamic_cast<ui::PitchVisualizer*> (tabbedComponent.getTabContentComponent (0));
+
+            // The target component must exist for the active tab.
+            if ((isCurveEditor && curveEditor == nullptr) || (!isCurveEditor && pitchViz == nullptr))
             {
                 juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
                     ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgExportNotFound));
@@ -624,7 +626,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 "*.png");
             chooserPtr->launchAsync (
                 juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
-                [chooserPtr, pitchViz] (const juce::FileChooser& fc) {
+                [chooserPtr, isCurveEditor, pitchViz, curveEditor = curveEditor.get()] (const juce::FileChooser& fc) {
                     auto file = fc.getResult();
                     if (file != juce::File{})
                     {
@@ -632,7 +634,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                         if (file.getFileExtension() != ".png")
                             file = file.withFileExtension (".png");
 
-                        if (pitchViz->exportAsImage (file))
+                        bool ok = false;
+                        if (isCurveEditor && curveEditor != nullptr)
+                            ok = curveEditor->exportAsImage (file);
+                        else if (pitchViz != nullptr)
+                            ok = pitchViz->exportAsImage (file);
+
+                        if (ok)
                             juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::InfoIcon,
                                 ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgImageSaved) + file.getFullPathName());
                         else
@@ -963,18 +971,24 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // "Return to start" (rewind): a left-pointing triangle plus a vertical bar,
     // the classic DAW skip-to-beginning glyph.
     static const char* svgRewind = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="5" x2="6" y2="19"/><polygon points="19 5 9 12 19 19"/></svg>)";
+    // Curve Editor "Options": hamburger (3 horizontal bars) — clearly distinct
+    // from the plugin's own gear (menuButton) and icon-only (no text label).
+    static const char* svgHamburger = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>)";
 
     // Setup Toolbar Buttons
-    // Custom button: icon + text (PresetsButton uses setIcon path).
+    // Curve Editor "Options" button: icon-only hamburger, with a distinct
+    // accent-tinted background so it stands out from the neutral zoom/scroll/
+    // snap buttons in this section.
 {
-    auto normal   = createDrawableSVG(svgGear, juce::Colours::grey);
-    auto over     = createDrawableSVG(svgGear, juce::Colours::lightgrey);
-    auto down     = createDrawableSVG(svgGear, juce::Colours::white);
-
-    optionsButton.setIcon(std::move(normal));
-
-    optionsButton.setSize(80, 22);
-    addAndMakeVisible(optionsButton);
+    auto optsNormal = createDrawableSVG (svgHamburger, juce::Colours::white);
+    auto optsOver   = createDrawableSVG (svgHamburger, ovt::accent());
+    auto optsDown   = createDrawableSVG (svgHamburger, juce::Colours::white);
+    optionsButton.setImages (optsNormal.get(), optsOver.get(), optsDown.get());
+    optionsButton.setColour (juce::DrawableButton::backgroundColourId, ovt::accent().withAlpha (0.22f));
+    optionsButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.4f));
+    optionsButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
+    optionsButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
+    addAndMakeVisible (optionsButton);
 
     optionsButton.onClick = [this] { showCurveOptionsMenu(); };
     optionsButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCurveOptions));
@@ -1651,10 +1665,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int leftGap = 8;
     if (isStandalone)
     {
-        // Standalone transport: a single Play/Pause toggle and a "Return to start" (rewind) button.
-        playButton.setBounds (toolsArea.removeFromLeft(iconSize));
-        toolsArea.removeFromLeft(4);
+        // Standalone transport: a "Return to start" (rewind) button placed
+        // before the Play/Pause toggle, matching the classic DAW order.
         rewindButton.setBounds (toolsArea.removeFromLeft(iconSize));
+        toolsArea.removeFromLeft(4);
+        playButton.setBounds (toolsArea.removeFromLeft(iconSize));
         toolsArea.removeFromLeft(leftGap);
     }
     // "Measures" control (number of measures shown in the curve editor time window).
@@ -1666,7 +1681,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     toolsArea.removeFromLeft(leftGap);
 
     // Toolbar (right to left): Options | zoom / scroll / reset | snap / grid / step
-    optionsButton.setBounds (toolsArea.removeFromRight(80));
+    // Options is now an icon-only button; leave a clear gap before the reset
+    // (X) button so the two don't visually touch.
+    optionsButton.setBounds (toolsArea.removeFromRight(iconSize));
+    toolsArea.removeFromRight(8);
 
     resetViewButton.setBounds (toolsArea.removeFromRight(iconSize));
     toolsArea.removeFromRight(8);
@@ -1733,15 +1751,23 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto smallArea = b2.removeFromTop (smallRowHeight);
     int smallHalf = (smallArea.getWidth() - knobPadding) / 2;
 
-    // FlexTune: label "Flex" tight to the left, then knob fills the rest
+    // Label widths are measured from the actual glyph metrics instead of being
+    // hard-coded: on macOS "Segoe UI" is absent so JUCE falls back to a wider
+    // system font (SF Pro), which made the fixed 28/52px boxes clip "Flex" and
+    // "Humanize" to "Fl..." / "Hum...". Measuring keeps the text fully visible
+    // on every platform and for every translation.
+    const int flexLabelW  = static_cast<int> (flexTuneLabel.getFont().getStringWidth (flexTuneLabel.getText())) + 6;
+    const int humanLabelW = static_cast<int> (humanizeLabel.getFont().getStringWidth (humanizeLabel.getText())) + 6;
+
+    // FlexTune: label tight to the left, then knob fills the rest
     auto flexCol = smallArea.removeFromLeft(smallHalf);
-    flexTuneLabel.setBounds (flexCol.removeFromLeft(28));
+    flexTuneLabel.setBounds (flexCol.removeFromLeft(flexLabelW));
     flexTuneSlider.setBounds (flexCol);
     smallArea.removeFromLeft(knobPadding);
 
-    // Humanize: label "Humanize" tight to the left, then knob fills the rest
+    // Humanize: label tight to the left, then knob fills the rest
     auto humanCol = smallArea;
-    humanizeLabel.setBounds (humanCol.removeFromLeft(52));
+    humanizeLabel.setBounds (humanCol.removeFromLeft(humanLabelW));
     humanizeSlider.setBounds (humanCol);
 
     // --- Block 4 : Effects — 2 rows (Gate + Reverb on top, Formant below) ---
@@ -2002,10 +2028,17 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
             }
             curveEditor->setMeasuresVisible (mVal);
 
-            // Restore Auto-Scroll from the persisted parameter.
-            auto* scrollRaw = processorRef.getParameters().getRawParameterValue("auto_scroll");
-            bool scrollOn = scrollRaw ? (scrollRaw->load() > 0.5f) : true;
-            curveEditor->setAutoScroll (scrollOn);
+            // Restore Auto-Scroll from the persisted parameter. In Standalone the
+            // playhead always loops on the Measures window, so auto-scroll (which
+            // follows the playhead by panning the view) is disabled/ignored.
+            if (processorRef.isStandaloneWrapper())
+                curveEditor->setAutoScroll (false);
+            else
+            {
+                auto* scrollRaw = processorRef.getParameters().getRawParameterValue("auto_scroll");
+                bool scrollOn = scrollRaw ? (scrollRaw->load() > 0.5f) : true;
+                curveEditor->setAutoScroll (scrollOn);
+            }
 
             measuresSyncDone = true;
         }
@@ -2255,11 +2288,14 @@ void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
         }
     }
 
-    // Interpolate the pitch curve
-    auto morphedCurve = atdsp::interpolateCurves (morphSource->curve, morphTarget->curve, value);
+    // Morph the parameters only: the pitch curve is NOT crossfaded (a curve
+    // blend would resample and add spurious intermediate points). The displayed
+    // curve snaps to the nearest slot's curve as the slider moves, so no extra
+    // points are ever introduced by the morph.
     if (curveEditor != nullptr)
     {
-        curveEditor->setCurve (morphedCurve);
+        const atdsp::PitchCurve& nearestCurve = (value < 0.5f) ? morphSource->curve : morphTarget->curve;
+        curveEditor->setCurve (nearestCurve);
         // Show ghost curve (target) when morphing, clear when at source
         curveEditor->setGhostCurve (value > 0.01f ? &morphTarget->curve : nullptr);
     }
@@ -2845,6 +2881,21 @@ juce::PopupMenu OpenVoxTunerAudioProcessorEditor::buildPresetsMenu()
         atdsp::PitchCurve newCurve;
         newCurve.loadPreset (name);
         curveEditor->setCurve (newCurve);
+
+        // A preset replaces the current editor state, so commit it to the active
+        // A/B slot. Otherwise switching slots would discard the preset and reload
+        // the slot's stale stored curve (the preset only touches the editor curve,
+        // not the slot's MorphState).
+        if (isSlotAActive)
+            saveSlot (slotA, 0);
+        else
+            saveSlot (slotB, 1);
+
+        // Keep the morph slider aligned with the active slot so the displayed
+        // curve matches the slot the preset was applied to (and the auto-save on
+        // the next slot switch captures it correctly).
+        processorRef.setMorphAmount (isSlotAActive ? 0.0f : 1.0f);
+
         syncEditButtons();
     };
 
@@ -2916,9 +2967,10 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
     const bool isStandalone = processorRef.isStandaloneWrapper();
     juce::PopupMenu menu;
 
-    // Auto-Scroll (ticked): follows the playhead during playback (ARA / standalone).
+    // Auto-Scroll (ticked): follows the playhead during playback. In Standalone
+    // the playhead loops on the Measures window, so the option is disabled.
     const bool autoScroll = curveEditor->getAutoScroll();
-    menu.addItem (ovt::tr (ovt::Keys::kMenuAutoScroll), true, autoScroll, [this] {
+    menu.addItem (ovt::tr (ovt::Keys::kMenuAutoScroll), ! isStandalone, autoScroll, [this] {
         if (curveEditor == nullptr)
             return;
         const bool next = ! curveEditor->getAutoScroll();
@@ -3091,10 +3143,13 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     buttonB.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
     buttonB.setColour (juce::TextButton::textColourOffId, ovt::text());
 
-    // Re-apply to curve editor buttons (only optionsButton is a TextButton)
-    optionsButton.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
-    optionsButton.setColour (juce::TextButton::textColourOffId, ovt::text());
-    optionsButton.setColour (juce::TextButton::textColourOnId,  ovt::accent());
+    // Re-apply to the Curve Editor "Options" button: keep its distinct
+    // accent-tinted background and bright icon (it is a DrawableButton, not a
+    // TextButton like the other re-applied buttons above).
+    optionsButton.setColour (juce::DrawableButton::backgroundColourId, ovt::accent().withAlpha (0.22f));
+    optionsButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.4f));
+    optionsButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
+    optionsButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
 
     // Re-apply DrawableButton colours (background and text)
     auto applyDrawableBtnColours = [] (juce::DrawableButton& btn) {

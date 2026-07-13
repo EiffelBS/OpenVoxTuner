@@ -618,11 +618,13 @@ namespace ui
         grabKeyboardFocus(); // pour les raccourcis clavier
 
         // Scroll horizontal a la souris (bouton milieu), uniquement si
-        // l'auto-scroll est desactive (evite tout conflit avec le suivi auto).
+        // l'auto-scroll est desactive (evite tout conflit avec le suivi auto)
+        // ET le playhead n'est pas en boucle sur la fenetre Measures (la vue
+        // est alors verrouillee sur la fenetre de boucle).
         // Fonctionne quel que soit le mode d'edition (Curve ou Live).
         if (e.mods.isMiddleButtonDown())
         {
-            if (!autoScrollEnabled)
+            if (!autoScrollEnabled && !loopingPlayhead)
             {
                 isMiddleScrolling = true;
                 middleDragStartX = e.position.x;
@@ -990,50 +992,74 @@ namespace ui
         notifyChanged();
     }
 
+    void PitchCurveEditor::applyZoom (float anchorPitch, float factor)
+    {
+        // factor > 1 => zoom avant (range de pitch plus etroit), centre sur
+        // anchorPitch (le pitch sous le curseur / doigt). Borne a 1..8 octaves.
+        if (anchorPitch <= 0.0f) anchorPitch = std::sqrt (minHz * maxHz);
+        float rangeCents = 1200.0f * std::log2 (maxHz / minHz) / factor;
+        if (rangeCents < 1200.0f)           rangeCents = 1200.0f;
+        if (rangeCents > 1200.0f * 8.0f)    rangeCents = 1200.0f * 8.0f;
+        const float halfRangeLog = (rangeCents / 1200.0f) * std::log (2.0f) / 2.0f;
+        const float centerLog = std::log (anchorPitch);
+        minHz = std::exp (centerLog - halfRangeLog);
+        maxHz = std::exp (centerLog + halfRangeLog);
+        clampPitchRange();
+    }
+
+    void PitchCurveEditor::mouseMagnify (const juce::MouseEvent& e, float scaleFactor)
+    {
+        // macOS trackpad pinch: scaleFactor > 1 => pinch out => zoom avant.
+        // On zoome autour du pitch sous le doigt (ou du centre de la vue).
+        const float anchor = (e.position.y >= 0 && e.position.y <= getHeight())
+                                 ? yToPitch (e.position.y)
+                                 : std::sqrt (minHz * maxHz);
+        applyZoom (anchor, scaleFactor);
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        repaint();
+    }
+
     void PitchCurveEditor::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
     {
-        // Facteur de zoom/scroll
-        float scrollAmount = wheel.deltaY;
-        
-        // Si Ctrl est enfonce, on zoome/dezoome
-        if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+        // Trackpad pinch-to-zoom is delivered on macOS as a wheel event with the
+        // Ctrl/Cmd modifier (and isSmooth == true); desktop Ctrl/Cmd + wheel also
+        // lands here. Zoom is centred on the cursor's pitch (or the view centre).
+        const bool pinchZoom = e.mods.isCtrlDown() || e.mods.isCommandDown();
+        if (pinchZoom)
         {
-            // Zoom base sur le centre de l'ecran ou la position de la souris
-            float zoomFactor = 1.0f - scrollAmount * 2.0f;
-            if (zoomFactor < 0.1f) zoomFactor = 0.1f;
-            if (zoomFactor > 10.0f) zoomFactor = 10.0f;
-            
-            float centerPitch = yToPitch(e.position.y);
-            float currentRangeCents = 1200.0f * std::log2(maxHz / minHz);
-            float newRangeCents = currentRangeCents * zoomFactor;
-            
-            // Limite le zoom max (1 octave) et min (8 octaves)
-            if (newRangeCents < 1200.0f) newRangeCents = 1200.0f;
-            if (newRangeCents > 1200.0f * 8.0f) newRangeCents = 1200.0f * 8.0f;
-            
-            float halfRangeLog = (newRangeCents / 1200.0f) * std::log(2.0f) / 2.0f;
-            float centerLog = std::log(centerPitch);
-            
-            minHz = std::exp(centerLog - halfRangeLog);
-            maxHz = std::exp(centerLog + halfRangeLog);
+            const float anchor = (e.position.y >= 0 && e.position.y <= getHeight())
+                                     ? yToPitch (e.position.y)
+                                     : std::sqrt (minHz * maxHz);
+            // Zoom multiplicatif: molette haut (deltaY > 0) => zoom avant.
+            const float factor = juce::jlimit (0.1f, 10.0f, std::exp (-wheel.deltaY * 4.0f));
+            applyZoom (anchor, factor);
         }
         else
         {
-            // Sinon on scroll (pan) vers le haut/bas
-            // deltaY > 0 (scroll up) -> on veut voir plus haut sur le piano -> fMin/fMax augmentent
-            float currentRangeLog = std::log(maxHz / minHz);
-            float shiftLog = scrollAmount * currentRangeLog * 0.5f;
-            minHz = std::exp(std::log(minHz) + shiftLog);
-            maxHz = std::exp(std::log(maxHz) + shiftLog);
+            // Two-finger vertical scroll pans the pitch axis. Trackpads also feed
+            // wheel.deltaX for two-finger horizontal swipes -> pan the time window
+            // (same constraints as the middle-button drag: disabled while the
+            // view auto-follows the playhead or is locked to the loop window).
+            const float rangeLog = std::log (maxHz / minHz);
+            const float pitchShift = wheel.deltaY * rangeLog * 0.5f;
+            minHz = std::exp (std::log (minHz) + pitchShift);
+            maxHz = std::exp (std::log (maxHz) + pitchShift);
+
+            if (!autoScrollEnabled && !loopingPlayhead)
+            {
+                const float timeShift = wheel.deltaX * timeVisible * 0.5f;
+                scrollOffset = clampScrollOffset (scrollOffset + timeShift);
+            }
         }
-        
-        // Limites absolues (C0 a C9)
-        if (minHz < 16.35f) { float r = maxHz/minHz; minHz = 16.35f; maxHz = minHz * r; }
-        if (maxHz > 8372.0f) { float r = maxHz/minHz; maxHz = 8372.0f; minHz = maxHz / r; }
-        
+
+        // Limites absolues (C0..C9).
+        if (minHz < 16.35f) { const float r = maxHz / minHz; minHz = 16.35f; maxHz = minHz * r; }
+        if (maxHz > 8372.0f) { const float r = maxHz / minHz; maxHz = 8372.0f; minHz = maxHz / r; }
+
         // Mise a jour du piano
-        pianoKeyboard.setRange(static_cast<int>(atdsp::hzToMidiFloat(minHz)), 
-                               static_cast<int>(atdsp::hzToMidiFloat(maxHz)));
+        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
         repaint();
     }
 
@@ -1155,6 +1181,29 @@ namespace ui
         pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
                                 static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
         repaint();
+    }
+
+    bool PitchCurveEditor::exportAsImage (const juce::File& filePath)
+    {
+        // Rendu de l'editeur en image haute qualite (2x), a l'identique du
+        // visualiseur Live (PitchVisualizer::exportAsImage).
+        const int scale = 2;
+        const int w = getWidth() * scale;
+        const int h = getHeight() * scale;
+        if (w <= 0 || h <= 0) return false;
+
+        // Image opaque (pas d'alpha) pour eviter les problemes de transparence.
+        juce::Image image (juce::Image::RGB, w, h, true);
+        {
+            juce::Graphics g (image);
+            g.addTransform (juce::AffineTransform::scale ((float) scale));
+            paint (g);
+        }
+
+        juce::PNGImageFormat png;
+        juce::FileOutputStream stream (filePath);
+        if (stream.failedToOpen()) return false;
+        return png.writeImageToStream (image, stream);
     }
 
     void PitchCurveEditor::setSnapEnabled (bool b)
@@ -1321,6 +1370,7 @@ namespace ui
         // else: auto-scroll OFF and continuous playback -> leave the view untouched.
 
         playheadTime = time;
+        loopingPlayhead = isLooping;
         repaint();
     }
 

@@ -1960,6 +1960,12 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("correctionMode",   ms.correctionMode);
         slotXml->setAttribute ("noiseGateEnable",  ms.noiseGateEnable);
         slotXml->setAttribute ("noiseGateThreshold", (double) ms.noiseGateThreshold);
+
+        // Serialize the pitch curve so the slot restores its exact line (not an
+        // empty PitchCurve) after a project reload / standalone restart.
+        auto curveXml = ms.curve.toXml();
+        if (curveXml != nullptr)
+            slotXml->addChildElement (curveXml.release());
     }
     copyXmlToBinary (*xml, destData);
 }
@@ -2001,6 +2007,10 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.correctionMode     = slotXml->getBoolAttribute ("correctionMode", false);
             ms.noiseGateEnable    = slotXml->getBoolAttribute ("noiseGateEnable", false);
             ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.667);
+            // Restore the pitch curve (absent in pre-curve states -> empty curve).
+            auto* curveXml = slotXml->getChildByName ("PITCH_CURVE");
+            if (curveXml != nullptr)
+                ms.curve.fromXml (*curveXml);
             setAbSlotMorphState (slot, std::move (ms));
         }
         // Restore pitch curve if present in the XML.

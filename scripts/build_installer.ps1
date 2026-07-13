@@ -50,9 +50,16 @@ if (Test-Path $isccPath) {
 if (-not $NoBuild) {
     Write-Host "`n[1/2] Configuring project with CMake..." -ForegroundColor Cyan
 
-    # Remove old CMake cache to avoid generator conflicts
+    # Remove old CMake cache to avoid generator conflicts.
+    # We delete the build contents but PRESERVE the '.vs' folder (Visual Studio
+    # user state): it can be locked by a running VS / GitHub Copilot indexing
+    # process (e.g. CopilotIndices/CodeChunks.db), and a recursive removal of the
+    # whole tree would abort the script ($ErrorActionPreference = "Stop"). Locked
+    # files in other subtrees are ignored (-ErrorAction SilentlyContinue).
     if (Test-Path $BuildDir) {
-        Remove-Item -Recurse -Force $BuildDir
+        Get-ChildItem -Path $BuildDir -Force |
+            Where-Object { $_.Name -ne '.vs' } |
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     # Source the MSVC environment.

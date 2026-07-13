@@ -53,6 +53,9 @@ namespace ui
         void mouseExit (const juce::MouseEvent& e) override;
         void mouseDoubleClick (const juce::MouseEvent& e) override;
         void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
+        // Trackpad pinch-to-zoom (macOS delivers a pinch as mouseMagnify; the
+        // Ctrl/Cmd + wheel equivalent on desktop is handled in mouseWheelMove).
+        void mouseMagnify (const juce::MouseEvent& e, float scaleFactor) override;
 
         // === Keyboard (copy/paste, undo/redo) ===
         bool keyPressed (const juce::KeyPress& key) override;
@@ -87,6 +90,12 @@ namespace ui
         void scrollUp();
         /// Pan la vue en pitch vers le bas (pitches plus graves).
         void scrollDown();
+
+        /// Exporte l'editeur de courbe en image PNG (resolution 2x), comme
+        /// le visualiseur Live. Utilise le paint() de l'editeur directement.
+        /// @param filePath  chemin de destination (.png)
+        /// @return          true si l'export a reussi
+        bool exportAsImage (const juce::File& filePath);
         /// Reinitialise la vue : range de pitch par defaut et scroll temporel au debut.
         void resetView();
 
@@ -263,9 +272,17 @@ namespace ui
         // Borne le range de pitch (1..8 octaves, C0..C9) comme mouseWheelMove.
         void clampPitchRange();
 
+        // Zoom la vue en pitch autour d'un pitch de reference (souris / doigt).
+        // factor > 1 => zoom avant (range plus etroit), borne a 1..8 octaves.
+        void applyZoom (float anchorPitch, float factor);
+
         // Auto-scroll (Feature 2).
         double scrollOffset = 0.0;
         bool autoScrollEnabled = false;
+        // True when the playhead loops on the Measures window (Standalone, or the
+        // VST3 "Loop Playhead (Measures)" option). In that mode the view is locked
+        // to the loop window, so manual middle-button horizontal scroll is disabled.
+        bool loopingPlayhead = false;
         bool wasPlayingLastFrame = false;
 
         // Harmony traces storage (per-voice time/pitch samples)

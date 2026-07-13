@@ -137,55 +137,10 @@ private:
     juce::Label       humanizeLabel;
     juce::TextButton  correctionModeButton;
 
-    // Snap Toggle.
-    // Custom button that draws an icon and text
-    class PresetsButton : public juce::TextButton
-    {
-    public:
-        PresetsButton(const juce::String& name) : juce::TextButton(name) {}
-        void setIcon(std::unique_ptr<juce::Drawable> d) { icon = std::move(d); }
-    protected:
-        void paint(juce::Graphics& g) override
-        {
-            // Custom paint: draw icon + text as a centered group
-            auto& lf = getLookAndFeel();
-            lf.drawButtonBackground(g, *this,
-                                     findColour(getToggleState() ? juce::TextButton::buttonOnColourId
-                                                                 : juce::TextButton::buttonColourId),
-                                     getToggleState(),
-                                     isOver());
-
-            int h = getHeight();
-            int w = getWidth();
-            juce::String text = getButtonText();
-
-            float iconDrawSize = h * 0.55f;
-            auto iconBounds = icon->getBounds();
-            float scale = juce::jmin(1.0f, iconDrawSize / iconBounds.getHeight());
-            float iconW = iconBounds.getWidth() * scale;
-            float textW = g.getCurrentFont().getStringWidthFloat(text);
-            float spacing = 4.0f;
-            float totalW = iconW + spacing + textW;
-            float startX = (w - totalW) * 0.5f;
-            float iconY = (h - iconDrawSize) * 0.5f;
-
-            // Draw icon
-            juce::AffineTransform t = juce::AffineTransform()
-                .translated(startX, iconY)
-                .scaled(scale);
-            icon->draw(g, 1.0f, t);
-
-            // Draw text
-            g.setColour(findColour(juce::TextButton::textColourOffId));
-            g.drawText(text,
-                       juce::Rectangle<float>(startX + iconW + spacing, 0, textW, (float)h),
-                       juce::Justification::centredLeft);
-        }
-    private:
-        std::unique_ptr<juce::Drawable> icon;
-    };
-
-    PresetsButton optionsButton {"Options"};
+    // Curve Editor "Options" button: icon-only (hamburger) with a distinct
+    // accent-tinted background so it stands out from the neutral zoom/scroll/
+    // snap buttons in this section. The plugin's own options keep the gear.
+    juce::DrawableButton optionsButton {"Curve Options", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton snapButton {"Snap to scale", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton snapGridButton {"Snap to grid", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton stepModeButton {"Step mode", juce::DrawableButton::ImageOnButtonBackground};

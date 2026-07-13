@@ -4,7 +4,6 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/PitchCurve.h"
-#include "../../Source/dsp/PresetMorpher.h"
 
 class PitchCurveTest : public juce::UnitTest
 {
@@ -76,40 +75,6 @@ public:
             juce::Array<int> empty;
             const float hz = 293.66f;
             expectWithinAbsoluteError (PitchCurve::snapToIntervals (hz, empty), hz, 0.001f);
-        }
-
-        beginTest ("interpolateCurves keeps beat-based time span (no seconds stretch)");
-        {
-            // Regression: before the fix, interpolateCurves resampled over a
-            // fixed 10.0 s range, which stretched/truncated every curve to
-            // 0..10 "beats" (the whole PitchCurve system uses beats/PPQ). That
-            // produced a garbled, over-dense "stray green curve" when switching
-            // A/B slots (which triggers a morph via the morph_amount parameter).
-            // The interpolated curve must now span the union time span of the
-            // two input curves, expressed in beats.
-            PitchCurve a, b;
-            // Curve A: C3 -> E3 -> G3 over 16 beats (4 measures in 4/4).
-            a.addOrUpdatePoint (0.0,  130.81f);
-            a.addOrUpdatePoint (8.0,  164.81f);
-            a.addOrUpdatePoint (16.0, 196.00f);
-            // Curve B: flat C4 over the same span.
-            b.addOrUpdatePoint (0.0,  261.63f);
-            b.addOrUpdatePoint (16.0, 261.63f);
-
-            PitchCurve mid = interpolateCurves (a, b, 0.5f);
-            expect (mid.getNumPoints() > 2, "interpolated curve must contain several points");
-
-            // The last point must be near 16 beats, NOT truncated to ~10.
-            const double lastTime = mid.getPoint (mid.getNumPoints() - 1).time;
-            expect (lastTime > 12.0,
-                    "interpolated curve must NOT be truncated to ~10 beats (seconds unit)");
-            expectWithinAbsoluteError (lastTime, 16.0, 0.5,
-                    "interpolated curve must reach the end of the span (16 beats)");
-
-            // The pitch at the end must be the average of the two curves.
-            const float midPitchEnd = mid.getPitchAt (16.0, 0.0f);
-            expectWithinAbsoluteError (midPitchEnd, (196.00f + 261.63f) * 0.5f, 5.0f,
-                    "interpolated pitch at the end must be the average of both curves");
         }
     }
 };

@@ -1,8 +1,9 @@
 // PresetMorpher.h
 // Interpolation engine for morphing between two plugin states.
-// Captures snapshots of all interpolable parameters, lerps continuous
-// parameters, steps discrete/boolean parameters at 50%, and resamples
-// PitchCurves to 128-point resolution before interpolating.
+// Captures snapshots of all interpolable parameters and lerps/steps them when
+// the morph slider moves. The pitch curve is NOT crossfaded: the displayed
+// curve snaps to the nearest slot's curve, so the morph only blends parameters
+// (speed, amount, formant, ...) and never resamples / adds curve points.
 
 #pragma once
 
@@ -96,58 +97,6 @@ namespace atdsp
     }
 
     /**
-     * Resamples two PitchCurves to 128 samples on a normalized [0,1] time
-     * range, then linearly interpolates between them.
-     *
-     * @param a  Source curve
-     * @param b  Target curve
-     * @param t  Interpolation amount (0 = a, 1 = b)
-     * @return   The interpolated PitchCurve
-     */
-    inline PitchCurve interpolateCurves (const PitchCurve& a, const PitchCurve& b, float t)
-    {
-        const int N = 128;
-        PitchCurve result;
-        result.clear();
-
-        // The whole PitchCurve system works in BEATS (PPQ): the editor time
-        // axis, the DSP (getPitchAt is fed transportTime in beats) and
-        // user-drawn points are all expressed in beats. Resampling over a
-        // fixed SECOND-based range (the old 10.0 s) therefore stretched/truncated
-        // every curve to the wrong time span, producing a garbled, over-dense
-        // "stray green curve" when switching A/B slots (which triggers a morph
-        // via the automatable morph_amount parameter). We now resample over the
-        // union time span of the two curves, in beats.
-        const double maxA = a.getNumPoints() > 0 ? a.getPoint (a.getNumPoints() - 1).time : 0.0;
-        const double maxB = b.getNumPoints() > 0 ? b.getPoint (b.getNumPoints() - 1).time : 0.0;
-        const double maxTime = juce::jmax (maxA, maxB);
-
-        // Nothing meaningful to interpolate if both curves are empty.
-        if (maxTime <= 0.0)
-            return result;
-
-        for (int i = 0; i < N; ++i)
-        {
-            const double time = (double) i / (double) (N - 1) * maxTime;
-
-            const float pitchA = a.getPitchAt (time, 0.0f);
-            const float pitchB = b.getPitchAt (time, 0.0f);
-
-            // Only add points where there is meaningful pitch data
-            if (pitchA > 0.0f || pitchB > 0.0f)
-            {
-                const float lerpedPitch = pitchA + (pitchB - pitchA) * t;
-                result.addOrUpdatePoint (time, lerpedPitch);
-            }
-        }
-
-        // Copy step mode from source if t < 0.5, target otherwise
-        result.setStepMode (t < 0.5f ? a.isStepMode() : b.isStepMode());
-
-        return result;
-    }
-
-    /**
      * Returns the list of all parameter IDs that a morph can drive.
      * Used to detect which parameters are currently controlled externally
      * (e.g. DAW/UI automation) so the morph can avoid fighting them.
@@ -232,102 +181,5 @@ namespace atdsp
         setParam ("reverb_enable",     lerpOrStep (source.reverbEnable ? 1.0f : 0.0f, target.reverbEnable ? 1.0f : 0.0f, t));
         setParam ("noise_gate_enable", lerpOrStep ((float) source.noiseGateEnable, (float) target.noiseGateEnable, t) > 0.5f ? 1.0f : 0.0f);
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));
-    }
-
-    /**
-     * Loads a MorphState from a plugin state XML (base64-encoded binary format
-     * used by A/B slots).
-     *
-     * @param slotXml      XML element containing a "data" base64 attribute
-     * @param params       The APVTS (used for fallback capture)
-     * @param currentCurve The current PitchCurve (used if no curve is found in XML)
-     * @param name         Display name for the state
-     * @return             The reconstructed MorphState
-     */
-    inline MorphState loadStateFromXml (const juce::XmlElement& slotXml,
-                                        juce::AudioProcessorValueTreeState& params,
-                                        const atdsp::PitchCurve& currentCurve,
-                                        const juce::String& name = "Target")
-    {
-        // The AB_SLOT contains a base64-encoded binary plugin state.
-        const auto dataStr = slotXml.getStringAttribute ("data");
-        if (dataStr.isEmpty()) return captureState (params, currentCurve, name);
-
-        juce::MemoryBlock block;
-        block.fromBase64Encoding (dataStr);
-        if (block.getSize() == 0) return captureState (params, currentCurve, name);
-
-        // The binary is XML produced by copyXmlToBinary. Parse it back.
-        const auto* rawData = static_cast<const char*> (block.getData());
-        juce::String xmlString (rawData, block.getSize());
-        std::unique_ptr<juce::XmlElement> xmlState (juce::XmlDocument::parse (xmlString));
-
-        MorphState state;
-        state.name = name;
-
-        if (xmlState != nullptr)
-        {
-            auto valueTree = juce::ValueTree::fromXml (*xmlState);
-
-            auto readFloat = [&valueTree] (const juce::String& id, float& dest)
-            {
-                auto node = valueTree.getChildWithProperty ("id", id);
-                if (node.isValid())
-                    dest = static_cast<float> (node.getProperty ("value", 0.0));
-            };
-
-            auto readInt = [&valueTree] (const juce::String& id, int& dest, int maxVal)
-            {
-                auto node = valueTree.getChildWithProperty ("id", id);
-                if (node.isValid())
-                    dest = static_cast<int> (std::round (static_cast<float> (node.getProperty ("value", 0.0)) * static_cast<float> (maxVal)));
-            };
-
-            auto readBool = [&valueTree] (const juce::String& id, bool& dest)
-            {
-                auto node = valueTree.getChildWithProperty ("id", id);
-                if (node.isValid())
-                    dest = (static_cast<float> (node.getProperty ("value", 0.0))) > 0.5f;
-            };
-
-            // Continuous
-            readFloat ("speed", state.speed);
-            readFloat ("amount", state.amount);
-            readFloat ("formant", state.formant);
-            readFloat ("harmony_gain", state.harmonyGain);
-            readFloat ("harmony_blend", state.harmonyBlend);
-            readFloat ("harmony_tone_color", state.harmonyToneColor);
-            readFloat ("reverb_mix", state.reverbMix);
-            readFloat ("flex_tune", state.flexTune);
-            readFloat ("humanize", state.humanize);
-
-            // Discrete
-            readInt ("key", state.key, 11);
-            readInt ("scale", state.scale, 13);
-            readInt ("harmony_type", state.harmonyType, 21);
-            readInt ("harmony_tone", state.harmonyTone, 5);
-            readInt ("harmony_shifted_voices", state.harmonyShiftedVoices, 4);
-            readInt ("latency_mode", state.latencyMode, 3);
-            readInt ("editor_measures", state.editorMeasures, 32);
-
-            // Booleans
-            readBool ("formant_enable", state.formantEnable);
-            readBool ("bypass", state.bypass);
-            readBool ("harmony_enable", state.harmonyEnable);
-            readBool ("harmony_use_voice", state.harmonyUseVoice);
-            readBool ("reverb_enable", state.reverbEnable);
-            readBool ("noise_gate_enable", state.noiseGateEnable);
-            readFloat ("noise_gate_threshold", state.noiseGateThreshold);
-            readBool ("correction_mode", state.correctionMode);
-
-            // Curve
-            auto* curveXml = xmlState->getChildByName ("PITCH_CURVE");
-            if (curveXml != nullptr)
-                state.curve.fromXml (*curveXml);
-            else
-                state.curve = currentCurve;
-        }
-
-        return state;
     }
 }
