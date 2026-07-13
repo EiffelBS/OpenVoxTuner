@@ -65,12 +65,22 @@ add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 # Chemin vers l'ARA SDK (necessaire pour le support ARA)
 juce_set_ara_sdk_path(${CMAKE_CURRENT_SOURCE_DIR}/external/ARA_SDK)
 
-# Formats plugin : VST3 + Standalone partout, AU en option sur macOS.
+# Formats plugin : VST3 + Standalone partout, AU/CLAP en option sur macOS.
 set(OVT_PLUGIN_FORMATS VST3 Standalone)
 if(APPLE)
     option(OVT_ENABLE_AU "Build AU format on macOS" ON)
     if(OVT_ENABLE_AU)
         list(APPEND OVT_PLUGIN_FORMATS AU)
+    endif()
+    # CLAP is NOT available in JUCE 8.x: verified up to 8.0.14 (the latest
+    # 8.x tag on juce-framework/JUCE) — there is no CLAP module and no
+    # plugin_client support. CLAP was added in a later JUCE release (post-8.x).
+    # The getStringWidth -> GlyphArrangement port below is still required for any
+    # JUCE >= 8.0.10 upgrade, so keep this wired but disabled until JUCE
+    # is upgraded past 8.x.
+    option(OVT_ENABLE_CLAP "Build CLAP format on macOS" OFF)
+    if(OVT_ENABLE_CLAP)
+        list(APPEND OVT_PLUGIN_FORMATS CLAP)
     endif()
 endif()
 

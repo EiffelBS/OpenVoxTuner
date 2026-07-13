@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 show_help() {
   cat <<'EOF'
 Usage: ./build_macos_pkg.sh --juce-path <path> [options]
 
-Construit les formats demandés (VST3/AU/Standalone), puis génère un installateur .pkg macOS.
+Construit les formats demandés (VST3/AU/Standalone/CLAP), puis génère un installateur .pkg macOS.
 
 Options:
   --juce-path <path>      Chemin vers le repo JUCE (ou variable JUCE_PATH)
@@ -13,18 +15,25 @@ Options:
   --config <cfg>          Configuration CMake (defaut: Release)
   --arch <archs>          Architectures macOS (defaut: arm64;x86_64)
   --generator <gen>       Generateur CMake (defaut: Ninja)
-  --formats <list>        Formats a inclure: VST3,AU,STANDALONE (defaut: VST3,AU,STANDALONE)
+  --formats <list>        Formats a inclure: VST3,AU,STANDALONE,CLAP (defaut: VST3,AU,STANDALONE)
   --version <ver>         Version package (defaut: 0.1.1)
   --identifier <id>       Bundle identifier package (defaut: com.eiffelbs.openvoxtuner)
   --output <path>         Fichier pkg final (defaut: dist/OpenVoxTuner-macOS.pkg)
+  --sign-identity <id>   codesign des bundles (Developer ID Application) — requis pour notariser
+  --entitlements <path>  Fichier .entitlements (defaut: scripts/ovt.entitlements)
+  --notarize              Notarise le pkg (xcrun notarytool) + staple
   --sign-installer <id>   Signature pkg (Developer ID Installer)
   --skip-build            Ne fait pas la compilation, package depuis les artefacts existants
   --help                  Affiche cette aide
 
+Variables d'environnement pour --notarize:
+  APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER   (cle API App Store Connect)
+  ou APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID          (compte Apple ID)
+
 Exemples:
   ./build_macos_pkg.sh --juce-path ~/dev/JUCE8
   ./build_macos_pkg.sh --juce-path ~/dev/JUCE8 --formats VST3,STANDALONE
-  ./build_macos_pkg.sh --juce-path ~/dev/JUCE8 --sign-installer "Developer ID Installer: ACME (TEAMID)"
+  ./build_macos_pkg.sh --juce-path ~/dev/JUCE8 --sign-installer "Developer ID Installer: ACME (TEAMID)" --sign-identity "Developer ID Application: ACME (TEAMID)" --notarize
 EOF
 }
 
@@ -38,6 +47,9 @@ VERSION="0.1.1"
 IDENTIFIER="com.eiffelbs.openvoxtuner"
 OUTPUT="dist/OpenVoxTuner-macOS.pkg"
 SIGN_INSTALLER=""
+SIGN_IDENTITY=""
+ENTITLEMENTS="${SCRIPT_DIR}/ovt.entitlements"
+NOTARIZE=false
 SKIP_BUILD=false
 
 while [[ $# -gt 0 ]]; do
@@ -78,6 +90,18 @@ while [[ $# -gt 0 ]]; do
       OUTPUT="${2:-}"
       shift 2
       ;;
+    --sign-identity)
+      SIGN_IDENTITY="${2:-}"
+      shift 2
+      ;;
+    --entitlements)
+      ENTITLEMENTS="${2:-}"
+      shift 2
+      ;;
+    --notarize)
+      NOTARIZE=true
+      shift
+      ;;
     --sign-installer)
       SIGN_INSTALLER="${2:-}"
       shift 2
@@ -110,7 +134,12 @@ if [[ "$SKIP_BUILD" == false ]]; then
   fi
 fi
 
-for cmd in cmake pkgbuild productbuild rsync; do
+# Required commands. codesign/xcrun are only needed when signing/notarizing.
+REQUIRED_CMDS=(cmake pkgbuild productbuild rsync)
+if [[ -n "$SIGN_IDENTITY" || "$NOTARIZE" == true ]]; then
+  REQUIRED_CMDS+=(codesign xcrun)
+fi
+for cmd in "${REQUIRED_CMDS[@]}"; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "Erreur: commande manquante: $cmd" >&2
     exit 1
@@ -120,6 +149,7 @@ done
 WANT_VST3=false
 WANT_AU=false
 WANT_STANDALONE=false
+WANT_CLAP=false
 IFS=',' read -ra ITEMS <<< "$FORMATS"
 for item in "${ITEMS[@]}"; do
   fmt="$(echo "$item" | tr '[:lower:]' '[:upper:]' | xargs)"
@@ -127,20 +157,21 @@ for item in "${ITEMS[@]}"; do
     VST3) WANT_VST3=true ;;
     AU) WANT_AU=true ;;
     STANDALONE) WANT_STANDALONE=true ;;
+    CLAP) WANT_CLAP=true ;;
     "") ;;
     *)
-      echo "Format non supporte: $fmt (utiliser VST3,AU,STANDALONE)" >&2
+      echo "Format non supporte: $fmt (utiliser VST3,AU,STANDALONE,CLAP)" >&2
       exit 1
       ;;
   esac
 done
 
-if [[ "$WANT_VST3" == false && "$WANT_AU" == false && "$WANT_STANDALONE" == false ]]; then
+if [[ "$WANT_VST3" == false && "$WANT_AU" == false && "$WANT_STANDALONE" == false && "$WANT_CLAP" == false ]]; then
   echo "Erreur: aucun format valide demandé." >&2
   exit 1
 fi
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$SCRIPT_DIR/.."
 cd "$REPO_ROOT"
 
 if [[ "$SKIP_BUILD" == false ]]; then
@@ -150,12 +181,18 @@ if [[ "$SKIP_BUILD" == false ]]; then
   else
     ENABLE_AU=OFF
   fi
+  if [[ "$WANT_CLAP" == true ]]; then
+    ENABLE_CLAP=ON
+  else
+    ENABLE_CLAP=OFF
+  fi
 
   cmake -S . -B "$BUILD_DIR" -G "$GENERATOR" \
     -DCMAKE_BUILD_TYPE="$CONFIG" \
     -DJUCE_PATH="$JUCE_PATH_ARG" \
     -DCMAKE_OSX_ARCHITECTURES="$ARCHS" \
-    -DOVT_ENABLE_AU="$ENABLE_AU"
+    -DOVT_ENABLE_AU="$ENABLE_AU" \
+    -DOVT_ENABLE_CLAP="$ENABLE_CLAP"
 
   if [[ "$WANT_VST3" == true ]]; then
     echo "[2/4] Build target OpenVoxTuner_VST3..."
@@ -171,14 +208,20 @@ if [[ "$SKIP_BUILD" == false ]]; then
     echo "[2/4] Build target OpenVoxTuner_Standalone..."
     cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxTuner_Standalone
   fi
+
+  if [[ "$WANT_CLAP" == true ]]; then
+    echo "[2/4] Build target OpenVoxTuner_CLAP..."
+    cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxTuner_CLAP
+  fi
 fi
 
 echo "[3/4] Préparation du contenu package..."
 
 # Each format is packaged as its own component so the installer can let the user
-# choose which ones to install (Standalone / VST3 / AU). Each component carries a
-# unique package identifier, and (patched to a unique CFBundleIdentifier in the
-# loop below) a unique bundle id, so relocation/upgrade stays unambiguous.
+# choose which ones to install (Standalone / VST3 / AU / CLAP). Each component
+# carries a unique package identifier, and (patched to a unique
+# CFBundleIdentifier in the loop below) a unique bundle id, so relocation/upgrade
+# stays unambiguous.
 # Entry fields: artefactDir|installRelPath|bundleName|pkgId|choiceId|title|description
 COMP_DIR="$BUILD_DIR/components"
 rm -rf "$COMP_DIR"
@@ -189,6 +232,7 @@ OVT_COMP_ENTRIES=()
 [[ "$WANT_STANDALONE" == true ]] && OVT_COMP_ENTRIES+=( "Standalone|Applications|OpenVoxTuner.app|com.eiffelbs.openvoxtuner.standalone|choice_standalone|Standalone (Application)|Application autonome OpenVoxTuner." )
 [[ "$WANT_VST3" == true ]]      && OVT_COMP_ENTRIES+=( "VST3|Library/Audio/Plug-Ins/VST3|OpenVoxTuner.vst3|com.eiffelbs.openvoxtuner.vst3|choice_vst3|VST3|Plug-in VST3 pour les DAW." )
 [[ "$WANT_AU" == true ]]        && OVT_COMP_ENTRIES+=( "AU|Library/Audio/Plug-Ins/Components|OpenVoxTuner.component|com.eiffelbs.openvoxtuner.au|choice_au|Audio Unit (AU)|Plug-in Audio Unit (macOS)." )
+[[ "$WANT_CLAP" == true ]]      && OVT_COMP_ENTRIES+=( "CLAP|Library/Audio/Plug-Ins/CLAP|OpenVoxTuner.clap|com.eiffelbs.openvoxtuner.clap|choice_clap|CLAP|Plug-in CLAP pour les DAW." )
 
 OUTLINE_XML=""
 CHOICES_XML=""
@@ -208,7 +252,7 @@ for entry in "${OVT_COMP_ENTRIES[@]}"; do
   # JUCE assigns EVERY plugin format the SAME CFBundleIdentifier
   # (com.EiffelBS.OpenVoxTuner, derived from the base target). The macOS Installer
   # builds its relocation rules from that id; identical ids make it collapse the
-  # three bundles and abort with "Unable to move 'OpenVoxTuner.component' to
+  # bundles and abort with "Unable to move 'OpenVoxTuner.component' to
   # 'Applications'". Patch each format's Info.plist with a UNIQUE id so the
   # relocations stay unambiguous. (The host-facing plugin id comes from
   # PLUGIN_CODE/MANUFACTURER_CODE, not the bundle id, so this is safe.)
@@ -218,6 +262,21 @@ for entry in "${OVT_COMP_ENTRIES[@]}"; do
   else
     echo "Info.plist introuvable: $PLIST" >&2
     exit 1
+  fi
+
+  # Code-sign the bundle (required before notarization). Developer ID Application
+  # + hardened runtime + entitlements. The AU must also pass `auval -v` for the
+  # host to load it on a hardened macOS.
+  if [[ -n "$SIGN_IDENTITY" ]]; then
+    ENT_ARGS=()
+    if [[ -n "$ENTITLEMENTS" && -f "$ENTITLEMENTS" ]]; then
+      ENT_ARGS+=(--entitlements "$ENTITLEMENTS")
+    fi
+    echo "    codesign $bundle_name ..."
+    codesign --force --options runtime --timestamp \
+             "${ENT_ARGS[@]}" \
+             --sign "$SIGN_IDENTITY" \
+             "$root/$dest_rel/$bundle_name"
   fi
 
   comp_pkg="$COMP_DIR/OpenVoxTuner-$fmt.pkg"
@@ -264,3 +323,24 @@ echo "[4/4] Génération du .pkg..."
 "${PRODUCTBUILD_CMD[@]}"
 
 echo "[OK] Installateur généré: $OUTPUT"
+
+# --- Notarization (optional) ---
+if [[ "$NOTARIZE" == true ]]; then
+  if [[ -z "$SIGN_INSTALLER" || -z "$SIGN_IDENTITY" ]]; then
+    echo "Erreur: --notarize requiert --sign-installer et --sign-identity (pkg + bundles signés)." >&2
+    exit 1
+  fi
+  echo "[5/5] Notarisation du pkg..."
+  NOTARY_ARGS=()
+  if [[ -n "${APPLE_API_KEY:-}" && -n "${APPLE_API_KEY_ID:-}" && -n "${APPLE_API_ISSUER:-}" ]]; then
+    NOTARY_ARGS+=(--key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER")
+  elif [[ -n "${APPLE_ID:-}" && -n "${APPLE_PASSWORD:-}" && -n "${APPLE_TEAM_ID:-}" ]]; then
+    NOTARY_ARGS+=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID")
+  else
+    echo "Erreur: credentials notarytool manquants (APPLE_API_KEY* ou APPLE_ID*)." >&2
+    exit 1
+  fi
+  xcrun notarytool submit "$OUTPUT" "${NOTARY_ARGS[@]}" --wait
+  xcrun stapler staple "$OUTPUT"
+  echo "[OK] pkg notarisé et staple."
+fi
