@@ -51,12 +51,18 @@
 
 ## Capturas
 
-<!-- Añade capturas aquí:
+<!-- Imágenes de marcador de posición (el propietario del proyecto autorizó imágenes ficticias, 2026-07-12).
+     Reemplaza las URL de placehold.co con capturas reales en docs/screenshots/
+     cuando estén disponibles, p. ej.
+     <img src="docs/screenshots/main-view.png" width="80%" alt="Ventana principal de OpenVoxTuner"> -->
+
 <p align="center">
-  <img src="../docs/screenshots/live-visualizer.png" width="45%" alt="Visualizador en vivo">
-  <img src="../docs/screenshots/curve-editor.png" width="45%" alt="Editor de curva">
+  <img src="https://placehold.co/960x540/15151f/e0e0e0?text=OpenVoxTuner+Main+View" width="80%" alt="Ventana principal de OpenVoxTuner — placeholder">
 </p>
--->
+<p align="center">
+  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Live+Visualizer" width="45%" alt="Visualizador en vivo — placeholder">
+  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Curve+Editor" width="45%" alt="Editor de curva — placeholder">
+</p>
 
 ## Funcionalidades
 
