@@ -380,8 +380,10 @@ namespace ui
         Listener* listener = nullptr;
 
         // Undo/Redo buttons (positioned by parent)
-        juce::TextButton undoButton { "\xe2\x86\xb6" };  // Undo arrow symbol
-        juce::TextButton redoButton { "\xe2\x86\xb7" };  // Redo arrow symbol
+        // Hex escapes produce raw UTF-8 bytes (>127) which juce::String(const char*)
+        // rejects in Debug; wrap in CharPointer_UTF8 so JUCE decodes them correctly.
+        juce::TextButton undoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb6") };  // Undo arrow symbol ↶
+        juce::TextButton redoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb7") };  // Redo arrow symbol ↷
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PitchCurveEditor)
     };

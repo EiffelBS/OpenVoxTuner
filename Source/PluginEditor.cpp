@@ -348,12 +348,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     speedSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSpeed));
     amountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipAmount));
     setupKnob (formantSlider, nullptr, "");
-    // Formant knob: no value textbox; value shown only while dragging, normal
-    // tooltip restored on release (matching FlexTune/Humanize).
+    // Formant knob: no value textbox; the live value is shown in JUCE's popup
+    // display while dragging. The TooltipWindow can't be used for this: it only
+    // appears after the mouse is stationary, which never happens during a
+    // rotate-drag, so the value tooltip would never show.
     formantSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-    formantSlider.onDragStart = [this] { formantSlider.setTooltip (juce::String (formantSlider.getValue(), 1) + " st"); };
-    formantSlider.onValueChange = [this] { formantSlider.setTooltip (juce::String (formantSlider.getValue(), 1) + " st"); };
-    formantSlider.onDragEnd = [this] { formantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant)); };
+    formantSlider.setPopupDisplayEnabled (true, false, this);
+    formantSlider.textFromValueFunction = [] (double v) { return juce::String (v, 1) + " st"; };
 
     // === Harmony UI ===
     // Harmony enable toggle (use same visual style as Formant)
@@ -1253,11 +1254,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     setupKnob (reverbMixSlider, &reverbMixLabel, "Mix");
     reverbMixSlider.setRange (0.0, 1.0, 0.01);
     reverbMixSlider.setEnabled (false); // disabled until reverb is toggled on
-    // No value textbox; value shown only while dragging, normal tooltip restored on release.
+    // No value textbox; the live value is shown in JUCE's popup display while dragging.
     reverbMixSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-    reverbMixSlider.onDragStart = [this] { reverbMixSlider.setTooltip (juce::String ((int) (reverbMixSlider.getValue() * 100.0f)) + " %"); };
-    reverbMixSlider.onValueChange = [this] { reverbMixSlider.setTooltip (juce::String ((int) (reverbMixSlider.getValue() * 100.0f)) + " %"); };
-    reverbMixSlider.onDragEnd = [this] { reverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn)); };
+    reverbMixSlider.setPopupDisplayEnabled (true, false, this);
+    reverbMixSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
 
     reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
     reverbEnableButton.setName ("PowerButton");
@@ -1276,6 +1276,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     noiseGateThresholdSlider.setSliderStyle (juce::Slider::RotaryVerticalDrag);
     noiseGateThresholdSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    noiseGateThresholdSlider.setPopupDisplayEnabled (true, false, this);
+    noiseGateThresholdSlider.textFromValueFunction = [] (double v) { return juce::String (v, 0) + " dB"; };
     noiseGateThresholdSlider.setRange (-80.0, 0.0, 1.0);
     noiseGateThresholdSlider.setValue (-40.0, juce::dontSendNotification);
     noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
@@ -1285,10 +1287,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     noiseGateThresholdSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     noiseGateThresholdSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
-    // Value shown via tooltip only while dragging (no textbox); normal tooltip restored on release.
-    noiseGateThresholdSlider.onDragStart = [this] { noiseGateThresholdSlider.setTooltip (juce::String (noiseGateThresholdSlider.getValue(), 0) + " dB"); };
-    noiseGateThresholdSlider.onValueChange = [this] { noiseGateThresholdSlider.setTooltip (juce::String (noiseGateThresholdSlider.getValue(), 0) + " dB"); };
-    noiseGateThresholdSlider.onDragEnd = [this] { noiseGateThresholdSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipThreshold)); };
     addAndMakeVisible (noiseGateThresholdSlider);
 
     noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
@@ -1302,24 +1300,23 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     translatableLabels.push_back ({ &flexTuneLabel, ovt::Keys::kLabelFlex });
     flexTuneSlider.setRange (0.0, 100.0, 1.0);
     flexTuneSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipFlexTune));
-    // Value shown only while dragging (no textbox); revert to the normal tooltip on release.
-    flexTuneSlider.onDragStart = [this] { flexTuneSlider.setTooltip (juce::String ((int) flexTuneSlider.getValue()) + " cents"); };
-    flexTuneSlider.onValueChange = [this] { flexTuneSlider.setTooltip (juce::String ((int) flexTuneSlider.getValue()) + " cents"); };
-    flexTuneSlider.onDragEnd = [this] { flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune)); };
+    // The live value is shown in JUCE's popup display while dragging (see below).
 
     setupKnob (humanizeSlider, &humanizeLabel, "Humanize");
     translatableLabels.push_back ({ &humanizeLabel, ovt::Keys::kLabelHumanize });
     humanizeSlider.setRange (0.0, 50.0, 1.0);
     humanizeSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipHumanize));
-    humanizeSlider.onDragStart = [this] { humanizeSlider.setTooltip (juce::String ((int) humanizeSlider.getValue()) + " cents"); };
-    humanizeSlider.onValueChange = [this] { humanizeSlider.setTooltip (juce::String ((int) humanizeSlider.getValue()) + " cents"); };
-    humanizeSlider.onDragEnd = [this] { humanizeSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHumanize)); };
+    // The live value is shown in JUCE's popup display while dragging (see below).
 
     // FlexTune and Humanize: no textbox, smaller inline labels
     flexTuneLabel.setText ("Flex", juce::dontSendNotification);
     flexTuneSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    flexTuneSlider.setPopupDisplayEnabled (true, false, this);
+    flexTuneSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " cents"; };
     humanizeLabel.setText ("Humanize", juce::dontSendNotification);
     humanizeSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    humanizeSlider.setPopupDisplayEnabled (true, false, this);
+    humanizeSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " cents"; };
 
     // Correction Mode toggle button
     correctionModeButton.setButtonText (ovt::tr(ovt::Keys::kLabelModernBtn));

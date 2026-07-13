@@ -57,6 +57,7 @@
 - [x] Latency mode selection (Direct Monitoring / Low Latency / Quality / Safe)
 - [x] Update checker (GitHub releases)
 - [x] Internationalization (i18n) - English, French, German, Spanish, Japanese (menu items, labels, all tooltips)
+  - UTF-8 Debug-crash fix 2026-07-13: map value type `juce::String` -> `const char*`, `tr()` converts via `CharPointer_UTF8`, and MSVC `/utf-8` flag added in CMakeLists.txt (static-init `String(const char*)` assertion on non-ASCII literals eliminated).
 - [x] Language selector in hamburger menu with persistence
 - [x] Centralized font system (OVTFonts.h) - consistent typeface across all components
 - [x] Centralized theme system (OVTTheme.h) - dark/light theme accessors
@@ -75,6 +76,7 @@
 - [x] Flex/Humanize labels no longer truncated on macOS 2026-07-13: label widths are now measured from glyph metrics instead of hard-coded 28/52px boxes (which overflowed under the macOS SF Pro fallback for the Windows-only "Segoe UI" font).
 - [x] Curve Editor trackpad support 2026-07-13: added `mouseMagnify` for macOS pinch-to-zoom (shared `applyZoom` helper, clamped 1..8 octaves) and two-finger horizontal scroll via `wheel.deltaX` panning `scrollOffset` (same constraints as middle-drag: disabled while auto-scroll/loop locks the view).
 - [x] "Export as Image" exports the active tab 2026-07-13: the menu no longer hard-codes the Live visualizer (`getTabContentComponent(0)`); it now dispatches on `getCurrentTabIndex()` to `curveEditor->exportAsImage` (new method, mirrors the visualizer's 2x PNG) or the visualizer. Dialog/not-found strings generalized from "Visualizer" to "current view" across en/fr/de/es/ja.
+- [x] Value-less knobs show live value while dragging 2026-07-13: replaced the (non-working) tooltip-on-drag approach with JUCE's popup display (`setPopupDisplayEnabled(true, false, this)` + `textFromValueFunction` for units) on Flex/Humanize/Gate/Reverb/Formant; removed the redundant drag-tooltip lambdas. The TooltipWindow can't show during a rotate-drag because it needs a stationary mouse.
 - [x] VST3 category Fx/Pitch 2026-07-13: `juce_add_plugin` now sets `VST3_CATEGORIES "Fx" "Pitch"` so DAWs (Cubase, Nuendo, Studio One, ...) file the plug-in under "Pitch & Time".
 - [x] Keyboard shortcuts help overlay (? key or hamburger menu)
 

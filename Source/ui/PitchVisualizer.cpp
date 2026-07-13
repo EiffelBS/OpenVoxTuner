@@ -280,7 +280,8 @@ namespace ui
                 g.setColour (centsCol);
                 g.setFont (ovt::fontCents());
                 const juce::String centsStr = (cents >= 0.0f ? "+" : "")
-                    + juce::String (static_cast<int> (std::round (cents))) + "\xc2\xa2";
+                    + juce::String (static_cast<int> (std::round (cents)))
+                    + juce::String (juce::CharPointer_UTF8 ("\xc2\xa2"));  // cent sign ¢
                 g.drawText (centsStr, 185, badgeY, 72, badgeH, juce::Justification::centred);
             }
 

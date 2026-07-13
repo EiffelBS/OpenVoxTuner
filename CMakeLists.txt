@@ -21,6 +21,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ---------------------------------------------------------------
+# Encodage source : force UTF-8 pour MSVC afin de preserver les
+# caracteres accentues et les traductions non-latines (japonais,
+# etc.) stockees en litteraux dans OVTLanguages.h. Sans ce flag,
+# MSVC decode la source en CP1252 et genere du mojibake a la compile.
+# ---------------------------------------------------------------
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
+# ---------------------------------------------------------------
 # Compatibilite macOS : forcer un deployment target compatible
 # avec JUCE 8 pour les builds sur Xcode 17+ / SDK 26.x "insider".
 # ---------------------------------------------------------------

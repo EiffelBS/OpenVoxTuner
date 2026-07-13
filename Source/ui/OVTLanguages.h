@@ -298,11 +298,11 @@ namespace ovt
     }
 
     /** Get the translation map for a given language. */
-    inline const std::unordered_map<std::string, juce::String>& getTranslations (Language lang)
+    inline const std::unordered_map<std::string, const char*>& getTranslations (Language lang)
     {
         using namespace Keys;
 
-        static const std::unordered_map<std::string, juce::String> english = {
+        static const std::unordered_map<std::string, const char*> english = {
             { kMenuTheme,          "Theme" },
             { kMenuDarkTheme,      "Dark Theme" },
             { kMenuLightTheme,     "Light Theme" },
@@ -540,7 +540,7 @@ namespace ovt
             { kHintLiveMode,          "Live Mode : switch to Curve Editor to edit" },
         };
 
-        static const std::unordered_map<std::string, juce::String> french = {
+        static const std::unordered_map<std::string, const char*> french = {
             { kMenuTheme,          "Theme" },
             { kMenuDarkTheme,      "Theme sombre" },
             { kMenuLightTheme,     "Theme clair" },
@@ -776,7 +776,7 @@ namespace ovt
             { kHintLiveMode,          "Mode Live : basculer sur l'Editeur de courbe pour modifier" },
         };
 
-        static const std::unordered_map<std::string, juce::String> german = {
+        static const std::unordered_map<std::string, const char*> german = {
             { kMenuTheme,          "Thema" },
             { kMenuDarkTheme,      "Dunkles Thema" },
             { kMenuLightTheme,     "Helles Thema" },
@@ -1012,7 +1012,7 @@ namespace ovt
             { kHintLiveMode,          "Live-Modus: Zum Kurveneditor wechseln zum Bearbeiten" },
         };
 
-        static const std::unordered_map<std::string, juce::String> spanish = {
+        static const std::unordered_map<std::string, const char*> spanish = {
             { kMenuTheme,          "Tema" },
             { kMenuDarkTheme,      "Tema oscuro" },
             { kMenuLightTheme,     "Tema claro" },
@@ -1248,7 +1248,7 @@ namespace ovt
             { kHintLiveMode,          "Modo En vivo: cambiar al Editor de curva para editar" },
         };
 
-        static const std::unordered_map<std::string, juce::String> japanese = {
+        static const std::unordered_map<std::string, const char*> japanese = {
             { kMenuTheme,          "テーマ" },
             { kMenuDarkTheme,      "ダークテーマ" },
             { kMenuLightTheme,     "ライトテーマ" },
@@ -1500,11 +1500,14 @@ namespace ovt
     {
         const auto& map = getTranslations (currentLanguage());
         auto it = map.find (key);
-        if (it != map.end()) return it->second;
+        // Conversion explicite en UTF-8 : sans CharPointer_UTF8, juce::String(const char*)
+        // n'accepte que de l'ASCII et fait un assert (Debug) sur les caracteres > 127
+        // (accents francais, allemand, espagnol, et surtout le japonais multi-octets).
+        if (it != map.end()) return juce::String (juce::CharPointer_UTF8 (it->second));
         // Fallback to English
         const auto& en = getTranslations (Language::English);
         auto enIt = en.find (key);
-        if (enIt != en.end()) return enIt->second;
+        if (enIt != en.end()) return juce::String (juce::CharPointer_UTF8 (enIt->second));
         return key;
     }
 }
