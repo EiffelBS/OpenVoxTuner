@@ -115,7 +115,25 @@ namespace ui
         void clearCurve() { curve.clear(); repaint(); notifyChanged(); }
 
         /// Ghost curve overlay for preset morphing (semi-transparent target curve).
-        void setGhostCurve (const atdsp::PitchCurve* ghost) { ghostCurve = ghost; repaint(); }
+        /// The curve is COPIED by value: the ghost must never keep a raw pointer to a
+        /// caller-owned object, because the editor keeps painting it on the message
+        /// thread while the caller's object (e.g. a unique_ptr<MorphState> for an A/B
+        /// slot) can be destroyed/replaced at any time. Holding a dangling pointer
+        /// here crashed paint() with EXC_BAD_ACCESS (ghostCurve->getPitchAt reading a
+        /// freed MorphState). Passing nullptr (or a curve with < 2 points) clears it.
+        void setGhostCurve (const atdsp::PitchCurve* ghost)
+        {
+            if (ghost != nullptr && ghost->getNumPoints() >= 2)
+            {
+                ghostCurve = *ghost;
+                hasGhostCurve = true;
+            }
+            else
+            {
+                hasGhostCurve = false;
+            }
+            repaint();
+        }
 
         /// Definit la gamme (pour le snap).
         void setKeyAndScale (int key, atdsp::Scale scale);
@@ -225,7 +243,8 @@ namespace ui
     private:
         // === Donnees ===
         atdsp::PitchCurve curve;
-        const atdsp::PitchCurve* ghostCurve = nullptr; // non-owning, for morph overlay
+        atdsp::PitchCurve ghostCurve;   // owned copy of the morph-target overlay
+        bool hasGhostCurve = false;    // whether the ghost overlay is currently active
 
         // Clavier piano affiche sur la gauche.
         PianoKeyboard pianoKeyboard;

@@ -212,14 +212,14 @@ namespace ui
         }
 
         // === Ghost curve overlay (preset morphing target) ===
-        if (ghostCurve != nullptr && ghostCurve->getNumPoints() >= 2)
+        if (hasGhostCurve && ghostCurve.getNumPoints() >= 2)
         {
             juce::Path ghostPath;
             const int N = 200;
             for (int i = 0; i <= N; ++i)
             {
                 const double t = (timeVisible * i) / N;
-                const float hz = ghostCurve->getPitchAt (t, 0.0f);
+                const float hz = ghostCurve.getPitchAt (t, 0.0f);
                 if (hz <= 0.0f) continue;
                 const float x = static_cast<float> (timeToX (t));
                 const float y = pitchToY (hz);
