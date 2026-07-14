@@ -1,2 +1,2 @@
-﻿*.zip filter=lfs diff=lfs merge=lfs -text
+# Track release archives (if any are ever committed) via Git LFS.
 *.zip filter=lfs diff=lfs merge=lfs -text

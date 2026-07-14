@@ -222,7 +222,7 @@ OpenVoxTuner nutzt KI-Coding-Assistenten, um die Entwicklung zu beschleunigen, s
 ├─ CMakeLists.txt
 ├─ README.md
 ├─ LICENSE
-├─ roadmap.md
+├─ docs/implementation-roadmap.md
 ├─ .gitignore
 ├─ .gitattributes
 └─ .gitmodules

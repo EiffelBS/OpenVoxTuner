@@ -222,7 +222,7 @@ OpenVoxTuner は開発を加速するために AI コーディングアシスタ
 ├─ CMakeLists.txt
 ├─ README.md
 ├─ LICENSE
-├─ roadmap.md
+├─ docs/implementation-roadmap.md
 ├─ .gitignore
 ├─ .gitattributes
 └─ .gitmodules

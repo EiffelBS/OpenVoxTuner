@@ -237,7 +237,7 @@ OpenVoxTuner uses AI coding assistants to accelerate development, always under s
 ├─ CMakeLists.txt
 ├─ README.md
 ├─ LICENSE
-├─ roadmap.md
+├─ docs/implementation-roadmap.md
 ├─ .gitignore
 ├─ .gitattributes
 └─ .gitmodules

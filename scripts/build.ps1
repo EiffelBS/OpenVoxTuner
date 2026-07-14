@@ -1,6 +1,6 @@
 # ============================================================================
 # build.ps1
-# Configure et compile le plugin Autotune Clone via CMake + MSVC.
+# Configure et compile le plugin OpenVoxTuner via CMake + MSVC.
 # Ne necessite pas Projucer.
 #
 # Prerequis :

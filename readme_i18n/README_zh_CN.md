@@ -221,7 +221,7 @@ OpenVoxTuner 使用 AI 编程助手来加速开发，始终在严格的人工监
 ├─ CMakeLists.txt
 ├─ README.md
 ├─ LICENSE
-├─ roadmap.md
+├─ docs/implementation-roadmap.md
 ├─ .gitignore
 ├─ .gitattributes
 └─ .gitmodules

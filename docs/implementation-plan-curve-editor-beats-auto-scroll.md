@@ -628,7 +628,7 @@ curveEditor->setAutoScroll(autoScrollToggle.getToggleState());
 
 ## 5. Project roadmap update
 
-The following new entries will be added to `roadmap.md`:
+The following new entries will be added to `docs/implementation-roadmap.md`:
 
 ### Phase 14 — Curve Editor: Customizable Measures
 

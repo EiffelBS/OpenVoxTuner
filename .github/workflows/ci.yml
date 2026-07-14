@@ -58,3 +58,32 @@ jobs:
           cmake --build build-ci-mac --config Release --target OpenVoxTuner_VST3
           cmake --build build-ci-mac --config Release --target OpenVoxTuner_AU
           cmake --build build-ci-mac --config Release --target OpenVoxTuner_Standalone
+
+  test:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Checkout JUCE
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: 8.0.8
+          path: JUCE
+
+      - name: Configure (Windows)
+        shell: pwsh
+        run: |
+          cmake -S . -B build-ci-test -G "Visual Studio 17 2022" -A x64 `
+            -DJUCE_PATH="${{ github.workspace }}\JUCE" `
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build tests
+        shell: pwsh
+        run: cmake --build build-ci-test --config Release --target OpenVoxTunerTests
+
+      - name: Run tests
+        shell: pwsh
+        run: ./build-ci-test/OpenVoxTunerTests_artefacts/Release/OpenVoxTunerTests.exe

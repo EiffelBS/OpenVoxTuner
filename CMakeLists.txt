@@ -1,5 +1,5 @@
 # ============================================================================
-# CMakeLists.txt - Autotune Clone
+# CMakeLists.txt - OpenVoxTuner
 # Utilise le support CMake natif de JUCE 8 (ne necessite pas Projucer compile).
 # Prerequis : CMake >= 3.22 et Visual Studio 2022.
 # ============================================================================
