@@ -113,7 +113,7 @@ if (-not $NoBuild) {
     $buildContent = @"
 @echo off
 setlocal
-set PATH=C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;$msvcBin;$sdkBin;$env:Path
+set PATH=C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;$msvcBin;$sdkBin;C:\Program Files\CMake\bin
 set INCLUDE=$vsToolsRoot\include;$sdkRoot\Include\$sdkVersion\ucrt;$sdkRoot\Include\$sdkVersion\um;$sdkRoot\Include\$sdkVersion\shared;$sdkRoot\Include\$sdkVersion\winrt;$sdkRoot\Include\$sdkVersion\cppwinrt
 set LIB=$vsToolsRoot\lib\onecore\x64;$vsToolsRoot\lib\x64;$sdkRoot\Lib\$sdkVersion\ucrt\x64;$sdkRoot\Lib\$sdkVersion\um\x64
 set VCINSTALLDIR=$vsRoot\VC
