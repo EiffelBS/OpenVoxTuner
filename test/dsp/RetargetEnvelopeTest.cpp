@@ -11,7 +11,7 @@ public:
 
     void runTest() override
     {
-        using namespace atdsp;
+        using namespace ovtdsp;
 
         beginTest ("Speed=0 -> reponse instantanee");
         {

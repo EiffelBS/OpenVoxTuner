@@ -4,7 +4,7 @@
 #include "RetargetEnvelope.h"
 #include <cmath>
 
-namespace atdsp
+namespace ovtdsp
 {
     RetargetEnvelope::RetargetEnvelope() = default;
     RetargetEnvelope::~RetargetEnvelope() = default;

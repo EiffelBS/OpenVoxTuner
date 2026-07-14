@@ -3,7 +3,7 @@
 
 #include "ReverbEffect.h"
 
-namespace atdsp
+namespace ovtdsp
 {
     ReverbEffect::ReverbEffect()
     {

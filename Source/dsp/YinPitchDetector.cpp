@@ -5,7 +5,7 @@
 
 #include "YinPitchDetector.h"
 
-namespace atdsp
+namespace ovtdsp
 {
 
 YinPitchDetector::YinPitchDetector() = default;
@@ -197,4 +197,4 @@ float YinPitchDetector::computeYin (const float*, int)
     return 0.0f;
 }
 
-} // namespace atdsp
+} // namespace ovtdsp

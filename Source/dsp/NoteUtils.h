@@ -10,7 +10,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <cmath>
 
-namespace atdsp
+namespace ovtdsp
 {
     /**
      * Convertit une frequence (Hz) en numero de note MIDI (float).

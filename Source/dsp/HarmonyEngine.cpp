@@ -8,7 +8,7 @@
  #define OVT_LOG(msg) do { } while (false)
 #endif
 
-namespace atdsp
+namespace ovtdsp
 {
 
     // Helper: convert semitone offset to frequency relative to base
@@ -396,4 +396,4 @@ namespace atdsp
         return false;
     }
 
-} // namespace atdsp
+} // namespace ovtdsp

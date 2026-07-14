@@ -42,7 +42,7 @@ namespace ui
         void pushOutputPitch (float hz);
 
         /// Met a jour les informations de note / offset pour l'affichage.
-        void setNoteInfo (const atdsp::NoteInfo& info);
+        void setNoteInfo (const ovtdsp::NoteInfo& info);
 
         /// Definit les notes de la gamme actuelle (demi-tons 0..11) pour
         /// tracer les lignes de la gamme en arriere-plan.
@@ -83,7 +83,7 @@ namespace ui
         juce::Array<float> outputHistory;
 
         // Note info + gamme courante (mis a jour par le processor / editor).
-        atdsp::NoteInfo noteInfo;
+        ovtdsp::NoteInfo noteInfo;
         juce::Array<int> scaleIntervals;
 
         // Piano vertical

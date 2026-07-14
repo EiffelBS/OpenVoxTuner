@@ -33,9 +33,9 @@ public:
     void scaleBoxOnChange (int idx, juce::Array<int>& customN, int keyIdx)
     {
         if (idx < 0 || idx == 13) return; // Custom handled by the keyboard
-        atdsp::ScaleQuantizer temp;
+        ovtdsp::ScaleQuantizer temp;
         temp.setKey (keyIdx);
-        temp.setScale (static_cast<atdsp::Scale> (juce::jlimit (0, 13, idx)));
+        temp.setScale (static_cast<ovtdsp::Scale> (juce::jlimit (0, 13, idx)));
         auto intervals = temp.getScaleIntervals();
         for (int i = 0; i < 12; ++i)
             customN.set (i, intervals.contains (i) ? 1 : 0);
@@ -44,7 +44,7 @@ public:
     // Replicates syncParameters scale resolution.
     juce::Array<int> computeIntervals (int scaleIdx, int keyIdx, const juce::Array<int>& customN)
     {
-        atdsp::ScaleQuantizer q;
+        ovtdsp::ScaleQuantizer q;
         q.setKey (keyIdx);
         if (scaleIdx == 13) // Custom
         {
@@ -52,11 +52,11 @@ public:
             for (int i = 0; i < 12; ++i)
                 if (customN[i] > 0) customNotes.add (i);
             q.setCustomIntervals (customNotes);
-            q.setScale (atdsp::Scale::Custom);
+            q.setScale (ovtdsp::Scale::Custom);
         }
         else
         {
-            q.setScale (static_cast<atdsp::Scale> (juce::jlimit (0, 15, scaleIdx)));
+            q.setScale (static_cast<ovtdsp::Scale> (juce::jlimit (0, 15, scaleIdx)));
         }
         return q.getScaleIntervals();
     }

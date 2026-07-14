@@ -2,7 +2,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <cmath>
 
-namespace atdsp
+namespace ovtdsp
 {
     /**
      * Simple noise gate applied to the input audio before pitch detection.

@@ -12,7 +12,7 @@ public:
 
     void runTest() override
     {
-        using namespace atdsp;
+        using namespace ovtdsp;
 
         // Gamme Do Naturel Mineur : {C, D, Eb, F, G, Ab, Bb} = {0,2,3,5,7,8,10}
         juce::Array<int> naturalMinor;

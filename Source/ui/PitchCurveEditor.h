@@ -63,12 +63,12 @@ namespace ui
         // === API publique ===
 
         /// Acces a la courbe (lecture seule recommande depuis l'exterieur).
-        const atdsp::PitchCurve& getCurve() const { return curve; }
+        const ovtdsp::PitchCurve& getCurve() const { return curve; }
 
         /// Remplace la courbe (apres chargement de preset par exemple).
         /// Reinitialise aussi les options d'edition (snap, grid, step) a leurs
         /// valeurs par defaut pour eviter les conflits d'etat UI.
-        void setCurve (const atdsp::PitchCurve& newCurve);
+        void setCurve (const ovtdsp::PitchCurve& newCurve);
         
         /// Reinitialise les options d'edition aux valeurs par defaut :
         /// snap=ON, stepMode=OFF, snapToGrid=OFF.
@@ -121,7 +121,7 @@ namespace ui
         /// slot) can be destroyed/replaced at any time. Holding a dangling pointer
         /// here crashed paint() with EXC_BAD_ACCESS (ghostCurve->getPitchAt reading a
         /// freed MorphState). Passing nullptr (or a curve with < 2 points) clears it.
-        void setGhostCurve (const atdsp::PitchCurve* ghost)
+        void setGhostCurve (const ovtdsp::PitchCurve* ghost)
         {
             if (ghost != nullptr && ghost->getNumPoints() >= 2)
             {
@@ -136,7 +136,7 @@ namespace ui
         }
 
         /// Definit la gamme (pour le snap).
-        void setKeyAndScale (int key, atdsp::Scale scale);
+        void setKeyAndScale (int key, ovtdsp::Scale scale);
 
         /// Definit les notes de la gamme pour l'affichage du piano.
         /// Liste de demi-tons 0..11 relatifs a C.
@@ -242,8 +242,8 @@ namespace ui
 
     private:
         // === Donnees ===
-        atdsp::PitchCurve curve;
-        atdsp::PitchCurve ghostCurve;   // owned copy of the morph-target overlay
+        ovtdsp::PitchCurve curve;
+        ovtdsp::PitchCurve ghostCurve;   // owned copy of the morph-target overlay
         bool hasGhostCurve = false;    // whether the ghost overlay is currently active
 
         // Clavier piano affiche sur la gauche.
@@ -270,7 +270,7 @@ namespace ui
         bool snapEnabled = true;
         bool snapToGridEnabled = false;
         int  keyIdx = 0;
-        atdsp::Scale currentScale = atdsp::Scale::Major;
+        ovtdsp::Scale currentScale = ovtdsp::Scale::Major;
         juce::Array<int> customIntervalsCache; // copie locale des notes (mode Custom)
         juce::Array<int> scaleIntervals; // notes de la gamme pour les lignes de reference
 
@@ -337,7 +337,7 @@ namespace ui
         juce::String getNoteName (float hz) const;
 
         // === Copy/paste + Undo/Redo ===
-        static juce::Array<atdsp::PitchPoint> clipboard;
+        static juce::Array<ovtdsp::PitchPoint> clipboard;
         juce::UndoManager undoManager;
 
         void performCopy();
@@ -349,13 +349,13 @@ namespace ui
         void beginTransaction (const juce::String& name) { undoManager.beginNewTransaction (name); }
 
         // Snapshot de la courbe avant une modification (pour undo)
-        atdsp::PitchCurve pendingUndoSnapshot;
+        ovtdsp::PitchCurve pendingUndoSnapshot;
 
         // === Undoable action helper ===
         struct CurveEditAction : public juce::UndoableAction
         {
-            atdsp::PitchCurve before;
-            atdsp::PitchCurve after;
+            ovtdsp::PitchCurve before;
+            ovtdsp::PitchCurve after;
             PitchCurveEditor* editor;
 
             CurveEditAction (PitchCurveEditor* e) : editor (e) { before = e->curve; }

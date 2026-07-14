@@ -157,7 +157,7 @@ The user switches between the two via the "Mode" ComboBox in the GUI. The mode i
 
 ### PitchCurve: Data Structure
 
-`atdsp::PitchCurve` is a sorted list of `PitchPoint { time (s), pitch (Hz) }`.
+`ovtdsp::PitchCurve` is a sorted list of `PitchPoint { time (s), pitch (Hz) }`.
 - Minimum 0 points: default auto mode.
 - 1 point: constant value (the pitch curve holds this value).
 - N points: linear interpolation between 2 consecutive points.
@@ -258,7 +258,7 @@ The `PitchVisualizer` permanently displays:
 - **A vertical tuning meter** (needle according to cents, graduations at +/-50 and +/-100, Antares / Studio One style).
 - **The current scale note lines** in the background (semi-transparent yellow) over 4 octaves (C2 -> C6).
 
-The information computation is done by `atdsp::describePitch()` in `NoteUtils.h` (Hz -> MIDI -> name conversion + cents offset calculation between input pitch and quantized pitch).
+The information computation is done by `ovtdsp::describePitch()` in `NoteUtils.h` (Hz -> MIDI -> name conversion + cents offset calculation between input pitch and quantized pitch).
 
 ## Vertical Piano Keyboard (PianoKeyboard)
 

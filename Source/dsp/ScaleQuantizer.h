@@ -6,9 +6,9 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-// On utilise "atdsp" (autotune dsp) plutot que "dsp" pour eviter toute
+// On utilise "ovtdsp" (autotune dsp) plutot que "dsp" pour eviter toute
 // ambiguite avec le namespace "juce::dsp" apporte par JuceHeader.h.
-namespace atdsp
+namespace ovtdsp
 {
     /**
      * Modes musicaux supportes par le plugin.

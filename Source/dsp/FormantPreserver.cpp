@@ -4,7 +4,7 @@
 #include "FormantPreserver.h"
 #include <cmath>
 
-namespace atdsp
+namespace ovtdsp
 {
     FormantPreserver::FormantPreserver() = default;
     FormantPreserver::~FormantPreserver() = default;

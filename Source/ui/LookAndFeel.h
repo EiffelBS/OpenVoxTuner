@@ -4,10 +4,10 @@
 
 namespace ui
 {
-    class AutotuneLookAndFeel : public juce::LookAndFeel_V4
+    class OVTLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
-        AutotuneLookAndFeel();
+        OVTLookAndFeel();
 
         /** Refresh all LookAndFeel colours to match the current theme. 
             Call this whenever ovt::currentTheme() changes. */

@@ -14,7 +14,7 @@ namespace ui
     const juce::Colour PitchCurveEditor::kGridColour  = juce::Colour (0x40ffffff);
 
     // Static clipboard for copy/paste across instances
-    juce::Array<atdsp::PitchPoint> PitchCurveEditor::clipboard;
+    juce::Array<ovtdsp::PitchPoint> PitchCurveEditor::clipboard;
 
     // Full chromatic interval set [0, 11], used by the "snap off" magnetism
     // branch (snap to the nearest chromatic note when close enough).
@@ -139,14 +139,14 @@ namespace ui
             g.setColour (ovt::scaleLine());
             const float lowestHz = minHz;
             const float highestHz = maxHz;
-            const int lowestMidi = static_cast<int> (std::ceil (atdsp::hzToMidiFloat (lowestHz)));
-            const int highestMidi = static_cast<int> (std::floor (atdsp::hzToMidiFloat (highestHz)));
+            const int lowestMidi = static_cast<int> (std::ceil (ovtdsp::hzToMidiFloat (lowestHz)));
+            const int highestMidi = static_cast<int> (std::floor (ovtdsp::hzToMidiFloat (highestHz)));
             for (int midi = lowestMidi; midi <= highestMidi; ++midi)
             {
-                const int noteInOct = atdsp::midiToNoteInOctave (midi);
+                const int noteInOct = ovtdsp::midiToNoteInOctave (midi);
                 if (noteInOct == 0) continue; // skip C (already drawn as octave grid)
                 if (! scaleIntervals.contains (noteInOct)) continue;
-                const float hz = atdsp::midiToHz (static_cast<float> (midi));
+                const float hz = ovtdsp::midiToHz (static_cast<float> (midi));
                 const float y = pitchToY (hz);
                 g.drawHorizontalLine (static_cast<int> (y),
                                       static_cast<float> (pianoW),
@@ -778,11 +778,11 @@ namespace ui
 
             if (snapEnabled)
             {
-                hz = atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
+                hz = ovtdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
             }
             else
             {
-                float snappedHz = atdsp::PitchCurve::snapToIntervals (hz, getChromaticIntervals());
+                float snappedHz = ovtdsp::PitchCurve::snapToIntervals (hz, getChromaticIntervals());
                 float centsDiff = 1200.0f * std::log2 (hz / snappedHz);
                 if (std::abs (centsDiff) < 15.0f)
                     hz = snappedHz;
@@ -853,13 +853,13 @@ namespace ui
         // Snap to note / Snap to scale
         if (snapEnabled)
         {
-            hz = atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
+            hz = ovtdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
         }
         else
         {
             // Snap to note (Chromatique implicite par magnetisme)
             // L'utilisateur voulait un "snap-to-note lors du changement de pitch" meme sans la gamme.
-            float snappedHz = atdsp::PitchCurve::snapToIntervals (hz, getChromaticIntervals());
+            float snappedHz = ovtdsp::PitchCurve::snapToIntervals (hz, getChromaticIntervals());
             // Magnetisme si on est proche de la note exacte (ex: ecart de moins de 15 cents)
             float centsDiff = 1200.0f * std::log2(hz / snappedHz);
             if (std::abs(centsDiff) < 15.0f) {
@@ -986,7 +986,7 @@ namespace ui
         
         if (snapEnabled)
         {
-            hz = atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
+            hz = ovtdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
         }
         curve.addOrUpdatePoint (t, hz);
         notifyChanged();
@@ -1015,8 +1015,8 @@ namespace ui
                                  ? yToPitch (e.position.y)
                                  : std::sqrt (minHz * maxHz);
         applyZoom (anchor, scaleFactor);
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
-                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (maxHz)));
         repaint();
     }
 
@@ -1058,13 +1058,13 @@ namespace ui
         if (maxHz > 8372.0f) { const float r = maxHz / minHz; maxHz = 8372.0f; minHz = maxHz / r; }
 
         // Mise a jour du piano
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
-                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (maxHz)));
         repaint();
     }
 
     // === API publique ===
-    void PitchCurveEditor::setCurve (const atdsp::PitchCurve& newCurve)
+    void PitchCurveEditor::setCurve (const ovtdsp::PitchCurve& newCurve)
     {
         curve = newCurve; // copie (inclut stepMode, snapEnabled, snapToGridEnabled)
         // Applique les parametres d'edition stockes dans la courbe
@@ -1086,7 +1086,7 @@ namespace ui
         if (hz <= 0.0f) return;
         if (snapEnabled)
         {
-            hz = atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
+            hz = ovtdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
         }
         curve.addOrUpdatePoint (currentTime, hz);
         notifyChanged();
@@ -1097,8 +1097,8 @@ namespace ui
         timeVisible = secVis;
         minHz = minH;
         maxHz = maxH;
-        pianoKeyboard.setRange(static_cast<int>(atdsp::hzToMidiFloat(minHz)), 
-                               static_cast<int>(atdsp::hzToMidiFloat(maxHz)));
+        pianoKeyboard.setRange(static_cast<int>(ovtdsp::hzToMidiFloat(minHz)), 
+                               static_cast<int>(ovtdsp::hzToMidiFloat(maxHz)));
         repaint();
     }
 
@@ -1132,8 +1132,8 @@ namespace ui
         minHz = std::exp (centerLog - half);
         maxHz = std::exp (centerLog + half);
         clampPitchRange();
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
-                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (maxHz)));
         repaint();
     }
 
@@ -1144,8 +1144,8 @@ namespace ui
         minHz = std::exp (centerLog - half);
         maxHz = std::exp (centerLog + half);
         clampPitchRange();
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
-                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (maxHz)));
         repaint();
     }
 
@@ -1156,8 +1156,8 @@ namespace ui
         minHz = std::exp (std::log (minHz) + shiftLog);
         maxHz = std::exp (std::log (maxHz) + shiftLog);
         clampPitchRange();
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
-                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (maxHz)));
         repaint();
     }
 
@@ -1168,8 +1168,8 @@ namespace ui
         minHz = std::exp (std::log (minHz) + shiftLog);
         maxHz = std::exp (std::log (maxHz) + shiftLog);
         clampPitchRange();
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
-                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (maxHz)));
         repaint();
     }
 
@@ -1178,8 +1178,8 @@ namespace ui
         minHz = 50.0f;
         maxHz = 1000.0f;
         scrollOffset = 0.0;
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (minHz)),
-                                static_cast<int> (atdsp::hzToMidiFloat (maxHz)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (minHz)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (maxHz)));
         repaint();
     }
 
@@ -1255,7 +1255,7 @@ namespace ui
         repaint();
     }
 
-    void PitchCurveEditor::setKeyAndScale (int key, atdsp::Scale scale)
+    void PitchCurveEditor::setKeyAndScale (int key, ovtdsp::Scale scale)
     {
         keyIdx = key;
         currentScale = scale;
@@ -1268,7 +1268,7 @@ namespace ui
             {
                 const float hz = curve.getPoint (i).pitch;
                 curve.getPoint (i).pitch =
-                    atdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
+                    ovtdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
             }
             notifyChanged();
         }

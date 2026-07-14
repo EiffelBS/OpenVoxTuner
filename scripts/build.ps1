@@ -107,8 +107,8 @@ if ((Test-Path $attribExe) -and (Test-Path $vcxproj))
 # quand la cible est une bibliotheque partagee (plugin). On le genere
 # donc a la main avec juceaide, puis on copie au bon endroit.
 $juceaide = Get-ChildItem $BuildDir -Recurse -Filter "juceaide.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-$defsFile = Join-Path $BuildDir "AutotuneClone_artefacts\JuceLibraryCode\$Configuration\Defs.txt"
-$configDir = Join-Path $BuildDir "AutotuneClone_artefacts\JuceLibraryCode\$Configuration"
+$defsFile = Join-Path $BuildDir "OpenVoxTuner_artefacts\JuceLibraryCode\$Configuration\Defs.txt"
+$configDir = Join-Path $BuildDir "OpenVoxTuner_artefacts\JuceLibraryCode\$Configuration"
 $topDir = Split-Path $configDir -Parent
 if ($juceaide -and (Test-Path $defsFile))
 {
@@ -122,13 +122,13 @@ else
     Write-Host "[1b/3] juceaide introuvable, on suppose que JuceHeader.h est deja genere." -ForegroundColor DarkGray
 }
 
-# Idem pour la cible AutotuneTests (necessaire pour compiler les tests).
-$testsDefsFile = Join-Path $BuildDir "AutotuneTests_artefacts\JuceLibraryCode\$Configuration\Defs.txt"
-$testsConfigDir = Join-Path $BuildDir "AutotuneTests_artefacts\JuceLibraryCode\$Configuration"
+# Idem pour la cible OpenVoxTunerTests (necessaire pour compiler les tests).
+$testsDefsFile = Join-Path $BuildDir "OpenVoxTunerTests_artefacts\JuceLibraryCode\$Configuration\Defs.txt"
+$testsConfigDir = Join-Path $BuildDir "OpenVoxTunerTests_artefacts\JuceLibraryCode\$Configuration"
 $testsTopDir = Split-Path $testsConfigDir -Parent
 if ($juceaide -and (Test-Path $testsDefsFile))
 {
-    Write-Host "[1c/3] Generation de JuceHeader.h (cible AutotuneTests)..." -ForegroundColor Cyan
+    Write-Host "[1c/3] Generation de JuceHeader.h (cible OpenVoxTunerTests)..." -ForegroundColor Cyan
     & $juceaide.FullName header $testsDefsFile (Join-Path $testsConfigDir "JuceHeader.h") 2>&1 | Out-Null
     Copy-Item -Path (Join-Path $testsConfigDir "JuceHeader.h") -Destination (Join-Path $testsTopDir "JuceHeader.h") -Force
 }
@@ -146,7 +146,7 @@ if ($LASTEXITCODE -ne 0)
 if ($RunTests)
 {
     Write-Host "[3/3] Execution des tests..." -ForegroundColor Cyan
-    $testExe = Get-ChildItem $BuildDir -Recurse -Filter "AutotuneTests.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    $testExe = Get-ChildItem $BuildDir -Recurse -Filter "OpenVoxTunerTests.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($testExe)
     {
         & $testExe.FullName
@@ -161,4 +161,4 @@ Write-Host ""
 Write-Host "=== Build termine avec succes ===" -ForegroundColor Green
 Write-Host "Sorties :"
 Get-ChildItem $BuildDir -Recurse -Filter "*.vst3" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  VST3       : $($_.FullName)" }
-Get-ChildItem $BuildDir -Recurse -Filter "AutotuneClone.exe" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  Standalone : $($_.FullName)" }
+Get-ChildItem $BuildDir -Recurse -Filter "OpenVoxTuner.exe" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  Standalone : $($_.FullName)" }

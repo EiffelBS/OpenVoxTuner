@@ -7,7 +7,7 @@
 
 namespace ui
 {
-    AutotuneLookAndFeel::AutotuneLookAndFeel()
+    OVTLookAndFeel::OVTLookAndFeel()
     {
         // Setup colors for general UI elements
         setColour (juce::Slider::textBoxTextColourId, ovt::text());
@@ -31,7 +31,7 @@ namespace ui
         setColour (juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
     }
 
-    void AutotuneLookAndFeel::refreshThemeColours()
+    void OVTLookAndFeel::refreshThemeColours()
     {
         setColour (juce::Slider::textBoxTextColourId, ovt::text());
         setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
@@ -55,7 +55,7 @@ namespace ui
         setColour (juce::Label::textColourId, ovt::text());
     }
 
-    void AutotuneLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
+    void OVTLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
                                                 float sliderPos, const float rotaryStartAngle, const float rotaryEndAngle,
                                                 juce::Slider& slider)
     {
@@ -106,7 +106,7 @@ namespace ui
         g.strokePath(p, juce::PathStrokeType(pointerThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
-    void AutotuneLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height, bool isButtonDown,
+    void OVTLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height, bool isButtonDown,
                                             int buttonX, int buttonY, int buttonW, int buttonH,
                                             juce::ComboBox& box)
     {
@@ -132,23 +132,23 @@ namespace ui
         g.fillPath (path);
     }
 
-    void AutotuneLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
+    void OVTLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
     {
         label.setBounds (1, 1, box.getWidth() - 30, box.getHeight() - 2);
         label.setFont (getComboBoxFont (box));
     }
     
-    juce::Font AutotuneLookAndFeel::getComboBoxFont (juce::ComboBox& box)
+    juce::Font OVTLookAndFeel::getComboBoxFont (juce::ComboBox& box)
     {
         return ovt::fontComboBox();
     }
     
-    juce::Font AutotuneLookAndFeel::getLabelFont (juce::Label& label)
+    juce::Font OVTLookAndFeel::getLabelFont (juce::Label& label)
     {
         return ovt::fontComboBox();
     }
 
-    void AutotuneLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& button,
+    void OVTLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& button,
                                                 bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown)
     {
         auto bounds = button.getLocalBounds().toFloat();
@@ -236,7 +236,7 @@ namespace ui
         }
     }
 
-    void AutotuneLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text, int width, int height)
+    void OVTLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text, int width, int height)
     {
         const auto fg = ovt::text();
 
@@ -255,7 +255,7 @@ namespace ui
         layout.draw (g, juce::Rectangle<float> (8.0f, 6.0f, (float) width - 16.0f, (float) height - 12.0f));
     }
 
-    juce::Rectangle<int> AutotuneLookAndFeel::getTooltipBounds (const juce::String& tipText,
+    juce::Rectangle<int> OVTLookAndFeel::getTooltipBounds (const juce::String& tipText,
                                                                 juce::Point<int> screenPos,
                                                                 juce::Rectangle<int> parentArea)
     {
@@ -290,7 +290,7 @@ namespace ui
         return { x, y, width, height };
     }
 
-    void AutotuneLookAndFeel::drawTabbedButtonBarBackground (juce::TabbedButtonBar& bar, juce::Graphics& g)
+    void OVTLookAndFeel::drawTabbedButtonBarBackground (juce::TabbedButtonBar& bar, juce::Graphics& g)
     {
         auto barBounds = bar.getLocalBounds().toFloat();
 
@@ -303,7 +303,7 @@ namespace ui
         g.drawHorizontalLine (barBounds.getBottom() - 1.0f, 0.0f, barBounds.getWidth());
     }
 
-    void AutotuneLookAndFeel::drawTabButton (juce::TabBarButton& button, juce::Graphics& g,
+    void OVTLookAndFeel::drawTabButton (juce::TabBarButton& button, juce::Graphics& g,
                                               bool isMouseOver, bool isMouseDown)
     {
         auto tabBounds = button.getLocalBounds().toFloat();
@@ -330,7 +330,7 @@ namespace ui
         drawTabButtonText (button, g, isMouseOver, isMouseDown);
     }
 
-    void AutotuneLookAndFeel::drawTabButtonText (juce::TabBarButton& button, juce::Graphics& g,
+    void OVTLookAndFeel::drawTabButtonText (juce::TabBarButton& button, juce::Graphics& g,
                                                   bool /*isMouseOver*/, bool /*isMouseDown*/)
     {
         auto tabBounds = button.getLocalBounds();
@@ -341,7 +341,7 @@ namespace ui
         g.drawText (button.getButtonText(), tabBounds, juce::Justification::centred, false);
     }
 
-    void AutotuneLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int width, int height)
+    void OVTLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int width, int height)
     {
         // Force the dark plugin background for all popup menus
         g.setColour (ovt::bgDark());
@@ -352,7 +352,7 @@ namespace ui
         g.drawRect (0, 0, width, height, 1);
     }
 
-    void AutotuneLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+    void OVTLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
                                                  float sliderPos, float minSliderPos, float maxSliderPos,
                                                  const juce::Slider::SliderStyle style, juce::Slider& slider)
     {

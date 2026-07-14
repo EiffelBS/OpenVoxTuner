@@ -168,7 +168,7 @@ private:
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
     
     // Custom Look And Feel must be instantiated BEFORE the components that use it
-    ui::AutotuneLookAndFeel customLookAndFeel;
+    ui::OVTLookAndFeel customLookAndFeel;
 
     // Scale selection keyboard
     ui::ScaleKeyboardComponent scaleKeyboard;
@@ -255,7 +255,7 @@ private:
     struct ABState {
         juce::String name;
         std::unique_ptr<juce::XmlElement> state; // for full state restore
-        std::unique_ptr<atdsp::MorphState> morphState; // direct snapshot for morphing
+        std::unique_ptr<ovtdsp::MorphState> morphState; // direct snapshot for morphing
         bool hasData = false;
     };
     ABState slotA, slotB;
@@ -268,14 +268,14 @@ private:
     void updateABButtonStates();
 
     // === Preset Morphing ===
-    std::unique_ptr<atdsp::MorphState> morphSource;
-    std::unique_ptr<atdsp::MorphState> morphTarget;
+    std::unique_ptr<ovtdsp::MorphState> morphSource;
+    std::unique_ptr<ovtdsp::MorphState> morphTarget;
     bool morphActive = false;
     float lastMorphValue = 0.0f;
     double lastTransportTime = 0.0; // for DAW transport jump detection
     juce::String morphSourceName = "Source";
     juce::String morphTargetName = "Target";
-    std::unique_ptr<atdsp::MorphState> morphUndoState; // pre-morph snapshot for undo
+    std::unique_ptr<ovtdsp::MorphState> morphUndoState; // pre-morph snapshot for undo
 
     // Tracks the normalized value the morph last applied to each parameter.
     // Used to detect parameters that are being driven externally (DAW/UI

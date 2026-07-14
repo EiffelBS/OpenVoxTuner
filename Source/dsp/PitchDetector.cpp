@@ -8,7 +8,7 @@
 
 #include "PitchDetector.h"
 
-namespace atdsp
+namespace ovtdsp
 {
     PitchDetector::PitchDetector() = default;
     PitchDetector::~PitchDetector() = default;

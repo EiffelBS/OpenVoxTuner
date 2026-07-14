@@ -14,7 +14,7 @@ public:
     {
         beginTest ("Detection d'un sinus a 440 Hz");
         {
-            atdsp::PitchDetector det;
+            ovtdsp::PitchDetector det;
             det.prepare (44100.0, 2048);
 
             const int N = 2048;
@@ -44,7 +44,7 @@ public:
 
         beginTest ("Detection d'un sinus a 220 Hz");
         {
-            atdsp::PitchDetector det;
+            ovtdsp::PitchDetector det;
             det.prepare (44100.0, 2048);
 
             const int N = 2048;
@@ -69,7 +69,7 @@ public:
 
         beginTest ("Detection d'un sinus a 100 Hz (limite basse)");
         {
-            atdsp::PitchDetector det;
+            ovtdsp::PitchDetector det;
             det.prepare (44100.0, 4096); // fenetre plus grande pour 100 Hz
 
             const int N = 4096;
@@ -95,7 +95,7 @@ public:
 
         beginTest ("Pas de pitch sur du silence");
         {
-            atdsp::PitchDetector det;
+            ovtdsp::PitchDetector det;
             det.prepare (44100.0, 2048);
             juce::HeapBlock<float> buf (2048, true);
             for (int i = 0; i < 4; ++i) det.detectPitch (buf, 2048);
@@ -105,7 +105,7 @@ public:
 
         beginTest ("Buffer trop petit -> pas de pitch");
         {
-            atdsp::PitchDetector det;
+            ovtdsp::PitchDetector det;
             det.prepare (44100.0, 64); // bloque les grandes fenetres
             juce::HeapBlock<float> buf (64, true);
             const float detected = det.detectPitch (buf, 64);

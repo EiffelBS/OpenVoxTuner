@@ -12,7 +12,7 @@
 #include <juce_core/juce_core.h>
 #include "ScaleQuantizer.h"
 
-namespace atdsp
+namespace ovtdsp
 {
     // Types d'harmonie presets (intervalle de chaque voix par rapport a la note de base).
     enum class HarmonyType

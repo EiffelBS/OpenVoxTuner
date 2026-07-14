@@ -25,7 +25,7 @@ namespace ui
 
     bool PianoKeyboard::isBlackKey (int midi) noexcept
     {
-        const int n = atdsp::midiToNoteInOctave (midi);
+        const int n = ovtdsp::midiToNoteInOctave (midi);
         // 1=C#, 3=D#, 6=F#, 8=G#, 10=A# (les autres sont blanches).
         return n == 1 || n == 3 || n == 6 || n == 8 || n == 10;
     }
@@ -33,7 +33,7 @@ namespace ui
     bool PianoKeyboard::isInScale (int midi) const noexcept
     {
         if (scaleIntervals.isEmpty()) return false;
-        const int n = atdsp::midiToNoteInOctave (midi);
+        const int n = ovtdsp::midiToNoteInOctave (midi);
         for (int s : scaleIntervals)
             if (s == n) return true;
         return false;
@@ -65,7 +65,7 @@ namespace ui
 
     float PianoKeyboard::yToHz (float y) const
     {
-        return atdsp::midiToHz (static_cast<float> (yToMidi (y)));
+        return ovtdsp::midiToHz (static_cast<float> (yToMidi (y)));
     }
 
     void PianoKeyboard::setRange (int lowest, int highest)
@@ -101,8 +101,8 @@ namespace ui
         const float whiteW = static_cast<float> (W);
         const float blackW = whiteW * 0.65f;
 
-        int inMidi = currentInputHz > 0.0f ? static_cast<int>(std::round(atdsp::hzToMidiFloat(currentInputHz))) : -1;
-        int outMidi = currentOutputHz > 0.0f ? static_cast<int>(std::round(atdsp::hzToMidiFloat(currentOutputHz))) : -1;
+        int inMidi = currentInputHz > 0.0f ? static_cast<int>(std::round(ovtdsp::hzToMidiFloat(currentInputHz))) : -1;
+        int outMidi = currentOutputHz > 0.0f ? static_cast<int>(std::round(ovtdsp::hzToMidiFloat(currentOutputHz))) : -1;
 
         juce::Array<int> whiteMidis;
         for (int midi = highestMidi; midi >= lowestMidi; --midi)
@@ -167,13 +167,13 @@ namespace ui
 
             // Label : nom de note (C, D, E, F, G, A, B) + octave.
             // Show labels only when keys are tall enough (>= 20px) to avoid clutter.
-            const int note = atdsp::midiToNoteInOctave (midi);
-            const int oct  = atdsp::midiToOctave (midi);
+            const int note = ovtdsp::midiToNoteInOctave (midi);
+            const int oct  = ovtdsp::midiToOctave (midi);
             if (keyRect.getHeight() >= 20.0f)
             {
                 g.setColour (kText.withAlpha(0.8f));
                 g.setFont (ovt::fontPianoKey());
-                const juce::String noteName = juce::String (atdsp::noteInOctaveName (note));
+                const juce::String noteName = juce::String (ovtdsp::noteInOctaveName (note));
                 const bool isC = (note == 0);
                 const juce::String label = isC ? (noteName + " " + juce::String (oct))
                                                : noteName;

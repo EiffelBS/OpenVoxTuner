@@ -7,7 +7,7 @@
 #include "ScaleQuantizer.h"
 #include <vector>
 
-namespace atdsp
+namespace ovtdsp
 {
     // Demi-tons d'une octave pour chaque mode (relatifs a la tonique).
     static const std::vector<int> chromaticIntervals       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };

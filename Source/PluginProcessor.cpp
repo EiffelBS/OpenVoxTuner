@@ -447,20 +447,20 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     }
 
     // Instantiates DSP modules — YIN pitch detector.
-    pitchDetectors[0] = std::make_unique<atdsp::YinPitchDetector>();
+    pitchDetectors[0] = std::make_unique<ovtdsp::YinPitchDetector>();
     activePitchDetector.store (pitchDetectors[0].get());
     activeDetectorMode = 0;
-    scaleQuantizer   = std::make_unique<atdsp::ScaleQuantizer>();
-    scaleQuantizer->setScale (atdsp::Scale::Chromatic); // Ensure chromatic on first launch
-    pitchShifter     = std::make_unique<atdsp::PitchShifter>();
-    harmonyEngine    = std::make_unique<atdsp::HarmonyEngine>();
+    scaleQuantizer   = std::make_unique<ovtdsp::ScaleQuantizer>();
+    scaleQuantizer->setScale (ovtdsp::Scale::Chromatic); // Ensure chromatic on first launch
+    pitchShifter     = std::make_unique<ovtdsp::PitchShifter>();
+    harmonyEngine    = std::make_unique<ovtdsp::HarmonyEngine>();
 
-    retargetEnvelope = std::make_unique<atdsp::RetargetEnvelope>();
-    pitchCurve       = std::make_unique<atdsp::PitchCurve>();
+    retargetEnvelope = std::make_unique<ovtdsp::RetargetEnvelope>();
+    pitchCurve       = std::make_unique<ovtdsp::PitchCurve>();
     pitchCurve->loadPreset ("default");
 
     // Initialize post-processing effects (reverb, etc.)
-    effects.push_back (std::make_unique<atdsp::ReverbEffect>());
+    effects.push_back (std::make_unique<ovtdsp::ReverbEffect>());
     OVT_LOG ("Effects initialized: " + juce::String (static_cast<int> (effects.size())));
 
     // Instantiation of the VST3 extension for Fender Studio Pro (Micro View)
@@ -570,7 +570,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
         shiftedVoicePitchShifters.clear();
         shiftedVoicePitchShifters.resize (OpenVoxTunerAudioProcessor::maxShiftedVoices);
         for (auto& ps : shiftedVoicePitchShifters)
-            ps = std::make_unique<atdsp::PitchShifter>();
+            ps = std::make_unique<ovtdsp::PitchShifter>();
     }
     for (auto& ps : shiftedVoicePitchShifters)
         if (ps != nullptr)
@@ -1144,7 +1144,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // Calcul de l'offset en cents between pitch d'entree et pitch quantife.
         // Positif = entree trop haute, Negatif = entree trop basse.
         if (f0_target > 0.0f)
-            lastCentsOffset.store (atdsp::hzToCents (f0_in, f0_target));
+            lastCentsOffset.store (ovtdsp::hzToCents (f0_in, f0_target));
         else
             lastCentsOffset.store (0.0f);
 
@@ -1179,7 +1179,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 notes = harmonyEngine->getHarmonyNotes (
                     f0_out,
                     intervals,
-                    static_cast<atdsp::HarmonyType>(currentHarmonyType)
+                    static_cast<ovtdsp::HarmonyType>(currentHarmonyType)
                 );
                 // cache notes for potential release rendering
                 lastHarmonyNotes = notes;
@@ -1705,7 +1705,7 @@ void OpenVoxTunerAudioProcessor::syncParameters()
         ? scaleChoiceParam->getIndex()
         : static_cast<int> (std::round (scaleParam->load() * 13.0f));
     scaleQuantizer->setKey (keyIdx);
-    scaleQuantizer->setScale (static_cast<atdsp::Scale> (juce::jlimit (0, 15, scaleIdx)));
+    scaleQuantizer->setScale (static_cast<ovtdsp::Scale> (juce::jlimit (0, 15, scaleIdx)));
 
     // Si on est en mode "Custom" (scaleIdx == 13), on pousse la liste
     // des notes cochees vers le quantifier.
@@ -1882,9 +1882,9 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
 }
 
 // Detector factory — YIN only.
-std::unique_ptr<atdsp::IPitchDetector> OpenVoxTunerAudioProcessor::createDetector()
+std::unique_ptr<ovtdsp::IPitchDetector> OpenVoxTunerAudioProcessor::createDetector()
 {
-    return std::make_unique<atdsp::YinPitchDetector>();
+    return std::make_unique<ovtdsp::YinPitchDetector>();
 }
 
 // === Programmes (non utilises pour le MVP) ===
@@ -1982,7 +1982,7 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
         {
             auto* slotXml = xmlState->getChildByName (slot == 0 ? "AB_A" : "AB_B");
             if (slotXml == nullptr) continue;
-            atdsp::MorphState ms;
+            ovtdsp::MorphState ms;
             ms.speed              = (float) slotXml->getDoubleAttribute ("speed", 0.25);
             ms.amount             = (float) slotXml->getDoubleAttribute ("amount", 0.5);
             ms.formant            = (float) slotXml->getDoubleAttribute ("formant", 0.5);
@@ -2041,9 +2041,9 @@ juce::VST3ClientExtensions* OpenVoxTunerAudioProcessor::getVST3ClientExtensions(
 
 // === getScaleNoteNames (static) ===
 juce::Array<juce::String> OpenVoxTunerAudioProcessor::getScaleNoteNames
-    (int key, atdsp::Scale scale)
+    (int key, ovtdsp::Scale scale)
 {
-    atdsp::ScaleQuantizer quantizer;
+    ovtdsp::ScaleQuantizer quantizer;
     quantizer.setKey (key);
     quantizer.setScale (scale);
 

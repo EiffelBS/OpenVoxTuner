@@ -83,11 +83,11 @@ public:
     float getHarmonyOutputLevel() const { return harmonyOutputLevel.load(); }   
 
     // === Scale note names (for the editor) ===
-    static juce::Array<juce::String> getScaleNoteNames (int key, atdsp::Scale scale);
+    static juce::Array<juce::String> getScaleNoteNames (int key, ovtdsp::Scale scale);
 
     // Pitch curve access (for the editor).
-    atdsp::PitchCurve& getPitchCurve() { return *pitchCurve; }
-    const atdsp::PitchCurve& getPitchCurve() const { return *pitchCurve; }
+    ovtdsp::PitchCurve& getPitchCurve() { return *pitchCurve; }
+    const ovtdsp::PitchCurve& getPitchCurve() const { return *pitchCurve; }
     bool hasPitchCurve() const { return pitchCurve != nullptr; }      
 
     // Access sent note for UI
@@ -156,13 +156,13 @@ public:
     void setMorphAmount (float v);
 
     // A/B slot persistence (called by Editor during state save/load).
-    void setAbSlotMorphState (int slot, atdsp::MorphState ms)
+    void setAbSlotMorphState (int slot, ovtdsp::MorphState ms)
     {
         if (slot == 0) abSlotAMorph = std::move (ms);
         else           abSlotBMorph = std::move (ms);
         abSlotHasData[slot] = true;
     }
-    const atdsp::MorphState* getAbSlotMorphState (int slot) const
+    const ovtdsp::MorphState* getAbSlotMorphState (int slot) const
     {
         return abSlotHasData[slot] ? (slot == 0 ? &abSlotAMorph : &abSlotBMorph) : nullptr;
     }
@@ -237,21 +237,21 @@ private:
 
     // === DSP Modules (Phase 1 + 4) ===
     // YIN pitch detector.
-    std::unique_ptr<atdsp::IPitchDetector> pitchDetectors[1];
-    std::atomic<atdsp::IPitchDetector*>    activePitchDetector { nullptr };
+    std::unique_ptr<ovtdsp::IPitchDetector> pitchDetectors[1];
+    std::atomic<ovtdsp::IPitchDetector*>    activePitchDetector { nullptr };
     int activeDetectorMode = 0;
-    std::unique_ptr<atdsp::IPitchDetector> createDetector();
-    std::unique_ptr<atdsp::ScaleQuantizer>    scaleQuantizer;
-    std::unique_ptr<atdsp::PitchShifter>      pitchShifter;
-    std::unique_ptr<atdsp::HarmonyEngine>     harmonyEngine;
-    atdsp::NoiseGate                           noiseGate;
+    std::unique_ptr<ovtdsp::IPitchDetector> createDetector();
+    std::unique_ptr<ovtdsp::ScaleQuantizer>    scaleQuantizer;
+    std::unique_ptr<ovtdsp::PitchShifter>      pitchShifter;
+    std::unique_ptr<ovtdsp::HarmonyEngine>     harmonyEngine;
+    ovtdsp::NoiseGate                           noiseGate;
 
-    std::unique_ptr<atdsp::RetargetEnvelope>  retargetEnvelope;
-    std::unique_ptr<atdsp::PitchCurve>        pitchCurve; // "graphic" mode
+    std::unique_ptr<ovtdsp::RetargetEnvelope>  retargetEnvelope;
+    std::unique_ptr<ovtdsp::PitchCurve>        pitchCurve; // "graphic" mode
 
     // Post-processing effects (reverb, delay, chorus, etc.).
     // Applied in order after the main pitch-correction + harmony pipeline.
-    std::vector<std::unique_ptr<atdsp::IEffect>> effects;     
+    std::vector<std::unique_ptr<ovtdsp::IEffect>> effects;     
 
     // Current correction mode.
     //   0 = auto (standard quantization)
@@ -279,8 +279,8 @@ private:
     std::atomic<float> lastCentsOffset { 0.0f };
 
     // A/B comparison slots (persisted in project state).
-    atdsp::MorphState abSlotAMorph;
-    atdsp::MorphState abSlotBMorph;
+    ovtdsp::MorphState abSlotAMorph;
+    ovtdsp::MorphState abSlotBMorph;
     bool abSlotHasData[2] = { false, false };
 
     std::atomic<float> lastValidF0 { 0.0f };
@@ -366,7 +366,7 @@ private:
     // Temporary buffers to hold pitch-shifted voices (preallocated)
     std::vector<juce::AudioBuffer<float>> shiftedVoiceBuffers;
     // Dedicated pitch shifters per shifted voice (separate state from main pitchShifter)
-    std::vector<std::unique_ptr<atdsp::PitchShifter>> shiftedVoicePitchShifters;
+    std::vector<std::unique_ptr<ovtdsp::PitchShifter>> shiftedVoicePitchShifters;
     static constexpr int maxShiftedVoices = 4;
     std::array<juce::LinearSmoothedValue<float>, maxShiftedVoices> shiftedVoiceGains;
     // MIDI out state (per-channel last note sent, channels 1..16 mapped to index 0..15)

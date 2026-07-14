@@ -10,7 +10,7 @@
 // Definition of global debug counter
 std::atomic<int> gPitchShifterGrainEvents { 0 };
 
-namespace atdsp
+namespace ovtdsp
 {
     PitchShifter::PitchShifter() = default;
 
@@ -286,7 +286,7 @@ namespace atdsp
     // end of process
 
     // Debug: force-create a test grain (calls from host/UI)
-void atdsp::PitchShifter::forceCreateTestGrain()
+void ovtdsp::PitchShifter::forceCreateTestGrain()
 {
     int gIdx = -1;
     for (int j = 0; j < MAX_GRAINS; ++j)

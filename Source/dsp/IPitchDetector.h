@@ -9,7 +9,7 @@
 
 #include <juce_core/juce_core.h>
 
-namespace atdsp
+namespace ovtdsp
 {
 
 /**
@@ -49,4 +49,4 @@ public:
     virtual juce::String getName() const = 0;
 };
 
-} // namespace atdsp
+} // namespace ovtdsp

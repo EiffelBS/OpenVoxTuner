@@ -181,7 +181,7 @@ Consequences:
   reconstructed from the A/B slot `MorphState` snapshots.
 
 **Implementation**: `timerCallback()` polls `morph_amount` and calls
-`atdsp::applyInterpolatedState(parameters, source, target, value, exclude)` when it
+`ovtdsp::applyInterpolatedState(parameters, source, target, value, exclude)` when it
 changes, which writes the interpolated underlying parameters via
 `setValueNotifyingHost()`. The morph appears in the DAW's parameter list as
 "Morph".

@@ -11,7 +11,7 @@
 #include "IPitchDetector.h"
 #include <juce_core/juce_core.h>
 
-namespace atdsp
+namespace ovtdsp
 {
 
 /**
@@ -74,4 +74,4 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (YinPitchDetector)
 };
 
-} // namespace atdsp
+} // namespace ovtdsp

@@ -11,7 +11,7 @@ public:
 
     void runTest() override
     {
-        using namespace atdsp;
+        using namespace ovtdsp;
 
         beginTest ("Note deja dans la gamme (Do majeur, A4 = 440 Hz)");
         {

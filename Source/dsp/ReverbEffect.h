@@ -8,7 +8,7 @@
 #include "IEffect.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 
-namespace atdsp
+namespace ovtdsp
 {
     class ReverbEffect : public IEffect
     {

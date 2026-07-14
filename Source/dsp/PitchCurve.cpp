@@ -2,10 +2,10 @@
 // Implementation de la pitch curve.
 
 #include "PitchCurve.h"
-#include "ScaleQuantizer.h" // pour l'enum atdsp::Scale et les types lies a la gamme
+#include "ScaleQuantizer.h" // pour l'enum ovtdsp::Scale et les types lies a la gamme
 #include <cmath>
 
-namespace atdsp
+namespace ovtdsp
 {
     PitchCurve::PitchCurve() = default;
 

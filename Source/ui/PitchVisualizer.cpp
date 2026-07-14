@@ -70,8 +70,8 @@ namespace ui
         // scroll & zoom when the cursor is over the left piano strip.
         // Mirrors the Curve Editor's setup.
         pianoKeyboard.setInterceptsMouseClicks (false, false);
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (fMin)),
-                                static_cast<int> (atdsp::hzToMidiFloat (fMax)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (fMin)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (fMax)));
 
         // === SVG icon buttons (order: zoom, scroll, reset) ===
         setupIconBtn (zoomInButton,    svgZoomIn,    ovt::tr(ovt::Keys::kTooltipZoomIn));
@@ -122,7 +122,7 @@ namespace ui
         latestOutputHz = hz;
     }
 
-    void PitchVisualizer::setNoteInfo (const atdsp::NoteInfo& info)
+    void PitchVisualizer::setNoteInfo (const ovtdsp::NoteInfo& info)
     {
         noteInfo = info;
     }
@@ -170,7 +170,7 @@ namespace ui
     float PitchVisualizer::hzToY (float hz, int height) const
     {
         if (hz <= 0.0f) return static_cast<float> (height);
-        const float midiF = atdsp::hzToMidiFloat (hz);
+        const float midiF = ovtdsp::hzToMidiFloat (hz);
         const int lowestMidi = pianoKeyboard.getLowestMidi();
         const int highestMidi = pianoKeyboard.getHighestMidi();
         const int range = juce::jmax (1, highestMidi - lowestMidi);
@@ -186,7 +186,7 @@ namespace ui
         const int highestMidi = pianoKeyboard.getHighestMidi();
         const int range = juce::jmax (1, highestMidi - lowestMidi);
         const float midiF = static_cast<float> (lowestMidi) + t * static_cast<float> (range);
-        return atdsp::midiToHz (midiF);
+        return ovtdsp::midiToHz (midiF);
     }
 
     void PitchVisualizer::mouseMove (const juce::MouseEvent& e)
@@ -387,8 +387,8 @@ namespace ui
 
         // --- Y-axis frequency labels (Hz) ---
         {
-            const int lowestMidi  = static_cast<int> (std::ceil (atdsp::hzToMidiFloat (fMin)));
-            const int highestMidi = static_cast<int> (std::floor (atdsp::hzToMidiFloat (fMax)));
+            const int lowestMidi  = static_cast<int> (std::ceil (ovtdsp::hzToMidiFloat (fMin)));
+            const int highestMidi = static_cast<int> (std::floor (ovtdsp::hzToMidiFloat (fMax)));
             g.setFont (ovt::fontYAxis());
             g.setColour (juce::Colour (0x44ffffff));
             // Draw labels for C notes on the right edge of the plot
@@ -397,7 +397,7 @@ namespace ui
                                  : lowestMidi + (12 - lowestMidi % 12);
             for (int midi = firstC; midi <= highestMidi; midi += 12)
             {
-                const float hz = atdsp::midiToHz (static_cast<float> (midi));
+                const float hz = ovtdsp::midiToHz (static_cast<float> (midi));
                 const float y = plotArea.getY() + hzToY (hz, plotArea.getHeight());
                 const int yi = static_cast<int> (y);
                 const juce::String hzLabel = juce::String (static_cast<int> (std::round (hz)));
@@ -408,8 +408,8 @@ namespace ui
 
         // --- Dynamic octave reference lines (C notes) ---
         {
-            const int lowestMidi  = static_cast<int> (std::ceil (atdsp::hzToMidiFloat (fMin)));
-            const int highestMidi = static_cast<int> (std::floor (atdsp::hzToMidiFloat (fMax)));
+            const int lowestMidi  = static_cast<int> (std::ceil (ovtdsp::hzToMidiFloat (fMin)));
+            const int highestMidi = static_cast<int> (std::floor (ovtdsp::hzToMidiFloat (fMax)));
             const int firstC = (lowestMidi % 12 == 0)
                                  ? lowestMidi
                                  : lowestMidi + (12 - lowestMidi % 12);
@@ -417,13 +417,13 @@ namespace ui
             g.setColour (kGrid.brighter (0.15f));
             for (int midi = firstC; midi <= highestMidi; midi += 12)
             {
-                const float hz = atdsp::midiToHz (static_cast<float> (midi));
+                const float hz = ovtdsp::midiToHz (static_cast<float> (midi));
                 const float y = plotArea.getY() + hzToY (hz, plotArea.getHeight());
                 const int yi = static_cast<int> (y);
                 g.drawHorizontalLine (yi,
                                       static_cast<float> (plotArea.getX()),
                                       static_cast<float> (plotArea.getRight()));
-                const int oct = atdsp::midiToOctave (midi);
+                const int oct = ovtdsp::midiToOctave (midi);
                 const juce::String label = "C" + juce::String (oct);
                 g.setFont (ovt::fontOctaveLabel());
                 g.setColour (ovt::isDark() ? juce::Colour (0x55ffffff) : juce::Colour (0x55000000));
@@ -436,10 +436,10 @@ namespace ui
             g.setColour (ovt::scaleLine());
             for (int midi = lowestMidi; midi <= highestMidi; ++midi)
             {
-                const int noteInOct = atdsp::midiToNoteInOctave (midi);
+                const int noteInOct = ovtdsp::midiToNoteInOctave (midi);
                 if (noteInOct == 0) continue;
                 if (! scaleIntervals.contains (noteInOct)) continue;
-                const float hz = atdsp::midiToHz (static_cast<float> (midi));
+                const float hz = ovtdsp::midiToHz (static_cast<float> (midi));
                 const float y = plotArea.getY() + hzToY (hz, plotArea.getHeight());
                 g.drawHorizontalLine (static_cast<int> (y),
                                       static_cast<float> (plotArea.getX()),
@@ -525,7 +525,7 @@ namespace ui
                                   static_cast<float> (plotArea.getX()),
                                   static_cast<float> (plotArea.getRight()));
             // Readout box
-            const juce::String noteName = atdsp::hzToNoteName (hoverHz);
+            const juce::String noteName = ovtdsp::hzToNoteName (hoverHz);
             const juce::String hzText = juce::String (static_cast<int> (std::round (hoverHz))) + " Hz";
             const juce::String readout = noteName + "  " + hzText;
             g.setFont (ovt::fontReadout());
@@ -666,8 +666,8 @@ namespace ui
                 fMax = targetFMax;
                 animating = false;
             }
-            pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (fMin)),
-                                    static_cast<int> (atdsp::hzToMidiFloat (fMax)));
+            pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (fMin)),
+                                    static_cast<int> (ovtdsp::hzToMidiFloat (fMax)));
         }
 
         repaint();
@@ -716,8 +716,8 @@ namespace ui
         // Apply immediately (no animation) so trackpad gestures feel as responsive
         // as the Curve Editor. The animated transition is kept for the toolbar
         // buttons only.
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (fMin)),
-                                static_cast<int> (atdsp::hzToMidiFloat (fMax)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (fMin)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (fMax)));
         animating = false;
         repaint();
     }
@@ -754,8 +754,8 @@ namespace ui
 
         // Apply immediately (no animation) so the pinch tracks the fingers 1:1,
         // matching the Curve Editor.
-        pianoKeyboard.setRange (static_cast<int> (atdsp::hzToMidiFloat (fMin)),
-                                static_cast<int> (atdsp::hzToMidiFloat (fMax)));
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (fMin)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (fMax)));
         animating = false;
         repaint();
     }

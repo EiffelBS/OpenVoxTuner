@@ -27,7 +27,7 @@
 #include "IPitchShifter.h"
 #include <atomic>
 
-namespace atdsp
+namespace ovtdsp
 {
     class PitchDetector; // forward decl
 

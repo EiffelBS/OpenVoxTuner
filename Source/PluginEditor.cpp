@@ -10,7 +10,7 @@
 // === Theme colors ("autotune" style: dark + pink/purple accent) ===
 
 // Helper: ensure a PopupMenu uses our custom LookAndFeel for correct background colours
-static void applyMenuLookAndFeel (juce::PopupMenu& m, ui::AutotuneLookAndFeel& lf)
+static void applyMenuLookAndFeel (juce::PopupMenu& m, ui::OVTLookAndFeel& lf)
 {
     m.setLookAndFeel (&lf);
 }
@@ -779,8 +779,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // This is always the same regardless of which slot is active.
             if (slotA.morphState != nullptr && slotB.morphState != nullptr)
             {
-                morphSource = std::make_unique<atdsp::MorphState> (*slotA.morphState);
-                morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
+                morphSource = std::make_unique<ovtdsp::MorphState> (*slotA.morphState);
+                morphTarget = std::make_unique<ovtdsp::MorphState> (*slotB.morphState);
             }
 
             // Position slider: A=left (0), B=right (1)
@@ -870,9 +870,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             auto* rawKey = processorRef.getParameters().getRawParameterValue ("key");
             const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load() * 11.0f)) : 0;
 
-            atdsp::ScaleQuantizer tempQuantizer;
+            ovtdsp::ScaleQuantizer tempQuantizer;
             tempQuantizer.setKey (keyIdx);
-            tempQuantizer.setScale (static_cast<atdsp::Scale> (juce::jlimit (0, 13, idx)));
+            tempQuantizer.setScale (static_cast<ovtdsp::Scale> (juce::jlimit (0, 13, idx)));
             auto intervals = tempQuantizer.getScaleIntervals ();
 
             for (int i = 0; i < 12; ++i)
@@ -1450,7 +1450,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             const auto* ms = processorRef.getAbSlotMorphState (slotIdx);
             if (ms == nullptr) return;
 
-            slot.morphState = std::make_unique<atdsp::MorphState> (*ms);
+            slot.morphState = std::make_unique<ovtdsp::MorphState> (*ms);
             slot.hasData = true;
             slot.name = "filled";
         };
@@ -2122,7 +2122,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
     }
 
     // Note info for the header display.
-    const atdsp::NoteInfo info = atdsp::describePitch (hzIn, hzOut);
+    const ovtdsp::NoteInfo info = ovtdsp::describePitch (hzIn, hzOut);
     pitchVisualizer->setNoteInfo (info);
 
     // Update the scale intervals (for the background lines).
@@ -2151,11 +2151,11 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
                 if (scaleKeyboard.getButton(i).getToggleState())
                     customIntervals.add (i);
             curveEditor->setCustomIntervals (customIntervals);
-            curveEditor->setKeyAndScale (keyIdx, atdsp::Scale::Custom);
+            curveEditor->setKeyAndScale (keyIdx, ovtdsp::Scale::Custom);
         }
         else
         {
-            curveEditor->setKeyAndScale (keyIdx, static_cast<atdsp::Scale> (juce::jlimit (0, 13, scaleIdx)));
+            curveEditor->setKeyAndScale (keyIdx, static_cast<ovtdsp::Scale> (juce::jlimit (0, 13, scaleIdx)));
         }
     }
 }
@@ -2183,7 +2183,7 @@ void OpenVoxTunerAudioProcessorEditor::resetMorph()
 {
     if (morphSource != nullptr)
     {
-        atdsp::applyInterpolatedState (processorRef.getParameters(),
+        ovtdsp::applyInterpolatedState (processorRef.getParameters(),
                                         *morphSource, *morphSource, 0.0f);
         auto resetCurve = morphSource->curve;
         if (curveEditor != nullptr)
@@ -2215,8 +2215,8 @@ void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
         // Fresh morph: forget any previous external-automation exclusions so
         // the new crossfade starts with a clean baseline.
         lastMorphIntendedValues.clear();
-        morphSource = std::make_unique<atdsp::MorphState> (
-            atdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Current"));
+        morphSource = std::make_unique<ovtdsp::MorphState> (
+            ovtdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Current"));
         morphSourceName = "Current";
     }
     // Auto-capture target from Slot B (or Slot A if B is empty) on first movement
@@ -2224,18 +2224,18 @@ void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
     {
         if (slotB.hasData && slotB.morphState != nullptr)
         {
-            morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
+            morphTarget = std::make_unique<ovtdsp::MorphState> (*slotB.morphState);
             morphTargetName = "Slot B";
         }
         else if (slotA.hasData && slotA.morphState != nullptr)
         {
-            morphTarget = std::make_unique<atdsp::MorphState> (*slotA.morphState);
+            morphTarget = std::make_unique<ovtdsp::MorphState> (*slotA.morphState);
             morphTargetName = "Slot A";
         }
         else
         {
-            morphTarget = std::make_unique<atdsp::MorphState> (
-                atdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Target"));
+            morphTarget = std::make_unique<ovtdsp::MorphState> (
+                ovtdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Target"));
             morphTargetName = "Target";
         }
     }
@@ -2243,8 +2243,8 @@ void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
     // Capture pre-morph state on first movement (for undo)
     if (lastMorphValue < 0.01f && value > 0.01f && morphUndoState == nullptr)
     {
-        morphUndoState = std::make_unique<atdsp::MorphState> (
-            atdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Pre-morph"));
+        morphUndoState = std::make_unique<ovtdsp::MorphState> (
+            ovtdsp::captureState (processorRef.getParameters(), processorRef.getPitchCurve(), "Pre-morph"));
     }
 
     // Detect parameters currently driven by external automation (DAW lanes or
@@ -2254,7 +2254,7 @@ void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
     juce::AudioProcessorValueTreeState& params = processorRef.getParameters();
     juce::StringArray excluded;
     {
-        const juce::StringArray ids = atdsp::getMorphParameterIds();
+        const juce::StringArray ids = ovtdsp::getMorphParameterIds();
         for (const auto& id : ids)
         {
             auto* p = params.getParameter (id);
@@ -2268,13 +2268,13 @@ void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
     }
 
     // Apply interpolated state (skipping externally-driven parameters)
-    atdsp::applyInterpolatedState (params,
+    ovtdsp::applyInterpolatedState (params,
                                     *morphSource, *morphTarget, value, &excluded);
 
     // Record the values the morph just applied so the next frame can detect
     // whether a parameter was changed externally and must remain excluded.
     {
-        const juce::StringArray ids = atdsp::getMorphParameterIds();
+        const juce::StringArray ids = ovtdsp::getMorphParameterIds();
         for (const auto& id : ids)
         {
             if (excluded.contains (id))
@@ -2291,7 +2291,7 @@ void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
     // points are ever introduced by the morph.
     if (curveEditor != nullptr)
     {
-        const atdsp::PitchCurve& nearestCurve = (value < 0.5f) ? morphSource->curve : morphTarget->curve;
+        const ovtdsp::PitchCurve& nearestCurve = (value < 0.5f) ? morphSource->curve : morphTarget->curve;
         curveEditor->setCurve (nearestCurve);
         // Show ghost curve (target) when morphing, clear when at source
         curveEditor->setGhostCurve (value > 0.01f ? &morphTarget->curve : nullptr);
@@ -2305,7 +2305,7 @@ void OpenVoxTunerAudioProcessorEditor::undoMorph()
     if (morphUndoState == nullptr) return;
 
     // Restore the pre-morph state
-    atdsp::applyInterpolatedState (processorRef.getParameters(),
+    ovtdsp::applyInterpolatedState (processorRef.getParameters(),
                                     *morphUndoState, *morphUndoState, 0.0f);
     if (curveEditor != nullptr)
     {
@@ -2322,8 +2322,8 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
     juce::PopupMenu menu;
 
     menu.addItem (ovt::tr(ovt::Keys::kMenuMorphSetSource), [this] {
-        morphSource = std::make_unique<atdsp::MorphState> (
-            atdsp::captureState (processorRef.getParameters(),
+        morphSource = std::make_unique<ovtdsp::MorphState> (
+            ovtdsp::captureState (processorRef.getParameters(),
                                  processorRef.getPitchCurve(), "Current"));
         morphSourceName = "Current";
         processorRef.setMorphAmount (0.0f);
@@ -2335,7 +2335,7 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
     menu.addItem (ovt::tr(ovt::Keys::kMenuMorphSetTargetA), [this] {
         if (slotA.hasData && slotA.morphState != nullptr)
         {
-            morphTarget = std::make_unique<atdsp::MorphState> (*slotA.morphState);
+            morphTarget = std::make_unique<ovtdsp::MorphState> (*slotA.morphState);
             morphTargetName = "Slot A";
             processorRef.setMorphAmount (0.0f);
             lastMorphValue = 0.0f;
@@ -2345,7 +2345,7 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
     menu.addItem (ovt::tr(ovt::Keys::kMenuMorphSetTargetB), [this] {
         if (slotB.hasData && slotB.morphState != nullptr)
         {
-            morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
+            morphTarget = std::make_unique<ovtdsp::MorphState> (*slotB.morphState);
             morphTargetName = "Slot B";
             processorRef.setMorphAmount (0.0f);
             lastMorphValue = 0.0f;
@@ -2357,10 +2357,10 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
     menu.addItem (ovt::tr(ovt::Keys::kMenuMorphAtoB), [this] {
         if (slotA.hasData && slotA.morphState != nullptr && slotB.hasData && slotB.morphState != nullptr)
         {
-            morphSource = std::make_unique<atdsp::MorphState> (*slotA.morphState);
+            morphSource = std::make_unique<ovtdsp::MorphState> (*slotA.morphState);
             morphSourceName = "Slot A";
 
-            morphTarget = std::make_unique<atdsp::MorphState> (*slotB.morphState);
+            morphTarget = std::make_unique<ovtdsp::MorphState> (*slotB.morphState);
             morphTargetName = "Slot B";
 
             // Fresh morph baseline: drop the external-automation exclusion map so
@@ -2380,7 +2380,7 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
     menu.addItem (ovt::tr(ovt::Keys::kMenuMorphReset), [this] {
         if (morphSource != nullptr)
         {
-            atdsp::applyInterpolatedState (processorRef.getParameters(),
+            ovtdsp::applyInterpolatedState (processorRef.getParameters(),
                                             *morphSource, *morphSource, 0.0f);
             auto resetCurve = morphSource->curve;
             if (curveEditor != nullptr)
@@ -2596,7 +2596,7 @@ void OpenVoxTunerAudioProcessorEditor::loadCustomPresetFromFile (const juce::Fil
 
     if (curveXml == nullptr) return;
 
-    atdsp::PitchCurve newCurve;
+    ovtdsp::PitchCurve newCurve;
     newCurve.fromXml (*curveXml);
     curveEditor->setCurve (newCurve);
     syncEditButtons();
@@ -2741,11 +2741,11 @@ void OpenVoxTunerAudioProcessorEditor::deleteCustomPresetFile (const juce::File&
 void OpenVoxTunerAudioProcessorEditor::saveSlot (ABState& slot, int slotIndex)
 {
     // Use a safe curve reference — pitchCurve may be null during init.
-    const atdsp::PitchCurve emptyCurve;
+    const ovtdsp::PitchCurve emptyCurve;
     const auto& curve = processorRef.hasPitchCurve() ? processorRef.getPitchCurve() : emptyCurve;
 
-    slot.morphState = std::make_unique<atdsp::MorphState> (
-        atdsp::captureState (processorRef.getParameters(), curve,
+    slot.morphState = std::make_unique<ovtdsp::MorphState> (
+        ovtdsp::captureState (processorRef.getParameters(), curve,
                              slotIndex == 0 ? "Slot A" : "Slot B"));
     slot.hasData = true;
     slot.name = "filled";
@@ -2875,7 +2875,7 @@ juce::PopupMenu OpenVoxTunerAudioProcessorEditor::buildPresetsMenu()
         if (curveEditor == nullptr)
             return;
         resetMorph(); // cancel any active morph when loading a preset
-        atdsp::PitchCurve newCurve;
+        ovtdsp::PitchCurve newCurve;
         newCurve.loadPreset (name);
         curveEditor->setCurve (newCurve);
 

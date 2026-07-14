@@ -10,7 +10,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PitchCurve.h"
 
-namespace atdsp
+namespace ovtdsp
 {
     /** Snapshot of all interpolable plugin parameters. */
     struct MorphState
@@ -54,7 +54,7 @@ namespace atdsp
 
     /** Captures all parameters from an APVTS and a PitchCurve into a MorphState. */
     inline MorphState captureState (juce::AudioProcessorValueTreeState& params,
-                                    const atdsp::PitchCurve& curve,
+                                    const ovtdsp::PitchCurve& curve,
                                     const juce::String& presetName = "Current")
     {
         MorphState s;
