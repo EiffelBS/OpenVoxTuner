@@ -217,6 +217,13 @@ namespace ui
         /// Set the waveform display type (0=Bars, 1=Filled, 2=Line, 3=Mirror).
         void setDisplayType (int type) { currentDisplayType = type; repaint(); }
 
+        /// Enable/disable the "Piano Roll" editing metaphor. The SAME PitchCurve
+        /// model is edited; only the rendering and hit-testing change (notes are
+        /// snapped to the keyboard rows instead of a continuous line). This is a
+        /// second metaphor that does not replace the curve editor.
+        void setPianoRollMode (bool b) { pianoRollMode = b; repaint(); }
+        bool isPianoRollMode() const { return pianoRollMode; }
+
         /// Active/desactive l'edition (utilise pour griser en mode Auto).
         void setEditorEnabled (bool b);
         bool isEditorEnabled() const { return editorEnabled; }
@@ -277,6 +284,9 @@ namespace ui
         // Etat d'activation (false en mode Auto -> lecture seule).
         bool editorEnabled = true;
 
+        // "Piano Roll" editing metaphor (second metaphor for the same curve).
+        bool pianoRollMode = false;
+
         // Vue.
         double timeVisible = 16.0; // calcul automatique par recalculateTimeVisible()
         float  minHz = 50.0f;
@@ -327,6 +337,15 @@ namespace ui
         bool hasWaveform = false;
         int currentDisplayType = 0;
 
+        // Ring buffer of recent audio samples so the Spectral (FFT) view always
+        // has a >= 512-sample window to compute a spectrum, regardless of the
+        // host audio block size.
+        static constexpr int kWaveRingCapacity = 2048;
+        juce::AudioBuffer<float> waveformRing;        // circular, capacity kWaveRingCapacity
+        int waveformRingWritePos = 0;
+        int waveformTotalWritten = 0;
+        juce::AudioBuffer<float> waveformTailBuffer;  // contiguous tail for the spectral draw
+
         // Couleurs.
         static const juce::Colour kCurveColour;
         static const juce::Colour kPointColour;
@@ -371,11 +390,17 @@ namespace ui
         float  pitchToY (float p) const;
         float  yToPitch (float y) const;
 
+        // Snap a frequency to the nearest MIDI note (piano-roll editing).
+        float snapToNearestNote (float hz) const;
+
         // Trouve le point le plus proche d'une position pixel.
         int findPointAtPixel (juce::Point<float> p, float maxDist = 30.0f) const;
 
         // Notifie le listener.
         void notifyChanged();
+
+        // Renders the piano-roll metaphor (note rows + blocks) when pianoRollMode is on.
+        void drawPianoRoll (juce::Graphics& g);
 
         Listener* listener = nullptr;
 
@@ -384,6 +409,9 @@ namespace ui
         // rejects in Debug; wrap in CharPointer_UTF8 so JUCE decodes them correctly.
         juce::TextButton undoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb6") };  // Undo arrow symbol ↶
         juce::TextButton redoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb7") };  // Redo arrow symbol ↷
+
+        // Piano Roll mode toggle (second editing metaphor for the same curve).
+        juce::TextButton pianoRollButton { "Piano Roll" };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PitchCurveEditor)
     };

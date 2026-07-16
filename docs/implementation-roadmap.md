@@ -1,6 +1,6 @@
 # OpenVoxTuner - Implementation Roadmap
 
-> Last updated: 2026-07-13 CEST
+> Last updated: 2026-07-15 CEST
 
 ## Legend
 
@@ -26,6 +26,7 @@
 - [x] Correction mode (Modern / Transparent)
 - [x] Retarget envelope (attack/release smoothing)
 - [x] Pitch curve (programmatic control over time)
+- [x] Vibrato preservation (2026-07-14): correct against a smoothed center pitch instead of the instantaneous pitch, so the vibrato modulation survives while the note still snaps to the scale. New `vibrato_preserve` parameter (0-100%), `ovtdsp::VibratoPreserver` helper, Correction-section knob, A/B-morph + preset persistence, and unit test.
 
 ## 2. Audio I/O and Plugin Format
 
@@ -54,10 +55,13 @@
 - [x] Harmony controls (enable, type, gain, blend, tone)
 - [x] Use Voice / shifted voices selector
 - [x] Harmony tone color knob
+- [x] Harmony "Follow Lead" toggle (2026-07-14): when on (default), the harmony voices follow the lead correction character (vibrato preservation, humanize, flex, attack-aware), so the blue harmony lines move with the green lead line instead of staying locked to the scale grid. Implemented as the `harmony_follow_lead` AudioParameterBool (default true) that re-applies the lead's `charRatio = f0_out / scaleNote` to each harmony voice in `processBlock`; `MorphState` / preset persistence; power-style toggle button in the Harmony block; i18n EN/FR/DE/ES/JA.
 - [x] Latency mode selection (Direct Monitoring / Low Latency / Quality / Safe)
 - [x] Update checker (GitHub releases)
-- [x] Internationalization (i18n) - English, French, German, Spanish, Japanese (menu items, labels, all tooltips)
+- [x] Internationalization (i18n) - English, French, German, Spanish, Japanese, Simplified Chinese (zh) (menu items, labels, all tooltips)
   - UTF-8 Debug-crash fix 2026-07-13: map value type `juce::String` -> `const char*`, `tr()` converts via `CharPointer_UTF8`, and MSVC `/utf-8` flag added in CMakeLists.txt (static-init `String(const char*)` assertion on non-ASCII literals eliminated).
+  - 2026-07-15: added Simplified Chinese (`Language::Chinese`, code `"zh"`) as a 6th language — full translation map + menu item + `ui_language` range extended to `0..5`.
+  - 2026-07-15: "Gate" label forced to English in every language (`tr()` short-circuits `kLabelNoiseGate` to the English map) because "Porte" (FR) / "Puerta" (ES) / "Door" etc. are misleading for the audio noise-gate term.
 - [x] Language selector in hamburger menu with persistence
 - [x] Centralized font system (OVTFonts.h) - consistent typeface across all components
 - [x] Centralized theme system (OVTTheme.h) - dark/light theme accessors
@@ -103,6 +107,7 @@
 - [x] Image export (PNG/JPEG at 2x resolution)
 - [x] Piano key note labels (D, E, F, G, A, B - height-gated)
 - [x] ARA2 waveform overlay (input audio captured in processBlock, displayed as background in Live visualizer with menu toggle)
+- [x] Waveform overlay reflects the input noise gate (2026-07-14): the visualizer waveform is now captured after the noise-gate stage in `processBlock`, so the displayed waveform is attenuated together with the gated audio (previously it showed the raw pre-gate input). The French "Gate" label/tips use the untranslated audio term "Gate" instead of "Porte".
 - [x] Unified waveform display types (Bars, Filled, Line, Mirror) with user-selectable modes via hamburger menu, shared rendering function between Live and Curve Editor views, persisted across sessions
 - [ ] Bookmark positions (save/restore frequently used frequency ranges)
 - [ ] Responsive layout for small screens
@@ -162,6 +167,36 @@
 - [x] Installer for macOS (.pkg)
 - [x] `scripts/build_helper.cmd` reconciled with the remote (CI/release) version 2026-07-12: the machine-specific Windows build helper was restored to `origin/main` (commit `aeeb438`) via `git checkout -- scripts/build_helper.cmd` so the installer/CI build matches the committed configuration.
 
+## 9. UI Polish (2026-07-15)
+
+- [x] Expansion handle (Correction "Advanced" banner) is now half the block height with rounded corners (`fillRoundedRectangle`, trimmed 25% top/bottom).
+- [x] Top toolbar reflows on language change — the language handler now calls `resized()` after `refreshLabels()`, so the transport / "Measures" controls no longer overlap the tabs and the "Measures" label is no longer truncated (e.g. Spanish "Compases" → "Co..."). Tab-end offset made robust with `tabBar.getX()`.
+- [x] Harmony "Follow Lead" toggle is now visible — the Harmony block's first row spans the full block width; the Harmony on/off button is sized to its text and "Follow Lead" takes the rest (previously a fixed 130px on/off button squeezed it to ~0 width on the rightmost block).
+- [x] "Clean Curves" / "Reset Playhead" menu items translated (added FR/DE/ES/JA; they already existed only in English).
+- [x] Key/Scale Detection power button height 22 → 18 (matches Gate/Reverb); clicking the "Key/Scale Detection" label toggles the power button (same behaviour as the other Power buttons).
+- [x] Harmony power button height → 18 (matches Gate/Reverb) and left-aligned on the first row (no longer centred above the combo).
+- [x] Curve Editor CTRL+wheel zoom inverted vs Live visualizer — flipped the wheel factor sign so wheel-up zooms in, matching the Live tab.
+- [x] Piano Roll horizontal grid lines now identical to Curves mode (C notes = `curveGrid`, in-scale = `scaleLine`, full alpha; off-scale notes draw no line), so no faint/off-scale rows appear when switching to Piano Roll.
+
+### 9b. UI Polish — 2e passe (2026-07-15)
+- [x] Key/Scale Detection combo moved directly under the power/label row (removed the 4px gap) and kept at the same 24px height as the Key/Scale combos; `detRow` tightened 24 → 22px.
+- [x] "Follow Lead" toggle moved below the "number of voices" combo in the Harmony block (first row now holds only the Harmony on/off toggle).
+- [x] Curve Editor scroll no longer "stacks" out-of-range notes/curves/points at the top/bottom edges — removed the `pitchToY` clamp (Curves mode) and made `PianoKeyboard::midiToNorm` extrapolate (no clamp) so off-screen items are clipped, not pinned to the edges.
+- [x] MIDI OUT "Follow Lead" behaviour documented: ON → harmony MIDI notes vary with the lead (`charRatio = f0_out / leadScaleFreq`); OFF → harmony notes locked to the scale grid (fixed). No code change (answering the question).
+
+### 9c. UI / DSP Polish — 3e passe (2026-07-15)
+- [x] "Follow Lead" toggle left-aligned in the Harmony block (sized to its content, placed on the left of its row instead of spanning the full column width).
+- [x] MIDI OUT now ignores "Follow Lead": pushed harmony notes are always clean scale-locked notes (`harmonyFrequenciesClean` / `lastHarmonyNotesClean`), independent of the toggle; the on-screen visualizer still follows the lead when the toggle is on.
+- [x] Tooltips (and the "Attack" button text) refresh on language change: added `advancedButton` + `harmonyFollowLeadButton` tooltips to `refreshLabels()`, added the `pianoRollButton` tooltip (and text) to `PitchCurveEditor::refreshTranslations()`, and `attackAwareButton` button text now refreshed.
+- [x] "Measures" label adapts to content (no truncation in DE/JA): `refreshLabels()` now re-runs `resized()`, and the width padding was bumped (+6 → +10px).
+- [x] Key Detection — OpenVoxKey now packaged in the Windows installer (new `companion` component in `installer/OpenVoxTuner.iss` + `OpenVoxKey_VST3` built by `scripts/build_installer.ps1`); the duplicate mono `Input`/`Output` buses were removed so the `Sidechain` bus is now input index 1 (matching all sidechain code) — fixes SideChain routing in Studio One.
+- [x] KeyBridge shared memory now active (2026-07-15): the Windows named memory-mapped file `Local\OpenVoxTunerKeyBridge` was previously disabled by a leftover debug guard (`if (false && ...)`) so each VST3 used its own private in-process region and the companion's `publish()` never reached `read()` in OpenVoxTuner. Guard removed → both separate binaries (OpenVoxKey.vst3 + OpenVoxTuner.vst3) now share one session-local region; the in-process fallback is kept only when shared memory is unavailable. Unit-test `KeyBridgeTest.cpp` (and `SidechainBusLayoutTest.cpp`) were re-added to `CMakeLists.txt` and now compile/pass — 86 OK / 0 KO.
+- [x] Harmony blue lines no longer "drop" when "Follow Lead" is active: `charRatio` now uses the scale note nearest to the continuous `f0_out` (`scaleQuantizer->quantize(f0_out)`) instead of the jumping quantizer target, so the ratio stays ≈1 across note transitions.
+- [x] OpenVoxKey companion — "Send" button (2026-07-15): added `OpenVoxKeyProcessor::forcePublish()` which re-publishes the last detected key/scale to `ovtdsp::KeyBridge` immediately, bypassing the change-guard in `processBlock` (which only publishes on detection change). The companion editor gained a "Send" `TextButton` to the right of the Group combo (`buttonClicked` → `processor.forcePublish()`) so the user can manually re-sync OpenVoxTuner (Key/Scale Detection = OpenVoxKey, matching group) even after changing the scale by hand there. No-op until at least one key has been detected. Button is created disabled and `timerCallback()` enables it (`sendButton.setEnabled(key >= 0)`) as soon as a key is detected, and disables it again if detection is lost (the enable call was moved above the early `return` in the detected branch, which previously left the button stuck disabled after first detection).
+- [x] OpenVoxTuner Sidechain — red debug LED (2026-07-15, **removed 2026-07-15**): a `DebugLed` + "Sidechain audio" label was added to confirm the sidechain bus received audio; once Sidechain detection worked it was removed per user request (no behavioural change to detection). See below for the group-B/C fix that followed.
+- [x] Key/Scale Detection — detected scale now re-asserts after a manual change (2026-07-15): `applyDetectedKey()` guard changed from a cached `lastAutoKey/lastAutoScale` to the live `key`/`scale` parameter values, so while Key/Scale Detection is on the detected scale is authoritative and a hand edit is re-applied on the next estimate (identical values still skipped → no automation churn). To keep a manual scale, turn detection off.
+- [x] OpenVoxKey companion — animated "searching for key" (2026-07-15): `OpenVoxKeyProcessor` logs `lastAudioTime` (system-clock seconds, `std::atomic<double>`, accessor `getLastAudioTime()`) when the input bus carries signal above a noise floor; the editor's `timerCallback()` now shows the detected key (white) when known, an animated `SearchingDots` (cyan, three dots pulsing in sequence) when audio is present but no key yet, and a dim "No signal" when the bus has been silent > 2 s — replacing the old static "-".
+
 ## 8. Documentation
 
 - [x] Architecture overview
@@ -179,6 +214,25 @@
 - [x] Pitch Visualizer improvements documentation
 
 ## 9. Future Improvements (Backlog)
+
+### Prioritized Feature Backlog (2026-07-14)
+User-ranked wishlist (audio + UI). **Implementation order (decided 2026-07-14):**
+**3 Attack-aware correction -> 2 Automatic key detection -> 6 Modern EQ view -> 4 Piano-roll -> 5 Preset gallery -> 1 MIDI target -> 7 LV2** (LV2 under reflection, may not be implemented).
+
+**Audio**
+- [x] Attack-aware correction (3):
+- [x] Automatic key detection (2): **2026-07-15 fix:** OpenVoxKey group B/C cross-talk — `companionGroupParam->load()` returns the 0..3 choice index (not a normalised 0..1 value), so the old `* 3.0f` mapped B->D and C->D. Now uses the index directly. Verified with a new KeyBridge A/B/C/D regression test.
+- [x] MIDI target / follow (1): optionally drive the pitch target from an external MIDI note (play "through" the plug-in) instead of the detected pitch. **2026-07-15:** DSP parameter `midi_target_enable` implemented in `processBlock` (held MIDI note overrides scale-quantized target). UI entry is the hamburger menu "MIDI Target" item (the legacy top-bar toggle/icon buttons were removed as dead code — they were never positioned/visible). Works on both Live and Curve Editor tabs (global DSP param).
+- [x] Vibrato preservation
+
+**UI**
+- [x] Modern EQ / spectral waveform display (6):
+- [x] Piano-roll editing mode (4):
+- [x] Correction block UI redesign (2026-07-14):
+- [x] Preset gallery (5): browsable grid of factory/custom presets with thumbnails/metadata. **2026-07-15:** FactoryPresets registry + PresetGallery component (opens from hamburger "Preset Gallery" and toolbar button). Fixed: clicking a card now loads the preset (sub-components no longer intercept mouse events); delete confirmation dialog is parented to the gallery window so it appears in front.
+
+**Platform**
+- [ ] LV2 plugin format (7, under reflection): open-source Linux standard format (not natively supported by JUCE — requires an external wrapper such as JUCE-LV2 or carla/lv2host). Revisit once the items above are implemented.
 
 ### Medium Priority
 - [ ] Bookmark positions (save/restore frequency range presets)

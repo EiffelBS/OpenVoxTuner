@@ -15,6 +15,10 @@
 // Implementation simplifiee : un filtre IIR passe-bas du 2nd ordre dont
 // la frequence de coupure suit le ratio de transposition. Le filtre est
 // tres leger (1-2 coeffs mis a jour par bloc).
+//
+// Modes:
+//   - Legacy: single peaking EQ at 500Hz (original behavior)
+//   - MultiFormant: 4 formant peaks (F1-F4) with configurable Q/gain
 
 #pragma once
 
@@ -29,6 +33,12 @@ namespace ovtdsp
     class FormantPreserver
     {
     public:
+        enum class Mode
+        {
+            Legacy,       // Single peaking EQ at 500Hz (original)
+            MultiFormant  // F1-F4 formant preservation
+        };
+
         FormantPreserver();
         ~FormantPreserver();
 
@@ -45,29 +55,47 @@ namespace ovtdsp
         /// Definit le decalage manuel de formants en demi-tons
         void setFormantShift (float semitones) { shiftSemitones = semitones; }
 
+        /// Selectionne le mode de preservation des formants
+        void setMode (Mode m) { mode = m; }
+        Mode getMode() const { return mode; }
+
+        /// Configure un formant specifique (mode MultiFormant uniquement)
+        /// @param index 0=F1, 1=F2, 2=F3, 3=F4
+        /// @param freqHz frequence du formant en Hz
+        /// @param q qualite (resonance)
+        /// @param gainDb gain en dB
+        void setFormant (int index, float freqHz, float q, float gainDb);
+
     private:
         double sampleRate = 44100.0;
         int blockSize = 512;
         
         float shiftSemitones = 0.0f;
 
-        // Coefficients du filtre IIR passe-bas (Butterworth 2nd ordre).
-        // Stockes par canal.
+        // Coefficients du filtre IIR (biquad par formant par canal).
         struct ChannelState
         {
-            // Coefficients du biquad (forme directe transposed II).
-            float a1 = 0.0f, a2 = 0.0f;
-            float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
-            // Etats (delais).
-            float z1 = 0.0f, z2 = 0.0f;
+            // Un biquad par formant (max 4)
+            struct BiquadState
+            {
+                float a1 = 0.0f, a2 = 0.0f;
+                float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+                float z1 = 0.0f, z2 = 0.0f;
+            };
+            BiquadState formants[4];
         };
         juce::Array<ChannelState> channels;
 
-        // Frequence de coupure de reference (formant moyen, 500 Hz).
-        // Le filtre deplace les formants en multipliant cette freq par (1/ratio).
-        // -> quand ratio > 1 (pitch up), on baisse les formants avant PSOLA,
-        //    pour que PSOLA les remonte ensuite a leur position d'origine.
-        static constexpr float referenceFormantHz = 500.0f;
+        // Configuration des formants par defaut (F1-F4 typiques voix masculine)
+        struct FormantConfig
+        {
+            float freqHz = 500.0f;
+            float q = 2.0f;
+            float gainDb = 8.0f;
+        };
+        FormantConfig formantConfigs[4];
+
+        Mode mode = Mode::Legacy;
 
         // Frequence de Nyquist securite.
         static constexpr float maxCutoffHz = 8000.0f;
@@ -76,9 +104,12 @@ namespace ovtdsp
         bool enabled = false;
 
         // Recalcule les coefficients biquad pour la freq de coupure demandee.
-        void updateCoefficients (ChannelState& s, float cutoffHz);
+        void updateBiquadCoefficients (ChannelState::BiquadState& s, float freqHz, float q, float gainDb);
 
-        // Traite un canal avec le biquad.
+        // Met a jour tous les formants pour un canal selon le ratio
+        void updateAllFormants (ChannelState& s, float compensationRatio, float shiftRatio);
+
+        // Traite un canal avec tous les biquads en serie
         void processChannel (float* data, int numSamples, ChannelState& s);
     };
 }

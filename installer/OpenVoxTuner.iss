@@ -24,19 +24,25 @@ Name: "custom"; Description: "Installation personnalisée"; Flags: iscustom
 [Components]
 Name: "vst3"; Description: "Plugin VST3"; Types: full custom
 Name: "standalone"; Description: "Application autonome (Standalone)"; Types: full custom
+Name: "companion"; Description: "OpenVoxKey (plugin compagnon de detection de tonalite)"; Types: full custom
 
 [Dirs]
 Name: "{commoncf64}\VST3\OpenVoxTuner.vst3"; Components: vst3
+Name: "{commoncf64}\VST3\OpenVoxKey.vst3"; Components: companion
 Name: "{app}"
 
 [InstallDelete]
 ; Delete any existing single-file VST3 or old directory before installing the new bundle
 Type: filesandordirs; Name: "{commoncf64}\VST3\OpenVoxTuner.vst3"; Components: vst3
 Type: filesandordirs; Name: "{commoncf64}\VST3\Autotune Clone.vst3"; Components: vst3
+Type: filesandordirs; Name: "{commoncf64}\VST3\OpenVoxKey.vst3"; Components: companion
 
 [Files]
 ; VST3 plugin (JUCE bundle structure for VST3)
 Source: "..\build\OpenVoxTuner_artefacts\Release\VST3\OpenVoxTuner.vst3\*"; DestDir: "{commoncf64}\VST3\OpenVoxTuner.vst3"; Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; OpenVoxKey companion VST3 (key/scale detector that publishes to the shared bridge)
+Source: "..\build\OpenVoxKey_artefacts\Release\VST3\OpenVoxKey.vst3\*"; DestDir: "{commoncf64}\VST3\OpenVoxKey.vst3"; Components: companion; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Standalone Application
 Source: "..\build\OpenVoxTuner_artefacts\Release\Standalone\OpenVoxTuner.exe"; DestDir: "{app}"; Components: standalone; Flags: ignoreversion

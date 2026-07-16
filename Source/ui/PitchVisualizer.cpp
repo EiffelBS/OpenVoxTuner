@@ -89,6 +89,9 @@ namespace ui
         targetFMin = fMin;
         targetFMax = fMax;
 
+        // Allocate the spectral ring buffer (recent audio samples for the FFT view).
+        waveformRing.setSize (1, kWaveRingCapacity);
+
         startTimerHz (30);
     }
 
@@ -152,19 +155,60 @@ namespace ui
             hasWaveform = false;
             return;
         }
-        waveformBuffer.setSize (1, numSamples);
+        // Keep the most recent audio block for the Line / Mirror display types
+        // (unchanged behaviour).
+        waveformBuffer.setSize (1, numSamples, false, false, true);
         waveformBuffer.copyFrom (0, 0, samples, numSamples);
         waveformSampleRate = sampleRate;
+
+        // Append into the ring buffer so the Spectral (FFT) view can always build
+        // a >= 512-sample window from recent audio, regardless of the host block size.
+        const int cap = kWaveRingCapacity;
+        const int n = juce::jmin (numSamples, cap);
+        for (int i = 0; i < n; ++i)
+        {
+            waveformRing.setSample (0, waveformRingWritePos, samples[i]);
+            waveformRingWritePos = (waveformRingWritePos + 1) % cap;
+        }
+        waveformTotalWritten += numSamples;
         hasWaveform = true;
     }
 
     void PitchVisualizer::paintWaveformOverlay (juce::Graphics& g, juce::Rectangle<int> plotArea)
     {
-        if (! hasWaveform || waveformBuffer.getNumSamples() == 0) return;
+        if (! hasWaveform) return;
 
+        // The Spectral (FFT) view needs a contiguous >= 512-sample window, which we
+        // rebuild from the ring buffer of recent samples.
+        if (currentDisplayType == static_cast<int> (ovt::WaveformDisplayType::Spectral))
+        {
+            const int cap = kWaveRingCapacity;
+            const int available = juce::jmin (cap, waveformTotalWritten);
+            if (available < (1 << 9)) return;  // need at least fftSize (512) samples
+
+            // Flatten the most recent `available` samples (oldest -> newest) into a
+            // contiguous tail buffer ending just before the ring write position.
+            const int tailStart = (waveformRingWritePos - available + cap) % cap;
+            waveformTailBuffer.setSize (1, available, false, false, true);
+            if (tailStart + available <= cap)
+                waveformTailBuffer.copyFrom (0, 0, waveformRing, 0, tailStart, available);
+            else
+            {
+                const int first = cap - tailStart;
+                waveformTailBuffer.copyFrom (0, 0, waveformRing, 0, tailStart, first);
+                waveformTailBuffer.copyFrom (0, first, waveformRing, 0, 0, available - first);
+            }
+
+            ovt::drawWaveformOverlay (g, waveformTailBuffer.getReadPointer (0),
+                                      available, plotArea,
+                                      ovt::WaveformDisplayType::Spectral);
+            return;
+        }
+
+        if (waveformBuffer.getNumSamples() == 0) return;
         ovt::drawWaveformOverlay (g, waveformBuffer.getReadPointer (0),
-                                   waveformBuffer.getNumSamples(), plotArea,
-                                   static_cast<ovt::WaveformDisplayType> (currentDisplayType));
+                                  waveformBuffer.getNumSamples(), plotArea,
+                                  static_cast<ovt::WaveformDisplayType> (currentDisplayType));
     }
 
     float PitchVisualizer::hzToY (float hz, int height) const
@@ -385,6 +429,10 @@ namespace ui
         g.saveState();
         g.reduceClipRegion (plotArea);
 
+        // Waveform overlay (Line / Mirror / Spectral) drawn first so the octave,
+        // scale and pitch curves paint on top of it.
+        paintWaveformOverlay (g, plotArea);
+
         // --- Y-axis frequency labels (Hz) ---
         {
             const int lowestMidi  = static_cast<int> (std::ceil (ovtdsp::hzToMidiFloat (fMin)));
@@ -446,9 +494,6 @@ namespace ui
                                       static_cast<float> (plotArea.getRight()));
             }
         }
-
-        // ARA2 waveform overlay (if available)
-        paintWaveformOverlay (g, plotArea);
 
         // Input pitch curve (red)
         if (inputHistory.size() > 1)

@@ -9,6 +9,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <functional>
 #include "PluginProcessor.h"
 #include "ui/PitchVisualizer.h"
 #include "ui/PitchCurveEditor.h"
@@ -18,6 +19,22 @@
 #include "dsp/PresetMorpher.h"
 
 struct OpenVoxTunerUpdateCheckState;
+
+class PresetGallery; // defined in ui/PResetGallery.h
+
+// Look and feel for the Correction block's "Advanced" handle: a centred chevron
+// (direction indicator) plus grip lines, drawn on a subtle background (square left
+// edge, rounded right corners, no border) that fills the block's right edge.
+class VerticalTextButtonLF : public juce::LookAndFeel_V4
+{
+public:
+    void drawButtonBackground (juce::Graphics& g, juce::Button& button,
+                               const juce::Colour& backgroundColour,
+                               bool shouldDrawButtonAsHighlighted,
+                               bool shouldDrawButtonAsDown) override;
+    void drawButtonText (juce::Graphics& g, juce::TextButton& button,
+                         bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
+};
 
 class OpenVoxTunerAudioProcessorEditor : public juce::AudioProcessorEditor,
                                          public ui::PitchCurveEditor::Listener,
@@ -57,6 +74,7 @@ private:
 
     // Formant Toggle
     juce::ToggleButton formantEnableButton;
+    juce::ComboBox formantModeBox;
 
     // Key and Scale are discrete values -> ComboBox.
     juce::ComboBox keyBox, scaleBox;
@@ -66,6 +84,11 @@ private:
     // Pitch detector (YIN only).
     juce::ComboBox detectorBox;
     juce::Label    detectorLabel;
+
+    // Key detection source + companion group (automatic key detection).
+    juce::ComboBox keySourceBox, companionGroupBox;
+    juce::Label    keySourceLabel, companionGroupLabel;
+    juce::ToggleButton keyDetectPowerButton;   // Key/Scale detection on/off (power-icon style)
 
     // Bypass Button (power-style)
     juce::DrawableButton bypassButton { "Bypass", juce::DrawableButton::ImageOnButtonBackground };
@@ -117,6 +140,7 @@ private:
     juce::ComboBox    harmonyToneBox;
     juce::Slider      harmonyToneColorSlider;
     juce::Label       harmonyToneColorLabel;
+    juce::ToggleButton harmonyFollowLeadButton; // Harmony voices follow the lead correction character
 
     // Reverb controls (post-processing effect)
     juce::ToggleButton reverbEnableButton;
@@ -130,17 +154,24 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> noiseGateEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> noiseGateThresholdAttachment;
 
-    // FlexTune / Humanize / Correction Mode
+    // FlexTune / Humanize / Vibrato / Attack-Aware / Correction Mode
     juce::Slider      flexTuneSlider;
     juce::Label       flexTuneLabel;
     juce::Slider      humanizeSlider;
     juce::Label       humanizeLabel;
+    juce::Slider      vibratoPreserveSlider;
+    juce::Label       vibratoPreserveLabel;
+    juce::ToggleButton attackAwareButton;
+    juce::Slider      attackReleaseSlider;
+    juce::Label       attackReleaseLabel;
     juce::TextButton  correctionModeButton;
 
     // Curve Editor "Options" button: icon-only (hamburger) with a distinct
     // accent-tinted background so it stands out from the neutral zoom/scroll/
     // snap buttons in this section. The plugin's own options keep the gear.
     juce::DrawableButton optionsButton {"Curve Options", juce::DrawableButton::ImageOnButtonBackground};
+    // Preset Gallery toolbar button (icon-only grid, opens the browsable gallery).
+    juce::DrawableButton presetGalleryButton {"Preset Gallery", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton snapButton {"Snap to scale", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton snapGridButton {"Snap to grid", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton stepModeButton {"Step mode", juce::DrawableButton::ImageOnButtonBackground};
@@ -178,6 +209,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> amountAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> formantAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> formantEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> formantModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> midiOutAttachment;
     // Toggle-based attachments for the top bar (icon mirrors toggle)
@@ -191,6 +223,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> harmonyTypeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyGainAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyBlendAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> harmonyFollowLeadAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;
@@ -199,8 +232,14 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbMixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> flexTuneAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> humanizeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> vibratoPreserveAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> attackAwareAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attackReleaseAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> correctionModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> detectorAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keySourceAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> companionGroupAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> keyDetectAttachment;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>, 12> customAttachments;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> morphAttachment;
 
@@ -228,13 +267,21 @@ private:
     juce::PopupMenu buildPresetsMenu();
     /// Curve Editor "Options" menu (clean curves, reset playhead, presets).
     void showCurveOptionsMenu();
+    /// Opens the Preset Gallery (browsable grid of factory + custom presets
+    /// with curve thumbnails / metadata) in a modeless window.
+    void showPresetGallery();
+    /// Applies a factory preset (by PitchCurve::loadPreset key): resets the
+    /// morph, loads the curve into the editor, commits it to the active A/B
+    /// slot and aligns the morph slider. Shared by the gallery and the preset menu.
+    void applyFactoryPreset (const juce::String& name);
     /// Reflects the standalone transport state on the Play/Stop toolbar buttons.
     void syncTransportButtons();
     void setWaveformDisplayType (int type);
     void loadCustomPresetFromFile (const juce::File& file);
     void promptSaveCustomPreset();
     void writeCustomPresetFile (const juce::String& name, const juce::File& file);
-    void deleteCustomPresetFile (const juce::File& file);
+    void deleteCustomPresetFile (const juce::File& file, std::function<void (bool)> onDone = nullptr,
+                                juce::Component* parentComp = nullptr);
     void applyPresetUiStateFromXml (const juce::XmlElement& xml);
     void startUpdateCheck();
     static bool isVersionNewer (const juce::String& latest, const juce::String& current);
@@ -244,6 +291,13 @@ private:
     juce::Rectangle<int> block2Bounds;
     juce::Rectangle<int> block3Bounds; // Harmony block
     juce::Rectangle<int> block4Bounds; // Effects block (Formant + Reverb)
+
+    // "Advanced" expand/collapse banner for the Correction block. When expanded,
+    // the correction knobs (Flex / Humanize / Vibrato / Attack-Aware) are revealed
+    // to the right of the Speed / Amount knobs (the block widens).
+    juce::TextButton advancedButton { "Advanced" };
+    VerticalTextButtonLF advancedButtonLF;
+    bool advancedExpanded = false;
 
     // One-time flag for syncing editor controls from persisted parameters
     bool measuresSyncDone = false;

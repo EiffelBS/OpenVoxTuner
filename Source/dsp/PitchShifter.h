@@ -20,6 +20,7 @@
 //   - Vrai PSOLA : pas de flanger, preservation des transitoires.
 //   - Compensation de formants optionnelle (preserve le timbre).
 //   - Gestion douce des passages a/pitch nul.
+//   - Attack envelope on voice onset to prevent clicks
 
 #pragma once
 
@@ -50,6 +51,9 @@ namespace ovtdsp
         void forceCreateTestGrain();
         int getLatencySamples() const { return latencySamples; }
 
+        // Set attack time for voice onset (default 30ms). 0 = no attack envelope.
+        void setAttackTimeMs (float ms);
+
     private:
         double sampleRate = 44100.0;
         int latencySamples = 0;
@@ -67,6 +71,19 @@ namespace ovtdsp
         double outPhase = 0.0;
         double lastGrainCenter = 0.0;
         
+        // Attack envelope state
+        float attackMs = 30.0f;
+        double attackAlpha = 0.0;
+        float attackGain = 0.0f;
+        bool wasVoiced = false;
+        float lastF0 = 0.0f; // For detecting sudden pitch jumps (note attacks)
+
+        // Startup fade-in: ring buffer starts empty (zeros), so first N samples
+        // are garbage. Fade in over first ~20ms to avoid click on plugin start.
+        int startupSamplesRemaining = 0;
+        float startupGain = 0.0f;
+        double startupAlpha = 0.0;
+
         struct Grain {
             double readPos = 0.0;
             double speed = 1.0;
@@ -74,6 +91,10 @@ namespace ovtdsp
             double phaseInc = 0.0;
             double gain = 1.0;
             bool active = false;
+            // Per-grain attack: fade in over first N samples to avoid clicks
+            // when reading from ring buffer positions that may have discontinuities
+            float attackGain = 0.0f;
+            double attackAlpha = 0.0;
         };
         static constexpr int MAX_GRAINS = 32;
         Grain grains[MAX_GRAINS];
@@ -83,5 +104,4 @@ namespace ovtdsp
     };
 }
 
-// Global debug counter incremented when a grain is created (used by host/logger)
 extern std::atomic<int> gPitchShifterGrainEvents;

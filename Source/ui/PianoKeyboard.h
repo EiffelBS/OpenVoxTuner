@@ -50,6 +50,15 @@ namespace ui
         /// Renvoie la note (Hz) correspondant a un Y en pixels.
         float yToHz (float y) const;
 
+        /// Position normale [0,1] (0 = grave/bas, 1 = aigu/haut) d'une note MIDI dans
+        /// une plage [lowestMidi, highestMidi], en geometrie de piano : les touches
+        /// blanches ont toutes la meme hauteur et les touches noires sont centrees sur
+        /// la frontiere entre leurs deux touches blanches voisines (hauteur coherente).
+        static float midiToNorm (int midi, int lowestMidi, int highestMidi);
+
+        /// Renvoie true si la note MIDI est une touche noire.
+        static bool isBlackKey (int midi) noexcept;
+
     private:
         int lowestMidi  = 36;  // C2
         int highestMidi = 96;  // C7
@@ -65,9 +74,6 @@ namespace ui
         static const juce::Colour kBlackKeyScale;
         static const juce::Colour kBorder;
         static const juce::Colour kText;
-
-        // Renvoie true si la note MIDI est une touche noire.
-        static bool isBlackKey (int midi) noexcept;
 
         // Renvoie true si la note MIDI appartient a la gamme courante.
         bool isInScale (int midi) const noexcept;

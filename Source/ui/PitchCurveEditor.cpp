@@ -32,6 +32,9 @@ namespace ui
         // would flash the default preset before the real curve is synced.
         // We keep curve as an empty/zero-state object until synced.
         startTimerHz (30);
+
+        // Allocate the spectral ring buffer (recent audio samples for the FFT view).
+        waveformRing.setSize (1, kWaveRingCapacity);
         // S'assurer que l'editeur intercepte bien les clics meme s'il est desactive
         // (l'etat editorEnabled ne bloque que la logique interne, pas les events).
         setInterceptsMouseClicks (true, true);
@@ -79,6 +82,20 @@ namespace ui
 
         undoButton.onClick = [this] { performUndo(); };
         redoButton.onClick = [this] { performRedo(); };
+
+        // Piano Roll mode toggle (second editing metaphor for the same curve).
+        pianoRollButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0x331A9AF0));
+        pianoRollButton.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffcccccc));
+        pianoRollButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff4caf50));
+        pianoRollButton.setButtonText (ovt::tr (ovt::Keys::kButtonPianoRoll));
+        pianoRollButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPianoRoll));
+        pianoRollButton.setClickingTogglesState (true);
+        pianoRollButton.setToggleState (false, juce::dontSendNotification);
+        pianoRollButton.onClick = [this]
+        {
+            setPianoRollMode (pianoRollButton.getToggleState());
+        };
+        addAndMakeVisible (pianoRollButton);
     }
 
     PitchCurveEditor::~PitchCurveEditor() { stopTimer(); }
@@ -110,19 +127,47 @@ namespace ui
         g.drawHorizontalLine (rulerH, static_cast<float> (pianoW), static_cast<float> (b.getWidth()));
 
         // === Waveform overlay ===
-        if (hasWaveform && waveformBuffer.getNumSamples() > 0)
+        if (hasWaveform)
         {
             const auto waveformArea = juce::Rectangle<int> (pianoW, rulerH,
                                                              b.getWidth() - pianoW, b.getHeight() - rulerH);
-            ovt::drawWaveformOverlay (g, waveformBuffer.getReadPointer (0),
-                                       waveformBuffer.getNumSamples(), waveformArea,
-                                       static_cast<ovt::WaveformDisplayType> (currentDisplayType));
+
+            // The Spectral (FFT) view needs a contiguous >= 512-sample window,
+            // rebuilt from the ring buffer of recent samples.
+            if (currentDisplayType == static_cast<int> (ovt::WaveformDisplayType::Spectral))
+            {
+                const int cap = kWaveRingCapacity;
+                const int available = juce::jmin (cap, waveformTotalWritten);
+                if (available >= (1 << 9))
+                {
+                    const int tailStart = (waveformRingWritePos - available + cap) % cap;
+                    waveformTailBuffer.setSize (1, available, false, false, true);
+                    if (tailStart + available <= cap)
+                        waveformTailBuffer.copyFrom (0, 0, waveformRing, 0, tailStart, available);
+                    else
+                    {
+                        const int first = cap - tailStart;
+                        waveformTailBuffer.copyFrom (0, 0, waveformRing, 0, tailStart, first);
+                        waveformTailBuffer.copyFrom (0, first, waveformRing, 0, 0, available - first);
+                    }
+                    ovt::drawWaveformOverlay (g, waveformTailBuffer.getReadPointer (0),
+                                              available, waveformArea,
+                                              ovt::WaveformDisplayType::Spectral);
+                }
+            }
+            else if (waveformBuffer.getNumSamples() > 0)
+            {
+                ovt::drawWaveformOverlay (g, waveformBuffer.getReadPointer (0),
+                                          waveformBuffer.getNumSamples(), waveformArea,
+                                          static_cast<ovt::WaveformDisplayType> (currentDisplayType));
+            }
         }
 
         // === Grille : lignes horizontales pour les octaves C2, C3, C4, C5, C6 ===
         g.setColour (ovt::curveGrid());
         const float refFreqs[] = { 65.4f, 130.8f, 261.6f, 523.3f, 1046.5f };
         const char* labels[]    = { "C2",   "C3",   "C4",   "C5",   "C6" };
+        if (! pianoRollMode)
         for (int i = 0; i < 5; ++i)
         {
             const float y = pitchToY (refFreqs[i]);
@@ -134,7 +179,7 @@ namespace ui
         }
 
         // === Scale note lines (horizontal lines for notes in the current scale) ===
-        if (! scaleIntervals.isEmpty())
+        if (! pianoRollMode && ! scaleIntervals.isEmpty())
         {
             g.setColour (ovt::scaleLine());
             const float lowestHz = minHz;
@@ -153,6 +198,10 @@ namespace ui
                                       static_cast<float> (b.getWidth()));
             }
         }
+
+        // === Piano-roll metaphor (notes snapped to the keyboard rows) ===
+        if (pianoRollMode)
+            drawPianoRoll (g);
 
         // === Lignes verticales (repere par Beat et Mesure) et Ruler ===
         const double beatUnit = 4.0 / timeSigDen;
@@ -231,7 +280,7 @@ namespace ui
         }
 
         // === Courbe interpolee ===
-        if (curve.getNumPoints() >= 2)
+        if (! pianoRollMode && curve.getNumPoints() >= 2)
         {
             juce::Path p;
             
@@ -353,6 +402,7 @@ namespace ui
         // === Points (cercles) et Tooltip dynamique ===
         int activePointIndex = (isDragging && dragIndex >= 0) ? dragIndex : hoverIndex;
 
+        if (! pianoRollMode)
         for (int i = 0; i < curve.getNumPoints(); ++i)
         {
             const auto& pt = curve.getPoint (i);
@@ -502,6 +552,9 @@ namespace ui
         const int btnY = pianoKeyboard.getBottom() + 4;
         undoButton.setBounds (2, btnY, btnSize, btnSize);
         redoButton.setBounds (2 + btnSize + btnGap, btnY, btnSize, btnSize);
+
+        // Piano Roll toggle: top-right of the plot area.
+        pianoRollButton.setBounds (getWidth() - 110, 2, 104, 20);
     }
 
     void PitchCurveEditor::timerCallback()
@@ -571,20 +624,137 @@ namespace ui
     float PitchCurveEditor::pitchToY (float p) const
     {
         const int rulerH = 24;
-        // Echelle log.
-        const float lh = std::log (p);
-        const float lmin = std::log (minHz);
-        const float lmax = std::log (maxHz);
-        const float t = (lh - lmin) / (lmax - lmin);
-        return rulerH + (getHeight() - rulerH) * (1.0f - juce::jlimit (0.0f, 1.0f, t));
+        if (pianoRollMode)
+        {
+            // Geometrie de piano (identique au clavier vertical) : les notes
+            // s'alignent sur les touches du piano et ont une hauteur constante,
+            // quelle que soit la position ou le zoom.
+            const int lo = pianoKeyboard.getLowestMidi();
+            const int hi = pianoKeyboard.getHighestMidi();
+            const int midi = static_cast<int> (std::round (ovtdsp::hzToMidiFloat (p)));
+            const float t = PianoKeyboard::midiToNorm (midi, lo, hi);
+            return static_cast<float> (rulerH) + (getHeight() - rulerH) * (1.0f - t);
+        }
+        // Echelle log (mode courbe). PAS de clamp : un pitch hors de la fenetre
+    // visible est projete hors de la zone de tracage et ainsi recadre (clip) au
+    // lieu d'etre empile en haut/bas.
+    const float lh = std::log (juce::jmax (p, 1.0f));
+    const float lmin = std::log (minHz);
+    const float lmax = std::log (maxHz);
+    const float t = (lh - lmin) / (lmax - lmin);
+    return rulerH + (getHeight() - rulerH) * (1.0f - t);
     }
     float PitchCurveEditor::yToPitch (float y) const
     {
         const int rulerH = 24;
+        if (pianoRollMode)
+        {
+            // Inverse de la geometrie de piano : on cherche la note dont la
+            // position normale est la plus proche du Y demande.
+            const int lo = pianoKeyboard.getLowestMidi();
+            const int hi = pianoKeyboard.getHighestMidi();
+            const float t = 1.0f - juce::jlimit (0.0f, 1.0f, (y - rulerH) / (getHeight() - rulerH));
+            int best = lo;
+            float bestD = 1.0e9f;
+            for (int m = lo; m <= hi; ++m)
+            {
+                const float d = std::abs (PianoKeyboard::midiToNorm (m, lo, hi) - t);
+                if (d < bestD) { bestD = d; best = m; }
+            }
+            return ovtdsp::midiToHz (static_cast<float> (best));
+        }
         const float t = 1.0f - juce::jlimit (0.0f, 1.0f, (y - rulerH) / (getHeight() - rulerH));
         const float lmin = std::log (minHz);
         const float lmax = std::log (maxHz);
         return std::exp (lmin + t * (lmax - lmin));
+    }
+
+    float PitchCurveEditor::snapToNearestNote (float hz) const
+    {
+        if (hz <= 0.0f) return hz;
+        const float midi = ovtdsp::hzToMidiFloat (hz);
+        return ovtdsp::midiToHz (std::round (midi));
+    }
+
+    void PitchCurveEditor::drawPianoRoll (juce::Graphics& g)
+    {
+        const int pianoW = pianoKeyboard.getWidth();
+        const int rulerH = 24;
+        const int plotRight = getWidth();
+
+        // Per-note horizontal rows, aligned with the left keyboard (meme plage et
+        // meme geometrie de piano : hauteurs constantes).
+        const int lowestMidi = pianoKeyboard.getLowestMidi();
+        const int highestMidi = pianoKeyboard.getHighestMidi();
+        // Horizontal rows match the Curves-mode grid exactly: C notes use the
+        // plain curve grid, in-scale notes use the scale line, and off-scale
+        // notes draw no line. This keeps the piano-roll brightness/content
+        // identical to the Curves grid (no faint, off-scale rows).
+        for (int midi = lowestMidi; midi <= highestMidi; ++midi)
+        {
+            const int noteInOct = ovtdsp::midiToNoteInOctave (midi);
+            const float y = pitchToY (ovtdsp::midiToHz (static_cast<float> (midi)));
+            if (noteInOct == 0)
+                g.setColour (ovt::curveGrid());
+            else if (scaleIntervals.contains (noteInOct))
+                g.setColour (ovt::scaleLine());
+            else
+                continue;   // off-scale: no line, matching Curves mode
+            g.drawHorizontalLine (static_cast<int> (y),
+                                  static_cast<float> (pianoW),
+                                  static_cast<float> (plotRight));
+        }
+
+        // Note blocks: one per curve segment; the last one extends to the view end.
+        const int n = curve.getNumPoints();
+        if (n >= 1)
+        {
+            // Hauteur constante : une hauteur de touche blanche (identique pour
+            // toutes les notes), alignee sur le clavier vertical.
+            int numWhite = 0;
+            for (int m = lowestMidi; m <= highestMidi; ++m)
+                if (! PianoKeyboard::isBlackKey (m)) ++numWhite;
+            const float plotH = static_cast<float> (getHeight() - rulerH);
+            const float rowH = (numWhite > 0)
+                ? juce::jmax (4.0f, plotH / static_cast<float> (numWhite))
+                : 8.0f;
+            for (int i = 0; i < n; ++i)
+            {
+                const auto& pt = curve.getPoint (i);
+                const double startT = pt.time;
+                const double endT = (i + 1 < n) ? curve.getPoint (i + 1).time : timeVisible;
+                if (endT <= startT) continue;
+
+                const int pitchMidi = static_cast<int> (std::round (ovtdsp::hzToMidiFloat (pt.pitch)));
+                const float yCenter = pitchToY (ovtdsp::midiToHz (static_cast<float> (pitchMidi)));
+                const float blockTop = yCenter - rowH / 2.0f + 1.0f;
+                const float blockH = juce::jmax (3.0f, rowH - 2.0f);
+
+                const float x1 = static_cast<float> (timeToX (startT));
+                const float x2 = static_cast<float> (timeToX (endT));
+                const float blockW = juce::jmax (2.0f, x2 - x1);
+
+                const int noteInOct = ovtdsp::midiToNoteInOctave (pitchMidi);
+                const bool inScale = scaleIntervals.contains (noteInOct);
+                const juce::Colour fill = inScale ? kCurveColour.withAlpha (0.55f)
+                                                  : juce::Colour (0x553322aa);
+
+                g.setColour (fill);
+                g.fillRoundedRectangle (x1, blockTop, blockW, blockH, 3.0f);
+                g.setColour (inScale ? kCurveColour : juce::Colour (0xff6655cc));
+                g.drawRoundedRectangle (x1, blockTop, blockW, blockH, 3.0f, 1.0f);
+
+                const juce::String label = getNoteName (pt.pitch);
+                if (blockW > 26.0f)
+                {
+                    g.setColour (juce::Colours::white.withAlpha (0.9f));
+                    g.setFont (ovt::fontOctaveLabel());
+                    g.drawText (label, static_cast<int> (x1) + 3, static_cast<int> (blockTop),
+                                static_cast<int> (blockW) - 6, static_cast<int> (blockH),
+                                juce::Justification::centredLeft, false);
+                }
+            }
+        }
     }
 
     juce::String PitchCurveEditor::getNoteName (float hz) const
@@ -659,6 +829,27 @@ namespace ui
         isDragging = false;
         isDraggingSelection = false;
         isMarqueeSelecting = false;
+
+        // Piano-roll metaphor: a left click on empty space creates a new note
+        // (snapped to the keyboard row) and starts dragging it. Marquee (box)
+        // selection is disabled in this mode.
+        if (pianoRollMode && dragIndex < 0 && e.mods.isLeftButtonDown())
+        {
+            double t = xToTime (e.position.x);
+            const double gridStep = 0.5;
+            const double nearestGrid = std::round (t / gridStep) * gridStep;
+            if (snapToGridEnabled) t = nearestGrid;
+            else if (std::abs (t - nearestGrid) < 0.05) t = nearestGrid;
+            float hz = snapToNearestNote (yToPitch (e.position.y));
+            if (snapEnabled) hz = ovtdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
+            curve.addOrUpdatePoint (t, hz);
+            dragIndex = findPointAtPixel (p);
+            isDragging = true;
+            selectedIndices.clear();
+            if (dragIndex >= 0) selectedIndices.add (dragIndex);
+            repaint();
+            return;
+        }
 
         if (dragIndex >= 0)
         {
@@ -833,6 +1024,22 @@ namespace ui
 
         if (!isDragging || dragIndex < 0) return;
 
+        // Piano-roll metaphor: the pitch is snapped to the nearest keyboard row
+        // (and to the scale if snapping is enabled). Time snapping is unchanged.
+        if (pianoRollMode)
+        {
+            double t = xToTime (e.position.x);
+            const double gridStep = 0.5;
+            const double nearestGrid = std::round (t / gridStep) * gridStep;
+            if (snapToGridEnabled) t = nearestGrid;
+            else if (std::abs (t - nearestGrid) < 0.05) t = nearestGrid;
+            float hz = snapToNearestNote (yToPitch (e.position.y));
+            if (snapEnabled) hz = ovtdsp::PitchCurve::snapToIntervals (hz, scaleIntervals);
+            curve.setPointTimeAndPitch (dragIndex, t, hz);
+            repaint();
+            return;
+        }
+
         // Mise a jour du temps et du pitch.
         double t = xToTime (e.position.x);
         float hz = yToPitch (e.position.y);
@@ -971,6 +1178,7 @@ namespace ui
         // Ajoute un point a la position du curseur.
         double t = xToTime (e.position.x);
         float hz = yToPitch (e.position.y);
+        if (pianoRollMode) hz = snapToNearestNote (hz); // keyboard-row snap
         
         // Snap to grid temporel
         double gridStep = 0.5;
@@ -1031,8 +1239,9 @@ namespace ui
             const float anchor = (e.position.y >= 0 && e.position.y <= getHeight())
                                      ? yToPitch (e.position.y)
                                      : std::sqrt (minHz * maxHz);
-            // Zoom multiplicatif: molette haut (deltaY > 0) => zoom avant.
-            const float factor = juce::jlimit (0.1f, 10.0f, std::exp (-wheel.deltaY * 4.0f));
+            // Zoom multiplicatif, meme sens que le visualiseur Live : molette haut
+            // (deltaY > 0) => zoom avant (fenetre de pitch plus etroite).
+            const float factor = juce::jlimit (0.1f, 10.0f, std::exp (wheel.deltaY * 4.0f));
             applyZoom (anchor, factor);
         }
         else
@@ -1230,6 +1439,8 @@ namespace ui
     {
         undoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUndo));
         redoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipRedo));
+        pianoRollButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPianoRoll));
+        pianoRollButton.setButtonText (ovt::tr(ovt::Keys::kButtonPianoRoll));
         repaint();
     }
 
@@ -1323,8 +1534,21 @@ namespace ui
             hasWaveform = false;
             return;
         }
+        // Keep the most recent audio block for the non-spectral display types
+        // (unchanged behaviour).
         waveformBuffer.setSize (1, numSamples, false, false, true);
         waveformBuffer.copyFrom (0, 0, samples, numSamples);
+
+        // Append into the ring buffer so the Spectral (FFT) view always has a
+        // >= 512-sample window to compute a spectrum.
+        const int cap = kWaveRingCapacity;
+        const int n = juce::jmin (numSamples, cap);
+        for (int i = 0; i < n; ++i)
+        {
+            waveformRing.setSample (0, waveformRingWritePos, samples[i]);
+            waveformRingWritePos = (waveformRingWritePos + 1) % cap;
+        }
+        waveformTotalWritten += numSamples;
         hasWaveform = true;
         repaint();
     }

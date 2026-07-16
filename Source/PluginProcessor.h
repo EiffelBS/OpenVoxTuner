@@ -18,6 +18,12 @@
 #include "dsp/IEffect.h"
 #include "dsp/NoiseGate.h"
 #include "dsp/PresetMorpher.h"
+#include "dsp/VibratoPreserver.h"
+#include "dsp/AttackAwareEnv.h"
+#include "dsp/KeyDetector.h"
+#include "dsp/KeyBridge.h"
+#include "dsp/SidechainBusLayout.h"
+#include "dsp/FormantPreserver.h"
 
 /**
  * Main class of the audio processor.
@@ -80,6 +86,9 @@ public:
 
     // === Harmony data access for GUI ===
     const juce::Array<float>& getHarmonyFrequencies() const { return harmonyFrequencies; }
+    // Scale-locked harmony notes (Follow Lead NOT applied). Used for MIDI OUT so
+    // pushed MIDI notes stay clean, regardless of the Follow Lead toggle.
+    const juce::Array<float>& getHarmonyFrequenciesClean() const { return harmonyFrequenciesClean; }
     float getHarmonyOutputLevel() const { return harmonyOutputLevel.load(); }   
 
     // === Scale note names (for the editor) ===
@@ -170,6 +179,7 @@ public:
 
     // CPU usage meter (0.0 - 1.0) for the editor header display.
     float getCpuUsage() const { return cpuUsage.load(); }
+
     void getTimeSignatureAt(double ppq, int& num, int& den) const;
 
     void resetTransportTime() {
@@ -202,6 +212,7 @@ private:
     std::atomic<float>* latencyModeParam = nullptr; // 0=Low Latency, 1=Quality 
     std::atomic<float>* formantParam = nullptr; // Formant shift (-12 to 12)    
     std::atomic<float>* formantEnableParam = nullptr; // Formant On/Off
+    std::atomic<float>* formantModeParam = nullptr; // Formant mode: 0=Legacy, 1=MultiFormant
     std::atomic<float>* keyParam     = nullptr; // Tonic index (0-11)
     std::atomic<float>* scaleParam   = nullptr; // Mode index (0-5, 5=custom)
     juce::AudioParameterChoice* scaleChoiceParam = nullptr; // Direct accessor for getIndex()   
@@ -216,7 +227,9 @@ private:
     std::atomic<float>* harmonyShiftedVoicesParam = nullptr; // number of shifted voices (1..4)
     std::atomic<float>* harmonyToneParam = nullptr; // synth harmony tone (choice)
     std::atomic<float>* harmonyToneColorParam = nullptr; // synth harmony tone color (continuous)
+    std::atomic<float>* harmonyFollowLeadParam = nullptr; // harmonies follow lead character (bool)
     std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
+    std::atomic<float>* midiTargetEnableParam = nullptr; // MIDI target / follow enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
     std::atomic<float>* editorPlayheadLoopParam = nullptr; // Curve Editor playhead loop (0=follow host, 1=loop on Measures)
     std::atomic<float>* reverbEnableParam = nullptr; // Reverb on/off
@@ -226,6 +239,19 @@ private:
     std::atomic<float>* flexTuneParam = nullptr;    // FlexTune deadband (0-100 cents)
     std::atomic<float>* humanizeParam = nullptr;    // Humanize random cents (0-50)
     std::atomic<float>* correctionModeParam = nullptr; // 0=Modern, 1=Transparent        
+    std::atomic<float>* vibratoPreserveParam = nullptr; // Vibrato preservation (0-100%)
+    std::atomic<float>* attackAwareParam = nullptr;    // Attack-aware correction enable (bool)
+    std::atomic<float>* attackReleaseParam = nullptr;  // Attack-aware release time (ms)
+
+    // Key/Scale detection master switch: false = manual key/scale (user drives it),
+    // true = detected automatically via the source below. Replaces the old "Manual"
+    // choice. Default false (off).
+    std::atomic<float>* keyDetectParam = nullptr;
+    // Key detection source (used only when keyDetectParam is on):
+    // 0=Auto (in-plugin audio analysis), 1=OpenVoxKey (shared bridge from the
+    // OpenVoxKey companion detector), 2=Sidechain (analysis of the sidechain input).
+    std::atomic<float>* keySourceParam = nullptr;
+    std::atomic<float>* companionGroupParam = nullptr; // Companion group (A/B/C/D)
 
     // "Custom note on/off" parameters (12 booleans, indices 0..11).
     // Stored as 12 separate AudioParameterBool so the host can
@@ -245,6 +271,7 @@ private:
     std::unique_ptr<ovtdsp::PitchShifter>      pitchShifter;
     std::unique_ptr<ovtdsp::HarmonyEngine>     harmonyEngine;
     ovtdsp::NoiseGate                           noiseGate;
+    ovtdsp::FormantPreserver                    formantPreserver;
 
     std::unique_ptr<ovtdsp::RetargetEnvelope>  retargetEnvelope;
     std::unique_ptr<ovtdsp::PitchCurve>        pitchCurve; // "graphic" mode
@@ -283,7 +310,7 @@ private:
     ovtdsp::MorphState abSlotBMorph;
     bool abSlotHasData[2] = { false, false };
 
-    std::atomic<float> lastValidF0 { 0.0f };
+    std::atomic<float> lastValidF0 { 440.0f };
 
     // Last valid pitch snapshot used by autotune to keep the pitch
     // shifter's ratio coherent during transient YIN dropouts
@@ -356,7 +383,9 @@ private:
 
     // Harmony state.
     juce::Array<float> harmonyFrequencies;
+    juce::Array<float> harmonyFrequenciesClean; // scale-locked, Follow Lead ignored (MIDI OUT)
     juce::Array<float> lastHarmonyNotes; // keep last notes to allow release rendering
+    juce::Array<float> lastHarmonyNotesClean; // scale-locked cache for MIDI OUT release
     std::atomic<float> harmonyOutputLevel { 0.0f };
     juce::AudioBuffer<float> harmonyBuffer; // stereo buffer for mixing
     juce::AudioBuffer<float> synthWorkBuffer; // preallocated synth harmony render buffer
@@ -372,10 +401,37 @@ private:
     // MIDI out state (per-channel last note sent, channels 1..16 mapped to index 0..15)
     int lastSentMidiNote[16] = { -1 };
 
+    // Held incoming MIDI notes (note numbers) used by the "MIDI Target /
+    // Follow" feature. Updated only on the audio thread (processBlock), so no
+    // lock is needed. The most-recently-pressed note (last in the list)
+    // becomes the correction target when the toggle is on.
+    juce::Array<int> heldMidiNotes;
+
     // Random generator for Humanize effect.
     juce::Random random;
     float currentHumanizeCents = 0.0f;
     float currentFlexTuneAmount = 1.0f;
+    float smoothedFlexTuneAmount = 1.0f; // Smoothed for click-free knob changes
+
+    // Vibrato preservation: smooths the detected pitch to a center reference
+    // (vibrato modulation removed) so the correction can preserve the vibrato.
+    ovtdsp::VibratoPreserver vibratoPreserver;
+
+    // Attack-aware correction: a temporal envelope that eases off the correction
+    // on note onsets/transients, then ramps back to full correction.
+    ovtdsp::AttackAwareEnv attackEnv;
+
+    // Automatic key detection (in-plugin "Auto" source): accumulates a
+    // pitch-class profile and estimates the key/scale. The companion plugin
+    // publishes to KeyBridge instead; this is only used for the Auto source.
+    ovtdsp::KeyDetector keyDetector;
+    int lastAutoKey = -1;    // last applied musical key (avoids redundant updates)
+    int lastAutoScale = -1;  // last applied scale index
+
+    // Automatic key detection from the Sidechain input bus (key_source ==
+    // "Sidechain"): analyses an external signal (e.g. accompaniment) routed to
+    // the sidechain bus to estimate the key/scale independently of the voice.
+    ovtdsp::KeyDetector sidechainKeyDetector;
 
     // Debug: remember previous bypass state to log changes
     std::atomic<int> prevBypassState { 0 };
@@ -412,6 +468,16 @@ private:
     // 144 samples, major source of glitches).
     juce::HeapBlock<float> analysisLinearBuffer;
 
+    // Dedicated analysis path for the optional Sidechain input bus: a separate
+    // FIFO + detector + linear buffer so key detection can run on the sidechain
+    // signal without disturbing the main-input pitch analysis above.
+    juce::AudioBuffer<float> sidechainFifo;
+    int sidechainFifoWriteIndex = 0;
+    int sidechainFifoFillCount = 0;
+    int sidechainSamplesSinceLastAnalysis = 0;
+    juce::HeapBlock<float> sidechainLinearBuffer;
+    std::unique_ptr<ovtdsp::YinPitchDetector> sidechainPitchDetector;
+
     // Updates DSP parameters from the value tree.
     void syncParameters();
     void applyLatencyMode();
@@ -421,6 +487,16 @@ private:
 
     // Calculates the input pitch on the current block, returns freq in Hz.     
     float computeInputPitch (const juce::AudioBuffer<float>& buffer);
+
+    // Calculates the pitch of the Sidechain input bus (key_source == "Sidechain"),
+    // returns freq in Hz (0 when silent or the FIFO is not yet filled). Uses a
+    // dedicated FIFO + detector so it never interferes with the main input.
+    float computeSidechainPitch (const juce::AudioBuffer<float>& buffer);
+
+    // Applies a detected (musical) key + scale index to the key/scale
+    // parameters, but only when they actually change (avoids spamming host
+    // automation every block). Used by the Auto and Companion sources.
+    void applyDetectedKey (int musicalKey, int scaleIdx);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenVoxTunerAudioProcessor)   
 };

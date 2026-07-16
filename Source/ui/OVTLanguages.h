@@ -11,7 +11,7 @@
 namespace ovt
 {
     /** Supported languages. */
-    enum class Language { English, French, German, Spanish, Japanese };
+    enum class Language { English, French, German, Spanish, Japanese, Chinese };
 
     /** Get/set the current active language. */
     inline Language& currentLanguage()
@@ -30,6 +30,7 @@ namespace ovt
             case Language::German:  return "de";
             case Language::Spanish: return "es";
             case Language::Japanese:return "ja";
+            case Language::Chinese: return "zh";
         }
         return "en";
     }
@@ -44,6 +45,7 @@ namespace ovt
         static const char* kMenuLanguage       = "menu.language";
         static const char* kMenuLatency        = "menu.latency";
         static const char* kMenuMidiOut        = "menu.midi_out";
+        static const char* kMenuMidiTarget     = "menu.midi_target";
         static const char* kMenuTuningType     = "menu.tuning_type";
         static const char* kMenuModern         = "menu.modern";
         static const char* kMenuTransparent    = "menu.transparent";
@@ -61,6 +63,7 @@ namespace ovt
         static const char* kMenuWaveformDisplay = "menu.waveform_display";
         static const char* kMenuWaveformLine   = "menu.waveform_line";
         static const char* kMenuWaveformMirror = "menu.waveform_mirror";
+        static const char* kMenuWaveformSpectral = "menu.waveform_spectral";
         static const char* kMenuMidiLearn      = "menu.midi_learn";
         static const char* kMenuKeyboardShortcuts = "menu.keyboard_shortcuts";
         static const char* kMenuConfirmReset   = "menu.confirm_reset";
@@ -79,10 +82,14 @@ namespace ovt
         static const char* kMenuCleanCurves    = "menu.clean_curves";
         static const char* kMenuResetPlayhead  = "menu.reset_playhead";
         static const char* kMenuCurvePresets   = "menu.curve_presets";
+        static const char* kMenuPresetGallery  = "menu.preset_gallery";
         static const char* kMenuAutoScroll     = "menu.auto_scroll";
         static const char* kMenuShowInputTrace = "menu.show_input_trace";
         static const char* kMenuLoopPlayhead   = "menu.loop_playhead";
         static const char* kMenuTempo          = "menu.tempo";
+        static const char* kMenuFormantMode    = "menu.formant_mode";
+        static const char* kMenuFormantLegacy  = "menu.formant_legacy";
+        static const char* kMenuFormantMulti   = "menu.formant_multi";
         static const char* kTooltipCurveOptions = "tooltip.curve_options";
         static const char* kTooltipPlay        = "tooltip.play";
         static const char* kTooltipStop        = "tooltip.stop";
@@ -97,14 +104,23 @@ namespace ovt
         static const char* kLabelAmount        = "label.amount";
         static const char* kLabelScale         = "label.scale";
         static const char* kLabelRoot          = "label.root";
+        static const char* kLabelKeySource     = "label.key_source";
+        static const char* kLabelCompanionGroup = "label.companion_group";
+        static const char* kLabelKeyDetect      = "label.key_detect";
         static const char* kLabelVolume        = "label.volume";
         static const char* kLabelBlend         = "label.blend";
         static const char* kLabelFlex          = "label.flex";
         static const char* kLabelHumanize      = "label.humanize";
+        static const char* kLabelVibrato       = "label.vibrato";
+        static const char* kLabelAttackBtn      = "label.attack_btn";
+        static const char* kLabelAttackRelease  = "label.attack_release";
         static const char* kLabelFormant       = "label.formant";
         static const char* kLabelReverb        = "label.reverb";
         static const char* kLabelMix           = "label.mix";
         static const char* kLabelHarmony       = "label.harmony";
+        static const char* kLabelFormantMode   = "label.formant_mode";
+        static const char* kLabelFormantLegacy  = "label.formant_legacy";
+        static const char* kLabelFormantMulti   = "label.formant_multi";
         static const char* kLabelCorrectionMode = "label.correction_mode";
         static const char* kLabelModern         = "label.modern";
         static const char* kLabelTransparent    = "label.transparent";
@@ -120,6 +136,7 @@ namespace ovt
         static const char* kLabelUpdates        = "label.updates";
         static const char* kUseVoice            = "label.use_voice";
         static const char* kLabelHarmonyBtn     = "label.harmony_btn";
+        static const char* kLabelHarmonyFollow   = "label.harmony_follow";
         static const char* kLabelFormantBtn     = "label.formant_btn";
         static const char* kLabelNoiseGate     = "label.noise_gate";
         static const char* kTooltipNoiseGate   = "tooltip.noise_gate";
@@ -131,6 +148,7 @@ namespace ovt
         static const char* kLabelTransparentBtn = "label.transparent_btn";
         static const char* kLabelBypassBtn      = "label.bypass_btn";
         static const char* kLabelMidiOutBtn     = "label.midi_out_btn";
+        static const char* kLabelMidiTargetBtn  = "label.midi_target_btn";
         static const char* kLabelDebug          = "label.debug";
         static const char* kLabelAutoScroll     = "label.auto_scroll";
         static const char* kLabelMeasures       = "label.measures";
@@ -192,12 +210,20 @@ namespace ovt
         static const char* kTooltipMidiOut     = "tooltip.midi_out";
         static const char* kTooltipCorrection  = "tooltip.correction";
         static const char* kTooltipHarmonyEn   = "tooltip.harmony_enable";
+        static const char* kTooltipHarmonyFollow = "tooltip.harmony_follow";
         static const char* kTooltipReverbEn    = "tooltip.reverb_enable";
         static const char* kTooltipFormant     = "tooltip.formant_enable";
         static const char* kTooltipFlexTune    = "tooltip.flex_tune";
         static const char* kTooltipHumanize    = "tooltip.humanize";
+        static const char* kTooltipVibrato     = "tooltip.vibrato";
+        static const char* kTooltipAttack       = "tooltip.attack";
+        static const char* kTooltipAttackRelease = "tooltip.attack_release";
+        static const char* kTooltipKeySource    = "tooltip.key_source";
+        static const char* kTooltipKeyDetect     = "tooltip.key_detect";
+        static const char* kTooltipCompanionGroup = "tooltip.companion_group";
         static const char* kTooltipSpeed       = "tooltip.speed";
         static const char* kTooltipAmount      = "tooltip.amount";
+        static const char* kTooltipAdvanced    = "tooltip.advanced";
         static const char* kTooltipVolume      = "tooltip.volume";
         static const char* kTooltipBlend       = "tooltip.blend";
         static const char* kTooltipToneColor   = "tooltip.tone_color";
@@ -208,7 +234,10 @@ namespace ovt
         static const char* kTooltipMorphLabel        = "tooltip.morph_label";
         static const char* kTooltipResetTransportDetail = "tooltip.reset_transport_detail";
         static const char* kTooltipBypassIcon        = "tooltip.bypass_icon";
-        static const char* kTooltipMidiOutIcon       = "tooltip.midi_out_icon";
+        static const char* kTooltipMidiOutIcon    = "tooltip.midi_out_icon";
+        static const char* kTooltipMidiTarget    = "tooltip.midi_target";
+        static const char* kTooltipMidiTargetIcon = "tooltip.midi_target_icon";
+        static const char* kTooltipPresetGallery  = "tooltip.preset_gallery";
         static const char* kTooltipMenuOptions       = "tooltip.menu_options";
         static const char* kTooltipDebugWindow       = "tooltip.debug_window";
         static const char* kTooltipUpdateAvailable   = "tooltip.update_available";
@@ -218,6 +247,8 @@ namespace ovt
         static const char* kTooltipAutoScroll        = "tooltip.auto_scroll";
         static const char* kTooltipUndo              = "tooltip.undo";
         static const char* kTooltipRedo              = "tooltip.redo";
+        static const char* kButtonPianoRoll          = "button.piano_roll";
+        static const char* kTooltipPianoRoll         = "tooltip.piano_roll";
 
         // Legend keys
         static const char* kLegendInput        = "legend.input";
@@ -286,6 +317,9 @@ namespace ovt
         static const char* kMidiLearnReverbMix     = "midi_learn.reverb_mix";
         static const char* kMidiLearnFlexTune      = "midi_learn.flex_tune";
         static const char* kMidiLearnHumanize      = "midi_learn.humanize";
+        static const char* kMidiLearnVibrato       = "midi_learn.vibrato";
+        static const char* kMidiLearnAttack         = "midi_learn.attack";
+        static const char* kMidiLearnAttackRelease  = "midi_learn.attack_release";
         static const char* kMidiLearnHarmonyGain   = "midi_learn.harmony_gain";
         static const char* kMidiLearnHarmonyBlend  = "midi_learn.harmony_blend";
         static const char* kMidiLearnHarmonyTone   = "midi_learn.harmony_tone";
@@ -309,6 +343,7 @@ namespace ovt
             { kMenuLanguage,       "Language" },
             { kMenuLatency,        "Latency" },
             { kMenuMidiOut,        "MIDI Out" },
+            { kMenuMidiTarget,     "MIDI Target" },
             { kMenuTuningType,     "Tuning Type" },
             { kMenuModern,         "Modern" },
             { kMenuTransparent,    "Transparent" },
@@ -326,6 +361,7 @@ namespace ovt
             { kMenuWaveformDisplay, "Waveform Display" },
             { kMenuWaveformLine,   "Line" },
             { kMenuWaveformMirror, "Mirror" },
+            { kMenuWaveformSpectral, "Spectral" },
             { kMenuMidiLearn,      "MIDI Learn" },
             { kMenuKeyboardShortcuts, "Keyboard Shortcuts (?)" },
             { kMenuConfirmReset,   "Confirm Reset" },
@@ -344,10 +380,14 @@ namespace ovt
             { kMenuCleanCurves,    "Clean Curves" },
             { kMenuResetPlayhead,  "Reset Playhead" },
             { kMenuCurvePresets,   "Curve Presets" },
+            { kMenuPresetGallery,  "Preset Gallery" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Show Input Trace" },
             { kMenuLoopPlayhead,   "Loop Playhead (Measures)" },
             { kMenuTempo,          "Tempo" },
+            { kMenuFormantMode,    "Formant Mode" },
+            { kMenuFormantLegacy,  "Legacy" },
+            { kMenuFormantMulti,   "MultiFormant" },
             { kTooltipCurveOptions, "Curve editor options" },
             { kTooltipPlay,        "Play (start the standalone timeline)" },
             { kTooltipStop,        "Stop (freeze the standalone timeline for editing)" },
@@ -358,18 +398,28 @@ namespace ovt
             { kLabelAmount,        "Amount" },
             { kLabelScale,         "Scale" },
             { kLabelRoot,          "Root" },
+            { kLabelKeySource,     "Key Src" },
+            { kLabelCompanionGroup, "Group" },
+            { kLabelKeyDetect,      "Key/Scale Detection" },
             { kLabelVolume,        "Volume" },
             { kLabelBlend,         "Blend" },
             { kTooltipSpeed,        "Correction speed in milliseconds. Lower = faster pitch tracking." },
             { kTooltipAmount,       "Correction amount (0% = natural, 100% = fully corrected to target)." },
+            { kTooltipAdvanced,     "Show / hide the advanced correction knobs (Flex, Humanize, Vibrato, Attack-Aware)." },
             { kTooltipVolume,       "Harmony voices output volume." },
             { kTooltipBlend,        "Balance between the lead vocal and the generated harmony voices." },
             { kLabelFlex,          "Flex" },
             { kLabelHumanize,      "Humanize" },
-            { kLabelFormant,       "Formant" },
+            { kLabelVibrato,       "Vibrato" },
+            { kLabelAttackBtn,     "Attack" },
+            { kLabelAttackRelease, "Rel" },
+            {kLabelFormant,       "Formant" },
             { kLabelReverb,        "Reverb" },
             { kLabelMix,           "Mix" },
             { kLabelHarmony,       "Harmony" },
+            { kLabelFormantMode,   "Formant Mode" },
+            { kLabelFormantLegacy,  "Legacy" },
+            { kLabelFormantMulti,   "MultiFormant" },
             { kLabelCorrectionMode, "Correction Mode" },
             { kLabelModern,         "Modern" },
             { kLabelTransparent,    "Transparent" },
@@ -385,6 +435,7 @@ namespace ovt
             { kLabelUpdates,        "Updates" },
             { kUseVoice,            "Use Voice" },
             { kLabelHarmonyBtn,     "Harmony" },
+            { kLabelHarmonyFollow,  "Follow Lead" },
             { kLabelFormantBtn,     "Formant" },
             { kLabelNoiseGate,   "Gate" },
             { kTooltipNoiseGate, "Enable/disable noise gate on input audio." },
@@ -396,6 +447,7 @@ namespace ovt
             { kLabelTransparentBtn, "Transparent" },
             { kLabelBypassBtn,      "ByPass" },
             { kLabelMidiOutBtn,     "MIDI OUT" },
+            { kLabelMidiTargetBtn,  "MIDI TGT" },
             { kLabelDebug,          "Debug" },
             { kLabelAutoScroll,     "Auto-Scroll" },
             { kLabelMeasures,       "Measures" },
@@ -451,10 +503,17 @@ namespace ovt
             { kTooltipMidiOut,        "Enable MIDI Out" },
             { kTooltipCorrection,     "Modern = aggressive correction. Transparent = gentler, preserves transitions." },
             { kTooltipHarmonyEn,      "Enable/disable harmony generation." },
+            { kTooltipHarmonyFollow,  "When on (default), the harmony voices follow the lead correction character (vibrato preservation, humanize, flex, attack-aware) so they move together with the lead instead of staying locked to the scale grid. When off, harmonies stay snapped to the scale (classic look)." },
             { kTooltipReverbEn,       "Enable/disable reverb effect." },
             { kTooltipFormant,        "Enable/disable formant shifting." },
             { kTooltipFlexTune,       "Deadband in cents: input pitch within this range is left uncorrected." },
             { kTooltipHumanize,       "Random pitch fluctuations in cents, added when correction is applied." },
+            { kTooltipVibrato,        "Vibrato preservation (0-100%): correct against the smoothed center pitch so the vibrato modulation survives while the note still snaps to the scale." },
+            { kTooltipAttack,          "Attack-aware correction: ease off the pitch correction on note onsets/transients so the natural attack is preserved (third axis, orthogonal to FlexTune and Humanize)." },
+            { kTooltipAttackRelease,   "Attack release (ms): how long the correction takes to ramp back to full after an onset." },
+            { kTooltipKeySource,        "Key detection source (when detection is on): Auto (analyse the input), OpenVoxKey (shared bridge from the OpenVoxKey companion detector), or Sidechain (analyse the sidechain input)." },
+            { kTooltipKeyDetect,         "Key/Scale detection: when on, the key/scale is detected automatically. Source: Auto (analyse the input), OpenVoxKey (shared bridge from the OpenVoxKey companion detector on the accompaniment track), or Sidechain (analyse the sidechain input). When off, you set the key/scale manually." },
+            { kTooltipCompanionGroup,   "Companion group letter. Must match the OpenVoxKey instance you want to receive the key from (A-D)." },
             { kTooltipToneColor,      "Tone color for synth harmonies." },
             { kTooltipAB,             "A/B: Click to toggle between slot A and B. Right-click to save current state." },
             { kTooltipReset,          "Reset playhead." },
@@ -464,6 +523,9 @@ namespace ovt
             { kTooltipResetTransportDetail, "Reset playhead.\nResets the internal timeline offset (useful in Standalone / classic VST3)." },
             { kTooltipBypassIcon,     "Bypass audio processing.\nWhen enabled, audio passes through without correction." },
             { kTooltipMidiOutIcon,    "Enable MIDI Out" },
+            { kTooltipMidiTarget,    "Enable MIDI Target (follow): an incoming held MIDI note drives the correction target (the voice is tuned to the note)." },
+            { kTooltipMidiTargetIcon, "Enable MIDI Target (follow)" },
+            { kTooltipPresetGallery,  "Open the preset gallery" },
             { kTooltipMenuOptions,    "OpenVoxTuner options" },
             { kTooltipDebugWindow,    "Open debug window: MIDI log, attack/release testing" },
             { kTooltipUpdateAvailable, "Open the latest OpenVoxTuner release." },
@@ -473,6 +535,8 @@ namespace ovt
             { kTooltipAutoScroll,     "Automatically scroll the editor view during playback" },
             { kTooltipUndo,           "Undo (Ctrl+Z)" },
             { kTooltipRedo,           "Redo (Ctrl+Y)" },
+            { kButtonPianoRoll,       "Piano Roll" },
+            { kTooltipPianoRoll,      "Toggle the piano-roll editing metaphor (notes snapped to the keyboard rows)" },
             { kLegendInput,           "Input" },
             { kLegendOutput,          "Output" },
             { kLegendHarmony,         "Harm." },
@@ -531,6 +595,7 @@ namespace ovt
             { kMidiLearnReverbMix,    "Reverb Mix" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanize" },
+            { kMidiLearnVibrato,       "Vibrato" },
             { kMidiLearnHarmonyGain,  "Harmony Gain" },
             { kMidiLearnHarmonyBlend, "Harmony Blend" },
             { kMidiLearnHarmonyTone,  "Harmony Tone" },
@@ -544,13 +609,19 @@ namespace ovt
             { kMenuTheme,          "Theme" },
             { kMenuDarkTheme,      "Theme sombre" },
             { kMenuLightTheme,     "Theme clair" },
+            { kMenuCleanCurves,    "Nettoyer les courbes" },
+            { kMenuResetPlayhead,  "Reinitialiser le curseur" },
             { kMenuLanguage,       "Langue" },
             { kMenuLatency,        "Latence" },
             { kMenuMidiOut,        "Sortie MIDI" },
+            { kMenuMidiTarget,     "Cible MIDI" },
             { kMenuTuningType,     "Type d'accordage" },
             { kMenuModern,         "Moderne" },
             { kMenuTransparent,    "Transparent" },
             { kMenuPitchDetection, "Detection de hauteur" },
+            { kMenuFormantMode,    "Mode Formant" },
+            { kMenuFormantLegacy,  "Legacy" },
+            { kMenuFormantMulti,   "MultiFormant" },
             { kMenuCheckUpdates,   "Verifier les mises a jour" },
             { kMenuResetDefault,   "Reinitialiser par defaut" },
             { kMenuBypass,         "Bypass" },
@@ -564,6 +635,7 @@ namespace ovt
             { kMenuWaveformDisplay, "Affichage de la forme d'onde" },
             { kMenuWaveformLine,   "Ligne" },
             { kMenuWaveformMirror, "Miroir" },
+            { kMenuWaveformSpectral, "Spectral" },
             { kMenuMidiLearn,      "Apprentissage MIDI" },
             { kMenuKeyboardShortcuts, "Raccourcis clavier (?)" },
             { kMenuConfirmReset,   "Confirmer la reinitialisation" },
@@ -580,6 +652,7 @@ namespace ovt
             { kMenuFactory,        "Usine" },
             { kMenuCustom,         "Personnalise" },
             { kMenuCurvePresets,   "Presets de courbe" },
+            { kMenuPresetGallery,  "Galerie de presets" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Afficher la trace d'entree" },
             { kMenuLoopPlayhead,   "Boucle playhead (Mesures)" },
@@ -594,14 +667,21 @@ namespace ovt
             { kLabelAmount,        "Intensite" },
             { kLabelScale,         "Gamme" },
             { kLabelRoot,          "Tonalite" },
+            { kLabelKeySource,     "Source" },
+            { kLabelCompanionGroup, "Groupe" },
+            { kLabelKeyDetect,      "Detection tonalite/gamme" },
             { kLabelVolume,        "Volume" },
             { kLabelBlend,         "Mixage" },
             { kTooltipSpeed,        "Vitesse de correction en millisecondes. Plus bas = suivi de hauteur plus rapide." },
             { kTooltipAmount,       "Intensite de correction (0 % = naturel, 100 % = entierement corrige vers la cible)." },
+            { kTooltipAdvanced,     "Afficher / masquer les boutons de correction avances (Flex, Humanize, Vibrato, Attack-Aware)." },
             { kTooltipVolume,       "Volume de sortie des voix d'harmonie." },
             { kTooltipBlend,        "Equilibre entre la voix principale et les voix d'harmonie generees." },
             { kLabelFlex,          "Flex" },
             { kLabelHumanize,      "Humaniser" },
+            { kLabelVibrato,       "Vibrato" },
+            { kLabelAttackBtn,     "Attaque" },
+            { kLabelAttackRelease, "Rel" },
             { kLabelFormant,       "Formant" },
             { kLabelReverb,        "Reverb" },
             { kLabelMix,           "Mix" },
@@ -621,17 +701,19 @@ namespace ovt
             { kLabelUpdates,        "Mises a jour" },
             { kUseVoice,            "Utiliser voix" },
             { kLabelHarmonyBtn,     "Harmonie" },
+            { kLabelHarmonyFollow,  "Suivre lead" },
             { kLabelFormantBtn,     "Formant" },
-            { kLabelNoiseGate,   "Porte" },
-            { kTooltipNoiseGate, "Activer/desactiver la porte de bruit sur l'entree audio." },
+            { kLabelNoiseGate,   "Gate" },
+            { kTooltipNoiseGate, "Active/desactive le noise gate sur l'entree audio." },
             { kLabelThreshold,   "Seuil" },
-            { kTooltipThreshold, "Seuil de la porte de bruit en dB. Les signaux en dessous sont coupes." },
+            { kTooltipThreshold, "Seuil du noise gate en dB. Les signaux en dessous sont coupes." },
             { kLabelReverbBtn,      "Reverb" },
             { kLabelTone,           "Timbre" },
             { kLabelModernBtn,      "Moderne" },
             { kLabelTransparentBtn, "Transparent" },
             { kLabelBypassBtn,      "Bypass" },
             { kLabelMidiOutBtn,     "MIDI OUT" },
+            { kLabelMidiTargetBtn,  "CIB. MIDI" },
             { kLabelDebug,          "Debug" },
             { kLabelAutoScroll,     "Auto-Scroll" },
             { kLabelMeasures,       "Mesures" },
@@ -687,10 +769,17 @@ namespace ovt
             { kTooltipMidiOut,        "Activer la sortie MIDI" },
             { kTooltipCorrection,     "Moderne = correction agressive. Transparent = plus doux, preserve les transitions." },
             { kTooltipHarmonyEn,      "Activer/desactiver la generation d'harmonie." },
+            { kTooltipHarmonyFollow,  "Quand elle est active (defaut), les voix d'harmonie suivent le caractere de correction de la voix principale (preservation du vibrato, humanisation, flex, attack-aware) et se deplacent avec elle au lieu de rester bloquees sur la grille de gamme. Quand elle est inactive, les harmonies restent accrochees a la gamme (aspect classique)." },
             { kTooltipReverbEn,       "Activer/desactiver l'effet de reverberation." },
             { kTooltipFormant,        "Activer/desactiger le deplacement de formant." },
             { kTooltipFlexTune,       "Deadband en cents : les entrees dans cette plage ne sont pas corrigees." },
             { kTooltipHumanize,       "Fluctuations aleatoires de hauteur en cents, ajoutees lors de la correction." },
+            { kTooltipVibrato,        "Preservation du vibrato (0-100 %) : corrige par rapport a la hauteur centrale lissee pour que la modulation survive tout en accordant la note a la gamme." },
+            { kTooltipAttack,          "Correction sensible aux attaques : adoucit la correction sur les attaques/transitoires pour preserver l'attaque naturelle (3e axe, orthogonal a FlexTune et Humanize)." },
+            { kTooltipAttackRelease,   "Relachement d'attaque (ms) : duree de la remontee de la correction apres une attaque." },
+            { kTooltipKeySource,        "Source de detection de tonalite (quand la detection est active) : Auto (analyse de l'entree), OpenVoxKey (pont partage depuis le detecteur compagnon OpenVoxKey), ou Sidechain (analyse de l'entree sidechain)." },
+            { kTooltipKeyDetect,         "Detection tonalite/gamme : quand elle est active, la tonalite/gamme est detectee automatiquement. Source : Auto (analyse de l'entree), OpenVoxKey (pont partage depuis le detecteur compagnon OpenVoxKey sur la piste d'accompagnement), ou Sidechain (analyse de l'entree sidechain). Quand elle est inactive, vous reglez la tonalite/gamme manuellement." },
+            { kTooltipCompanionGroup,   "Lettre de groupe du companion. Doit correspondre a l'instance OpenVoxKey dont vous voulez recevoir la tonalite (A-D)." },
             { kTooltipToneColor,      "Couleur du ton pour les harmonies synthetisees." },
             { kTooltipAB,             "A/B : Cliquer pour basculer entre les slots A et B. Clic droit pour sauvegarder." },
             { kTooltipReset,          "Reinitialiser la position de lecture." },
@@ -700,6 +789,9 @@ namespace ovt
             { kTooltipResetTransportDetail, "Reinitialiser la position de lecture.\nReinitialise le decalage de la ligne temporelle (utile en Standalone / VST3 classique)." },
             { kTooltipBypassIcon,     "Bypass du traitement audio.\nLorsque active, l'audio passe sans correction." },
             { kTooltipMidiOutIcon,    "Activer la sortie MIDI" },
+            { kTooltipMidiTarget,    "Activer la cible MIDI (suivi) : une note MIDI maintenue entree pilote la cible de correction (la voix est accordée a la note)." },
+            { kTooltipMidiTargetIcon, "Activer la cible MIDI (suivi)" },
+            { kTooltipPresetGallery,  "Ouvrir la galerie de presets" },
             { kTooltipMenuOptions,    "Options d'OpenVoxTuner" },
             { kTooltipDebugWindow,    "Ouvrir la fenetre de debug: journal MIDI, test attaque/relache" },
             { kTooltipUpdateAvailable, "Ouvrir la derniere version d'OpenVoxTuner." },
@@ -709,6 +801,8 @@ namespace ovt
             { kTooltipAutoScroll,     "Defiler automatiquement la vue de l'editeur pendant la lecture" },
             { kTooltipUndo,           "Annuler (Ctrl+Z)" },
             { kTooltipRedo,           "Refaire (Ctrl+Y)" },
+            { kButtonPianoRoll,       "Piano Roll" },
+            { kTooltipPianoRoll,      "Bascule la metaphore d'edition piano-roll (notes alignes sur les touches)" },
             { kLegendInput,           "Entree" },
             { kLegendOutput,          "Sortie" },
             { kLegendHarmony,         "Harm." },
@@ -767,6 +861,9 @@ namespace ovt
             { kMidiLearnReverbMix,    "Mix Reverb" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humaniser" },
+            { kMidiLearnVibrato,       "Vibrato" },
+            { kMidiLearnAttack,         "Attaque" },
+            { kMidiLearnAttackRelease,  "Rel attaque" },
             { kMidiLearnHarmonyGain,  "Gain harmonie" },
             { kMidiLearnHarmonyBlend, "Mixage harmonie" },
             { kMidiLearnHarmonyTone,  "Timbre harmonie" },
@@ -780,13 +877,19 @@ namespace ovt
             { kMenuTheme,          "Thema" },
             { kMenuDarkTheme,      "Dunkles Thema" },
             { kMenuLightTheme,     "Helles Thema" },
+            { kMenuCleanCurves,    "Kurven löschen" },
+            { kMenuResetPlayhead,  "Playhead zurücksetzen" },
             { kMenuLanguage,       "Sprache" },
             { kMenuLatency,        "Latenz" },
             { kMenuMidiOut,        "MIDI-Ausgabe" },
+            { kMenuMidiTarget,     "MIDI-Ziel" },
             { kMenuTuningType,     "Stimmungsmodus" },
             { kMenuModern,         "Modern" },
             { kMenuTransparent,    "Transparent" },
-            { kMenuPitchDetection, "Tonhoenerkennung" },
+            {kMenuPitchDetection, "Tonhoenerkennung" },
+            { kMenuFormantMode,    "Formant Modus" },
+            { kMenuFormantLegacy,  "Legacy" },
+            { kMenuFormantMulti,   "MultiFormant" },
             { kMenuCheckUpdates,   "Nach Updates suchen" },
             { kMenuResetDefault,   "Auf Standard zuruecksetzen" },
             { kMenuBypass,         "Bypass" },
@@ -800,6 +903,7 @@ namespace ovt
             { kMenuWaveformDisplay, "Wellenform-Anzeige" },
             { kMenuWaveformLine,   "Linie" },
             { kMenuWaveformMirror, "Spiegelung" },
+            { kMenuWaveformSpectral, "Spektral" },
             { kMenuMidiLearn,      "MIDI-Lernen" },
             { kMenuKeyboardShortcuts, "Tastaturkurzbefehle (?)" },
             { kMenuConfirmReset,   "Zuruecksetzen bestaetigen" },
@@ -830,14 +934,21 @@ namespace ovt
             { kLabelAmount,        "Intensitaet" },
             { kLabelScale,         "Tonleiter" },
             { kLabelRoot,          "Grundton" },
+            { kLabelKeySource,     "Tonquelle" },
+            { kLabelCompanionGroup, "Gruppe" },
+            { kLabelKeyDetect,      "Tonart/Erkennung" },
             { kLabelVolume,        "Lautstaerke" },
             { kLabelBlend,         "Mischung" },
             { kTooltipSpeed,        "Korrekturgeschwindigkeit in Millisekunden. Niedriger = schnellere Tonhohenverfolgung." },
             { kTooltipAmount,       "Korrekturmenge (0 % = natuerlich, 100 % = vollstaendig zur Zieltonhoehe korrigiert)." },
+            { kTooltipAdvanced,     "Erweiterte Korrektur-Regler (Flex, Humanize, Vibrato, Attack-Aware) ein-/ausblenden." },
             { kTooltipVolume,       "Ausgabelautstaerke der Harmoniestimmen." },
             { kTooltipBlend,        "Balance zwischen Hauptgesang und erzeugten Harmoniestimmen." },
             { kLabelFlex,          "Flex" },
             { kLabelHumanize,      "Humanisieren" },
+            { kLabelVibrato,       "Vibrato" },
+            { kLabelAttackBtn,     "Attacke" },
+            { kLabelAttackRelease, "Rel" },
             { kLabelFormant,       "Formant" },
             { kLabelReverb,        "Reverb" },
             { kLabelMix,           "Mix" },
@@ -857,6 +968,7 @@ namespace ovt
             { kLabelUpdates,        "Updates" },
             { kUseVoice,            "Stimme verwenden" },
             { kLabelHarmonyBtn,     "Harmonie" },
+            { kLabelHarmonyFollow,  "Lead folgen" },
             { kLabelFormantBtn,     "Formant" },
             { kLabelNoiseGate,   "Gate" },
             { kTooltipNoiseGate, "Rauschtor fuer Audieingang aktivieren/deaktivieren." },
@@ -868,6 +980,7 @@ namespace ovt
             { kLabelTransparentBtn, "Transparent" },
             { kLabelBypassBtn,      "Bypass" },
             { kLabelMidiOutBtn,     "MIDI OUT" },
+            { kLabelMidiTargetBtn,  "MIDI ZIEL" },
             { kLabelDebug,          "Debug" },
             { kLabelAutoScroll,     "Auto-Scroll" },
             { kLabelMeasures,       "Takte" },
@@ -921,12 +1034,21 @@ namespace ovt
             { kTooltipPresets,        "Kurven-Presets verwalten" },
             { kTooltipBypass,         "Audioverarbeitung umgehen." },
             { kTooltipMidiOut,        "MIDI-Ausgabe aktivieren" },
+            { kTooltipMidiTarget,    "MIDI-Ziel aktivieren (Follow): Eine gehaltene MIDI-Note steuert das Korrekturziel (die Stimme wird zum Ton gezielt)." },
+            { kTooltipMidiTargetIcon, "MIDI-Ziel aktivieren (Follow)" },
             { kTooltipCorrection,     "Modern = aggressive Korrektur. Transparent = sanfter, Uebergaenge erhalten." },
             { kTooltipHarmonyEn,      "Harmonieerzeugung aktivieren/deaktivieren." },
+            { kTooltipHarmonyFollow,  "Wenn aktiv (Standard), folgen die Harmoniestimmen dem Korrekturcharakter der Leitstimme (Vibrato-Erhaltung, Humanisierung, Flex, Attack-Aware) und bewegen sich mit ihr, statt an der Tonleitergitter festzukleben. Wenn inaktiv, bleiben die Harmonien an die Tonleiter gerastet (klassisches Aussehen)." },
             { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
             { kTooltipFormant,        "Formantenverschiebung aktivieren/deaktivieren." },
             { kTooltipFlexTune,       "Deadband in Cents: Eingaenge in diesem Bereich werden nicht korrigiert." },
             { kTooltipHumanize,       "Zufaellige Tonhoehen-Schwankungen in Cents bei Korrektur." },
+            { kTooltipVibrato,        "Vibrato-Erhaltung (0-100 %): Korrektur gegen den geglaetteten Mittelton, damit die Vibrato-Modulation erhalten bleibt, waehrend die Note zur Skala greift." },
+            { kTooltipAttack,          "Attacken-empfindliche Korrektur: die Tonhoehenkorrektur auf Einsaetzen/Transienten zuruecknehmen, damit der natuerliche Anschlag erhalten bleibt (3. Achse, orthogonal zu FlexTune und Humanize)." },
+            { kTooltipAttackRelease,   "Attacken-Release (ms): wie lange die Korrektur nach einem Einsatz wieder voll ansteigt." },
+            { kTooltipKeySource,        "Tonart-Quelle (wenn Erkennung aktiv): Auto (Eingang analysieren), OpenVoxKey (gemeinsamer Kanal vom OpenVoxKey-Begleitdetektor) oder Sidechain (Sidechain-Eingang analysieren)." },
+            { kTooltipKeyDetect,         "Tonart/Erkennung: wenn aktiv, wird die Tonart automatisch erkannt. Quelle: Auto (Eingang analysieren), OpenVoxKey (gemeinsamer Kanal vom OpenVoxKey-Begleitdetektor auf der Begleit-Spur) oder Sidechain (Sidechain-Eingang analysieren). Wenn inaktiv, waehlen Sie Tonart/Skala manuell." },
+            { kTooltipCompanionGroup,   "Companion-Gruppenbuchstabe. Muss mit der OpenVoxKey-Instanz uebereinstimmen, von der die Tonart empfangen werden soll (A-D)." },
             { kTooltipToneColor,      "Tonfarbe fuer Synthesizer-Harmonien." },
             { kTooltipAB,             "A/B: Klicken zum Umschalten zwischen Slot A und B. Rechtsklick zum Speichern." },
             { kTooltipReset,          "Wiedergabeposition zuruecksetzen." },
@@ -945,6 +1067,8 @@ namespace ovt
             { kTooltipAutoScroll,     "Editor-Ansicht waehrend der Wiedergabe automatisch scrollen" },
             { kTooltipUndo,           "Rueckgaengig (Ctrl+Z)" },
             { kTooltipRedo,           "Wiederholen (Ctrl+Y)" },
+            { kButtonPianoRoll,       "Piano-Roll" },
+            { kTooltipPianoRoll,      "Aktiviert die Piano-Roll-Bearbeitung (Noten an die Tastenreihen gerastet)" },
             { kLegendInput,           "Eingang" },
             { kLegendOutput,          "Ausgang" },
             { kLegendHarmony,         "Harm." },
@@ -1003,6 +1127,9 @@ namespace ovt
             { kMidiLearnReverbMix,    "Reverb-Mix" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanisieren" },
+            { kMidiLearnVibrato,       "Vibrato" },
+            { kMidiLearnAttack,         "Attacke" },
+            { kMidiLearnAttackRelease,  "Attacke Rel" },
             { kMidiLearnHarmonyGain,  "Harmonie-Lautstaerke" },
             { kMidiLearnHarmonyBlend, "Harmonie-Mischung" },
             { kMidiLearnHarmonyTone,  "Harmonie-Klangfarbe" },
@@ -1016,13 +1143,19 @@ namespace ovt
             { kMenuTheme,          "Tema" },
             { kMenuDarkTheme,      "Tema oscuro" },
             { kMenuLightTheme,     "Tema claro" },
+            { kMenuCleanCurves,    "Limpiar curvas" },
+            { kMenuResetPlayhead,  "Reiniciar el cabezal" },
             { kMenuLanguage,       "Idioma" },
             { kMenuLatency,        "Latencia" },
             { kMenuMidiOut,        "Salida MIDI" },
+            { kMenuMidiTarget,     "Objetivo MIDI" },
             { kMenuTuningType,     "Tipo de afinacion" },
             { kMenuModern,         "Moderno" },
             { kMenuTransparent,    "Transparente" },
-            { kMenuPitchDetection, "Deteccion de tono" },
+            {kMenuPitchDetection, "Deteccion de tono" },
+            { kMenuFormantMode,    "Modo Formant" },
+            { kMenuFormantLegacy,  "Legacy" },
+            { kMenuFormantMulti,   "MultiFormant" },
             { kMenuCheckUpdates,   "Buscar actualizaciones" },
             { kMenuResetDefault,   "Restablecer valores predeterminados" },
             { kMenuBypass,         "Bypass" },
@@ -1036,6 +1169,7 @@ namespace ovt
             { kMenuWaveformDisplay, "Visualizacion de forma de onda" },
             { kMenuWaveformLine,   "Linea" },
             { kMenuWaveformMirror, "Espejo" },
+            { kMenuWaveformSpectral, "Espectral" },
             { kMenuMidiLearn,      "Aprendizaje MIDI" },
             { kMenuKeyboardShortcuts, "Atajos de teclado (?)" },
             { kMenuConfirmReset,   "Confirmar reinicio" },
@@ -1066,14 +1200,21 @@ namespace ovt
             { kLabelAmount,        "Intensidad" },
             { kLabelScale,         "Escala" },
             { kLabelRoot,          "Tono base" },
+            { kLabelKeySource,     "Fuente" },
+            { kLabelCompanionGroup, "Grupo" },
+            { kLabelKeyDetect,      "Deteccion de tonalidad" },
             { kLabelVolume,        "Volumen" },
             { kLabelBlend,         "Mezcla" },
             { kTooltipSpeed,        "Velocidad de correccion en milisegundos. Mas bajo = seguimiento de tono mas rapido." },
             { kTooltipAmount,       "Cantidad de correccion (0 % = natural, 100 % = totalmente corregido al objetivo)." },
+            { kTooltipAdvanced,     "Mostrar / ocultar los botones de correccion avanzada (Flex, Humanize, Vibrato, Attack-Aware)." },
             { kTooltipVolume,       "Volumen de salida de las voces de armonia." },
             { kTooltipBlend,        "Equilibrio entre la voz principal y las voces de armonia generadas." },
             { kLabelFlex,          "Flex" },
             { kLabelHumanize,      "Humanizar" },
+            { kLabelVibrato,       "Vibrato" },
+            { kLabelAttackBtn,     "Ataque" },
+            { kLabelAttackRelease, "Rel" },
             { kLabelFormant,       "Formante" },
             { kLabelReverb,        "Reverb" },
             { kLabelMix,           "Mix" },
@@ -1093,6 +1234,7 @@ namespace ovt
             { kLabelUpdates,        "Actualizaciones" },
             { kUseVoice,            "Usar voz" },
             { kLabelHarmonyBtn,     "Armonia" },
+            { kLabelHarmonyFollow,  "Seguir lead" },
             { kLabelFormantBtn,     "Formante" },
             { kLabelNoiseGate,   "Puerta" },
             { kTooltipNoiseGate, "Activar/desactivar la puerta de ruido en la entrada de audio." },
@@ -1104,6 +1246,7 @@ namespace ovt
             { kLabelTransparentBtn, "Transparente" },
             { kLabelBypassBtn,      "Bypass" },
             { kLabelMidiOutBtn,     "MIDI OUT" },
+            { kLabelMidiTargetBtn,  "OBJ. MIDI" },
             { kLabelDebug,          "Debug" },
             { kLabelAutoScroll,     "Auto-Scroll" },
             { kLabelMeasures,       "Compases" },
@@ -1157,12 +1300,21 @@ namespace ovt
             { kTooltipPresets,        "Gestionar presets" },
             { kTooltipBypass,         "Omitir procesamiento de audio." },
             { kTooltipMidiOut,        "Activar salida MIDI" },
+            { kTooltipMidiTarget,    "Activar objetivo MIDI (seguimiento): una nota MIDI mantenida conduce el objetivo de correccion (la voz se ajusta a la nota)." },
+            { kTooltipMidiTargetIcon, "Activar objetivo MIDI (seguimiento)" },
             { kTooltipCorrection,     "Moderno = correccion agresiva. Transparente = mas suave, preserva transiciones." },
             { kTooltipHarmonyEn,      "Activar/desactivar generacion de armonia." },
+            { kTooltipHarmonyFollow,  "Cuando esta activo (por defecto), las voces de armonia siguen el caracter de correccion de la voz principal (preservacion de vibrato, humanizacion, flex, attack-aware) y se mueven con ella en lugar de quedarse fijas a la rejilla de escala. Cuando esta inactivo, las armonias permanecen ajustadas a la escala (aspecto clasico)." },
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberacion." },
             { kTooltipFormant,        "Activar/desactivar desplazamiento de formante." },
             { kTooltipFlexTune,       "Deadband en cents: las entradas en este rango no se corrigen." },
             { kTooltipHumanize,       "Fluctuaciones aleatorias de tono en cents al aplicar correccion." },
+            { kTooltipVibrato,        "Preservacion de vibrato (0-100 %): corrige respecto al tono central suavizado para que la modulacion del vibrato sobreviva mientras la nota se ajusta a la escala." },
+            { kTooltipAttack,          "Correccion sensible a las ataques: suaviza la correccion en los ataques/transitorios para preservar el ataque natural (3er eje, ortogonal a FlexTune y Humanize)." },
+            { kTooltipAttackRelease,   "Release de ataque (ms): cuanto tarda la correccion en volver al maximo tras un ataque." },
+            { kTooltipKeySource,        "Fuente de deteccion de tonalidad (cuando la deteccion esta activa): Auto (analiza la entrada), OpenVoxKey (puente compartido desde el detector companero OpenVoxKey) o Sidechain (analiza la entrada de sidechain)." },
+            { kTooltipKeyDetect,         "Deteccion de tonalidad/gamme: cuando esta activa, la tonalidad/gamme se detecta automaticamente. Fuente: Auto (analiza la entrada), OpenVoxKey (puente compartido desde el detector companero OpenVoxKey en la pista de acompanamiento) o Sidechain (analiza la entrada de sidechain). Cuando esta inactiva, eliges la tonalidad/gamme manualmente." },
+            { kTooltipCompanionGroup,   "Letra de grupo del companion. Debe coincidir con la instancia OpenVoxKey de la que quieres recibir la tonalidad (A-D)." },
             { kTooltipToneColor,      "Color de tono para armonias sintetizadas." },
             { kTooltipAB,             "A/B: Clic para alternar entre ranura A y B. Clic derecho para guardar." },
             { kTooltipReset,          "Reiniciar posicion de reproduccion." },
@@ -1181,6 +1333,8 @@ namespace ovt
             { kTooltipAutoScroll,     "Desplazar automaticamente la vista del editor durante la reproduccion" },
             { kTooltipUndo,           "Deshacer (Ctrl+Z)" },
             { kTooltipRedo,           "Rehacer (Ctrl+Y)" },
+            { kButtonPianoRoll,       "Piano Roll" },
+            { kTooltipPianoRoll,      "Activa la edicion tipo piano-roll (notas ajustadas a las filas del teclado)" },
             { kLegendInput,           "Entrada" },
             { kLegendOutput,          "Salida" },
             { kLegendHarmony,         "Harm." },
@@ -1239,6 +1393,9 @@ namespace ovt
             { kMidiLearnReverbMix,    "Mix Reverb" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanizar" },
+            { kMidiLearnVibrato,       "Vibrato" },
+            { kMidiLearnAttack,         "Ataque" },
+            { kMidiLearnAttackRelease,  "Rel ataque" },
             { kMidiLearnHarmonyGain,  "Ganancia de armonia" },
             { kMidiLearnHarmonyBlend, "Mezcla de armonia" },
             { kMidiLearnHarmonyTone,  "Tono de armonia" },
@@ -1252,13 +1409,19 @@ namespace ovt
             { kMenuTheme,          "テーマ" },
             { kMenuDarkTheme,      "ダークテーマ" },
             { kMenuLightTheme,     "ライトテーマ" },
+            { kMenuCleanCurves,    "カーブをクリア" },
+            { kMenuResetPlayhead,  "再生位置をリセット" },
             { kMenuLanguage,       "言語" },
             { kMenuLatency,        "レイテンシ" },
             { kMenuMidiOut,        "MIDI出力" },
+            { kMenuMidiTarget,     "MIDIターゲット" },
             { kMenuTuningType,     "チューニングタイプ" },
             { kMenuModern,         "モダン" },
             { kMenuTransparent,    "トランズペアレント" },
-            { kMenuPitchDetection, "ピッチ検出" },
+            {kMenuPitchDetection, "ピッチ検出" },
+            { kMenuFormantMode,    "フォルマント モード" },
+            { kMenuFormantLegacy,  "レガシー" },
+            { kMenuFormantMulti,   "マルチフォルマント" },
             { kMenuCheckUpdates,   "アップデートを確認" },
             { kMenuResetDefault,   "デフォルトに戻す" },
             { kMenuBypass,         "バイパス" },
@@ -1272,6 +1435,7 @@ namespace ovt
             { kMenuWaveformDisplay, "波形表示" },
             { kMenuWaveformLine,   "ライン" },
             { kMenuWaveformMirror, "ミラー" },
+            { kMenuWaveformSpectral, "スペクトル" },
             { kMenuMidiLearn,      "MIDI学習" },
             { kMenuKeyboardShortcuts, "キーボードショートカット (?)" },
             { kMenuConfirmReset,   "リセットを確認" },
@@ -1302,14 +1466,21 @@ namespace ovt
             { kLabelAmount,        "量" },
             { kLabelScale,         "スケール" },
             { kLabelRoot,          "キー" },
+            { kLabelKeySource,     "検出元" },
+            { kLabelCompanionGroup, "グループ" },
+            { kLabelKeyDetect,      "キー/スケール検出" },
             { kLabelVolume,        "音量" },
             { kLabelBlend,         "ブレンド" },
             { kTooltipSpeed,        "補正速度（ミリ秒）。低いほどピッチ追従が速くなります。" },
             { kTooltipAmount,       "補正量（0% = 自然、100% = 目標音程に完全補正）。" },
+            { kTooltipAdvanced,     "高度な補正ノブ（Flex、Humanize、Vibrato、Attack-Aware）の表示 / 非表示を切り替えます。" },
             { kTooltipVolume,       "ハーモニーボイスの出力音量。" },
             { kTooltipBlend,        "メインボーカルと生成されたハーモニーボイスのバランス。" },
             { kLabelFlex,          "フレックス" },
             { kLabelHumanize,      "人性化" },
+            { kLabelVibrato,       "ビブラート" },
+            { kLabelAttackBtn,     "アタック" },
+            { kLabelAttackRelease, "Rel" },
             { kLabelFormant,       "フォルマント" },
             { kLabelReverb,        "リバーブ" },
             { kLabelMix,           "ミックス" },
@@ -1329,6 +1500,7 @@ namespace ovt
             { kLabelUpdates,        "アップデート" },
             { kUseVoice,            "ボイス使用" },
             { kLabelHarmonyBtn,     "ハーモニー" },
+            { kLabelHarmonyFollow,  "リードに追従" },
             { kLabelFormantBtn,     "フォルマント" },
             { kLabelNoiseGate,   "ゲート" },
             { kTooltipNoiseGate, "入力オーディオのノイズゲートを有効/無効にする。" },
@@ -1340,6 +1512,7 @@ namespace ovt
             { kLabelTransparentBtn, "トランスペアレント" },
             { kLabelBypassBtn,      "バイパス" },
             { kLabelMidiOutBtn,     "MIDI OUT" },
+            { kLabelMidiTargetBtn,  "MIDIターゲット" },
             { kLabelDebug,          "デバッグ" },
             { kLabelAutoScroll,     "自動スクロール" },
             { kLabelMeasures,       "小節" },
@@ -1393,12 +1566,21 @@ namespace ovt
             { kTooltipPresets,        "プリセット管理" },
             { kTooltipBypass,         "オーディオ処理をバイパス。" },
             { kTooltipMidiOut,        "MIDI出力を有効にする" },
+            { kTooltipMidiTarget,    "MIDIターゲットを有効にする（フォロー）: ホールドされたMIDIノートが補正ターゲットを駆動します（声がノートにチューニングされます）。" },
+            { kTooltipMidiTargetIcon, "MIDIターゲットを有効にする（フォロー）" },
             { kTooltipCorrection,     "モダン = 積極的な補正。トランスペアレント = やわらかく、推移を保持。" },
             { kTooltipHarmonyEn,      "ハーモニー生成の有効/無効。" },
+            { kTooltipHarmonyFollow,  "オン（デフォルト）のとき、ハーモニーボイスはリードの補正特性（ビブラート保持、ヒューマナイズ、フレックス、アタック対応）に追従し、スケールグリッドに固定されずリードと共に動きます。オフのときはハーモニーはスケールにスナップしたままです（クラシックな見た目）。" },
             { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
             { kTooltipFormant,        "フォルマントシフトの有効/無効。" },
             { kTooltipFlexTune,       "デッドバンド(セント): この範囲内のピッチは補正されません。" },
             { kTooltipHumanize,       "補正時に追加されるランダムなピッチ変動(セント)。" },
+            { kTooltipVibrato,        "ビブラート保持 (0-100 %): 平滑化した中心ピッチに対して補正するため、音符をスケールに合わせつつビブラートの変動を維持します。" },
+            { kTooltipAttack,          "アタック感知補正: 発音/トランジエントでピッチ補正を緩め、自然なアタックを維持します (FlexTune/Humanizeと直交する第3の軸)。" },
+            { kTooltipAttackRelease,   "アタックリリース (ms): アタック後に補正が完全に戻るまでの時間。" },
+            { kTooltipKeySource,        "キー検出のソース (検出がオンのとき): 自動 (入力を解析)、OpenVoxKey (コンパニオン検出器 OpenVoxKey からの共有ブリッジ)、またはサイドチェーン (サイドチェーン入力を解析)。" },
+            { kTooltipKeyDetect,         "キー/スケール検出: オンのとき、キー/スケールは自動検出されます。ソース: 自動 (入力を解析)、OpenVoxKey (伴奏トラックのコンパニオン検出器 OpenVoxKey からの共有ブリッジ)、またはサイドチェーン (サイドチェーン入力を解析)。オフのときは自分でキー/スケールを設定します。" },
+            { kTooltipCompanionGroup,   "コンパニオンのグループ文字。キーを受け取る OpenVoxKey インスタンスと一致させてください (A-D)。" },
             { kTooltipToneColor,      "シンセハーモニーの音色。" },
             { kTooltipAB,             "A/B: スロットAとBを切り替え。右クリックで保存。" },
             { kTooltipReset,          "再生位置をリセット。" },
@@ -1417,6 +1599,8 @@ namespace ovt
             { kTooltipAutoScroll,     "再生中にエディタビューを自動スクロール" },
             { kTooltipUndo,           "元に戻す (Ctrl+Z)" },
             { kTooltipRedo,           "やり直す (Ctrl+Y)" },
+            { kButtonPianoRoll,       "ピアノロール" },
+            { kTooltipPianoRoll,      "ピアノロール編集モードを切り替え (鍵盤の列にスナップした音符)" },
             { kLegendInput,           "入力" },
             { kLegendOutput,          "出力" },
             { kLegendHarmony,         "ハーモニー" },
@@ -1475,6 +1659,9 @@ namespace ovt
             { kMidiLearnReverbMix,    "リバーブミックス" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "人性化" },
+            { kMidiLearnVibrato,       "ビブラート" },
+            { kMidiLearnAttack,         "アタック" },
+            { kMidiLearnAttackRelease,  "アタックRel" },
             { kMidiLearnHarmonyGain,  "ハーモニー音量" },
             { kMidiLearnHarmonyBlend, "ハーモニーブレンド" },
             { kMidiLearnHarmonyTone,  "ハーモニー音色" },
@@ -1484,6 +1671,270 @@ namespace ovt
             { kHintLiveMode,          "ライブモード: カーブエディタに切り替えて編集" },
         };
 
+        static const std::unordered_map<std::string, const char*> chinese = {
+            { kMenuTheme,          "主题" },
+            { kMenuDarkTheme,      "深色主题" },
+            { kMenuLightTheme,     "浅色主题" },
+            { kMenuLanguage,       "语言" },
+            { kMenuLatency,        "延迟" },
+            { kMenuMidiOut,        "MIDI 输出" },
+            { kMenuMidiTarget,     "MIDI 目标" },
+            { kMenuTuningType,     "调音类型" },
+            { kMenuModern,         "现代" },
+            { kMenuTransparent,    "透明" },
+            {kMenuPitchDetection, "音高检测" },
+            { kMenuFormantMode,    "共振峰模式" },
+            { kMenuFormantLegacy,  "传统" },
+            { kMenuFormantMulti,   "多共振峰" },
+            { kMenuCheckUpdates,   "检查更新" },
+            { kMenuResetDefault,   "恢复默认" },
+            { kMenuBypass,         "旁路" },
+            { kMenuExportImage,    "导出为图片..." },
+            { kMenuLowLatency,     "低延迟" },
+            { kMenuQuality,        "质量" },
+            { kMenuSafe,           "安全" },
+            { kMenuDirectMonitoring, "直接监听" },
+            { kMenuYinActive,      "YIN（激活）" },
+            { kMenuShowWaveform,   "显示波形" },
+            { kMenuWaveformDisplay, "波形显示" },
+            { kMenuWaveformLine,   "线条" },
+            { kMenuWaveformMirror, "镜像" },
+            { kMenuWaveformSpectral, "频谱" },
+            { kMenuMidiLearn,      "MIDI 学习" },
+            { kMenuKeyboardShortcuts, "键盘快捷键 (?)" },
+            { kMenuConfirmReset,   "确认重置" },
+            { kMenuCancel,         "取消" },
+            { kMenuDebugWindow,    "调试窗口" },
+            { kMenuMorphSetSource, "设置源（当前）" },
+            { kMenuMorphSetTargetA, "从 A/B 槽 A 设置目标" },
+            { kMenuMorphSetTargetB, "从 A/B 槽 B 设置目标" },
+            { kMenuMorphAtoB,      "变形 A → B" },
+            { kMenuMorphUndo,      "撤销变形" },
+            { kMenuMorphReset,     "重置变形" },
+            { kMenuSavePresetAs,   "保存预设为..." },
+            { kMenuDeletePreset,    "删除..." },
+            { kMenuFactory,        "出厂" },
+            { kMenuCustom,         "自定义" },
+            { kMenuCleanCurves,    "清理曲线" },
+            { kMenuResetPlayhead,  "重置播放头" },
+            { kMenuCurvePresets,   "曲线预设" },
+            { kMenuAutoScroll,     "自动滚动" },
+            { kMenuShowInputTrace, "显示输入轨迹" },
+            { kMenuLoopPlayhead,   "循环播放头（小节）" },
+            { kMenuTempo,          "速度" },
+            { kTooltipCurveOptions, "曲线编辑器选项" },
+            { kTooltipPlay,        "播放（启动独立时间轴）" },
+            { kTooltipStop,        "停止（冻结独立时间轴以进行编辑）" },
+            { kTooltipRewind,      "回到起点（将播放头重置到开头）" },
+            { kTabLive,            "实时" },
+            { kTabCurveEditor,     "曲线编辑器" },
+            { kLabelSpeed,         "速度（毫秒）" },
+            { kLabelAmount,        "量" },
+            { kLabelScale,         "音阶" },
+            { kLabelRoot,          "根音" },
+            { kLabelKeySource,     "调性源" },
+            { kLabelCompanionGroup, "组" },
+            { kLabelKeyDetect,      "调性/音阶检测" },
+            { kLabelVolume,        "音量" },
+            { kLabelBlend,         "混合" },
+            { kTooltipSpeed,        "校正速度（毫秒）。数值越小，音高跟踪越快。" },
+            { kTooltipAmount,       "校正量（0% = 自然，100% = 完全校正到目标）。" },
+            { kTooltipAdvanced,     "显示/隐藏高级校正旋钮（Flex、Humanize、Vibrato、Attack-Aware）。" },
+            { kTooltipVolume,       "和声输出音量。" },
+            { kTooltipBlend,        "主唱与生成的和声之间的平衡。" },
+            { kLabelFlex,          "灵活" },
+            { kLabelHumanize,      "人性化" },
+            { kLabelVibrato,       "颤音" },
+            { kLabelAttackBtn,     "起音" },
+            { kLabelAttackRelease, "释放" },
+            { kLabelFormant,       "共振峰" },
+            { kLabelReverb,        "混响" },
+            { kLabelMix,           "混合" },
+            { kLabelHarmony,       "和声" },
+            { kLabelCorrectionMode, "校正模式" },
+            { kLabelModern,         "现代" },
+            { kLabelTransparent,    "透明" },
+            { kLabelBypass,         "旁路" },
+            { kLabelMidiOut,        "MIDI 输出" },
+            { kLabelUseVoice,       "使用声部" },
+            { kLabelSnap,           "吸附到音阶" },
+            { kLabelSnapGrid,       "吸附到网格" },
+            { kLabelStepMode,       "步进模式" },
+            { kLabelClear,          "清除" },
+            { kLabelPresets,        "预设" },
+            { kLabelHelp,           "帮助" },
+            { kLabelUpdates,        "更新" },
+            { kUseVoice,            "使用声部" },
+            { kLabelHarmonyBtn,     "和声" },
+            { kLabelHarmonyFollow,  "跟随主唱" },
+            { kLabelFormantBtn,     "共振峰" },
+            { kLabelNoiseGate,      "Gate" },
+            { kTooltipNoiseGate,    "启用/禁用输入音频的噪声门。" },
+            { kLabelThreshold,      "阈值" },
+            { kTooltipThreshold,    "噪声门阈值（dB）。低于此电平的信号将被静音。" },
+            { kLabelReverbBtn,      "混响" },
+            { kLabelTone,           "音色" },
+            { kLabelModernBtn,      "现代" },
+            { kLabelTransparentBtn, "透明" },
+            { kLabelBypassBtn,      "旁路" },
+            { kLabelMidiOutBtn,     "MIDI 输出" },
+            { kLabelMidiTargetBtn,  "MIDI 目标" },
+            { kLabelDebug,          "调试" },
+            { kLabelAutoScroll,     "自动滚动" },
+            { kLabelMeasures,       "小节" },
+            { kLabelMorph,          "变形" },
+            { kLabelCpu,            "CPU " },
+            { kScaleChromatic,        "半音" },
+            { kScaleMajor,            "大调" },
+            { kScaleMelodicMinor,     "旋律小调" },
+            { kScaleHarmonicMinor,    "和声小调" },
+            { kScaleNaturalMinor,     "自然小调" },
+            { kScaleMajorPentatonic,  "大调五声" },
+            { kScaleMinorPentatonic,  "小调五声" },
+            { kScaleBlues,            "布鲁斯" },
+            { kScaleDorian,           "多利亚" },
+            { kScalePhrygian,         "弗里几亚" },
+            { kScaleLydian,           "利底亚" },
+            { kScaleMixolydian,       "混合利底亚" },
+            { kScaleLocrian,          "洛克里亚" },
+            { kScaleCustom,           "自定义" },
+            { kHarmonyNone,            "无" },
+            { kHarmony3rdBelow,        "下方三度" },
+            { kHarmony3rdAbove,        "上方三度" },
+            { kHarmony3rdBelowAbove,   "下方+上方三度" },
+            { kHarmony4thBelow,        "下方四度" },
+            { kHarmony4thAbove,        "上方四度" },
+            { kHarmony4thBelowAbove,   "下方+上方四度" },
+            { kHarmony5thBelow,        "下方五度" },
+            { kHarmony5thAbove,        "上方五度" },
+            { kHarmony5thBelowAbove,   "下方+上方五度" },
+            { kHarmony3rdBelow5thAbove, "下方三度+上方五度" },
+            { kHarmony5thBelow3rdAbove, "下方五度+上方三度" },
+            { kHarmonyOctaveBelow,     "下方八度" },
+            { kHarmonyOctaveAbove,     "上方八度" },
+            { kHarmonyOctaveBelowAbove, "下方+上方八度" },
+            { kHarmonyVocalStack3,     "人声叠加（3 声部）" },
+            { kHarmonyVocalStack4,     "人声叠加（4 声部）" },
+            { kHarmonyPowerChord,      "强力和弦" },
+            { kHarmonyParallel3rd,     "平行三度" },
+            { kHarmonyDrone,           "持续音" },
+            { kHarmonyUnison2,         "齐唱（2 声部）" },
+            { kHarmonyUnisonOctaves4,  "齐唱+八度（4 声部）" },
+            { kTooltipZoomIn,      "放大（范围更窄）" },
+            { kTooltipZoomOut,     "缩小（范围更宽）" },
+            { kTooltipScrollUp,    "上滚（更高音高）" },
+            { kTooltipScrollDown,  "下滚（更低音高）" },
+            { kTooltipResetView,   "重置缩放和滚动" },
+            { kTooltipSnapToScale,    "将曲线点吸附到音阶音" },
+            { kTooltipSnapToGrid,     "将曲线点吸附到节拍网格" },
+            { kTooltipStepMode,       "音符之间的阶梯插值" },
+            { kTooltipClearAll,       "清除所有曲线点" },
+            { kTooltipPresets,        "管理曲线预设" },
+            { kTooltipBypass,         "旁路音频处理。" },
+            { kTooltipMidiOut,        "启用 MIDI 输出" },
+            { kTooltipMidiTarget,    "启用 MIDI 目标（跟随）：一个被按下的 MIDI 音符将驱动校正目标（声音调到该音符）。" },
+            { kTooltipMidiTargetIcon, "启用 MIDI 目标（跟随）" },
+            { kTooltipCorrection,     "现代 = 激进校正。透明 = 更柔和，保留过渡。" },
+            { kTooltipHarmonyEn,      "启用/禁用和声生成。" },
+            { kTooltipHarmonyFollow,  "开启时（默认），和声声部跟随主唱的校正特性（颤音保留、人性化、灵活、起音感知），从而与主唱一起移动，而不是锁定到音阶网格。关闭时，和声保持吸附到音阶（经典外观）。" },
+            { kTooltipReverbEn,       "启用/禁用混响效果。" },
+            { kTooltipFormant,        "启用/禁用共振峰偏移。" },
+            { kTooltipFlexTune,       "死区（音分）：此范围内的输入音高保持不校正。" },
+            { kTooltipHumanize,       "随机音高波动（音分），在校正应用时添加。" },
+            { kTooltipVibrato,        "颤音保留（0-100%）：针对平滑的中心音高进行校正，使颤音调制保留，同时音符仍吸附到音阶。" },
+            { kTooltipAttack,          "起音感知校正：在音符起音/瞬态处放松音高校正，以保留自然的起音（第三轴，与 FlexTune 和 Humanize 正交）。" },
+            { kTooltipAttackRelease,   "起音释放（毫秒）：起音后校正恢复到完全所需时长。" },
+            { kTooltipKeySource,        "调性检测源（检测开启时）：Auto（分析输入）、OpenVoxKey（来自 OpenVoxKey 配套检测器的共享桥接）或 Sidechain（分析侧链输入）。" },
+            { kTooltipKeyDetect,         "调性/音阶检测：开启时自动检测调性/音阶。源：Auto（分析输入）、OpenVoxKey（来自伴奏轨上 OpenVoxKey 配套检测器的共享桥接）或 Sidechain（分析侧链输入）。关闭时手动设置调性/音阶。" },
+            { kTooltipCompanionGroup,   "配套组字母。必须与你要接收调性的 OpenVoxKey 实例匹配（A-D）。" },
+            { kTooltipToneColor,      "合成器和声的音色。" },
+            { kTooltipAB,             "A/B：点击在槽 A 和 B 之间切换。右键保存当前状态。" },
+            { kTooltipReset,          "重置播放头。" },
+            { kTooltipCheckUpdates,   "在 GitHub 上检查最新的 OpenVoxTuner 版本。" },
+            { kTooltipMorphDrag,      "拖动以在槽 A（左）和槽 B（右）之间变形。\n双击吸附到 50%。\n右键查看选项。" },
+            { kTooltipMorphLabel,     "在两个插件状态之间变形。点击 A 或 B 设置槽，然后拖动滑块。" },
+            { kTooltipResetTransportDetail, "重置播放头。\n重置内部时间轴偏移（在独立版/经典 VST3 中有用）。" },
+            { kTooltipBypassIcon,     "旁路音频处理。\n启用时，音频不经校正直接通过。" },
+            { kTooltipMidiOutIcon,    "启用 MIDI 输出" },
+            { kTooltipMenuOptions,    "OpenVoxTuner 选项" },
+            { kTooltipDebugWindow,    "打开调试窗口：MIDI 日志、起音/释放测试" },
+            { kTooltipUpdateAvailable, "打开最新的 OpenVoxTuner 版本。" },
+            { kTooltipUpdateReleases, "打开 OpenVoxTuner 发布页面。" },
+            { kTooltipAbSlotA,        "点击：加载槽 A。右键：保存当前状态。" },
+            { kTooltipAbSlotB,        "点击：加载槽 B。右键：保存当前状态。" },
+            { kTooltipAutoScroll,     "播放时自动滚动编辑器视图" },
+            { kTooltipUndo,           "撤销（Ctrl+Z）" },
+            { kTooltipRedo,           "重做（Ctrl+Y）" },
+            { kButtonPianoRoll,       "钢琴卷帘" },
+            { kTooltipPianoRoll,      "切换钢琴卷帘编辑方式（音符吸附到键盘行）" },
+            { kLegendInput,           "输入" },
+            { kLegendOutput,          "输出" },
+            { kLegendHarmony,         "和声" },
+            { kLegendScrollHint,      "滚轮：滚动" },
+            { kLegendZoomHint,        "Ctrl+滚轮：缩放" },
+            { kLegendInTune,          "准音" },
+            { kStatusChecking,        "检查中..." },
+            { kStatusUpdateAvailable, "有更新可用" },
+            { kStatusUpToDate,        "已是最新" },
+            { kStatusUpdateFailed,    "更新检查失败" },
+            { kStatusUpdatePrefix,    "更新 " },
+            { kHelpTitle,             "键盘快捷键和鼠标控制" },
+            { kHelpCloseHint,         "点击任意位置关闭" },
+            { kHelpMouseWheel,        "垂直滚动（音高）" },
+            { kHelpCtrlWheel,         "放大/缩小" },
+            { kHelpClickDrag,         "移动曲线点" },
+            { kHelpDoubleClick,       "添加新曲线点" },
+            { kHelpRightClick,        "删除曲线点" },
+            { kHelpCopy,              "复制选中的点" },
+            { kHelpPaste,             "粘贴复制的点" },
+            { kHelpDelete,            "删除选中的点" },
+            { kHelpUndo,              "撤销" },
+            { kHelpRedo,              "重做" },
+            { kHelpToggleHelp,        "切换此帮助覆盖层" },
+            { kDlgExport,             "导出" },
+            { kDlgExportPng,          "将当前视图导出为 PNG" },
+            { kDlgExportNotFound,     "找不到要导出的组件。" },
+            { kDlgImageSaved,         "图片已保存到：\n" },
+            { kDlgImageFailed,        "保存图片失败。" },
+            { kDlgSavePreset,         "保存预设" },
+            { kDlgSavePresetDesc,     "将当前曲线编辑器配置保存为自定义预设。" },
+            { kDlgSave,               "保存" },
+            { kDlgInvalidName,        "名称无效" },
+            { kDlgEmptyName,          "预设名称不能为空。" },
+            { kDlgOverwrite,          "覆盖预设？" },
+            { kDlgOverwriteDesc,      "已存在同名预设。\n是否覆盖？" },
+            { kDlgOverwriteBtn,       "覆盖" },
+            { kDlgPresetSaved,        "预设已保存" },
+            { kDlgPresetSavedDesc,    "已保存自定义预设：\n" },
+            { kDlgSaveFailed,         "保存失败" },
+            { kDlgSaveFailedDesc,     "无法写入预设文件。" },
+            { kDlgDeletePreset,       "删除预设？" },
+            { kDlgDeletePresetDesc,   "永久删除此自定义预设？\n" },
+            { kDlgDelete,             "删除" },
+            { kDlgDeleteFailed,       "删除失败" },
+            { kDlgDeleteFailedDesc,   "无法删除预设文件。请检查权限。" },
+            { kDlgPresetDeleted,      "预设已删除" },
+            { kDlgPresetDeletedDesc,  "已删除自定义预设：\n" },
+            { kDlgMidiLearn,          "MIDI 学习" },
+            { kDlgMidiLearnDesc,      "移动 MIDI 控制器以将其分配给此参数。\n按 Esc 取消。" },
+            { kDlgOk,                 "确定" },
+            { kDlgDelete_,            "删除" },
+            { kMidiLearnSpeed,        "速度" },
+            { kMidiLearnAmount,       "量" },
+            { kMidiLearnFormant,      "共振峰" },
+            { kMidiLearnReverbMix,    "混响混合" },
+            { kMidiLearnFlexTune,     "灵活调音" },
+            { kMidiLearnHumanize,     "人性化" },
+            { kMidiLearnVibrato,       "颤音" },
+            { kMidiLearnHarmonyGain,  "和声增益" },
+            { kMidiLearnHarmonyBlend, "和声混合" },
+            { kMidiLearnHarmonyTone,  "和声音色" },
+            { kHintScrollZoom,        "鼠标滚轮：滚动 | " },
+            { kHintZoom,              "+鼠标滚轮：缩放" },
+            { kHintAddPoint,          "双击：添加点 | 右键：曲线预设" },
+            { kHintLiveMode,          "实时模式：切换到曲线编辑器进行编辑" },
+        };
+
         switch (lang)
         {
             case Language::English:  return english;
@@ -1491,6 +1942,7 @@ namespace ovt
             case Language::German:   return german;
             case Language::Spanish:  return spanish;
             case Language::Japanese: return japanese;
+            case Language::Chinese:  return chinese;
         }
         return english;
     }
@@ -1498,6 +1950,15 @@ namespace ovt
     /** Translate a key to the current language. Falls back to English. */
     inline juce::String tr (const char* key)
     {
+        // "Gate" is an audio-industry term kept untranslated in every language
+        // (French "Porte" / Spanish "Puerta" are misleading); always show the
+        // English label regardless of the active language.
+        if (key == Keys::kLabelNoiseGate)
+        {
+            const auto& en = getTranslations (Language::English);
+            auto enIt = en.find (Keys::kLabelNoiseGate);
+            if (enIt != en.end()) return juce::String (juce::CharPointer_UTF8 (enIt->second));
+        }
         const auto& map = getTranslations (currentLanguage());
         auto it = map.find (key);
         // Conversion explicite en UTF-8 : sans CharPointer_UTF8, juce::String(const char*)
@@ -1509,5 +1970,24 @@ namespace ovt
         auto enIt = en.find (key);
         if (enIt != en.end()) return juce::String (juce::CharPointer_UTF8 (enIt->second));
         return key;
+    }
+
+    /** Native display name of a language, for the UI language menu.
+        Each language is shown under its own name (English, Francais, Deutsch,
+        Espanol, Japanese, Chinese). The literals are wrapped in CharPointer_UTF8
+        and live in this (UTF-8) translation file so they render correctly even
+        when the calling TU is not saved as UTF-8. */
+    inline juce::String languageDisplayName (Language lang)
+    {
+        switch (lang)
+        {
+            case Language::English:  return juce::String (juce::CharPointer_UTF8 ("English"));
+            case Language::French:   return juce::String (juce::CharPointer_UTF8 ("Francais"));
+            case Language::German:   return juce::String (juce::CharPointer_UTF8 ("Deutsch"));
+            case Language::Spanish:  return juce::String (juce::CharPointer_UTF8 ("Espanol"));
+            case Language::Japanese: return juce::String (juce::CharPointer_UTF8 ("\u65e5\u672c\u8a9e"));
+            case Language::Chinese:  return juce::String (juce::CharPointer_UTF8 ("\u4e2d\u6587"));
+        }
+        return juce::String (juce::CharPointer_UTF8 ("English"));
     }
 }

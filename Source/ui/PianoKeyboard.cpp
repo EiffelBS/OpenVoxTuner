@@ -47,20 +47,67 @@ namespace ui
         return inScale ? kWhiteKeyScale : kWhiteKey;
     }
 
+    float PianoKeyboard::midiToNorm (int midi, int lowestMidi, int highestMidi)
+    {
+        lowestMidi = juce::jmax (0, juce::jmin (127, lowestMidi));
+        highestMidi = juce::jmax (0, juce::jmin (127, highestMidi));
+        if (highestMidi < lowestMidi) std::swap (lowestMidi, highestMidi);
+        if (highestMidi <= lowestMidi) return 0.0f;
+
+        // Nombre de touches blanches dans la plage visible.
+        int numWhite = 0;
+        for (int m = lowestMidi; m <= highestMidi; ++m)
+            if (! isBlackKey (m)) ++numWhite;
+        if (numWhite == 0) return 0.0f;
+
+        // Index (eventuellement < 0 ou > numWhite-1) de la touche blanche la plus
+        // proche EN DESSOUS de `midi`, compte depuis `lowestMidi`. On compte SANS
+        // clamp pour permettre l'extrapolation hors plage : les notes en dehors de
+        // la fenetre visible sont alors projettees hors de la zone de tracage (puis
+        // recadrees par le clip), au lieu d'etre empilees sur les bords.
+        int belowIndex = 0;
+        if (midi >= lowestMidi)
+        {
+            for (int m = lowestMidi; m < midi; ++m)
+                if (! isBlackKey (m)) ++belowIndex;
+        }
+        else
+        {
+            for (int m = midi; m < lowestMidi; ++m)
+                if (! isBlackKey (m)) --belowIndex;
+        }
+
+        if (isBlackKey (midi))
+        {
+            // Touche noire : frontiere entre la blanche belowIndex-1 et belowIndex
+            // (meme formule que pour les notes dans la plage, mais extrapolee).
+            return static_cast<float> (belowIndex) / static_cast<float> (numWhite);
+        }
+
+        // Touche blanche : centre de la case = (index + 0.5) / numWhite.
+        return (static_cast<float> (belowIndex) + 0.5f) / static_cast<float> (numWhite);
+    }
+
     float PianoKeyboard::midiToY (int midi) const
     {
-        // On reserve un petit padding en haut et en bas.
-        const int range = juce::jmax (1, highestMidi - lowestMidi);
-        const float t = static_cast<float> (midi - lowestMidi) / static_cast<float> (range);
-        // Inverser : bas = graves, haut = aigus.
-        return getHeight() - t * getHeight();
+        // Geometrie de piano : meme hauteur pour toutes les blanches, noires coherentes.
+        // t = 0 -> bas (graves), t = 1 -> haut (aigus).
+        const float t = midiToNorm (midi, lowestMidi, highestMidi);
+        return getHeight() * (1.0f - t);
     }
 
     int PianoKeyboard::yToMidi (float y) const
     {
-        const int range = juce::jmax (1, highestMidi - lowestMidi);
         const float t = 1.0f - juce::jlimit (0.0f, 1.0f, y / static_cast<float> (getHeight()));
-        return lowestMidi + static_cast<int> (std::round (t * range));
+        // Inverse par balayage : note dont la position normale est la plus proche de t.
+        int best = lowestMidi;
+        float bestD = 1.0e9f;
+        for (int m = lowestMidi; m <= highestMidi; ++m)
+        {
+            const float d = std::abs (midiToNorm (m, lowestMidi, highestMidi) - t);
+            if (d < bestD) { bestD = d; best = m; }
+        }
+        return best;
     }
 
     float PianoKeyboard::yToHz (float y) const

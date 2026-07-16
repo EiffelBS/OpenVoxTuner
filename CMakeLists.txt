@@ -181,7 +181,11 @@ target_sources(OpenVoxTuner PRIVATE
     Source/dsp/IEffect.h
     Source/dsp/ReverbEffect.cpp
     Source/dsp/ReverbEffect.h
-    Source/dsp/NoteUtils.h
+    Source/dsp/PitchDetector.cpp
+    Source/dsp/FactoryPresets.cpp
+    Source/dsp/FactoryPresets.h
+    Source/ui/PresetGallery.cpp
+    Source/ui/PresetGallery.h
     Source/ui/PitchVisualizer.cpp
     Source/ui/PitchVisualizer.h
     Source/ui/PitchCurveEditor.cpp
@@ -218,6 +222,55 @@ if(NOT DEFINED OVT_UPDATE_INFO_URL)
     set(OVT_UPDATE_INFO_URL "https://raw.githubusercontent.com/EiffelBS/OpenVoxTuner/main/docs/releases/latest.json" CACHE STRING "Update info JSON URL")
 endif()
 
+# === Companion key-detection plug-in (OpenVoxKey) ===========================
+# A tiny, transparent "effect" placed on an accompaniment track. It detects the
+# musical key/scale and publishes it to the shared ovtdsp::KeyBridge so the main
+# OpenVoxTuner instance (Key Source = "Companion") can pick it up. It passes the
+# audio through unchanged so the accompaniment keeps playing.
+juce_add_plugin(OpenVoxKey
+    COMPANY_NAME "EiffelBS"
+    PLUGIN_MANUFACTURER_CODE Eiff
+    PLUGIN_CODE OvtK
+    FORMATS ${OVT_PLUGIN_FORMATS}
+    VST3_CATEGORIES "Fx" "Pitch"
+    PRODUCT_NAME "OpenVoxKey"
+    VERSION ${OVT_VERSION})
+
+target_compile_definitions(OpenVoxKey PRIVATE
+    JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1)
+
+# Allow "#include "dsp/..."" from the companion sources (they live in Source/companion/).
+target_include_directories(OpenVoxKey PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+
+target_sources(OpenVoxKey PRIVATE
+    Source/companion/OpenVoxKeyProcessor.cpp
+    Source/companion/OpenVoxKeyProcessor.h
+    Source/companion/OpenVoxKeyEditor.h
+    Source/dsp/IPitchDetector.h
+    Source/dsp/YinPitchDetector.cpp
+    Source/dsp/YinPitchDetector.h
+    Source/dsp/KeyDetector.h
+    Source/dsp/KeyBridge.h
+    Source/dsp/ScaleQuantizer.cpp
+    Source/dsp/ScaleQuantizer.h
+)
+
+target_link_libraries(OpenVoxKey PRIVATE
+    juce::juce_audio_basics
+    juce::juce_audio_devices
+    juce::juce_audio_formats
+    juce::juce_audio_plugin_client
+    juce::juce_audio_processors
+    juce::juce_audio_utils
+    juce::juce_core
+    juce::juce_data_structures
+    juce::juce_dsp
+    juce::juce_events
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+)
+
 # === Cible pour les tests unitaires (GTest-like console app) ===
 juce_add_console_app(OpenVoxTunerTests
     PRODUCT_NAME "OpenVoxTunerTests"
@@ -230,8 +283,10 @@ target_sources(OpenVoxTunerTests PRIVATE
     test/dsp/RetargetEnvelopeTest.cpp
     test/dsp/FormantPreserverTest.cpp
     test/dsp/PitchCurveTest.cpp
+    test/dsp/KeyBridgeTest.cpp
+    test/dsp/SidechainBusLayoutTest.cpp
     test/ui/PitchCurveEditorTest.cpp
-    
+
     # On lie les sources DSP a tester
     Source/dsp/PitchDetector.cpp
     Source/dsp/ScaleQuantizer.cpp
@@ -244,6 +299,7 @@ target_sources(OpenVoxTunerTests PRIVATE
 
 target_link_libraries(OpenVoxTunerTests PRIVATE
     juce::juce_audio_basics
+    juce::juce_audio_processors
     juce::juce_events
     juce::juce_graphics
 )

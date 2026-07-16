@@ -5,16 +5,13 @@
 #include "PluginEditor.h"
 #include "dsp/NoteUtils.h"
 #include "dsp/ReverbEffect.h"
+#include "dsp/FormantPreserver.h"
 #include "external/presonus/ipsleditcontroller.h"
 // Generated build info (created by CMake)
 #include "BuildInfo.h"
 #include "dsp/PitchShifter.h" // for gPitchShifterGrainEvents
 
-#if JUCE_DEBUG
- #define OVT_LOG(msg) juce::Logger::writeToLog (msg)
-#else
- #define OVT_LOG(msg) do { } while (false)
-#endif
+#define OVT_LOG(msg) juce::Logger::writeToLog (msg)
 
 // Definition of the IID for the IEditControllerExtra interface
 #include "pluginterfaces/base/funknown.h"
@@ -241,10 +238,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     : AudioProcessor (juce::AudioProcessor::BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                       #if ! JucePlugin_IsMidiEffect
-                          .withInput  ("Input",  juce::AudioChannelSet::mono(), false)
-                          .withOutput ("Output", juce::AudioChannelSet::mono(), false)
-                       #endif
+                          // Optional Sidechain input bus (mono). It MUST be input bus
+                          // index 1: every sidechain code path (computeSidechainPitch,
+                          // isSidechainLayoutValid, getBusBuffer(buffer, true, 1)) reads
+                          // bus index 1. Adding a second "Input" bus before it would
+                          // shift the Sidechain to index 2 and break sidechain routing
+                          // in hosts like Studio One.
+                          .withInput  ("Sidechain", juce::AudioChannelSet::mono(), false)
                           ),
       parameters (*this, nullptr, juce::Identifier ("OpenVoxTuner"),
                   {
@@ -272,6 +272,12 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       std::make_unique<juce::AudioParameterBool> (
                           "formant_enable", "Formant Enable", false),
 
+                      // Formant Preservation Mode: Legacy (single peaking EQ) vs MultiFormant (F1-F4)
+                      // Default: MultiFormant (index 1) for best quality; Legacy available for CPU savings
+                      std::make_unique<juce::AudioParameterChoice> (
+                          "formant_mode", "Formant Mode",
+                          juce::StringArray { "Legacy", "MultiFormant" }, 1),
+
                       // Key : index de la tonique (0=C, 1=C#, ..., 11=B)
                       std::make_unique<juce::AudioParameterInt> (
                           "key", "Key", 0, 11, 0),
@@ -283,6 +289,25 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                               "Major Pentatonic", "Minor Pentatonic", "Blues", "Dorian", "Phrygian", 
                               "Lydian", "Mixolydian", "Locrian", "Custom"
                           }, 0),
+
+                      // Key/Scale detection master switch. When off, the user drives
+                      // key/scale manually; when on, the source below detects it. This
+                      // replaces the old "Manual" choice of the key_source parameter.
+                      std::make_unique<juce::AudioParameterBool> (
+                          "key_detect", "Key/Scale Detection", false),
+
+                      // Key detection source (used only when key_detect is on):
+                      // 0=Auto (in-plugin audio analysis),
+                      // 1=OpenVoxKey (shared bridge from the OpenVoxKey companion detector),
+                      // 2=Sidechain (analysis of the sidechain input).
+                      std::make_unique<juce::AudioParameterChoice> (
+                          "key_source", "Key Source",
+                          juce::StringArray { "Auto", "OpenVoxKey", "Sidechain" }, 0),
+
+                      // Companion group letter (must match the OpenVoxKey instance).
+                      std::make_unique<juce::AudioParameterChoice> (
+                          "companion_group", "Companion Group",
+                          juce::StringArray { "A", "B", "C", "D" }, 0),
 
                       // 12 booleens pour la gamme personnalisee (custom).
                       // Actif uniquement si Scale = 5 (Custom).
@@ -349,10 +374,16 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       std::make_unique<juce::AudioParameterFloat> (
                           "harmony_tone_color", "Harmony Tone Color",
                           juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f),
+                       // When on (default), the harmony voices follow the lead voice's correction
+                       // character (vibrato preservation, humanize, flex, attack-aware), so they move
+                       // with the lead instead of staying locked to the scale grid.
                        std::make_unique<juce::AudioParameterBool> (
+                          "harmony_follow_lead", "Harmony Follow Lead", true), std::make_unique<juce::AudioParameterBool> (
                           "midi_out_enable", "MIDI Out Enable",
                           // In standalone mode, disable MIDI out by default.
                           ! isStandaloneWrapper())
+                      , std::make_unique<juce::AudioParameterBool> (
+                          "midi_target_enable", "MIDI Target Enable", false)
                       , std::make_unique<juce::AudioParameterBool> (
                           "dbg_test_grain", "Debug Test Grain", false)
                       , std::make_unique<juce::AudioParameterInt> (
@@ -385,12 +416,25 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       // Correction mode: Modern (false) / Transparent (true)
                       , std::make_unique<juce::AudioParameterBool> (
                             "correction_mode", "Correction Mode", false)
+                      // Vibrato preservation: 0% = classic instantaneous correction,
+                      // 100% = correction against the smoothed center pitch so the
+                      // vibrato modulation survives.
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "vibrato_preserve", "Vibrato Preserve",
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
+                      // Attack-aware correction: enable + release time (ms). When
+                      // enabled, the correction is eased off on note onsets/transients.
+                      , std::make_unique<juce::AudioParameterBool> (
+                            "attack_aware", "Attack-Aware Correction", false)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "attack_release", "Attack Release",
+                            juce::NormalisableRange<float> (10.0f, 300.0f, 1.0f), 60.0f)
                       // UI Theme: 0 = Dark (default), 1 = Light
                       , std::make_unique<juce::AudioParameterInt> (
                             "ui_theme", "UI Theme", 0, 1, 0)
-                      // UI Language: 0 = English (default), 1 = French, 2 = German, 3 = Spanish, 4 = Japanese
+                      // UI Language: 0 = English (default), 1 = French, 2 = German, 3 = Spanish, 4 = Japanese, 5 = Chinese
                       , std::make_unique<juce::AudioParameterInt> (
-                            "ui_language", "UI Language", 0, 4, 0)
+                            "ui_language", "UI Language", 0, 5, 0)
                       // Morph: A/B crossfade position (0 = source slot A, 1 = target slot B).
                       // Made a host-automatable parameter so the DAW can automate the morph.
                       , std::make_unique<juce::AudioParameterFloat> (
@@ -411,6 +455,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     latencyModeParam = parameters.getRawParameterValue ("latency_mode");
     formantParam = parameters.getRawParameterValue ("formant");
     formantEnableParam = parameters.getRawParameterValue ("formant_enable");
+    formantModeParam = parameters.getRawParameterValue ("formant_mode");
     keyParam     = parameters.getRawParameterValue ("key");
     scaleParam   = parameters.getRawParameterValue ("scale");
     scaleChoiceParam = dynamic_cast<juce::AudioParameterChoice*>(parameters.getParameter("scale"));
@@ -425,7 +470,9 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     harmonyShiftedVoicesParam = parameters.getRawParameterValue ("harmony_shifted_voices");
     harmonyToneParam = parameters.getRawParameterValue ("harmony_tone");
     harmonyToneColorParam = parameters.getRawParameterValue ("harmony_tone_color");
+    harmonyFollowLeadParam = parameters.getRawParameterValue ("harmony_follow_lead");
     midiOutEnableParam = parameters.getRawParameterValue ("midi_out_enable");
+    midiTargetEnableParam = parameters.getRawParameterValue ("midi_target_enable");
     dbgTestGrainParam = parameters.getRawParameterValue ("dbg_test_grain");
     morphAmountParam = parameters.getRawParameterValue ("morph_amount");
     morphParam = dynamic_cast<juce::AudioParameterFloat*>(parameters.getParameter ("morph_amount"));
@@ -439,6 +486,12 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     flexTuneParam = parameters.getRawParameterValue ("flex_tune");
     humanizeParam = parameters.getRawParameterValue ("humanize");
     correctionModeParam = parameters.getRawParameterValue ("correction_mode");
+    vibratoPreserveParam = parameters.getRawParameterValue ("vibrato_preserve");
+    attackAwareParam = parameters.getRawParameterValue ("attack_aware");
+    attackReleaseParam = parameters.getRawParameterValue ("attack_release");
+    keySourceParam = parameters.getRawParameterValue ("key_source");
+    companionGroupParam = parameters.getRawParameterValue ("companion_group");
+    keyDetectParam = parameters.getRawParameterValue ("key_detect");
 
     for (int i = 0; i < 12; ++i)
     {
@@ -449,6 +502,10 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     // Instantiates DSP modules — YIN pitch detector.
     pitchDetectors[0] = std::make_unique<ovtdsp::YinPitchDetector>();
     activePitchDetector.store (pitchDetectors[0].get());
+
+    // Dedicated YIN detector for the optional Sidechain input bus (used by the
+    // "Sidechain" key source). Kept independent from the main-input detector.
+    sidechainPitchDetector = std::make_unique<ovtdsp::YinPitchDetector>();
     activeDetectorMode = 0;
     scaleQuantizer   = std::make_unique<ovtdsp::ScaleQuantizer>();
     scaleQuantizer->setScale (ovtdsp::Scale::Chromatic); // Ensure chromatic on first launch
@@ -466,18 +523,17 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     // Instantiation of the VST3 extension for Fender Studio Pro (Micro View)
     vst3Extensions = std::make_unique<PresonusMicroViewExtension>();
 
-    // Install file logger only in Debug builds.
-   #if JUCE_DEBUG
+    // Install file logger in Debug AND Release (so we can diagnose drops in the field).
     {
-        juce::File logFile = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                                 .getChildFile ("OpenVoxTuner.log");
-        // Create and set the logger (JUCE takes ownership)
+        juce::File logDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                                .getChildFile ("OpenVoxTuner")
+                                .getChildFile ("logs");
+        logDir.createDirectory();
+        juce::File logFile = logDir.getChildFile (
+            "ovt_" + juce::Time::getCurrentTime().toISO8601(true).replaceCharacter (':', '-') + ".log");
         juce::Logger::setCurrentLogger (new SimpleFileLogger (logFile));
         OVT_LOG ("OpenVoxTuner log initialized: " + logFile.getFullPathName());
     }
-   #else
-    juce::Logger::setCurrentLogger (nullptr);
-   #endif
 
     // Debug logging: print key metadata so we can diagnose host issues (MIDI bus visibility, bypass state)
     {
@@ -530,6 +586,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     applyLatencyMode();
     pitchShifter->prepare (sampleRate, samplesPerBlock);
     noiseGate.prepare (sampleRate);
+    formantPreserver.prepare (sampleRate, samplesPerBlock);
     
     // Report latency to DAW for automatic compensation (PDC)
     setLatencySamples(pitchShifter->getLatencySamples());
@@ -560,7 +617,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     lastMixedHarmonyBuffer.clear();
     for (auto& g : shiftedVoiceGains)
     {
-        g.reset (sampleRate, 0.01); // 10 ms per-voice smoothing
+        g.reset (sampleRate, 0.02); // 20 ms per-voice smoothing (increased from 10ms to reduce clicks)
         g.setCurrentAndTargetValue (0.0f);
     }
 
@@ -574,7 +631,14 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     }
     for (auto& ps : shiftedVoicePitchShifters)
         if (ps != nullptr)
+        {
             ps->prepare (sampleRate, samplesPerBlock);
+            ps->setAttackTimeMs (30.0f); // Attack envelope for shifted voices
+        }
+
+    // Set attack time for main pitch shifter
+    if (pitchShifter != nullptr)
+        pitchShifter->setAttackTimeMs (30.0f);
 
 
     // Prepare the analysis FIFO for pitch detection.
@@ -587,6 +651,17 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // Eliminates an 8 KB heap allocation on each audio block, a major
     // source of glitches (especially at small buffer sizes, e.g., 144 samples).
     analysisLinearBuffer.allocate (analysisWindow, true);
+
+    // Prepare the dedicated Sidechain analysis path (FIFO + detector). Runs the
+    // YIN detector at 1/4 sample rate (with decimation) like the main detector.
+    if (sidechainPitchDetector != nullptr)
+        sidechainPitchDetector->prepare (sampleRate / 4.0, samplesPerBlock);
+    sidechainFifo.setSize (1, analysisWindow, false, true, false);
+    sidechainFifo.clear();
+    sidechainFifoWriteIndex = 0;
+    sidechainFifoFillCount = 0;
+    sidechainSamplesSinceLastAnalysis = 0;
+    sidechainLinearBuffer.allocate (analysisWindow, true);
 
     // Configure the plugin latency based on the host's block size.
     // This allows the DAW to compensate for the delay introduced by buffering.
@@ -667,9 +742,19 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // The pitch_detector parameter is read-only (single choice "YIN").
     // No switching needed — always use index 0.
 
+    // === NOISE GATE (input, before pitch detection) ===
+    {
+        const bool gateEnabled = noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f;
+        noiseGate.setEnabled (gateEnabled);
+        if (gateEnabled && noiseGateThresholdParam != nullptr)
+            noiseGate.setThresholdDb (noiseGateThresholdParam->load());
+        noiseGate.process (buffer);
+    }
+
     // === WAVEFORM CAPTURE ===
-    // Cache a mono downmix of the input audio for the visualizer overlay.
-    // Captured before DSP processing modifies the buffer. Works in all modes.
+    // Cache a mono downmix of the (post-gate) input audio for the visualizer overlay,
+    // so the displayed waveform reflects the noise gate when it is enabled. Works in all
+    // modes. Captured after the gate but before the rest of the DSP chain.
     {
         const int numSamples = buffer.getNumSamples();
         const int numCh = buffer.getNumChannels();
@@ -684,15 +769,6 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             araWaveformSampleRate = currentSampleRate;
             araWaveformReady = true;
         }
-    }
-
-    // === NOISE GATE (input, before pitch detection) ===
-    {
-        const bool gateEnabled = noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f;
-        noiseGate.setEnabled (gateEnabled);
-        if (gateEnabled && noiseGateThresholdParam != nullptr)
-            noiseGate.setThresholdDb (noiseGateThresholdParam->load());
-        noiseGate.process (buffer);
     }
 
     // === LECTURE DES METADONNEES ARA ===
@@ -959,7 +1035,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // 1) Detection du pitch d'entree (tres lourd en CPU).
-    float f0_in = computeInputPitch (buffer);
+    //    Extract the MAIN input bus explicitly (bus 0) so the optional
+    //    Sidechain bus (bus 1) never bleeds into the vocal pitch analysis.
+    const juce::AudioBuffer<float> mainInputBuffer = getBusBuffer (buffer, true, 0);
+    float f0_in = computeInputPitch (mainInputBuffer);
     if (!harmonyInputGateOpen)
         f0_in = 0.0f;
 
@@ -1022,6 +1101,77 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
     lastInputPitch.store (f0_in);
 
+    // Feed the vibrato-preservation center tracker with the (octave-filtered)
+    // detected pitch. Held during silence; re-initialised on the next attack.
+    vibratoPreserver.update (f0_in);
+
+    // === INCOMING MIDI : track held notes for the "MIDI Target / Follow" feature ===
+    // We only READ the buffer here; outgoing events are still appended later
+    // in the MIDI OUT block. Notes are accumulated so the most-recently-
+    // pressed (last in the list) becomes the correction target when the toggle is on.
+    {
+        juce::MidiBuffer::Iterator midiIt (midiMessages);
+        juce::MidiMessage mm; int samplePos = 0;
+        while (midiIt.getNextEvent (mm, samplePos))
+        {
+            if (mm.isNoteOn())
+                heldMidiNotes.addIfNotAlreadyThere (mm.getNoteNumber());
+            else if (mm.isNoteOff())
+                heldMidiNotes.removeAllInstancesOf (mm.getNoteNumber());
+        }
+    }
+
+    // === AUTOMATIC KEY DETECTION (non-ARA sources) ===
+    // ARA (if bound) already sets key/scale from the host musical context above,
+    // so we only run the in-plugin / companion sources when ARA is NOT bound.
+    if (!isBoundToARA())
+    {
+        const bool detectOn = (keyDetectParam != nullptr) ? keyDetectParam->load() > 0.5f : false;
+        if (detectOn)
+        {
+            const int src = (keySourceParam != nullptr) ? static_cast<int> (keySourceParam->load()) : 0;
+            const float blockDur = static_cast<float> (buffer.getNumSamples()) / static_cast<float> (currentSampleRate);
+
+            if (src == 0) // Auto: analyse the (vocal) input pitch stream
+            {
+                keyDetector.addDetection (f0_in, 1.0f, blockDur);
+                int detKey = 0; bool detMinor = false; float detConf = 0.0f;
+                if (keyDetector.getEstimate (detKey, detMinor, detConf))
+                    applyDetectedKey (ovtdsp::KeyDetector::detectorKeyToMusical (detKey), detMinor ? 4 : 1);
+            }
+            else if (src == 1) // OpenVoxKey: read the shared bridge for the chosen group
+            {
+                // companionGroupParam is an AudioParameterChoice; getRawParameterValue()
+                // returns the 0..3 choice index (not a normalised 0..1 value), so use
+                // it directly. (Multiplying by 3.0f — as if it were normalised — would
+                // map B->D and C->D, the cross-talk bug.)
+                int grpIdx = 0;
+                if (companionGroupParam != nullptr)
+                    grpIdx = juce::jlimit (0, 3, static_cast<int> (companionGroupParam->load()));
+                const juce::String grp = juce::StringArray { "A", "B", "C", "D" }[grpIdx];
+                int bKey = 0, bScale = 0; double bTs = 0.0;
+                if (ovtdsp::KeyBridge::getInstance().read (grp, bKey, bScale, bTs))
+                    applyDetectedKey (bKey, bScale); // bridge already stores musical key/scale
+            }
+            else if (src == 2) // Sidechain: analyse the sidechain input bus (e.g. accompaniment)
+            {
+                const juce::AudioBuffer<float> scBuffer = getBusBuffer (buffer, true, 1);
+                if (scBuffer.getNumChannels() > 0)
+                {
+                    const float scF0 = computeSidechainPitch (scBuffer);
+                    if (scF0 > 0.0f)
+                    {
+                        sidechainKeyDetector.addDetection (scF0, 1.0f, blockDur);
+                        int detKey = 0; bool detMinor = false; float detConf = 0.0f;
+                        if (sidechainKeyDetector.getEstimate (detKey, detMinor, detConf))
+                            applyDetectedKey (ovtdsp::KeyDetector::detectorKeyToMusical (detKey), detMinor ? 4 : 1);
+                    }
+                }
+            }
+        }
+        // key_detect off (or ARA bound) -> the user drives key/scale directly.
+    }
+
     // Debug: detect bypass param changes and log once when it changes
     if (bypassParam)
     {
@@ -1080,6 +1230,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         float f0_target = 0.0f;
 
+        // Transport time used by the graphic (curve) mode. Computed once here so
+        // it is also in scope for the vibrato-preservation block below.
+        const double loopLen = isPlayheadLooping() ? getLoopLengthBeats() : 0.0;
+        const double currentTransportTime = (loopLen > 0.0) ? std::fmod (currentTime, loopLen) : currentTime;
+
         if (mode == 1 && pitchCurve != nullptr && pitchCurve->getNumPoints() >= 2)
         {
             // === Mode GRAPHIC : on suit la pitch curve dessinee ===
@@ -1089,8 +1244,6 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             // mode Loop) ; en ARA / plugin-follow, c'est la position DAW qui
             // pilote la courbe (pas de wrap). La longueur vaut par defaut
             // 16 beats (4 mesures 4/4), identique a l'ancien fmod(..., 16.0).
-            const double loopLen = isPlayheadLooping() ? getLoopLengthBeats() : 0.0;
-            const double currentTransportTime = (loopLen > 0.0) ? std::fmod (currentTime, loopLen) : currentTime;
             f0_target = pitchCurve->getPitchAt (currentTransportTime, f0_in);
         }
         else
@@ -1099,25 +1252,72 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             f0_target = scaleQuantizer->quantize (f0_in);
         }
 
-        // FlexTune: gradual blend between correction and pass-through.
-        // When the input pitch is within the FlexTune range (cents) of the
-        // target note, the correction intensity (Amount) is smoothly reduced.
-        // At 0 cents from target, Amount drops to 0 (no correction).
-        // At FlexTune cents or more, full Amount is applied.
-        // This preserves natural microtonal expression while still
-        // providing autotune when the singer strays significantly.
+        // === MIDI TARGET (follow) ===
+        // When enabled, an incoming held MIDI note drives the correction
+        // TARGET (the voice is tuned TO that note). f0_in stays the
+        // detected vocal pitch, so the ratio shifts the sung pitch to the
+        // played note. The most-recently-pressed held note wins.
+        const bool midiTargetOn = (midiTargetEnableParam != nullptr)
+                                   && midiTargetEnableParam->load() > 0.5f;
+        if (midiTargetOn && heldMidiNotes.size() > 0 && f0_in > 0.0f)
+        {
+            const int tgtNote = heldMidiNotes.getLast();
+            f0_target = ovtdsp::midiToHz (static_cast<float> (tgtNote));
+        }
+
+        // FlexTune: true deadband with smooth knee.
+        // When the input pitch is within the FlexTune threshold (cents) of the
+        // target note, NO correction is applied (true deadband = 0%).
+        // Beyond the threshold, correction ramps smoothly via smoothstep from
+        // 0% at threshold to 100% at 2x threshold. This preserves natural
+        // microtonal expression while still correcting significant drift.
         float flexTuneCents = (flexTuneParam != nullptr) ? flexTuneParam->load() : 0.0f;
         // Store the flexTune multiplier for later use in Amount calculation.
         // Default: 1.0 = full correction. Reduced to 0.0 when input is
-        // perfectly on the target note.
+        // within the deadband.
         currentFlexTuneAmount = 1.0f;
-        if (flexTuneCents > 1.0f && f0_in > 0.0f && f0_target > 0.0f)
+        // Only apply FlexTune logic when parameter > 0 (deadband enabled)
+        // and we have valid pitch data. Use a minimum of 0.5f to avoid
+        // floating point precision issues at very small values.
+        if (flexTuneCents > 0.5f && f0_in > 0.0f && f0_target > 0.0f)
         {
-            float centsDiff = 12.0f * std::abs (std::log2 (f0_in / f0_target));
-            // Factor: 0 = no correction (perfectly on target), 1 = full correction
-            // Smooth transition: linearly ramps from 0 at centsDiff=0 to 1 at centsDiff>=flexTuneCents
-            currentFlexTuneAmount = juce::jmin (1.0f, centsDiff / flexTuneCents);
+            // Cents difference: 1200 * log2(ratio) = 1200 * log2(f0_in / f0_target)
+            float centsDiff = 1200.0f * std::abs (std::log2 (f0_in / f0_target));
+            // True deadband: zero correction within threshold
+            if (centsDiff <= flexTuneCents)
+            {
+                currentFlexTuneAmount = 0.0f;
+            }
+            else
+            {
+                // Smoothstep transition from threshold to 2*threshold
+                float t = (centsDiff - flexTuneCents) / flexTuneCents;
+                t = juce::jlimit (0.0f, 1.0f, t);
+                currentFlexTuneAmount = t * t * (3.0f - 2.0f * t); // smoothstep
+            }
         }
+
+        // DEBUG: log FlexTune values (once per second)
+        static std::atomic<uint32_t> lastFlexLogMs { 0 };
+        uint32_t nowFlex = juce::Time::getMillisecondCounter();
+        uint32_t expected = lastFlexLogMs.load();
+        if (nowFlex - expected > 1000)
+        {
+            if (lastFlexLogMs.compare_exchange_strong (expected, nowFlex))
+            {
+                OVT_LOG ("FlexTune: f0_in=" + juce::String (f0_in, 2) +
+                         " f0_target=" + juce::String (f0_target, 2) +
+                         " centsDiff=" + juce::String (1200.0f * std::abs (std::log2 (f0_in / f0_target)), 1) +
+                         " flexTuneCents=" + juce::String (flexTuneCents, 1) +
+                         " currentFlexTuneAmount=" + juce::String (currentFlexTuneAmount, 3) +
+                         " f0_out=" + juce::String (f0_out, 2) +
+                         " targetRatio=" + juce::String (targetRatio, 3));
+            }
+        }
+
+        // Smooth FlexTune amount to prevent clicks when knob is adjusted
+        // Time constant ~100ms (0.95 = 100ms at 44.1kHz/480 samples)
+        smoothedFlexTuneAmount = smoothedFlexTuneAmount * 0.95f + currentFlexTuneAmount * 0.05f;
 
         f0_out = f0_target;
         targetRatio = f0_target / f0_in;
@@ -1139,6 +1339,33 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             // Decay the humanize smoothly when not active
             currentHumanizeCents *= 0.95f;
+        }
+
+        // === VIBRATO PRESERVATION ===
+        // Blend the standard (instantaneous) correction toward a center-based
+        // correction. The center pitch (vibratoPreserver.getCenter()) is a
+        // low-pass of f0_in, so the vibrato LFO is removed from it. Correcting
+        // against the center and re-applying the ratio to the instantaneous
+        // pitch keeps the vibrato modulation intact while still snapping the
+        // note to the scale. At preserve == 0 this is the classic behaviour.
+        float vibratoPreserve = (vibratoPreserveParam != nullptr) ? vibratoPreserveParam->load() : 0.0f;
+        if (vibratoPreserve > 0.001f)
+        {
+            const float center = vibratoPreserver.getCenter();
+            if (center > 0.0f)
+            {
+                // Target for the smoothed center reference, using the same mode
+                // logic as the instantaneous path above.
+                float f0_target_center = f0_target;
+                if (mode == 1 && pitchCurve != nullptr && pitchCurve->getNumPoints() >= 2)
+                    f0_target_center = pitchCurve->getPitchAt (currentTransportTime, center);
+                else
+                    f0_target_center = scaleQuantizer->quantize (center);
+
+                targetRatio = vibratoPreserver.blend (targetRatio, f0_in, f0_target_center, vibratoPreserve);
+                f0_target = f0_in * targetRatio;
+                f0_out = f0_target; // keep GUI/harmony note in sync with the blended target
+            }
         }
 
         // Calcul de l'offset en cents between pitch d'entree et pitch quantife.
@@ -1171,25 +1398,71 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             // Récupère les intervalles de la gamme depuis le quantizer
             const juce::Array<int>& intervals = scaleQuantizer->getScaleIntervals();
 
+            // Use a "held" pitch that falls back to lastValidF0 when YIN momentarily drops to 0.
+            // This prevents harmony generation from stalling during brief pitch detection gaps.
+            const float heldF0 = (f0_out > 0.0f) ? f0_out : lastValidF0.load();
+
             // Determine which note set to render: if we have a live output pitch use it,
             // otherwise reuse the lastHarmonyNotes so the engine can render the release.
             juce::Array<float> notes;
-            if (f0_out > 0.0f)
+            if (heldF0 > 0.0f)
             {
                 notes = harmonyEngine->getHarmonyNotes (
-                    f0_out,
+                    heldF0,
                     intervals,
                     static_cast<ovtdsp::HarmonyType>(currentHarmonyType)
                 );
+
+                // Harmony Follow Lead (default on): shift each harmony voice by the same
+                // "character ratio" the lead uses (f0_out / scale note). Because getHarmonyNotes
+                // snaps each voice to the scale grid, the vibrato/humanize/flex character is
+                // otherwise lost on the harmonies. Re-applying the lead's ratio makes the whole
+                // stack move together; when off, harmonies stay locked to the scale (classic look).
+                const bool followLead = (harmonyFollowLeadParam != nullptr)
+                    ? harmonyFollowLeadParam->load() > 0.5f : true;
+
+                // Keep a scale-locked copy (Follow Lead NOT applied) for MIDI OUT, so pushed
+                // MIDI notes are always clean scale notes regardless of the Follow Lead toggle.
+                juce::Array<float> cleanNotes = notes;
+                if (followLead && heldF0 > 0.0f && scaleQuantizer != nullptr)
+                {
+                    // Reference = the scale note NEAREST the current (continuous) output
+                    // pitch, NOT the quantizer target. The quantizer target jumps to the
+                    // destination note the instant a note change begins, while f0_out is
+                    // still gliding from the previous note. Using it as the reference made
+                    // charRatio = f0_out / target drop below 1 during the transition, which
+                    // dragged the harmony voices sharply down ("dropping" blue lines) while
+                    // the green lead line (f0_out) stayed smooth. Anchoring to the nearest
+                    // scale note of f0_out keeps the ratio ~1 across transitions (no drop)
+                    // and still preserves vibrato/humanize character (the ratio tracks f0_out's
+                    // deviation from its own scale note).
+                    const float refFreq = scaleQuantizer->quantize (f0_out);
+                    if (refFreq > 0.0f)
+                    {
+                        const float charRatio = f0_out / refFreq;
+                        for (float& nf : notes)
+                            nf *= charRatio;
+                    }
+                }
+
                 // cache notes for potential release rendering
                 lastHarmonyNotes = notes;
+                lastHarmonyNotesClean = cleanNotes;
 
-                // Store detected harmony frequencies for the GUI
+                // Store detected harmony frequencies for the GUI (may include Follow Lead shift)
                 harmonyFrequencies.clear();
                 for (int i = 0; i < static_cast<int>(notes.size()); ++i)
                 {
                     if (notes[i] > 0.0f && harmonyGainParam && harmonyGainParam->load() > 0.001f)
                         harmonyFrequencies.add(notes[i]);
+                }
+
+                // Store scale-locked harmony frequencies for MIDI OUT (Follow Lead ignored).
+                harmonyFrequenciesClean.clear();
+                for (int i = 0; i < static_cast<int>(cleanNotes.size()); ++i)
+                {
+                    if (cleanNotes[i] > 0.0f && harmonyGainParam && harmonyGainParam->load() > 0.001f)
+                        harmonyFrequenciesClean.add(cleanNotes[i]);
                 }
             }
             else
@@ -1198,6 +1471,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 notes = lastHarmonyNotes;
                 // Clears the UI visualizer lines so they strictly match the live lead vocal trace
                 harmonyFrequencies.clear();
+                // Keep MIDI OUT note-offs consistent with the GUI visualizer.
+                harmonyFrequenciesClean.clear();
+                lastHarmonyNotesClean.clear();
             }
 
             // Open gate only when we have live pitch; keep it closed during release blocks
@@ -1230,10 +1506,43 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // Application de l'intensite (Amount), modulated by FlexTune and correction mode.
         float amount = (amountParam != nullptr) ? amountParam->load() : 1.0f;
         // FlexTune modulates Amount: when on-target, Amount is reduced.
-        amount *= currentFlexTuneAmount;
+        amount *= smoothedFlexTuneAmount;
         int modeCorr = (correctionModeParam != nullptr) ? static_cast<int>(correctionModeParam->load()) : 0;
         if (modeCorr == 1) // Transparent: 20% less correction
             amount *= 0.8f;
+
+        // DEBUG: log Amount values (once per second)
+        static std::atomic<uint32_t> lastAmountLogMs { 0 };
+        uint32_t nowAmount = juce::Time::getMillisecondCounter();
+        uint32_t expectedAmt = lastAmountLogMs.load();
+        if (nowAmount - expectedAmt > 1000)
+        {
+            if (lastAmountLogMs.compare_exchange_strong (expectedAmt, nowAmount))
+            {
+                OVT_LOG ("Amount: raw=" + juce::String ((amountParam != nullptr) ? amountParam->load() : 1.0f, 2) +
+                         " smoothedFlexTuneAmount=" + juce::String (smoothedFlexTuneAmount, 3) +
+                         " final amount=" + juce::String (amount, 3));
+            }
+        }
+
+        // Attack-aware correction: ease off the correction on note onsets so the
+        // natural attack transient is preserved (third orthogonal axis to FlexTune
+        // and Humanize). attackEnv returns a gain in [0,1]: 0 at the onset, ramping
+        // back to 1 over the user-set release time. We multiply it into the amount.
+        if (attackAwareParam != nullptr && attackReleaseParam != nullptr)
+        {
+            attackEnv.setEnabled (attackAwareParam->load() > 0.5f);
+            attackEnv.setReleaseSeconds (attackReleaseParam->load() / 1000.0f);
+            const int n = buffer.getNumSamples();
+            const float* d = (n > 0) ? buffer.getReadPointer (0) : nullptr;
+            float sumSq = 0.0f;
+            if (d != nullptr)
+                for (int i = 0; i < n; ++i) sumSq += d[i] * d[i];
+            const float blockRms = (n > 0) ? std::sqrt (sumSq / static_cast<float> (n)) : 0.0f;
+            const float blockDur = static_cast<float> (n) / static_cast<float> (currentSampleRate);
+            amount *= attackEnv.process (blockRms, blockDur);
+        }
+
         targetRatio = 1.0f + (targetRatio - 1.0f) * amount;
         targetRatio = juce::jlimit (0.25f, 4.0f, targetRatio);
     }
@@ -1256,9 +1565,24 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     lastRatioSnapshot.store (ratio);
 
     // 5) Application du WSOLA (Autotune + Formant Shift natif)
-    bool isFormantEnabled = (formantEnableParam != nullptr) ? (formantEnableParam->load() > 0.5f) : true;
-    float shiftSemitones = (isFormantEnabled && formantParam != nullptr) ? formantParam->load() : 0.0f;
+    // Formant EFFECT (creative ±5st shift) - controlled by Formant Enable toggle
+    bool isFormantEffectEnabled = (formantEnableParam != nullptr) ? (formantEnableParam->load() > 0.5f) : false;
+    float shiftSemitones = (isFormantEffectEnabled && formantParam != nullptr) ? formantParam->load() : 0.0f;
     float userFormantRatio = std::pow (2.0f, shiftSemitones / 12.0f);
+
+    // Formant PRESERVATION (anti-chipmunk quality) - ALWAYS ON for main voice + harmony "use voice"
+    // Update FormantPreserver mode from parameter (set via menu, not UI combo)
+    if (formantModeParam != nullptr)
+    {
+        int modeIdx = static_cast<int> (std::round (formantModeParam->load()));
+        formantPreserver.setMode (static_cast<ovtdsp::FormantPreserver::Mode> (juce::jlimit (0, 1, modeIdx)));
+    }
+    // Always enabled for quality preservation
+    formantPreserver.setEnabled (true);
+    formantPreserver.setFormantShift (shiftSemitones);
+
+    // Apply formant preservation BEFORE pitch shifting (PSOLA)
+    formantPreserver.process (buffer, ratio);
 
     // Throttled log around pitchShifter call (once per second)
     static std::atomic<uint32_t> lastPitchLogMs { 0 };
@@ -1297,13 +1621,28 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     int globalGrains = gPitchShifterGrainEvents.load(std::memory_order_relaxed);
     if (globalGrains != lastObservedGrainCount)
     {
-        OVT_LOG ("Observed new PitchShifter grains: total=" + juce::String(globalGrains) +
-                                  " (since last=" + juce::String(lastObservedGrainCount) + ")");
         lastObservedGrainCount = globalGrains;
     }
 
     // === HYBRID HARMONY GENERATION + MIXING ===
     int currentHarmonyTypeVal = (harmonyTypeParam != nullptr) ? static_cast<int>(harmonyTypeParam->load()) : 0;
+
+    // Early calculation of useVoiceLocal / harmonyEnabled (needed for shiftedCount clamp).
+    bool useVoiceLocal = (harmonyUseVoiceParam != nullptr) ? (harmonyUseVoiceParam->load() > 0.5f) : false;
+    bool harmonyEnabled = (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f);
+
+    // Early calculation of shiftedCount (needed for clamping before harmony generation).
+    int shiftedCount = 0;
+    if (useVoiceLocal && harmonyShiftedVoicesParam != nullptr)
+        shiftedCount = juce::jlimit (0, OpenVoxTunerAudioProcessor::maxShiftedVoices, static_cast<int> (std::round (harmonyShiftedVoicesParam->load())));
+
+    // Clamp shiftedCount to the actual voice count for this harmony type.
+    // The UI knob may allow up to maxShiftedVoices, but the harmony type
+    // determines how many voices actually exist. Without this clamp, the
+    // mismatch check expects more notes than getHarmonyNotes() returns.
+    const int maxVoicesForType = ovtdsp::HarmonyEngine::getHarmonyVoiceCount (
+        static_cast<ovtdsp::HarmonyType>(currentHarmonyTypeVal));
+    const int clampedShiftedCount = juce::jmin (shiftedCount, maxVoicesForType);
 
     bool shiftedVoicesActive = false;
     for (auto& g : shiftedVoiceGains)
@@ -1311,14 +1650,6 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (g.getCurrentValue() > 0.001f)
             shiftedVoicesActive = true;
     }
-
-    if (f0_out > 0.0f)
-        lastValidF0.store (f0_out);
-
-    const float f0_for_shifted = (f0_out > 0.0f) ? f0_out : lastValidF0.load();
-
-    bool useVoiceLocal = (harmonyUseVoiceParam != nullptr) ? (harmonyUseVoiceParam->load() > 0.5f) : false;
-    bool harmonyEnabled = (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f);
 
     // Forces harmony block evaluation if Use Voice is enabled,
     // so shifted PSOLA modules keep ingesting background audio.
@@ -1340,8 +1671,8 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         juce::Array<float> notesToUse = (lastHarmonyNotes.size() > 0) ? lastHarmonyNotes : harmonyFrequencies;
 
         int shiftedCount = 0;
-        if (useVoiceLocal && harmonyShiftedVoicesParam != nullptr)
-            shiftedCount = juce::jlimit (0, OpenVoxTunerAudioProcessor::maxShiftedVoices, static_cast<int> (std::round (harmonyShiftedVoicesParam->load())));
+        // Already calculated early for clamping; kept here for backward compat with
+        // code below that expects the variable name. Use clampedShiftedCount for logic.
 
         harmonyBuffer.setSize (numChannels, numSamples, false, true, true);
         harmonyBuffer.clear();
@@ -1360,14 +1691,60 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                               " notesToUse=" + juce::String((int)notesToUse.size()));
                 }
             }
+
+            // Ensure notesToUse is valid and matches expected size.
+            // If main harmony generation was skipped but shifted voices run (forceShiftedProcessing),
+            // lastHarmonyNotes may be stale or wrong size. Fall back to fresh generation.
+            const size_t expectedSize = (size_t)juce::jmax (1, clampedShiftedCount);
+            if (notesToUse.size() != expectedSize)
+            {
+                OVT_LOG ("notesToUse SIZE MISMATCH: have=" + juce::String((int)notesToUse.size()) +
+                         " expected=" + juce::String((int)expectedSize) +
+                         " f0_out=" + juce::String(f0_out, 2) +
+                         " lastValidF0=" + juce::String(lastValidF0.load(), 2) +
+                         " harmonyEngine=" + juce::String((harmonyEngine != nullptr ? 1 : 0)) +
+                         " harmonyType=" + juce::String(currentHarmonyTypeVal));
+                // Use held pitch (lastValidF0) if live pitch is unavailable, to avoid stalling.
+                const float regenF0 = (f0_out > 0.0f) ? f0_out : lastValidF0.load();
+                if (regenF0 > 0.0f && harmonyEngine != nullptr)
+                {
+                    const juce::Array<int>& regenIntervals = scaleQuantizer->getScaleIntervals();
+                    notesToUse = harmonyEngine->getHarmonyNotes (
+                        regenF0, regenIntervals, static_cast<ovtdsp::HarmonyType>(currentHarmonyTypeVal));
+                    juce::String notesStr;
+                    for (int i = 0; i < notesToUse.size(); ++i)
+                        notesStr += (i > 0 ? "," : "") + juce::String(notesToUse[i], 2);
+                    OVT_LOG ("notesToUse regenerated: type=" + juce::String(currentHarmonyTypeVal) +
+                             " f0=" + juce::String(regenF0, 2) + " notes=[" + notesStr + "]");
+                    // Update the persistent cache so next block has valid data
+                    lastHarmonyNotes = notesToUse;
+                }
+                else if (lastHarmonyNotes.size() > 0)
+                {
+                    notesToUse = lastHarmonyNotes; // best effort fallback
+                    OVT_LOG ("notesToUse fallback to lastHarmonyNotes: " + juce::String((int)notesToUse.size()));
+                }
+                else
+                {
+                    OVT_LOG ("notesToUse NO FALLBACK AVAILABLE - will use safe_f0 * 1.5f");
+                }
+            }
+
             for (int v = 0; v < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++v)
             {
-                const bool activeShiftedVoice = (f0_out > 0.0f && v < shiftedCount && v < notesToUse.size() && notesToUse[v] > 0.0f);
+                // f0_for_shifted uses held pitch (lastValidF0) so voices stay active
+                // even when live pitch momentarily drops to 0.
+                const float f0_for_shifted = (f0_out > 0.0f) ? f0_out : lastValidF0.load();
+
+                // Use f0_for_shifted (held pitch via lastValidF0) so voices stay active
+                // even when live pitch momentarily drops to 0.
+                const bool activeShiftedVoice = (f0_for_shifted > 0.0f && v < clampedShiftedCount && v < notesToUse.size() && notesToUse[v] > 0.0f);
 
                 // By continually calling process(), we seamlessly ingest tracking noise.
                 // The targetHz just falls back to a valid shifted ratio during silence.
                 const float safe_f0 = (f0_for_shifted > 0.0f) ? f0_for_shifted : 440.0f;
-                const float targetHz = (v < notesToUse.size() && notesToUse[v] > 0.0f) ? notesToUse[v] : (safe_f0 * 1.5f);
+                const float targetHz = (v < notesToUse.size() && notesToUse[v] > 0.0f) ? notesToUse[v]
+                                                                                       : (safe_f0 * 1.5f);
 
                 auto& tmp = shiftedVoiceBuffers[v];
                 if (tmp.getNumChannels() != numChannels || tmp.getNumSamples() != numSamples)
@@ -1379,10 +1756,21 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 else
                     pitchShifter->process (synthWorkBuffer, tmp, ratioH, 1.0f, safe_f0);
 
-                if (v == 0)
+                // Log unexpected voice drop during active singing (f0_out > 0 but voice inactive)
+                if (f0_out > 0.0f && !activeShiftedVoice && v < clampedShiftedCount)
                 {
-                    OVT_LOG ("Shifted voice processed: targetHz=" + juce::String(targetHz) +
-                                              " ratioH=" + juce::String(ratioH, 6));
+                    static std::atomic<int> lastDropLogTime[OpenVoxTunerAudioProcessor::maxShiftedVoices] = {0, 0, 0, 0};
+                    uint32_t now = juce::Time::getMillisecondCounter();
+                    if (now - lastDropLogTime[v].load() > 2000) // throttle: max once per 2s per voice
+                    {
+                        lastDropLogTime[v].store(now);
+                        OVT_LOG ("Harmony VOICE DROP: v=" + juce::String(v) +
+                                 " f0_out=" + juce::String(f0_out, 2) +
+                                 " clampedShiftedCount=" + juce::String(clampedShiftedCount) +
+                                 " notesToUse.size=" + juce::String(notesToUse.size()) +
+                                 " targetHz=" + juce::String(targetHz, 2) +
+                                 " ratioH=" + juce::String(ratioH, 4));
+                    }
                 }
 
                 const float blendFactor = 1.0f - harmonyBlend;
@@ -1391,7 +1779,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 // comparable output volume to synthesized sine waves (~0.25 peak).
                 // The sqrt(N) normalization maintains consistent perceived loudness
                 // regardless of the number of active shifted voices.
-                const float perVoiceLevel = 4.0f / std::sqrt ((float) juce::jmax (1, shiftedCount));
+                const float perVoiceLevel = 4.0f / std::sqrt ((float) juce::jmax (1, clampedShiftedCount));
 
                 if (!activeShiftedVoice) {
                     shiftedVoiceGains[(size_t)v].setTargetValue (0.0f);
@@ -1454,7 +1842,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         // 2) synthesize remaining voices and accumulate
         juce::Array<float> synthNotes;
-        for (int v = shiftedCount; v < notesToUse.size(); ++v)
+        for (int v = clampedShiftedCount; v < notesToUse.size(); ++v)
             synthNotes.add (notesToUse[v]);
 
         if (synthNotes.size() > 0 && harmonyEngine != nullptr)
@@ -1582,12 +1970,13 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
         desired[0] = tunedMidi;
 
-        // Harmony notes -> channels 2..9
+        // Harmony notes -> channels 2..9.
+        // Ignored Follow Lead: pushed MIDI notes are always clean scale notes.
         juce::Array<float> notesToUse;
-        if (f0_out > 0.0f && harmonyFrequencies.size() > 0)
-            notesToUse = harmonyFrequencies;
+        if (f0_out > 0.0f && harmonyFrequenciesClean.size() > 0)
+            notesToUse = harmonyFrequenciesClean;
         else if (harmonyEngine != nullptr && harmonyEngine->isActive())
-            notesToUse = lastHarmonyNotes;
+            notesToUse = lastHarmonyNotesClean;
 
         for (int v = 0; v < notesToUse.size() && v < 8; ++v)
         {
@@ -1793,6 +2182,34 @@ double OpenVoxTunerAudioProcessor::getLoopTransportTime() const
 
 
 // === Detection de pitch sur le bloc courant via FIFO glissante ===
+void OpenVoxTunerAudioProcessor::applyDetectedKey (int musicalKey, int scaleIdx)
+{
+    musicalKey = juce::jlimit (0, 11, musicalKey);
+    scaleIdx  = juce::jlimit (0, 13, scaleIdx);
+
+    // Only write when the detected key/scale actually differs from the *current*
+    // parameter value (not a cached one). Comparing against the live value means
+    // a manual scale change by the user is re-asserted by detection on the next
+    // estimate: while Key/Scale Detection is enabled, the detected scale is
+    // authoritative and will be re-applied even if the user edited it by hand.
+    // (To set the scale manually and keep it, turn Key/Scale Detection off.)
+    int curKey = -1, curScale = -1;
+    if (auto* keyP = parameters.getParameter ("key"))
+        curKey = juce::roundToInt (keyP->convertFrom0to1 (keyP->getValue()));
+    if (auto* scaleP = parameters.getParameter ("scale"))
+        curScale = juce::roundToInt (scaleP->convertFrom0to1 (scaleP->getValue()));
+    if (musicalKey == curKey && scaleIdx == curScale)
+        return; // unchanged -> no host automation churn
+
+    lastAutoKey = musicalKey;
+    lastAutoScale = scaleIdx;
+
+    if (auto* keyP = parameters.getParameter ("key"))
+        keyP->setValueNotifyingHost (keyP->convertTo0to1 (static_cast<double> (musicalKey)));
+    if (auto* scaleP = parameters.getParameter ("scale"))
+        scaleP->setValueNotifyingHost (scaleP->convertTo0to1 (static_cast<double> (scaleIdx)));
+}
+
 float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<float>& buffer)
 {
     if (buffer.getNumChannels() == 0)
@@ -1881,6 +2298,69 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
     return lastInputPitch.load();
 }
 
+// === Detection de pitch sur le bus Sidechain (source "Sidechain") ===
+// Mirrors computeInputPitch() but fills a dedicated FIFO from the sidechain
+// bus and uses its own YIN detector, so the vocal pitch analysis and the
+// sidechain key detection never share state.
+float OpenVoxTunerAudioProcessor::computeSidechainPitch (const juce::AudioBuffer<float>& buffer)
+{
+    if (buffer.getNumChannels() == 0)
+        return 0.0f;
+    if (currentSampleRate <= 0.0 || sidechainPitchDetector == nullptr)
+        return 0.0f;
+
+    // Copie les echantillons du bloc sidechain dans son FIFO (downmix mono).
+    const int numSamples = buffer.getNumSamples();
+    float* fifo = sidechainFifo.getWritePointer (0);
+    const float* inL = buffer.getReadPointer (0);
+    const float* inR = (buffer.getNumChannels() > 1) ? buffer.getReadPointer (1) : nullptr;
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float s = (inR != nullptr) ? 0.5f * (inL[i] + inR[i]) : inL[i];
+        fifo[sidechainFifoWriteIndex] = s;
+        sidechainFifoWriteIndex = (sidechainFifoWriteIndex + 1) % analysisWindow;
+        if (sidechainFifoFillCount < analysisWindow)
+            ++sidechainFifoFillCount;
+    }
+
+    sidechainSamplesSinceLastAnalysis += numSamples;
+
+    // FIFO pas encore plein : impossible de detecter.
+    if (sidechainFifoFillCount < analysisWindow)
+        return 0.0f;
+
+    // Analyse deja faite recemment : on economise le CPU.
+    if (sidechainSamplesSinceLastAnalysis < analysisHopSize)
+        return 0.0f;
+
+    sidechainSamplesSinceLastAnalysis = 0;
+
+    if (sidechainLinearBuffer.getData() == nullptr)
+        return 0.0f;
+
+    float* linear = sidechainLinearBuffer.getData();
+
+    // Decimation par 4 (anti-aliasing) pour alleger YIN.
+    constexpr int decimation = 4;
+    const int decimatedWindow = analysisWindow / decimation;
+
+    int idx = sidechainFifoWriteIndex;
+    for (int i = 0; i < decimatedWindow; ++i)
+    {
+        float sum = 0.0f;
+        for (int j = 0; j < decimation; ++j)
+        {
+            sum += fifo[idx];
+            idx = (idx + 1) % analysisWindow;
+        }
+        linear[i] = sum / (float)decimation;
+    }
+
+    const float newPitch = sidechainPitchDetector->detectPitch (linear, decimatedWindow);
+    return (newPitch > 0.0f) ? newPitch : 0.0f;
+}
+
 // Detector factory — YIN only.
 std::unique_ptr<ovtdsp::IPitchDetector> OpenVoxTunerAudioProcessor::createDetector()
 {
@@ -1894,8 +2374,11 @@ void OpenVoxTunerAudioProcessor::setCurrentProgram (int)      {}
 const juce::String OpenVoxTunerAudioProcessor::getProgramName (int) { return {}; }
 void OpenVoxTunerAudioProcessor::changeProgramName (int, const juce::String&) {}
 
-// === MIDI : plugin can produce MIDI OUT ===
-bool OpenVoxTunerAudioProcessor::acceptsMidi() const  { return false; }
+// === MIDI : plugin can produce MIDI OUT and consume incoming MIDI ===
+// acceptsMidi() must be true so the host delivers the incoming MIDI bus
+// to processBlock (used by the "MIDI Target / Follow" feature). The input
+// bus is already declared (NEEDS_MIDI_INPUT / JUCE_PLUGIN_WANTS_MIDI_INPUT).
+bool OpenVoxTunerAudioProcessor::acceptsMidi() const  { return true; }
 bool OpenVoxTunerAudioProcessor::producesMidi() const { return true; }
 bool OpenVoxTunerAudioProcessor::isMidiEffect() const { return false; }
 
@@ -1911,12 +2394,16 @@ double OpenVoxTunerAudioProcessor::getTailLengthSeconds() const
 // === Layout des bus : on accepte mono et stereo, entree == sortie ===
 bool OpenVoxTunerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    if (layouts.getMainInputChannelSet()  != juce::AudioChannelSet::mono()
-     && layouts.getMainInputChannelSet()  != juce::AudioChannelSet::stereo())
+    const auto mainIn = layouts.getMainInputChannelSet();
+    if (mainIn != juce::AudioChannelSet::mono()
+     && mainIn != juce::AudioChannelSet::stereo())
         return false;
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
+    if (layouts.getMainOutputChannelSet() != mainIn)
         return false;
-    return true;
+
+    // Sidechain bus (input bus index 1) is optional: allow it disabled
+    // (empty channel set) or mono. Any other configuration is rejected.
+    return ovtdsp::isSidechainLayoutValid (layouts);
 }
 
 // === Etat du plugin : serialisation XML des parametres + pitch curve ===
@@ -1945,6 +2432,13 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("reverbMix",        (double) ms.reverbMix);
         slotXml->setAttribute ("flexTune",         (double) ms.flexTune);
         slotXml->setAttribute ("humanize",         (double) ms.humanize);
+        slotXml->setAttribute ("vibratoPreserve",  (double) ms.vibratoPreserve);
+        slotXml->setAttribute ("attackAware",      (double) ms.attackAware);
+        slotXml->setAttribute ("attackRelease",    (double) ms.attackRelease);
+        slotXml->setAttribute ("keySource",        (double) ms.keySource);
+        slotXml->setAttribute ("companionGroup",   (double) ms.companionGroup);
+        slotXml->setAttribute ("keyDetect",        (double) ms.keyDetect);
+        slotXml->setAttribute ("harmonyFollowLead", (double) (ms.harmonyFollowLead ? 1 : 0));
         slotXml->setAttribute ("key",              ms.key);
         slotXml->setAttribute ("scale",            ms.scale);
         slotXml->setAttribute ("harmonyType",      ms.harmonyType);
@@ -1992,6 +2486,13 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.reverbMix          = (float) slotXml->getDoubleAttribute ("reverbMix", 0.3);
             ms.flexTune           = (float) slotXml->getDoubleAttribute ("flexTune", 0.25);
             ms.humanize           = (float) slotXml->getDoubleAttribute ("humanize", 0.0);
+            ms.vibratoPreserve    = (float) slotXml->getDoubleAttribute ("vibratoPreserve", 0.0);
+            ms.attackAware        = (float) slotXml->getDoubleAttribute ("attackAware", 0.0);
+            ms.attackRelease      = (float) slotXml->getDoubleAttribute ("attackRelease", 60.0);
+            ms.keySource          = (float) slotXml->getDoubleAttribute ("keySource", 0.0);
+            ms.companionGroup     = (float) slotXml->getDoubleAttribute ("companionGroup", 0.0);
+            ms.keyDetect          = (float) slotXml->getDoubleAttribute ("keyDetect", 0.0);
+            ms.harmonyFollowLead  = slotXml->getDoubleAttribute ("harmonyFollowLead", 1.0) > 0.5;
             ms.key                = slotXml->getIntAttribute ("key", 0);
             ms.scale              = slotXml->getIntAttribute ("scale", 0);
             ms.harmonyType        = slotXml->getIntAttribute ("harmonyType", 0);

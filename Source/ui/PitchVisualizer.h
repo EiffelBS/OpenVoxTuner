@@ -120,11 +120,23 @@ namespace ui
         juce::DrawableButton resetViewButton { "Reset View", juce::DrawableButton::ImageOnButtonBackground };
 
         // === ARA2 Waveform overlay ===
+        // `waveformBuffer` keeps the most recent audio block for the Line /
+        // Mirror display types (unchanged behaviour).
         juce::AudioBuffer<float> waveformBuffer;
         double waveformSampleRate = 44100.0;
         bool hasWaveform = false;
         int currentDisplayType = 0;
         void paintWaveformOverlay (juce::Graphics& g, juce::Rectangle<int> plotArea);
+
+        // Ring buffer of recent audio samples. The host audio block size is
+        // typically < 512 samples, so a single block can never fill the 512-sample
+        // FFT window the Spectral view needs. We accumulate recent samples here so
+        // the Spectral (FFT) view always has enough data to compute a spectrum.
+        static constexpr int kWaveRingCapacity = 2048;
+        juce::AudioBuffer<float> waveformRing;        // circular, capacity kWaveRingCapacity
+        int waveformRingWritePos = 0;
+        int waveformTotalWritten = 0;
+        juce::AudioBuffer<float> waveformTailBuffer;  // contiguous tail for the spectral draw
 
         // Hover state for frequency cursor display.
         bool isMouseOverPlot = false;

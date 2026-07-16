@@ -128,7 +128,7 @@ set DevEnvDir=$vsRoot\Common7\IDE
 set VS170COMNTOOLS=$vsRoot\Common7\Tools\
 set COMSPEC=%SystemRoot%\system32\cmd.exe
 set PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
-"$cmakeExe" --build $BuildDir --config Release --target OpenVoxTuner_VST3 OpenVoxTuner_Standalone
+"$cmakeExe" --build $BuildDir --config Release --target OpenVoxTuner_VST3 OpenVoxTuner_Standalone OpenVoxKey_VST3
 exit /b %errorlevel%
 "@
     $buildContent | Out-File -Encoding ASCII $buildScript

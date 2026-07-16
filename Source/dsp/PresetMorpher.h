@@ -25,6 +25,12 @@ namespace ovtdsp
         float reverbMix = 0.0f;
         float flexTune = 0.0f;
         float humanize = 0.0f;
+        float vibratoPreserve = 0.0f;
+        float attackAware = 0.0f;
+        float attackRelease = 60.0f;
+        float keySource = 0.0f;
+        float companionGroup = 0.0f;
+        float keyDetect = 0.0f;
 
         // Discrete parameters (step at 50%)
         int key = 0;
@@ -40,6 +46,7 @@ namespace ovtdsp
         bool bypass = false;
         bool harmonyEnable = false;
         bool harmonyUseVoice = true;
+        bool harmonyFollowLead = true;
         bool reverbEnable = false;
         bool noiseGateEnable = false;
         float noiseGateThreshold = 0.667f; // normalized: -40dB in -80..0 range
@@ -70,6 +77,13 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("reverb_mix"))         s.reverbMix = p->getValue();
         if (auto* p = params.getParameter ("flex_tune"))          s.flexTune = p->getValue();
         if (auto* p = params.getParameter ("humanize"))           s.humanize = p->getValue();
+        if (auto* p = params.getParameter ("vibrato_preserve"))   s.vibratoPreserve = p->getValue();
+        if (auto* p = params.getParameter ("attack_aware"))       s.attackAware = p->getValue();
+        if (auto* p = params.getParameter ("attack_release"))    s.attackRelease = p->getValue();
+        if (auto* p = params.getParameter ("key_source"))         s.keySource = p->getValue();
+        if (auto* p = params.getParameter ("companion_group"))    s.companionGroup = p->getValue();
+        if (auto* p = params.getParameter ("key_detect"))         s.keyDetect = p->getValue();
+        if (auto* p = params.getParameter ("harmony_follow_lead")) s.harmonyFollowLead = p->getValue() > 0.5f;
 
         // Discrete (use getNormalisedRange + snap to int)
         if (auto* p = params.getParameter ("key"))                      s.key = (int) std::round (p->getValue() * 11.0f);
@@ -106,11 +120,14 @@ namespace ovtdsp
         juce::StringArray ids;
         ids.addArray ({ "speed", "amount", "formant", "harmony_gain", "harmony_blend",
                         "harmony_tone_color", "reverb_mix", "flex_tune", "humanize",
+                        "vibrato_preserve",
+                        "attack_aware", "attack_release",
+                        "key_source", "companion_group", "key_detect",
                         "noise_gate_threshold", "key", "scale", "harmony_type",
                         "harmony_tone", "harmony_shifted_voices", "latency_mode",
                         "editor_measures", "formant_enable", "bypass", "harmony_enable",
-                        "harmony_use_voice", "reverb_enable", "noise_gate_enable",
-                        "correction_mode" });
+                        "harmony_use_voice", "harmony_follow_lead", "reverb_enable",
+                        "noise_gate_enable", "correction_mode" });
         return ids;
     }
 
@@ -162,6 +179,12 @@ namespace ovtdsp
         setParam ("reverb_mix",         source.reverbMix + (target.reverbMix - source.reverbMix) * t);
         setParam ("flex_tune",          source.flexTune + (target.flexTune - source.flexTune) * t);
         setParam ("humanize",           source.humanize + (target.humanize - source.humanize) * t);
+        setParam ("vibrato_preserve",   source.vibratoPreserve + (target.vibratoPreserve - source.vibratoPreserve) * t);
+        setParam ("attack_aware",       source.attackAware + (target.attackAware - source.attackAware) * t);
+        setParam ("attack_release",     source.attackRelease + (target.attackRelease - source.attackRelease) * t);
+        setParam ("key_source",         source.keySource + (target.keySource - source.keySource) * t);
+        setParam ("companion_group",    source.companionGroup + (target.companionGroup - source.companionGroup) * t);
+        setParam ("key_detect",         lerpOrStep (source.keyDetect, target.keyDetect, t));
         setParam ("noise_gate_threshold", source.noiseGateThreshold + (target.noiseGateThreshold - source.noiseGateThreshold) * t);
 
         // Discrete parameters (step at 50%)
@@ -178,6 +201,7 @@ namespace ovtdsp
         setParam ("bypass",            lerpOrStep (source.bypass ? 1.0f : 0.0f, target.bypass ? 1.0f : 0.0f, t));
         setParam ("harmony_enable",    lerpOrStep (source.harmonyEnable ? 1.0f : 0.0f, target.harmonyEnable ? 1.0f : 0.0f, t));
         setParam ("harmony_use_voice", lerpOrStep (source.harmonyUseVoice ? 1.0f : 0.0f, target.harmonyUseVoice ? 1.0f : 0.0f, t));
+        setParam ("harmony_follow_lead", lerpOrStep (source.harmonyFollowLead ? 1.0f : 0.0f, target.harmonyFollowLead ? 1.0f : 0.0f, t));
         setParam ("reverb_enable",     lerpOrStep (source.reverbEnable ? 1.0f : 0.0f, target.reverbEnable ? 1.0f : 0.0f, t));
         setParam ("noise_gate_enable", lerpOrStep ((float) source.noiseGateEnable, (float) target.noiseGateEnable, t) > 0.5f ? 1.0f : 0.0f);
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));

@@ -230,7 +230,7 @@ The mode is saved in the plugin state via the "mode" parameter (AudioParameterCh
 | humanize | float    | 0.0 - 50.0 (cents)                                | 40.0                | Humanize fluctuation                          |
 | correction_mode | bool | Modern (false) / Transparent (true)             | Modern (false)      | Correction mode                               |
 | ui_theme | int      | 0 - 1                                              | 0 (Dark)            | UI theme                                      |
-| ui_language | int    | 0 - 4 (EN, FR, DE, ES, JA)                         | 0 (English)         | UI language                                   |
+| ui_language | int    | 0 - 5 (EN, FR, DE, ES, JA, ZH)                     | 0 (English)         | UI language                                   |
 | dbg_test_grain | bool | off / on                                         | off                 | Debug test grain                              |
 | editor_measures | int | 1 - 32                                            | 4                   | Editor measures                               |
 | auto_scroll | bool   | off / on                                           | on                  | Auto scroll                                   |
