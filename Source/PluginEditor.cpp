@@ -1624,17 +1624,38 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, id, scaleKeyboard.getButton(i));
 
         scaleKeyboard.getButton(i).onUserInteraction = [this] {
-            // Switch to Custom mode silently: write the atomic value and
-            // update the combo box display without triggering any JUCE
-            // notification cascade. The ButtonAttachment's setValueNotifyingHost
-            // on custom_i already happened during setToggleState, and that
-            // host re-sync read the old scale value (harmless). Now we just
-            // store the new scale value for the next audio callback.
-            auto* rawScale = processorRef.getParameters().getRawParameterValue ("scale");
-            if (rawScale != nullptr && std::abs (rawScale->load() - 1.0f) > 0.01f)
+            // Switch to Custom mode silently: push the new scale value
+            // through the AudioParameterChoice (NOT just the raw atomic
+            // pointer), because the audio callback's syncParameters()
+            // reads the AudioParameterChoice (line 2261 — `scaleChoiceParam
+            // ->getIndex()`) when rebuilding the scale intervals. Storing
+            // into the atomic alone leaves scaleChoiceParam pointing at the
+            // previous preset, so on the next block syncParameters() pushes
+            // the previous preset's intervals back into the quantizer and
+            // the piano keyboard — and the toggle we just applied is
+            // visually invisible (the user-reported bug on 2026-07-17:
+            // "je clique sur la touche D => rien ne se passe (touche dans
+            // la gamme précédente C Natural Minor)").
+            //
+            // setValueNotifyingHost fires valueChanged, which the
+            // ComboBoxAttachment listens to in order to update the combo
+            // display (no need for a separate setSelectedItemIndex call).
+            // The scaleBox.onChange callback also fires; in Custom mode
+            // (the target of this switch) it short-circuits immediately
+            // ("Custom keeps the user's custom note flags" comment in
+            // onChange), so the toggles we just set are NOT clobbered.
+            auto* scaleParam = dynamic_cast<juce::AudioParameterChoice*>(
+                processorRef.getParameters().getParameter ("scale"));
+            if (scaleParam != nullptr)
             {
-                rawScale->store (1.0f);
-                scaleBox.setSelectedItemIndex (scaleBox.getNumItems() - 1, juce::dontSendNotification);
+                const int numChoices = scaleParam->choices.size();
+                const int customIdx  = numChoices - 1; // Custom is the last entry
+                if (scaleParam->getIndex() != customIdx && numChoices > 1)
+                {
+                    const float normalized = static_cast<float> (customIdx)
+                                           / static_cast<float> (numChoices - 1);
+                    scaleParam->setValueNotifyingHost (normalized);
+                }
             }
         };
     }

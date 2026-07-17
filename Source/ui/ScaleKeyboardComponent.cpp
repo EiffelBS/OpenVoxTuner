@@ -8,6 +8,19 @@ namespace ui
     PianoKeyButton::PianoKeyButton()
         : juce::ToggleButton()
     {
+        // JUCE 8 regression: juce::ToggleButton no longer defaults to
+        // clickTogglesState = true in its constructor (it did in JUCE 7).
+        // Without this explicit call, a real mouse click goes through
+        // Button::internalClickCallback() which, with clickTogglesState
+        // == false, fires ONLY sendClickMessage(modifiers) and never
+        // calls setToggleState. As a result, the AudioParameterBool
+        // (custom_i) is never written by the click and the user cannot
+        // add/remove notes from the scale in the live plugin. The unit
+        // test in ScaleKeyboardComponentTest.cpp uses our
+        // triggerClick() override which does the setToggleState
+        // explicitly, so the bug was invisible to the test suite.
+        setClickingTogglesState (true);
+
         // Register the internal InteractionListener so that whenever the
         // base class Button::clicked() fires its `sendClickMessage` (which
         // notifies all Button::Listener entries in registration order),

@@ -42,6 +42,34 @@ public:
         using ui::PianoKeyButton;
         using ui::ScaleKeyboardComponent;
 
+        // Regression test (2026-07-17, Fix AB): in JUCE 8, the
+        // `juce::ToggleButton` constructor no longer sets
+        // `clickTogglesState = true` (it did in JUCE 7). Without
+        // an explicit call to `setClickingTogglesState(true)` in
+        // `PianoKeyButton::PianoKeyButton`, a real mouse click
+        // goes through `Button::internalClickCallback` which, with
+        // `clickTogglesState == false`, only fires
+        // `sendClickMessage(modifiers)` and never calls
+        // `setToggleState`. The AudioParameterBool (`custom_i`)
+        // connected via `ButtonAttachment` is therefore never
+        // written by the click, and the user cannot add/remove
+        // notes from the scale in the live plugin. The unit test
+        // below catches this by asserting that a freshly
+        // constructed `PianoKeyButton` is actually toggleable on
+        // click.
+        beginTest ("PianoKeyButton est toggleable au clic (regression JUCE 8)");
+        {
+            PianoKeyButton btn;
+            expect (btn.isToggleable(),
+                "Un PianoKeyButton fraichement construit doit etre "
+                "toggleable au clic (clickTogglesState = true). Sans "
+                "cela, un clic souris reel ne fait que fire "
+                "sendClickMessage sans jamais appeler setToggleState, "
+                "donc le AudioParameterBool custom_i n'est jamais "
+                "ecrit par le clic et l'utilisateur ne peut pas "
+                "ajouter/retirer des notes de la gamme dans le plugin.");
+        }
+
         // La logique de rendu de PianoKeyButton::paintButton est :
         //   isActive = activeInScale || getToggleState()
         // L'invariant qu'on veut verifier : apres un clic utilisateur
