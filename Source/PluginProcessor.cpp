@@ -2585,6 +2585,9 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         if (xml != nullptr && curveXml != nullptr)
             xml->addChildElement (curveXml.release());
     }
+    // Persist UI-only preferences that are not AudioParameters.
+    xml->setAttribute ("advancedExpanded", advancedExpandedState ? 1 : 0);
+
     // Persist A/B slot MorphStates as compact flat attributes (no nested XML).
     for (int slot = 0; slot < 2; ++slot)
     {
@@ -2639,6 +2642,7 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
     {
         parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
         waveformDisplayType = xmlState->getIntAttribute ("waveformDisplayType", 1);
+        advancedExpandedState = xmlState->getBoolAttribute ("advancedExpanded", false);
         // Restore A/B slot MorphStates from compact flat attributes.
         for (int slot = 0; slot < 2; ++slot)
         {

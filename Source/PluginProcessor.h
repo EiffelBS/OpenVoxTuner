@@ -160,6 +160,10 @@ public:
     int getWaveformDisplayType() const { return waveformDisplayType; }
     void setWaveformDisplayType (int type) { waveformDisplayType = type; }
 
+    // Correction block "Advanced" expand/collapse state (persisted across sessions).
+    bool getAdvancedExpanded() const { return advancedExpandedState; }
+    void setAdvancedExpanded (bool expanded) { advancedExpandedState = expanded; }
+
     // Morph slider amount accessors (backed by the automatable "morph_amount" parameter).
     float getMorphAmount() const { return morphAmountParam != nullptr ? morphAmountParam->load (std::memory_order_relaxed) : 0.0f; }
     void setMorphAmount (float v);
@@ -360,6 +364,9 @@ private:
 
     // Waveform display type preference (persisted across sessions).
     int waveformDisplayType = 1; // 0=Line, 1=Mirror (default)
+
+    // Correction block "Advanced" expand/collapse state (persisted across sessions).
+    bool advancedExpandedState = false;
 
     // Morph slider amount (automatable parameter "morph_amount").
     std::atomic<float>* morphAmountParam = nullptr;

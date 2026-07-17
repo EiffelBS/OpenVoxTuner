@@ -215,6 +215,38 @@ public:
                 "onUserInteraction doit etre appelee une fois par "
                 "triggerClick() (InteractionListener fait l'appel)");
         }
+
+        // 5) Regression (2026-07-17, Fix AC): when the parent
+        // ScaleKeyboardComponent is in "updating from scale combo" mode,
+        // a programmatic toggle (e.g. scaleBox.onChange rewriting all
+        // custom_i) must NOT fire onUserInteraction (which would switch
+        // the scale combo back to "Custom" and cancel the user's preset
+        // selection). The guard is isUpdatingFromScaleCombo().
+        beginTest ("Suppression onUserInteraction pendant maj depuis combo (regression Fix AC)");
+        {
+            ScaleKeyboardComponent comp;
+            auto& btn = comp.getButton (0); // C
+
+            btn.setActiveInScale (true);
+            btn.setToggleState (true, juce::dontSendNotification);
+
+            int interactionCount = 0;
+            btn.onUserInteraction = [&interactionCount] { ++interactionCount; };
+
+            // Simulate scaleBox.onChange programmatic update: suppress first.
+            comp.setUpdatingFromScaleCombo (true);
+            btn.triggerClick(); // would normally toggle + fire callback
+            comp.setUpdatingFromScaleCombo (false);
+
+            expect (interactionCount == 0,
+                "Pendant une maj programmee depuis la combo "
+                "(setUpdatingFromScaleCombo(true)), un toggle ne doit "
+                "PAS appeler onUserInteraction. Sans cela, selectionner "
+                "une gamme preset dans la combo la remettait a 'Custom'.");
+            expect (btn.getToggleState() == false,
+                "Le toggle visuel doit quand meme etre applique "
+                "(etat OFF) meme si onUserInteraction est supprime.");
+        }
     }
 };
 

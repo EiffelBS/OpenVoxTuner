@@ -405,10 +405,14 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     advancedButton.setColour (juce::TextButton::textColourOnId,   ovt::text());
     advancedButton.setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
     advancedButton.setClickingTogglesState (true);
+    // Restore the persisted expand/collapse state from the processor (saved
+    // across sessions in the plugin state XML).
+    advancedExpanded = processorRef.getAdvancedExpanded();
     advancedButton.setToggleState (advancedExpanded, juce::dontSendNotification);
     advancedButton.onClick = [this]
     {
         advancedExpanded = advancedButton.getToggleState();
+        processorRef.setAdvancedExpanded (advancedExpanded);
         resized();
         repaint();  // the bottom-block frames are painted in paint(), so redraw them
     };
@@ -1051,6 +1055,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             return;
         if (idx != 13) // Not Custom (Custom keeps the user's custom note flags)
         {
+            // Suppress onUserInteraction callbacks on the piano keys during the
+            // programmatic sync, so selecting a preset from the combo does NOT
+            // re-trigger the "switch to Custom" logic (which would set the combo
+            // back to "Custom" and cancel the user's preset selection).
+            scaleKeyboard.setUpdatingFromScaleCombo (true);
             auto* rawKey = processorRef.getParameters().getRawParameterValue ("key");
             const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load() * 11.0f)) : 0;
 
@@ -1069,6 +1078,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                         p->setValueNotifyingHost (targetVal);
                 }
             }
+            scaleKeyboard.setUpdatingFromScaleCombo (false);
         }
     };
     latencyModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (

@@ -49,6 +49,16 @@ namespace ui
         interactionListener.owner = nullptr;
     }
 
+    void PianoKeyButton::setParentComponent (ScaleKeyboardComponent* parent)
+    {
+        parentComponent = parent;
+    }
+
+    bool PianoKeyButton::isInteractionSuppressed() const
+    {
+        return parentComponent != nullptr && parentComponent->isUpdatingFromScaleCombo();
+    }
+
     void PianoKeyButton::paintButton (juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown)
     {
         auto bounds = getLocalBounds().toFloat().reduced(0.5f);
@@ -101,6 +111,7 @@ namespace ui
         for (int i = 0; i < 12; ++i)
         {
             keys[i].setNoteIndex(i, isBlackKey[i]);
+            keys[i].setParentComponent (this);
             addAndMakeVisible(keys[i]);
         }
     }

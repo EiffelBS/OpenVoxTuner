@@ -6,6 +6,8 @@
 
 namespace ui
 {
+    class ScaleKeyboardComponent;
+
     class PianoKeyButton : public juce::ToggleButton
     {
     public:
@@ -23,6 +25,12 @@ namespace ui
         /** Set whether this note is in the current scale (used for non-Custom modes). */
         void setActiveInScale (bool active) { activeInScale = active; }
         bool isActiveInScale() const { return activeInScale; }
+
+        /** Set the parent ScaleKeyboardComponent (used to check suppression flag). */
+        void setParentComponent (ScaleKeyboardComponent* parent);
+
+        /** Check if interaction should be suppressed (e.g. during programmatic scale update). */
+        bool isInteractionSuppressed() const;
 
         void paintButton (juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
 
@@ -97,15 +105,24 @@ namespace ui
                 // reflects the change immediately, without waiting for the
                 // next refreshVisualizer() tick (~16 ms later).
                 owner->activeInScale = owner->getToggleState();
+                
+                // Only fire onUserInteraction if not suppressed (e.g. when
+                // scaleBox.onChange updates the buttons programmatically).
+                if (owner->isInteractionSuppressed())
+                    return;
                 if (owner->onUserInteraction)
                     owner->onUserInteraction();
             }
         };
 
         InteractionListener interactionListener;
+        ScaleKeyboardComponent* parentComponent = nullptr;
         int noteIndex = 0;
         bool isBlack = false;
         bool activeInScale = true; // default: all notes active (chromatic)
+
+        // Allow isSuppressed() to read parentComponent without making it public.
+        friend bool isSuppressed (PianoKeyButton*);
     };
 
     class ScaleKeyboardComponent : public juce::Component
@@ -114,10 +131,19 @@ namespace ui
         ScaleKeyboardComponent();
         ~ScaleKeyboardComponent() override = default;
 
+        // Forward declaration of friend helper (defined after class)
+        friend bool isSuppressed (PianoKeyButton*);
+
         void paint (juce::Graphics& g) override;
         void resized() override;
 
         PianoKeyButton& getButton(int index) { return keys[index]; }
+
+        /** Set the suppression flag while programmatically updating button state (e.g. from scaleBox.onChange). */
+        void setUpdatingFromScaleCombo (bool updating) { updatingFromScaleComboFlag = updating; }
+
+        /** Check if we are currently updating button state from the scale combo (to suppress onUserInteraction). */
+        bool isUpdatingFromScaleCombo() const { return updatingFromScaleComboFlag; }
 
         /** Update which notes are visually active in the current scale. */
         void setActiveScaleIntervals (const juce::Array<int>& intervals)
@@ -129,6 +155,7 @@ namespace ui
 
     private:
         std::array<PianoKeyButton, 12> keys;
+        bool updatingFromScaleComboFlag = false;
     };
 }
 
