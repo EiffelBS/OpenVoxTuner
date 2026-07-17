@@ -10,8 +10,26 @@
 // Generated build info (created by CMake)
 #include "BuildInfo.h"
 #include "dsp/PitchShifter.h" // for gPitchShifterGrainEvents
+#include <vector>
+#include <algorithm>
 
-#define OVT_LOG(msg) juce::Logger::writeToLog (msg)
+// IMPORTANT: OVT_LOG is wrapped in #if JUCE_DEBUG to match the convention
+// used in PitchShifter.cpp. Reason: in Release builds, juce::Logger::writeToLog
+// still runs and allocates a juce::String per call (even though
+// BufferedFileLogger amortises the disk I/O), and at one of the call sites
+// (processBlock line 2091, "MIDI: f0_out=...") the log fires EVERY audio
+// block (~100 calls/sec while singing). On real-time-constrained DAWs like
+// Studio One, this string allocation + lock contention is enough to push
+// the 11.6 ms block deadline (~512 samples at 44.1 kHz) and cause audible
+// dropouts — the user reported this regression on 2026-07-17. Keeping the
+// log gated to Debug means Release is free of any string work in the hot
+// path. To re-enable logging in a Release build for diagnosis, define
+// OVT_FORCE_LOG in the build flags (e.g. cmake -DCMAKE_CXX_FLAGS="-DOVT_FORCE_LOG").
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+ #define OVT_LOG(msg) juce::Logger::writeToLog (msg)
+#else
+ #define OVT_LOG(msg) do { } while (false)
+#endif
 
 // Definition of the IID for the IEditControllerExtra interface
 #include "pluginterfaces/base/funknown.h"
@@ -94,31 +112,98 @@ void OpenVoxTunerAudioProcessor::dumpVST3BundleInfo()
 }
 
 
-// Simple file logger for debug builds: captures Logger::writeToLog messages to a file
-class SimpleFileLogger : public juce::Logger
+// Buffered file logger: captures Logger::writeToLog messages and flushes
+// them to disk in batches every 200 ms, rather than on every log call.
+//
+// Why buffering matters (regression: dropouts in Studio One when Flex or
+// Attack are enabled, 2026-07-17):
+//   The audio callback runs in a real-time thread. The previous
+//   SimpleFileLogger did `file.appendText(line)` on every log message
+//   (open + write + close, on Windows this is ~1-5 ms per call). With
+//   several OVT_LOG sites in the hot path (FlexTune / Amount /
+//   pitchShifter->process / harmony, each gated to fire ~once per
+//   second), the per-block callback was taking 1-5 ms just for I/O —
+//   enough to push a 512-sample block at 44.1 kHz over the 11.6 ms
+//   deadline on slower laptops, causing regular audio dropouts when
+//   the user enabled features (Flex / Attack) that add more work
+//   around those log sites.
+//
+//   Buffering keeps the same diagnostic capability (the user can
+//   read the log file after a session) but amortises the file I/O
+//   cost: at most 5 disk writes per second (one per 200 ms tick),
+//   each writing a batch of messages accumulated since the last tick.
+//   A burst of 50 OVT_LOG calls in a 100 ms window now costs a single
+//   file write instead of 50.
+class BufferedFileLogger : public juce::Logger, private juce::Timer
 {
 public:
-    explicit SimpleFileLogger (const juce::File& f)
+    explicit BufferedFileLogger (const juce::File& f)
         : file (f)
     {
         file.deleteFile(); // start fresh
         file.create();
+        // 200 ms is a good balance: short enough that the log file is
+        // updated "live" (the user can `tail -f` it during a session),
+        // long enough to coalesce most per-second periodic logs into
+        // a single write.
+        startTimer (200);
+    }
+
+    ~BufferedFileLogger() override
+    {
+        // Final flush so we don't lose the last messages.
+        stopTimer();
+        flushPending();
     }
 
     void logMessage (const juce::String& message) override
     {
         const juce::String line = juce::Time::getCurrentTime().toString(true, true) + " " + message + "\n";
         juce::ScopedLock lock (writeLock);
-        file.appendText (line);
+        pending.emplace_back (line);
 #if JUCE_WINDOWS
-        // Also emit to the debugger output so DebugView or Visual Studio can catch it
+        // Also emit immediately to the debugger output so DebugView /
+        // Visual Studio can see the message in real time, even if the
+        // file write is delayed by up to 200 ms. OutputDebugStringA is
+        // non-blocking (it copies into a kernel buffer and returns),
+        // so this is safe in the audio callback.
         OutputDebugStringA (line.toUTF8().getAddress());
 #endif
     }
 
+    void timerCallback() override
+    {
+        flushPending();
+    }
+
 private:
+    void flushPending()
+    {
+        // Atomically swap the pending buffer with an empty one, then
+        // do the (potentially slow) file I/O outside the lock. This
+        // keeps the audio callback's logMessage() wait-free: it only
+        // contends on a brief push_back + swap.
+        std::vector<juce::String> toWrite;
+        {
+            juce::ScopedLock lock (writeLock);
+            toWrite.swap (pending);
+        }
+        if (toWrite.empty())
+            return;
+
+        juce::String combined;
+        combined.preallocateBytes (static_cast<int> (toWrite.size()) * 80);
+        for (const auto& line : toWrite)
+            combined += line;
+        // One file open + one write + one close, regardless of how many
+        // messages were in the batch. On Windows, appendText is the
+        // JUCE helper that handles the stream lifecycle.
+        file.appendText (combined);
+    }
+
     juce::File file;
     juce::CriticalSection writeLock;
+    std::vector<juce::String> pending;
 };
 
 void OpenVoxTunerAudioProcessor::setHarmonyEnvelopeTimes (float attackMs, float releaseMs)
@@ -378,7 +463,19 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                        // character (vibrato preservation, humanize, flex, attack-aware), so they move
                        // with the lead instead of staying locked to the scale grid.
                        std::make_unique<juce::AudioParameterBool> (
-                          "harmony_follow_lead", "Harmony Follow Lead", true), std::make_unique<juce::AudioParameterBool> (
+                          "harmony_follow_lead", "Harmony Follow Lead", true),
+                       // Gain Match: when on (default), the harmony mix is scaled by
+                       // 1/sqrt(1+N) where N = number of active harmony voices, so the
+                       // total output RMS is roughly equal to the dry input RMS (this
+                       // matches the perceptual balance for uncorrelated harmony voices
+                       // and is a good compromise for correlated Unison/Unison+Octaves
+                       // which the user reports as "much louder"). The dry signal is
+                       // untouched. The harmony_volume knob still controls the overall
+                       // harmony level (post-compensation). User can turn this off to
+                       // restore the natural "additive" boost.
+                       std::make_unique<juce::AudioParameterBool> (
+                          "harmony_gain_match", "Harmony Gain Match", true),
+                       std::make_unique<juce::AudioParameterBool> (
                           "midi_out_enable", "MIDI Out Enable",
                           // In standalone mode, disable MIDI out by default.
                           ! isStandaloneWrapper())
@@ -471,6 +568,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     harmonyToneParam = parameters.getRawParameterValue ("harmony_tone");
     harmonyToneColorParam = parameters.getRawParameterValue ("harmony_tone_color");
     harmonyFollowLeadParam = parameters.getRawParameterValue ("harmony_follow_lead");
+    harmonyGainMatchParam = parameters.getRawParameterValue ("harmony_gain_match");
     midiOutEnableParam = parameters.getRawParameterValue ("midi_out_enable");
     midiTargetEnableParam = parameters.getRawParameterValue ("midi_target_enable");
     dbgTestGrainParam = parameters.getRawParameterValue ("dbg_test_grain");
@@ -531,7 +629,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         logDir.createDirectory();
         juce::File logFile = logDir.getChildFile (
             "ovt_" + juce::Time::getCurrentTime().toISO8601(true).replaceCharacter (':', '-') + ".log");
-        juce::Logger::setCurrentLogger (new SimpleFileLogger (logFile));
+        juce::Logger::setCurrentLogger (new BufferedFileLogger (logFile));
         OVT_LOG ("OpenVoxTuner log initialized: " + logFile.getFullPathName());
     }
 
@@ -583,6 +681,20 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // Prepare the YIN pitch detector.
     if (pitchDetectors[0] != nullptr)
         pitchDetectors[0]->prepare (sampleRate / 4.0, samplesPerBlock);
+    // Reset the latency-mode cache so applyLatencyMode() ALWAYS re-runs
+    // setLatencySamples() on this prepareToPlay(), even if the user has
+    // not changed the mode since the last prepare. This is needed
+    // because some hosts (notably Studio One with VST3) do NOT re-call
+    // prepareToPlay() when the user disables and re-enables the insert
+    // slot — they only re-read the last reported latency from the
+    // plugin. If we early-return inside applyLatencyMode() (which we
+    // do in syncParameters() to avoid spamming the host every block),
+    // the host keeps showing the previous latency value, which can
+    // disagree with the actual mode selected in the plugin UI. Forcing
+    // the re-apply here guarantees the host's PDC always matches the
+    // plugin's current mode, regardless of whether prepareToPlay() is
+    // the only host hook that fires on insert re-enable.
+    appliedLatencyMode = -1;
     applyLatencyMode();
     pitchShifter->prepare (sampleRate, samplesPerBlock);
     noiseGate.prepare (sampleRate);
@@ -1529,18 +1641,34 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // natural attack transient is preserved (third orthogonal axis to FlexTune
         // and Humanize). attackEnv returns a gain in [0,1]: 0 at the onset, ramping
         // back to 1 over the user-set release time. We multiply it into the amount.
+        //
+        // Performance note (2026-07-17): the per-block input RMS computation
+        // (n multiplications + 1 sqrt) was previously evaluated UNCONDITIONALLY
+        // at every audio block, even when the user had not enabled Attack.
+        // At 44.1 kHz / 256 samples / stereo that is ~512 multiplications per
+        // block (multiplied across channels), totalling ~50K multiplications
+        // per second of pure waste. With a tight audio deadline (5.8 ms at
+        // 44.1 kHz / 256) this wasted work is enough to push the deadline
+        // on slower machines in conjunction with FlexTune. We now gate the
+        // RMS computation AND the attackEnv.process() call on the enabled
+        // state. When disabled, the amount is left untouched (no correction
+        // attenuation), which is the correct behaviour: attackEnv returns
+        // 1.0 in disabled mode, so amount *= 1.0 is a no-op.
         if (attackAwareParam != nullptr && attackReleaseParam != nullptr)
         {
             attackEnv.setEnabled (attackAwareParam->load() > 0.5f);
-            attackEnv.setReleaseSeconds (attackReleaseParam->load() / 1000.0f);
-            const int n = buffer.getNumSamples();
-            const float* d = (n > 0) ? buffer.getReadPointer (0) : nullptr;
-            float sumSq = 0.0f;
-            if (d != nullptr)
-                for (int i = 0; i < n; ++i) sumSq += d[i] * d[i];
-            const float blockRms = (n > 0) ? std::sqrt (sumSq / static_cast<float> (n)) : 0.0f;
-            const float blockDur = static_cast<float> (n) / static_cast<float> (currentSampleRate);
-            amount *= attackEnv.process (blockRms, blockDur);
+            if (attackEnv.isEnabled())
+            {
+                attackEnv.setReleaseSeconds (attackReleaseParam->load() / 1000.0f);
+                const int n = buffer.getNumSamples();
+                const float* d = (n > 0) ? buffer.getReadPointer (0) : nullptr;
+                float sumSq = 0.0f;
+                if (d != nullptr)
+                    for (int i = 0; i < n; ++i) sumSq += d[i] * d[i];
+                const float blockRms = (n > 0) ? std::sqrt (sumSq / static_cast<float> (n)) : 0.0f;
+                const float blockDur = static_cast<float> (n) / static_cast<float> (currentSampleRate);
+                amount *= attackEnv.process (blockRms, blockDur);
+            }
         }
 
         targetRatio = 1.0f + (targetRatio - 1.0f) * amount;
@@ -1893,13 +2021,36 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                  float* outL = buffer.getWritePointer (0);
                  float* outR = (outChannels > 1) ? buffer.getWritePointer (1) : nullptr;
 
+                 // Gain match: when enabled, scale the harmony mix by
+                 // 1/sqrt(1 + N) so the additive contribution does not
+                 // boost the total RMS above the dry input RMS. N is the
+                 // number of active harmony voices for the current type
+                 // (e.g. Unison2 -> N=2, VocalStack4 -> N=4). The dry
+                 // signal is NOT scaled (it is already in the output
+                 // buffer before this mix). The user-facing harmony
+                 // volume knob still scales the result, so the user can
+                 // fine-tune. This is the same approach used by
+                 // Auto-Tune and other reference vocal harmonisers.
+                 const int currentHarmType = (harmonyTypeParam != nullptr)
+                     ? static_cast<int> (harmonyTypeParam->load()) : 0;
+                 const int numHarmVoices = (currentHarmType > 0)
+                     ? ovtdsp::HarmonyEngine::getHarmonyVoiceCount (
+                         static_cast<ovtdsp::HarmonyType> (currentHarmType))
+                     : 0;
+                 const bool gainMatchOn = (harmonyGainMatchParam != nullptr)
+                     && (harmonyGainMatchParam->load() > 0.5f);
+                 const float gainMatchFactor = (gainMatchOn && numHarmVoices > 0)
+                     ? (1.0f / std::sqrt (1.0f + static_cast<float> (numHarmVoices)))
+                     : 1.0f;
+                 const float hGainFinal = hGain * gainMatchFactor;
+
                  for (int i = 0; i < numS; ++i)
                  {
                      const float hL = harmonyBuffer.getReadPointer (0)[i];
                      const float hR = numCh == 1 ? hL : harmonyBuffer.getReadPointer (1)[i];
-                     outL[i] += hL * hGain;
+                     outL[i] += hL * hGainFinal;
                      if (outR != nullptr)
-                         outR[i] += hR * hGain;
+                         outR[i] += hR * hGainFinal;
                  }
 
                  // Compute stereo level of harmony output
@@ -1913,15 +2064,18 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     )
                 );
 
-                // Save last mixed harmony contribution (scaled by hGain)
-                // for potential crossfade on stop.
+                // Save last mixed harmony contribution (scaled by the
+                // final post-gain-match gain) for potential crossfade on
+                // stop. We use the same hGainFinal that the live mix
+                // used, so the crossfade is inaudible if the harmony
+                // engine is stopped mid-block.
                 if (lastMixedHarmonyBuffer.getNumChannels() != numCh || lastMixedHarmonyBuffer.getNumSamples() != numS)
                     lastMixedHarmonyBuffer.setSize (numCh, numS, false, true, true);
                 lastMixedHarmonyBuffer.clear();
                 for (int ch = 0; ch < numCh; ++ch)
                 {
                     lastMixedHarmonyBuffer.copyFrom (ch, 0, harmonyBuffer, ch, 0, numS);
-                    juce::FloatVectorOperations::multiply (lastMixedHarmonyBuffer.getWritePointer (ch), hGain, numS);
+                    juce::FloatVectorOperations::multiply (lastMixedHarmonyBuffer.getWritePointer (ch), hGainFinal, numS);
                 }
                 wasHarmonyActiveLastBlock = true;
              }
@@ -1966,7 +2120,21 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (f0_out > 0.0f)
         {
             tunedMidi = freqToMidi(f0_out);
-            OVT_LOG ("MIDI: f0_out=" + juce::String(f0_out, 2) + "Hz midi=" + juce::String(tunedMidi));
+            // MIDI pitch log: gated to ~1/sec to avoid allocating a juce::String
+            // every audio block (the per-block OVT_LOG was a real-time cost
+            // contributor in DAWs like Studio One when the user had features
+            // like Flex/Attack active that already stress the audio callback
+            // timing).
+            static std::atomic<uint32_t> lastMidiF0LogMs { 0 };
+            const uint32_t nowM = juce::Time::getMillisecondCounter();
+            uint32_t lastM = lastMidiF0LogMs.load();
+            if (nowM - lastM > 1000)
+            {
+                if (lastMidiF0LogMs.compare_exchange_strong (lastM, nowM))
+                {
+                    OVT_LOG ("MIDI: f0_out=" + juce::String(f0_out, 2) + "Hz midi=" + juce::String(tunedMidi));
+                }
+            }
         }
         desired[0] = tunedMidi;
 

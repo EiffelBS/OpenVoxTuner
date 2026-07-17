@@ -228,6 +228,7 @@ private:
     std::atomic<float>* harmonyToneParam = nullptr; // synth harmony tone (choice)
     std::atomic<float>* harmonyToneColorParam = nullptr; // synth harmony tone color (continuous)
     std::atomic<float>* harmonyFollowLeadParam = nullptr; // harmonies follow lead character (bool)
+    std::atomic<float>* harmonyGainMatchParam = nullptr; // gain match on/off: scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
     std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
     std::atomic<float>* midiTargetEnableParam = nullptr; // MIDI target / follow enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        

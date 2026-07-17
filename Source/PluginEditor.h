@@ -64,6 +64,19 @@ public:
     void refreshDrawableButtonIcons();
 
 private:
+    // === Custom Look And Feel ===
+    // MUST be declared BEFORE all GUI components (Slider, Label, TooltipWindow,
+    // TabbedComponent, etc.) that hold a LookAndFeel pointer set via
+    // setLookAndFeel(&customLookAndFeel). C++ destroys members in REVERSE order
+    // of declaration, so placing customLookAndFeel at the top of the private
+    // section guarantees it is the LAST member destroyed — after every
+    // component that may still reference it has been torn down. Otherwise, on
+    // editor destruction (Standalone quit, VST3 unload, debug-mode close), the
+    // LookAndFeel is deleted while components still hold a pointer/weak-ref
+    // to it -> assertion / crash with
+    // "refCount.value = 2" reported by Copilot.
+    ui::OVTLookAndFeel customLookAndFeel;
+
     // === GUI Components ===
     juce::Slider speedSlider, amountSlider, formantSlider;
     juce::Label  speedLabel, amountLabel;
@@ -141,6 +154,7 @@ private:
     juce::Slider      harmonyToneColorSlider;
     juce::Label       harmonyToneColorLabel;
     juce::ToggleButton harmonyFollowLeadButton; // Harmony voices follow the lead correction character
+    juce::ToggleButton harmonyGainMatchButton; // Scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
 
     // Reverb controls (post-processing effect)
     juce::ToggleButton reverbEnableButton;
@@ -197,9 +211,6 @@ private:
     std::shared_ptr<OpenVoxTunerUpdateCheckState> updateCheckState;
 
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
-    
-    // Custom Look And Feel must be instantiated BEFORE the components that use it
-    ui::OVTLookAndFeel customLookAndFeel;
 
     // Scale selection keyboard
     ui::ScaleKeyboardComponent scaleKeyboard;
@@ -224,6 +235,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyGainAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyBlendAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> harmonyFollowLeadAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> harmonyGainMatchAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;

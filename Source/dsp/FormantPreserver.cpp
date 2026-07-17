@@ -40,6 +40,10 @@ namespace ovtdsp
             {
                 s.formants[f].z1 = 0.0f;
                 s.formants[f].z2 = 0.0f;
+                // Reinitialise aussi les coefficients lisses a l'etat
+                // transparent (passthrough) pour eviter un saut au reset.
+                s.smooth[f].b0 = 1.0f; s.smooth[f].b1 = 0.0f; s.smooth[f].b2 = 0.0f;
+                s.smooth[f].a1 = 0.0f; s.smooth[f].a2 = 0.0f;
             }
         }
     }
@@ -96,33 +100,48 @@ namespace ovtdsp
 
     void FormantPreserver::processChannel (float* data, int numSamples, ChannelState& s)
     {
-        // Process through all 4 formants in series
+        // Lisse les coefficients cibles vers les coefficients appliques (un
+        // seul pas par bloc, mais applique a chaque echantillon du bloc pour
+        // rester independant de la taille de buffer). Cela empeche toute
+        // discontinuite a la sortie quand le ratio de pitch change
+        // brutalement (demarrage d'une note chantee).
+        for (int f = 0; f < 4; ++f)
+        {
+            s.smooth[f].b0 += biquadSmoothAlpha * (s.formants[f].b0 - s.smooth[f].b0);
+            s.smooth[f].b1 += biquadSmoothAlpha * (s.formants[f].b1 - s.smooth[f].b1);
+            s.smooth[f].b2 += biquadSmoothAlpha * (s.formants[f].b2 - s.smooth[f].b2);
+            s.smooth[f].a1 += biquadSmoothAlpha * (s.formants[f].a1 - s.smooth[f].a1);
+            s.smooth[f].a2 += biquadSmoothAlpha * (s.formants[f].a2 - s.smooth[f].a2);
+        }
+
+        // Process through all 4 formants in series, using the SMOOTHED
+        // coefficients (not the raw per-block targets) to avoid clicks.
         for (int i = 0; i < numSamples; ++i)
         {
             float x = data[i];
             
             // F1
-            float y = s.formants[0].b0 * x + s.formants[0].z1;
-            s.formants[0].z1 = s.formants[0].b1 * x - s.formants[0].a1 * y + s.formants[0].z2;
-            s.formants[0].z2 = s.formants[0].b2 * x - s.formants[0].a2 * y;
+            float y = s.smooth[0].b0 * x + s.formants[0].z1;
+            s.formants[0].z1 = s.smooth[0].b1 * x - s.smooth[0].a1 * y + s.formants[0].z2;
+            s.formants[0].z2 = s.smooth[0].b2 * x - s.smooth[0].a2 * y;
             x = y;
 
             // F2
-            y = s.formants[1].b0 * x + s.formants[1].z1;
-            s.formants[1].z1 = s.formants[1].b1 * x - s.formants[1].a1 * y + s.formants[1].z2;
-            s.formants[1].z2 = s.formants[1].b2 * x - s.formants[1].a2 * y;
+            y = s.smooth[1].b0 * x + s.formants[1].z1;
+            s.formants[1].z1 = s.smooth[1].b1 * x - s.smooth[1].a1 * y + s.formants[1].z2;
+            s.formants[1].z2 = s.smooth[1].b2 * x - s.smooth[1].a2 * y;
             x = y;
 
             // F3
-            y = s.formants[2].b0 * x + s.formants[2].z1;
-            s.formants[2].z1 = s.formants[2].b1 * x - s.formants[2].a1 * y + s.formants[2].z2;
-            s.formants[2].z2 = s.formants[2].b2 * x - s.formants[2].a2 * y;
+            y = s.smooth[2].b0 * x + s.formants[2].z1;
+            s.formants[2].z1 = s.smooth[2].b1 * x - s.smooth[2].a1 * y + s.formants[2].z2;
+            s.formants[2].z2 = s.smooth[2].b2 * x - s.smooth[2].a2 * y;
             x = y;
 
             // F4
-            y = s.formants[3].b0 * x + s.formants[3].z1;
-            s.formants[3].z1 = s.formants[3].b1 * x - s.formants[3].a1 * y + s.formants[3].z2;
-            s.formants[3].z2 = s.formants[3].b2 * x - s.formants[3].a2 * y;
+            y = s.smooth[3].b0 * x + s.formants[3].z1;
+            s.formants[3].z1 = s.smooth[3].b1 * x - s.smooth[3].a1 * y + s.formants[3].z2;
+            s.formants[3].z2 = s.smooth[3].b2 * x - s.smooth[3].a2 * y;
             
             data[i] = y;
         }

@@ -137,6 +137,7 @@ namespace ovt
         static const char* kUseVoice            = "label.use_voice";
         static const char* kLabelHarmonyBtn     = "label.harmony_btn";
         static const char* kLabelHarmonyFollow   = "label.harmony_follow";
+        static const char* kLabelHarmonyGainMatch = "label.harmony_gain_match";
         static const char* kLabelFormantBtn     = "label.formant_btn";
         static const char* kLabelNoiseGate     = "label.noise_gate";
         static const char* kTooltipNoiseGate   = "tooltip.noise_gate";
@@ -211,6 +212,7 @@ namespace ovt
         static const char* kTooltipCorrection  = "tooltip.correction";
         static const char* kTooltipHarmonyEn   = "tooltip.harmony_enable";
         static const char* kTooltipHarmonyFollow = "tooltip.harmony_follow";
+        static const char* kTooltipHarmonyGainMatch = "tooltip.harmony_gain_match";
         static const char* kTooltipReverbEn    = "tooltip.reverb_enable";
         static const char* kTooltipFormant     = "tooltip.formant_enable";
         static const char* kTooltipFlexTune    = "tooltip.flex_tune";
@@ -436,6 +438,7 @@ namespace ovt
             { kUseVoice,            "Use Voice" },
             { kLabelHarmonyBtn,     "Harmony" },
             { kLabelHarmonyFollow,  "Follow Lead" },
+            { kLabelHarmonyGainMatch, "Gain Match" },
             { kLabelFormantBtn,     "Formant" },
             { kLabelNoiseGate,   "Gate" },
             { kTooltipNoiseGate, "Enable/disable noise gate on input audio." },
@@ -504,6 +507,7 @@ namespace ovt
             { kTooltipCorrection,     "Modern = aggressive correction. Transparent = gentler, preserves transitions." },
             { kTooltipHarmonyEn,      "Enable/disable harmony generation." },
             { kTooltipHarmonyFollow,  "When on (default), the harmony voices follow the lead correction character (vibrato preservation, humanize, flex, attack-aware) so they move together with the lead instead of staying locked to the scale grid. When off, harmonies stay snapped to the scale (classic look)." },
+            { kTooltipHarmonyGainMatch, "When on (default), the harmony mix is scaled by 1/sqrt(1+N) (N = number of active harmony voices) so the total output RMS is roughly equal to the dry input RMS. Compensates for the additive volume boost on Unison / Unison+Octaves. The dry signal is untouched." },
             { kTooltipReverbEn,       "Enable/disable reverb effect." },
             { kTooltipFormant,        "Enable/disable formant shifting." },
             { kTooltipFlexTune,       "Deadband in cents: input pitch within this range is left uncorrected." },
@@ -702,6 +706,7 @@ namespace ovt
             { kUseVoice,            "Utiliser voix" },
             { kLabelHarmonyBtn,     "Harmonie" },
             { kLabelHarmonyFollow,  "Suivre lead" },
+            { kLabelHarmonyGainMatch, "Gain Match" },
             { kLabelFormantBtn,     "Formant" },
             { kLabelNoiseGate,   "Gate" },
             { kTooltipNoiseGate, "Active/desactive le noise gate sur l'entree audio." },
@@ -770,6 +775,7 @@ namespace ovt
             { kTooltipCorrection,     "Moderne = correction agressive. Transparent = plus doux, preserve les transitions." },
             { kTooltipHarmonyEn,      "Activer/desactiver la generation d'harmonie." },
             { kTooltipHarmonyFollow,  "Quand elle est active (defaut), les voix d'harmonie suivent le caractere de correction de la voix principale (preservation du vibrato, humanisation, flex, attack-aware) et se deplacent avec elle au lieu de rester bloquees sur la grille de gamme. Quand elle est inactive, les harmonies restent accrochees a la gamme (aspect classique)." },
+            { kTooltipHarmonyGainMatch, "Quand elle est active (defaut), le mix d'harmonie est reduit par 1/sqrt(1+N) (N = nombre de voix d'harmonie actives) pour que le RMS total en sortie soit proche du RMS de l'entree seche. Compense le boost de volume additif sur Unison / Unison+Octaves. Le signal sec n'est pas touche." },
             { kTooltipReverbEn,       "Activer/desactiver l'effet de reverberation." },
             { kTooltipFormant,        "Activer/desactiger le deplacement de formant." },
             { kTooltipFlexTune,       "Deadband en cents : les entrees dans cette plage ne sont pas corrigees." },
@@ -969,6 +975,7 @@ namespace ovt
             { kUseVoice,            "Stimme verwenden" },
             { kLabelHarmonyBtn,     "Harmonie" },
             { kLabelHarmonyFollow,  "Lead folgen" },
+            { kLabelHarmonyGainMatch, "Gain Match" },
             { kLabelFormantBtn,     "Formant" },
             { kLabelNoiseGate,   "Gate" },
             { kTooltipNoiseGate, "Rauschtor fuer Audieingang aktivieren/deaktivieren." },
@@ -1039,6 +1046,7 @@ namespace ovt
             { kTooltipCorrection,     "Modern = aggressive Korrektur. Transparent = sanfter, Uebergaenge erhalten." },
             { kTooltipHarmonyEn,      "Harmonieerzeugung aktivieren/deaktivieren." },
             { kTooltipHarmonyFollow,  "Wenn aktiv (Standard), folgen die Harmoniestimmen dem Korrekturcharakter der Leitstimme (Vibrato-Erhaltung, Humanisierung, Flex, Attack-Aware) und bewegen sich mit ihr, statt an der Tonleitergitter festzukleben. Wenn inaktiv, bleiben die Harmonien an die Tonleiter gerastet (klassisches Aussehen)." },
+            { kTooltipHarmonyGainMatch, "Wenn aktiv (Standard), wird der Harmoniemix mit 1/sqrt(1+N) skaliert (N = Anzahl aktiver Harmoniestimmen), so dass der Gesamt-Ausgangs-RMS ungefahr dem RMS des trockenen Eingangssignals entspricht. Kompensiert den additiven Lautstarkeboost bei Unison / Unison+Octaves. Das trockene Signal wird nicht verandert." },
             { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
             { kTooltipFormant,        "Formantenverschiebung aktivieren/deaktivieren." },
             { kTooltipFlexTune,       "Deadband in Cents: Eingaenge in diesem Bereich werden nicht korrigiert." },
@@ -1235,6 +1243,7 @@ namespace ovt
             { kUseVoice,            "Usar voz" },
             { kLabelHarmonyBtn,     "Armonia" },
             { kLabelHarmonyFollow,  "Seguir lead" },
+            { kLabelHarmonyGainMatch, "Gain Match" },
             { kLabelFormantBtn,     "Formante" },
             { kLabelNoiseGate,   "Puerta" },
             { kTooltipNoiseGate, "Activar/desactivar la puerta de ruido en la entrada de audio." },
@@ -1305,6 +1314,7 @@ namespace ovt
             { kTooltipCorrection,     "Moderno = correccion agresiva. Transparente = mas suave, preserva transiciones." },
             { kTooltipHarmonyEn,      "Activar/desactivar generacion de armonia." },
             { kTooltipHarmonyFollow,  "Cuando esta activo (por defecto), las voces de armonia siguen el caracter de correccion de la voz principal (preservacion de vibrato, humanizacion, flex, attack-aware) y se mueven con ella en lugar de quedarse fijas a la rejilla de escala. Cuando esta inactivo, las armonias permanecen ajustadas a la escala (aspecto clasico)." },
+            { kTooltipHarmonyGainMatch, "Cuando esta activo (por defecto), la mezcla de armonia se escala por 1/sqrt(1+N) (N = numero de voces de armonia activas) para que el RMS total de salida sea aproximadamente igual al RMS de la entrada seca. Compensa el aumento aditivo de volumen en Unison / Unison+Octavas. La senal seca no se toca." },
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberacion." },
             { kTooltipFormant,        "Activar/desactivar desplazamiento de formante." },
             { kTooltipFlexTune,       "Deadband en cents: las entradas en este rango no se corrigen." },
@@ -1501,6 +1511,7 @@ namespace ovt
             { kUseVoice,            "ボイス使用" },
             { kLabelHarmonyBtn,     "ハーモニー" },
             { kLabelHarmonyFollow,  "リードに追従" },
+            { kLabelHarmonyGainMatch, "ゲインマッチ" },
             { kLabelFormantBtn,     "フォルマント" },
             { kLabelNoiseGate,   "ゲート" },
             { kTooltipNoiseGate, "入力オーディオのノイズゲートを有効/無効にする。" },
@@ -1571,6 +1582,7 @@ namespace ovt
             { kTooltipCorrection,     "モダン = 積極的な補正。トランスペアレント = やわらかく、推移を保持。" },
             { kTooltipHarmonyEn,      "ハーモニー生成の有効/無効。" },
             { kTooltipHarmonyFollow,  "オン（デフォルト）のとき、ハーモニーボイスはリードの補正特性（ビブラート保持、ヒューマナイズ、フレックス、アタック対応）に追従し、スケールグリッドに固定されずリードと共に動きます。オフのときはハーモニーはスケールにスナップしたままです（クラシックな見た目）。" },
+            { kTooltipHarmonyGainMatch, "オン（デフォルト）のとき、ハーモニーミックスは 1/sqrt(1+N) でスケールされます（N = アクティブなハーモニーボイスの数）。これにより、出力全体の RMS が生入力の RMS とほぼ等しくなります。Unison / Unison+Octaves での加算的な音量ブーストを補正します。ドライ信号には影響しません。" },
             { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
             { kTooltipFormant,        "フォルマントシフトの有効/無効。" },
             { kTooltipFlexTune,       "デッドバンド(セント): この範囲内のピッチは補正されません。" },
@@ -1767,6 +1779,7 @@ namespace ovt
             { kUseVoice,            "使用声部" },
             { kLabelHarmonyBtn,     "和声" },
             { kLabelHarmonyFollow,  "跟随主唱" },
+            { kLabelHarmonyGainMatch, "增益匹配" },
             { kLabelFormantBtn,     "共振峰" },
             { kLabelNoiseGate,      "Gate" },
             { kTooltipNoiseGate,    "启用/禁用输入音频的噪声门。" },
@@ -1837,6 +1850,7 @@ namespace ovt
             { kTooltipCorrection,     "现代 = 激进校正。透明 = 更柔和，保留过渡。" },
             { kTooltipHarmonyEn,      "启用/禁用和声生成。" },
             { kTooltipHarmonyFollow,  "开启时（默认），和声声部跟随主唱的校正特性（颤音保留、人性化、灵活、起音感知），从而与主唱一起移动，而不是锁定到音阶网格。关闭时，和声保持吸附到音阶（经典外观）。" },
+            { kTooltipHarmonyGainMatch, "开启时（默认），和声混音按 1/sqrt(1+N) 缩放（N = 活动和声声部的数量），使总输出 RMS 接近干声输入 RMS。补偿 Unison / Unison+Octaves 上的加性音量提升。干信号不受影响。" },
             { kTooltipReverbEn,       "启用/禁用混响效果。" },
             { kTooltipFormant,        "启用/禁用共振峰偏移。" },
             { kTooltipFlexTune,       "死区（音分）：此范围内的输入音高保持不校正。" },

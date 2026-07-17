@@ -75,16 +75,33 @@ namespace ovtdsp
         // Coefficients du filtre IIR (biquad par formant par canal).
         struct ChannelState
         {
-            // Un biquad par formant (max 4)
+            // Un biquad par formant (max 4).
+            // `formants` stocke les coefficients CIBLES (recalculees a chaque
+            // bloc selon le ratio). `smooth` stocke les coefficients REELS
+            // appliques au signal : ils sont lisses vers les cibles block par
+            // block afin d'eviter toute discontinuite (pop) quand le ratio
+            // change brutalement au demarrage d'une note.
             struct BiquadState
             {
                 float a1 = 0.0f, a2 = 0.0f;
                 float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
                 float z1 = 0.0f, z2 = 0.0f;
             };
-            BiquadState formants[4];
+            struct BiquadSmooth
+            {
+                float a1 = 0.0f, a2 = 0.0f;
+                float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+            };
+            BiquadState  formants[4];   // cibles (recalcul par bloc)
+            BiquadSmooth smooth[4];     // coefficients appliques (lisses)
         };
         juce::Array<ChannelState> channels;
+
+        // Coefficient de lissage des biquads (un pas par bloc).
+        // ~0.002 donne une constante de temps d'environ 8 ms a 44.1 kHz,
+        // suffisante pour adoucir le saut de coefficient au demarrage d'une
+        // note sans colorer le timbre de facon audible.
+        float biquadSmoothAlpha = 0.002f;
 
         // Configuration des formants par defaut (F1-F4 typiques voix masculine)
         struct FormantConfig

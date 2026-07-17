@@ -282,10 +282,15 @@ target_sources(OpenVoxTunerTests PRIVATE
     test/dsp/ScaleQuantizerTest.cpp
     test/dsp/RetargetEnvelopeTest.cpp
     test/dsp/FormantPreserverTest.cpp
+    test/dsp/PitchShifterOutputTest.cpp
+    test/dsp/PitchShifterOutputRmsTest.cpp
+    test/dsp/PitchShifterClickTest.cpp
+    test/dsp/HarmonyGainMatchTest.cpp
     test/dsp/PitchCurveTest.cpp
     test/dsp/KeyBridgeTest.cpp
     test/dsp/SidechainBusLayoutTest.cpp
     test/ui/PitchCurveEditorTest.cpp
+    test/ui/ScaleKeyboardComponentTest.cpp
 
     # On lie les sources DSP a tester
     Source/dsp/PitchDetector.cpp
@@ -295,8 +300,8 @@ target_sources(OpenVoxTunerTests PRIVATE
     Source/dsp/PitchCurve.cpp
     Source/dsp/PitchShifter.cpp
     Source/dsp/HarmonyEngine.cpp
+    Source/ui/ScaleKeyboardComponent.cpp
 )
-
 target_link_libraries(OpenVoxTunerTests PRIVATE
     juce::juce_audio_basics
     juce::juce_audio_processors

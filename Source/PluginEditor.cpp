@@ -441,6 +441,19 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyFollowLeadButton.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyFollow));
     addAndMakeVisible (harmonyFollowLeadButton);
 
+    // Harmony "Gain Match" toggle (power-style): when on, the harmony mix is scaled
+    // by 1/sqrt(1+N) where N = number of active harmony voices, so the total output
+    // RMS is roughly equal to the dry input RMS. Compensates for the additive
+    // volume boost that is most noticeable on Unison and Unison+Octaves. Default on.
+    // The dry signal is untouched; the user-facing harmony volume knob still
+    // controls the overall harmony level (post-compensation).
+    harmonyGainMatchButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyGainMatch));
+    harmonyGainMatchButton.setName ("PowerButton");
+    harmonyGainMatchButton.setColour (juce::ToggleButton::textColourId, ovt::text());
+    harmonyGainMatchButton.setColour (juce::ToggleButton::tickColourId,  ovt::accent());
+    harmonyGainMatchButton.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyGainMatch));
+    addAndMakeVisible (harmonyGainMatchButton);
+
     // Harmony type combo — index 3 = "3rd Below + Above" (default)
     harmonyTypeBox.addItemList (juce::StringArray {
         "None",
@@ -1578,6 +1591,28 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_gain", harmonyGainSlider);
     harmonyBlendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_blend", harmonyBlendSlider);
     harmonyFollowLeadAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_follow_lead", harmonyFollowLeadButton);
+    harmonyGainMatchAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_gain_match", harmonyGainMatchButton);
+    // Disable the Follow Lead and Gain Match sub-toggles whenever the parent
+    // Harmony switch is off. juce::Button::onStateChange fires after every
+    // toggle change (and on the initial state load), which is exactly the
+    // hook we need: it is independent of the ButtonAttachment's internal
+    // onClick / changeNotification plumbing, so it does not interfere with
+    // the host sync. Without this, the user could still flip the
+    // sub-toggles with Harmony off, and the parameter values would be
+    // silently read by the audio callback on the next Harmony re-enable,
+    // producing surprising "the toggles were already on" behaviour.
+    harmonyEnableButton.onStateChange = [this] {
+        const bool enabled = harmonyEnableButton.getToggleState();
+        harmonyFollowLeadButton.setEnabled (enabled);
+        harmonyGainMatchButton.setEnabled (enabled);
+    };
+    // Force the initial sync (onStateChange may not have fired yet at this
+    // point — the ButtonAttachment only just connected).
+    {
+        const bool enabled = harmonyEnableButton.getToggleState();
+        harmonyFollowLeadButton.setEnabled (enabled);
+        harmonyGainMatchButton.setEnabled (enabled);
+    }
     useVoiceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_use_voice", useVoiceButton);
     shiftedVoicesAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (tree, "harmony_shifted_voices", shiftedVoicesBox);
     harmonyToneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (tree, "harmony_tone", harmonyToneBox);
@@ -1723,13 +1758,58 @@ OpenVoxTunerAudioProcessorEditor::~OpenVoxTunerAudioProcessorEditor()
         updateCheckState->cancelled.store (true);
 
     stopTimer();
+
+    // -------------------------------------------------------------------
+    // Clear LookAndFeel references BEFORE the customLookAndFeel member is
+    // destroyed (declaration order in the header puts it first in the
+    // private section, so C++ destroys it LAST after this destructor
+    // returns). Every child Component that was added to the editor or
+    // to any of its sub-components received a LookAndFeel propagation
+    // when addAndMakeVisible() was called: JUCE walks the parent's
+    // lookAndFeel weak-ref down to each new child. Those weak-refs
+    // remain in the child even if we setLookAndFeel(nullptr) on the
+    // parent alone — each Component owns its own LookAndFeel pointer.
+    // We therefore must clear them recursively, in the REVERSE order
+    // of the visual hierarchy (most-deeply-nested children first), so
+    // that by the time customLookAndFeel's destructor runs (after the
+    // implicit member-destruction phase that follows this body), no
+    // surviving weak-ref still points at the (about-to-die) object.
+    // Otherwise the JUCE leak/assertion detector in Debug mode reports
+    // `refCount.value = 2` and aborts.
+    // -------------------------------------------------------------------
+
+    // Drop the LookAndFeel on the deepest children first (Slider, Label,
+    // Button, ComboBox, custom widgets…). This is done via a recursive
+    // lambda so any future component added to the editor is covered
+    // without needing to update this list.
+    // juce::Component exposes its children via the `getChildren()` range
+    // (Component::Children), which is a safe iterable even during
+    // teardown (it skips children being deleted).
+    std::function<void(juce::Component&)> clearLookAndFeelRecursive =
+        [&clearLookAndFeelRecursive](juce::Component& c)
+    {
+        // Recurse first (post-order: deepest first), then null out the
+        // LookAndFeel on the current component. This ensures children
+        // are fully released before their parent.
+        for (auto* child : c.getChildren())
+            clearLookAndFeelRecursive (*child);
+        c.setLookAndFeel (nullptr);
+    };
+    clearLookAndFeelRecursive (*this);
+
+    // Now safe to release the explicit teardown of components that own
+    // resources beyond the LookAndFeel pointer.
     if (tooltipWindow != nullptr)
     {
         tooltipWindow->setLookAndFeel (nullptr);
         tooltipWindow.reset();
     }
+    if (curveEditor != nullptr)
+    {
+        curveEditor->removeListener();
+        curveEditor->setLookAndFeel (nullptr);
+    }
     setLookAndFeel (nullptr);
-    if (curveEditor != nullptr) curveEditor->removeListener();
 }
 
 void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
@@ -2154,11 +2234,23 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         harmonyToneBox.setBounds (selectorBox.reduced (0, 2));
         harmonyToneColorSlider.setBounds (selectorRow.withSizeKeepingCentre (28, 24));
 
-        // Follow Lead toggle: placed below the "number of voices" combo,
-        // left-aligned and sized to its content (like the other Power buttons).
+        // Follow Lead toggle: first row, below the "number of voices"
+        // combo, left-aligned and sized to its content (like the other
+        // Power buttons).
         auto flRow = leftCol.removeFromTop (20);
         const int flW = powerButtonWidth (harmonyFollowLeadButton);
         harmonyFollowLeadButton.setBounds (flRow.removeFromLeft (flW).reduced (0, 1));
+
+        // Gain Match toggle: second row, directly UNDER the Follow Lead
+        // toggle (as requested by the user on 2026-07-17). Previously
+        // these two toggles were side-by-side on the same row, but that
+        // layout made the two related controls harder to scan when the
+        // column was narrow. Stacking them keeps each toggle on its own
+        // row at the same x position, matching the other Power-button
+        // rows in the panel.
+        auto gmRow = leftCol.removeFromTop (20);
+        const int gmW = powerButtonWidth (harmonyGainMatchButton);
+        harmonyGainMatchButton.setBounds (gmRow.removeFromLeft (gmW).reduced (0, 1));
 
         // Knobs on the right column (two rotary knobs side-by-side)
         int knobAreaHeight = 80;
@@ -2900,6 +2992,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     updateButton.setButtonText (ovt::tr(ovt::Keys::kLabelUpdates));
     harmonyEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyBtn));
     harmonyFollowLeadButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyFollow));
+    harmonyGainMatchButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyGainMatch));
     formantEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelFormantBtn));
     reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
     bypassToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelBypassBtn));
@@ -2912,6 +3005,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     // Refresh all translatable tooltips
     advancedButton.setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
     harmonyFollowLeadButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyFollow));
+    harmonyGainMatchButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyGainMatch));
     updateButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCheckUpdates));
     menuButton.setTooltip (ovt::tr(ovt::Keys::kTooltipMenuOptions));
     bypassButton.setTooltip (ovt::tr (ovt::Keys::kTooltipBypassIcon));

@@ -5,13 +5,44 @@ namespace ui
 {
     // === PianoKeyButton ===
 
+    PianoKeyButton::PianoKeyButton()
+        : juce::ToggleButton()
+    {
+        // Register the internal InteractionListener so that whenever the
+        // base class Button::clicked() fires its `sendClickMessage` (which
+        // notifies all Button::Listener entries in registration order),
+        // our listener runs the `activeInScale` sync + `onUserInteraction`
+        // dispatch. The juce::ButtonAttachment is created by the caller
+        // AFTER the button constructor, so it gets appended to the
+        // listener list AFTER us — but ButtonAttachment::buttonClicked
+        // does NOT depend on us, it just pushes the new toggle value
+        // to the AudioParameterBool. The order in which we run vs the
+        // ButtonAttachment is therefore irrelevant: by the time
+        // buttonClicked is called on either of us, the toggle has
+        // already been flipped and the new value is in `getToggleState()`.
+        // We add the listener explicitly (it is not auto-registered
+        // because InteractionListener is a nested struct, not the
+        // button itself).
+        interactionListener.owner = this;
+        addListener (&interactionListener);
+    }
+
+    PianoKeyButton::~PianoKeyButton()
+    {
+        // Detach the listener so any pending events (e.g. a queued
+        // buttonClicked) do not dereference a dangling owner pointer
+        // if the button is destroyed mid-dispatch.
+        removeListener (&interactionListener);
+        interactionListener.owner = nullptr;
+    }
+
     void PianoKeyButton::paintButton (juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown)
     {
         auto bounds = getLocalBounds().toFloat().reduced(0.5f);
-        
+
         // Active state: use toggle state for Custom mode, activeInScale for preset modes
         bool isActive = activeInScale || getToggleState();
-        
+
         // Couleurs
         juce::Colour baseColour;
         if (isBlack) {
@@ -19,7 +50,7 @@ namespace ui
         } else {
             baseColour = isActive ? juce::Colour(0xff00aaff) : juce::Colour(0xff777777); // Bleu clair si actif, Gris moyen sinon
         }
-        
+
         if (shouldDrawButtonAsDown) {
             baseColour = baseColour.brighter(0.2f);
         } else if (shouldDrawButtonAsHighlighted) {
@@ -29,11 +60,11 @@ namespace ui
         // Dessin de la touche
         g.setColour(baseColour);
         g.fillRoundedRectangle(bounds, 2.0f);
-        
+
         // Bordure
         g.setColour(juce::Colours::black.withAlpha(0.8f));
         g.drawRoundedRectangle(bounds, 2.0f, 1.0f);
-        
+
         // Effet 3D leger
         if (!isBlack) {
             g.setGradientFill(juce::ColourGradient(juce::Colours::white.withAlpha(0.2f), 0, 0,
@@ -47,13 +78,13 @@ namespace ui
     }
 
     // === ScaleKeyboardComponent ===
-    
+
     ScaleKeyboardComponent::ScaleKeyboardComponent()
     {
         // Initialisation des notes
         // 0:C, 1:C#, 2:D, 3:D#, 4:E, 5:F, 6:F#, 7:G, 8:G#, 9:A, 10:A#, 11:B
         bool isBlackKey[12] = { false, true, false, true, false, false, true, false, true, false, true, false };
-        
+
         for (int i = 0; i < 12; ++i)
         {
             keys[i].setNoteIndex(i, isBlackKey[i]);
@@ -76,9 +107,9 @@ namespace ui
         float whiteKeyWidth = bounds.getWidth() / 7.0f;
         float blackKeyWidth = whiteKeyWidth * 0.65f;
         float blackKeyHeight = bounds.getHeight() * 0.6f;
-        
+
         int whiteIndex = 0;
-        
+
         // D'abord on place les touches blanches
         for (int i = 0; i < 12; ++i)
         {
@@ -91,7 +122,7 @@ namespace ui
                 whiteIndex++;
             }
         }
-        
+
         // Ensuite les touches noires par-dessus
         whiteIndex = 0;
         for (int i = 0; i < 12; ++i)
@@ -108,7 +139,7 @@ namespace ui
             {
                 whiteIndex++;
             }
-            
+
             // On s'assure que les touches noires sont au premier plan
             if (keys[i].getIsBlack()) {
                 keys[i].toFront(false);
@@ -116,3 +147,4 @@ namespace ui
         }
     }
 }
+
