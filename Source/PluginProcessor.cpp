@@ -12,6 +12,7 @@
 #include "dsp/PitchShifter.h" // for gPitchShifterGrainEvents
 #include <vector>
 #include <algorithm>
+#include <juce_data_structures/juce_data_structures.h> // juce::UndoManager, juce::ValueTree
 
 // IMPORTANT: OVT_LOG is wrapped in #if JUCE_DEBUG to match the convention
 // used in PitchShifter.cpp. Reason: in Release builds, juce::Logger::writeToLog
@@ -2572,6 +2573,76 @@ bool OpenVoxTunerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layo
     // Sidechain bus (input bus index 1) is optional: allow it disabled
     // (empty channel set) or mono. Any other configuration is rejected.
     return ovtdsp::isSidechainLayoutValid (layouts);
+}
+
+// === Global plugin Undo/Redo (Option 1) ===
+//
+// A single history over the full AudioProcessorValueTreeState. Each
+// transaction stores a `before` and `after` ValueTree copy; Undo restores
+// `before`, Redo restores `after`. Applying a state goes through
+// parameters.replaceState(), which re-fires every parameter listener so the
+// UI (sliders, toggles, combos) updates automatically.
+//
+// The pitch curve lives outside parameters.state (it is a separate
+// PitchCurve in the processor) and keeps its own CurveEditor-local undo, so
+// it is intentionally NOT part of these snapshots.
+namespace
+{
+    class PluginStateUndoAction : public juce::UndoableAction
+    {
+    public:
+        PluginStateUndoAction (juce::AudioProcessorValueTreeState& params,
+                               const juce::ValueTree& before,
+                               const juce::ValueTree& after)
+            : parameters (params), beforeState (before), afterState (after)
+        {}
+
+        bool perform() override
+        {
+            // Called once on push, and again on redo(). Applies the
+            // post-change state.
+            // NOTE: replaceState() aliases the passed tree (state = newState),
+            // so the live parameters.state would share the stored snapshot's
+            // underlying data. If we pass afterState directly, later live
+            // edits (via SliderAttachment etc.) would mutate the stored
+            // snapshot, corrupting this transaction's redo. Passing a fresh
+            // copy keeps the stored snapshot pristine.
+            parameters.replaceState (afterState.createCopy());
+            return true;
+        }
+
+        bool undo() override
+        {
+            // Called on undo(). Restores the pre-change state. See the
+            // aliasing note in perform(); we restore from a fresh copy of the
+            // stored snapshot for the same reason.
+            parameters.replaceState (beforeState.createCopy());
+            return true;
+        }
+
+    private:
+        juce::AudioProcessorValueTreeState& parameters;
+        juce::ValueTree beforeState, afterState;
+    };
+}
+
+void OpenVoxTunerAudioProcessor::pushUndoAction (const juce::ValueTree& before,
+                                                 const juce::ValueTree& after)
+{
+    // Guard against empty / identical snapshots (e.g. a click that changed
+    // nothing, or a programmatic refresh that round-tripped the same values).
+    if (! before.isValid() || ! after.isValid())
+        return;
+    if (before.isEquivalentTo (after))
+        return;
+
+    // Start a fresh transaction so each committed gesture becomes its own
+    // undo step. Without this, JUCE's UndoManager coalesces consecutive
+    // perform() calls into a single transaction, which would collapse
+    // multiple user edits into one undo and skip intermediate states.
+    pluginUndoManager.beginNewTransaction();
+    auto* action = new PluginStateUndoAction (parameters, before, after);
+    pluginUndoManager.perform (action); // takes ownership
 }
 
 // === Etat du plugin : serialisation XML des parametres + pitch curve ===

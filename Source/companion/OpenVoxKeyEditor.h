@@ -106,12 +106,28 @@ public:
     void paint (juce::Graphics& g) override
     {
         g.fillAll (juce::Colour (0xff1b1d23));
+
+        // Program logo (matches OpenVoxTuner): a stylized "O" with a pitch
+        // curve passing through it, drawn to the left of the "OpenVoxKey" title.
+        juce::Rectangle<float> logoArea (14.0f, 8.0f, 24.0f, 24.0f);
+        g.setColour (juce::Colours::cyan);
+        g.drawEllipse (logoArea.reduced (2.0f), 2.5f);
+
+        juce::Path curve;
+        curve.startNewSubPath (logoArea.getX() - 4.0f, logoArea.getCentreY() + 4.0f);
+        curve.cubicTo (logoArea.getX() + 8.0f,  logoArea.getCentreY() + 4.0f,
+                       logoArea.getCentreX(),     logoArea.getY() - 4.0f,
+                       logoArea.getRight() + 4.0f, logoArea.getY() + 8.0f);
+        g.setColour (juce::Colours::white);
+        g.strokePath (curve, juce::PathStrokeType (2.0f, juce::PathStrokeType::mitered,
+                                                    juce::PathStrokeType::rounded));
     }
 
     void resized() override
     {
         auto area = getLocalBounds().reduced (14);
-        titleLabel.setBounds (area.removeFromTop (28));
+        // Leave room on the left for the logo (drawn in paint()).
+        titleLabel.setBounds (area.removeFromTop (28).withTrimmedLeft (28));
         hintLabel.setBounds (area.removeFromTop (44));
 
         auto groupRow = area.removeFromTop (28);

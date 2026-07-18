@@ -248,26 +248,6 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
 
     const int centerX = getWidth() / 2;
     const int centerY = getHeight() / 2;
-    const int boxW = 440;
-    const int boxH = 380;
-    const int boxX = centerX - boxW / 2;
-    const int boxY = centerY - boxH / 2;
-
-    // Panel background
-    g.setColour (ovt::bgPanel());
-    g.fillRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 8.0f);
-    g.setColour (ovt::accentSoft());
-    g.drawRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 8.0f, 1.5f);
-
-    // Title
-    g.setColour (juce::Colours::white);
-    g.setFont (ovt::fontLabel());
-    g.drawText (ovt::tr(ovt::Keys::kHelpTitle), boxX + 16, boxY + 12, boxW - 32, 24,
-                juce::Justification::centred);
-
-    // Divider
-    g.setColour (ovt::accentSoft());
-    g.fillRect ((float) (boxX + 16), (float) (boxY + 40), (float) (boxW - 32), 1.0f);
 
     // Shortcuts list
     struct Shortcut { const char* key; const char* descKey; };
@@ -285,21 +265,78 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
         { "Ctrl / Cmd + Shift + Z", ovt::Keys::kHelpRedo },
         { "?",                      ovt::Keys::kHelpToggleHelp },
     };
+    const int numShortcuts = 12;
+    const int rowsPerCol = 6;
+    const int numCols = (numShortcuts + rowsPerCol - 1) / rowsPerCol; // 2 columns
 
-    g.setFont (ovt::fontLegend());
-    int sy = boxY + 52;
-    const int colW = boxW / 2 - 16;
-    for (int i = 0; i < 12; ++i)
+    // Measure the widest key / description so the box is sized to fit the
+    // current language and nothing is ever truncated (long keys like
+    // "Right-click / Alt+Click" previously overflowed the fixed 94px column).
+    const juce::Font legendFont = ovt::fontLegend();
+    const juce::Font titleFont  = ovt::fontLabel();
+    const int padX = 24;           // inner horizontal padding
+    const int colGap = 24;         // gap between the key and its description
+    const int colGapBetween = 32;  // gap between the two columns
+    int maxKeyW = 0, maxDescW = 0;
+    for (int i = 0; i < numShortcuts; ++i)
     {
-        const int col = i / 6;
-        const int row = i % 6;
-        const int x = boxX + 24 + col * colW;
+        maxKeyW  = juce::jmax (maxKeyW,  legendFont.getStringWidth (shortcuts[i].key));
+        maxDescW = juce::jmax (maxDescW, legendFont.getStringWidth (ovt::tr (shortcuts[i].descKey)));
+    }
+    const int colW = maxKeyW + colGap + maxDescW;
+    const int contentW = numCols * colW + (numCols - 1) * colGapBetween;
+
+    // Also account for the title / close-hint width so long translations do
+    // not get clipped either.
+    const int titleW = titleFont.getStringWidth (ovt::tr (ovt::Keys::kHelpTitle));
+    const int closeW = ovt::fontLegendHint().getStringWidth (ovt::tr (ovt::Keys::kHelpCloseHint));
+
+    // Final panel dimensions: leave room for inner padding, the header band,
+    // the divider and the close hint.
+    const int boxW = juce::jmax (contentW + padX * 2,
+                                 juce::jmax (titleW + 64, juce::jmax (closeW + 48, 360)));
+    const int boxH = 380;
+    const int boxX = centerX - boxW / 2;
+    const int boxY = centerY - boxH / 2;
+
+    // Panel background
+    g.setColour (ovt::bgPanel());
+    g.fillRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 8.0f);
+    g.setColour (ovt::accentSoft());
+    g.drawRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 8.0f, 1.5f);
+
+    // Title
+    g.setColour (juce::Colours::white);
+    g.setFont (titleFont);
+    g.drawText (ovt::tr(ovt::Keys::kHelpTitle), boxX + 16, boxY + 12, boxW - 32, 24,
+                juce::Justification::centred);
+
+    // Scope subtitle: the listed shortcuts are Curve-Editor scoped (they only
+    // fire when the Curve Editor has keyboard focus), so state that explicitly
+    // instead of implying they are global.
+    g.setColour (ovt::textDim());
+    g.setFont (ovt::fontLegendHint());
+    g.drawText (ovt::tr(ovt::Keys::kHelpScope), boxX + 16, boxY + 38, boxW - 32, 16,
+                juce::Justification::centred);
+
+    // Divider
+    g.setColour (ovt::accentSoft());
+    g.fillRect ((float) (boxX + 16), (float) (boxY + 58), (float) (boxW - 32), 1.0f);
+
+    g.setFont (legendFont);
+    int sy = boxY + 70;
+    for (int i = 0; i < numShortcuts; ++i)
+    {
+        const int col = i / rowsPerCol;
+        const int row = i % rowsPerCol;
+        const int x = boxX + padX + col * (colW + colGapBetween);
         const int y = sy + row * 22;
 
         g.setColour (ovt::accent());
-        g.drawText (shortcuts[i].key, x, y, colW / 2 - 8, 18, juce::Justification::centredLeft);
+        g.drawText (shortcuts[i].key, x, y, maxKeyW, 18, juce::Justification::centredLeft);
         g.setColour (ovt::text());
-        g.drawText (ovt::tr(shortcuts[i].descKey), x + colW / 2, y, colW / 2 - 8, 18, juce::Justification::centredLeft);
+        g.drawText (ovt::tr(shortcuts[i].descKey), x + maxKeyW + colGap, y, maxDescW, 18,
+                    juce::Justification::centredLeft);
     }
 
     // Close hint
@@ -1177,6 +1214,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // from the plugin's own gear (menuButton) and icon-only (no text label).
     static const char* svgHamburger = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>)";
 
+    // Global plugin Undo / Redo icons (curved-left arrows). Mirror the Curve
+    // Editor's own undo/redo buttons, but operate on the processor-wide
+    // UndoManager (every automatable parameter).
+    static const char* svgUndo = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>)";
+    static const char* svgRedo = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M20 9H9a5 5 0 0 0 0 10h4"/></svg>)";
+
     // Preset Gallery : a 2x2 grid of rounded tiles.
     static const char* svgPresetGrid = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>)";
 
@@ -1273,6 +1316,38 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             curveEditor->setMeasuresVisible (measuresComboBox.getText().getIntValue());
     };
     addAndMakeVisible (measuresComboBox);
+
+    // === Global plugin Undo/Redo buttons (Option 1) ===
+    // Icon-only DrawableButtons (curved-arrow glyphs) that operate on the
+    // processor-wide UndoManager (every automatable parameter). Wired to
+    // performGlobalUndo() / performGlobalRedo(); the keyboard shortcuts
+    // Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z do the same (see keyPressed()).
+    // They sit in the header between button B and the Options gear.
+    {
+        auto undoNorm = createDrawableSVG (svgUndo, juce::Colours::white);
+        auto undoOver = createDrawableSVG (svgUndo, ovt::accent());
+        auto undoDown = createDrawableSVG (svgUndo, juce::Colours::white);
+        undoButton.setImages (undoNorm.get(), undoOver.get(), undoDown.get());
+        undoButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
+        undoButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        undoButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
+        undoButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
+        undoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUndo));
+        undoButton.onClick = [this] { performGlobalUndo(); };
+        addAndMakeVisible (undoButton);
+
+        auto redoNorm = createDrawableSVG (svgRedo, juce::Colours::white);
+        auto redoOver = createDrawableSVG (svgRedo, ovt::accent());
+        auto redoDown = createDrawableSVG (svgRedo, juce::Colours::white);
+        redoButton.setImages (redoNorm.get(), redoOver.get(), redoDown.get());
+        redoButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
+        redoButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        redoButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
+        redoButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
+        redoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipRedo));
+        redoButton.onClick = [this] { performGlobalRedo(); };
+        addAndMakeVisible (redoButton);
+    }
 
     // Standalone transport: a single Play/Pause toggle plus a "Return to start"
     // (rewind) button. The toggle shows the Play glyph when stopped and the Stop
@@ -1602,27 +1677,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyBlendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_blend", harmonyBlendSlider);
     harmonyFollowLeadAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_follow_lead", harmonyFollowLeadButton);
     harmonyGainMatchAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_gain_match", harmonyGainMatchButton);
-    // Disable the Follow Lead and Gain Match sub-toggles whenever the parent
-    // Harmony switch is off. juce::Button::onStateChange fires after every
-    // toggle change (and on the initial state load), which is exactly the
-    // hook we need: it is independent of the ButtonAttachment's internal
-    // onClick / changeNotification plumbing, so it does not interfere with
-    // the host sync. Without this, the user could still flip the
-    // sub-toggles with Harmony off, and the parameter values would be
-    // silently read by the audio callback on the next Harmony re-enable,
-    // producing surprising "the toggles were already on" behaviour.
+    // Keep the Follow Lead and Gain Match sub-toggles in sync with the parent
+    // Harmony switch. onStateChange fires on a direct click, so we re-run
+    // refreshLabels() (which now also disables those two sub-toggles based on
+    // the Harmony state). This guarantees the sub-toggles are greyed out the
+    // instant Harmony is turned off, and stays consistent with preset load /
+    // automation / language switch — all paths already call refreshLabels().
     harmonyEnableButton.onStateChange = [this] {
-        const bool enabled = harmonyEnableButton.getToggleState();
-        harmonyFollowLeadButton.setEnabled (enabled);
-        harmonyGainMatchButton.setEnabled (enabled);
+        refreshLabels();
     };
-    // Force the initial sync (onStateChange may not have fired yet at this
-    // point — the ButtonAttachment only just connected).
-    {
-        const bool enabled = harmonyEnableButton.getToggleState();
-        harmonyFollowLeadButton.setEnabled (enabled);
-        harmonyGainMatchButton.setEnabled (enabled);
-    }
     useVoiceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_use_voice", useVoiceButton);
     shiftedVoicesAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (tree, "harmony_shifted_voices", shiftedVoicesBox);
     harmonyToneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (tree, "harmony_tone", harmonyToneBox);
@@ -1778,6 +1841,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Refresh labels with current language translations
     refreshLabels();
+
+    // === Global plugin Undo/Redo (Option 1) ===
+    // Seed the live snapshot with the current state and wire the gesture
+    // listeners. The UndoManager itself lives in the processor.
+    undoLiveSnapshot_ = processorRef.getParameters().copyState();
+    registerUndoGestureListeners();
 
     // Timer to update the visualizer (~30 fps).
     startTimerHz (30);
@@ -1961,13 +2030,19 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto menuArea = titleArea.removeFromRight (menuW).reduced (6, 10);
     menuButton.setBounds (menuArea);
 
-    // Layout: [buttonA] [morphSlider] [buttonB] [menuButton] in the top-right
+    // Layout: [buttonA] [morphSlider] [buttonB] [undo] [redo] [menuButton] in
+    // the top-right. The global Undo/Redo icon buttons sit between button B
+    // and the Options gear.
     const int btnSize = 28;
     const int btnGap = 4;
     const int morphW = 80;
 
-    // Position from right to left: menu, B, morph, A
-    int x = menuArea.getX() - btnSize - btnGap; // buttonB
+    // Position from right to left: menu, redo, undo, B, morph, A
+    int x = menuArea.getX() - btnSize - btnGap; // redo
+    redoButton.setBounds (x, 11, btnSize, btnSize);
+    x -= btnSize + btnGap;                       // undo
+    undoButton.setBounds (x, 11, btnSize, btnSize);
+    x -= btnSize + btnGap;                       // buttonB
     buttonB.setBounds (x, 11, btnSize, btnSize);
     x -= morphW + btnGap;
     morphSlider.setBounds (x, 13, morphW, btnSize - 4);
@@ -2438,6 +2513,24 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
             onMorphSliderChanged (m);
     }
 
+    // Keep the Harmony sub-toggles (Follow Lead / Gain Match / Use Voice) in
+    // sync with the Harmony switch even when Harmony changes WITHOUT a direct
+    // click — e.g. preset load or DAW automation. The ButtonAttachment updates
+    // the Harmony button with dontSendNotification, so onStateChange does not
+    // fire in those cases. When the Harmony enable state changes, re-run
+    // refreshLabels() (which disables those sub-toggles based on the Harmony
+    // state) instead of only mirroring the two Follow Lead / Gain Match
+    // buttons here. refreshLabels() is cheap enough to run once per state
+    // change, and it keeps every Harmony-dependent control consistent.
+    {
+        const bool harmonyOn = harmonyEnableButton.getToggleState();
+        if (harmonyOn != lastHarmonyEnabled)
+        {
+            lastHarmonyEnabled = harmonyOn;
+            refreshLabels();
+        }
+    }
+
     if (updateCheckState != nullptr)
     {
         if (! updateCheckState->finished.load())
@@ -2502,6 +2595,22 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     harmonyTypeBox.setEnabled (isHarmonyEnabled);
     harmonyGainSlider.setEnabled (isHarmonyEnabled);
     harmonyBlendSlider.setEnabled (isHarmonyEnabled);
+    // Use Voice is a sub-toggle of Harmony: it must be disabled whenever
+    // Harmony is off (otherwise its state is silently read on re-enable).
+    useVoiceButton.setEnabled (isHarmonyEnabled);
+    // Follow Lead and Gain Match are sub-toggles of Harmony: they must be
+    // disabled whenever Harmony itself is off, otherwise the user can still
+    // flip them (and the engine would silently read the stale values on the
+    // next Harmony re-enable). Centralising this in refreshLabels() also
+    // keeps them in sync when Harmony changes via preset load / automation /
+    // language switch, not just on a direct click. We also call
+    // setInterceptsMouseClicks(false) so the custom PowerButton rendering
+    // (which ignores isEnabled() for the glow) cannot be toggled by a click,
+    // and setAlpha to make the disabled state visually obvious.
+    harmonyFollowLeadButton.setEnabled (isHarmonyEnabled);
+    harmonyGainMatchButton.setEnabled (isHarmonyEnabled);
+    harmonyFollowLeadButton.setInterceptsMouseClicks (isHarmonyEnabled, isHarmonyEnabled);
+    harmonyGainMatchButton.setInterceptsMouseClicks (isHarmonyEnabled, isHarmonyEnabled);
     const bool useVoice = useVoiceButton.getToggleState();
     shiftedVoicesBox.setEnabled (isHarmonyEnabled && useVoice);
     harmonyToneBox.setEnabled (isHarmonyEnabled && !useVoice);
@@ -2615,6 +2724,19 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
 
         // MIDI status label removed; debug window shows detailed MIDI log.
     }
+
+    // === Global plugin Undo/Redo (Option 1) ===
+    // Maintain the "before" baseline for discrete clicks/toggles/combos. We
+    // only refresh it when NOT applying an undo (to avoid clobbering the real
+    // pre-change state) and NOT during a slider drag (the drag-start snapshot
+    // is authoritative). DAW automation updates params every block but never
+    // fires the gesture handlers below, so it is never pushed to the history.
+    if (! applyingUndo_ && ! undoGestureActive_)
+        undoLiveSnapshot_ = processorRef.getParameters().copyState();
+
+    // Reflect UndoManager state on the toolbar buttons.
+    undoButton.setEnabled (processorRef.getUndoManager().canUndo());
+    redoButton.setEnabled (processorRef.getUndoManager().canRedo());
 }
 
 void OpenVoxTunerAudioProcessorEditor::setWaveformDisplayType (int type)
@@ -2932,8 +3054,160 @@ void OpenVoxTunerAudioProcessorEditor::refreshDrawableButtonIcons()
 
 bool OpenVoxTunerAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
 {
-    // Reserved for future shortcuts. Currently overlay is toggled via menu only.
+    // Global plugin Undo/Redo (Option 1): Ctrl/Cmd+Z = undo,
+    // Ctrl/Cmd+Shift+Z (or Ctrl/Cmd+Y) = redo. These are editor-global and
+    // distinct from the Curve Editor's own undo (which only covers curve
+    // points and only fires when the Curve Editor has focus).
+    if (key.getModifiers().isCommandDown())
+    {
+        if (key.getKeyCode() == 'Z')
+        {
+            if (key.getModifiers().isShiftDown())
+                performGlobalRedo();
+            else
+                performGlobalUndo();
+            return true;
+        }
+        if (key.getKeyCode() == 'Y')
+        {
+            performGlobalRedo();
+            return true;
+        }
+    }
     return false;
+}
+
+// === Global plugin Undo/Redo (Option 1) ===
+
+void OpenVoxTunerAudioProcessorEditor::performGlobalUndo()
+{
+    auto& um = processorRef.getUndoManager();
+    if (! um.canUndo())
+        return;
+    applyingUndo_ = true;
+    um.undo();
+    applyingUndo_ = false;
+    // Re-sync the live baseline and every dependent control to the restored
+    // state. refreshLabels() also re-disables Harmony sub-toggles etc.
+    undoLiveSnapshot_ = processorRef.getParameters().copyState();
+    refreshLabels();
+}
+
+void OpenVoxTunerAudioProcessorEditor::performGlobalRedo()
+{
+    auto& um = processorRef.getUndoManager();
+    if (! um.canRedo())
+        return;
+    applyingUndo_ = true;
+    um.redo();
+    applyingUndo_ = false;
+    undoLiveSnapshot_ = processorRef.getParameters().copyState();
+    refreshLabels();
+}
+
+void OpenVoxTunerAudioProcessorEditor::commitUndoGesture (const juce::ValueTree& before)
+{
+    // `before` is the pre-change snapshot; `after` is the current live state.
+    // Skip programmatic refreshes that round-trip identical values.
+    const juce::ValueTree after = processorRef.getParameters().copyState();
+    if (before.isValid() && after.isValid() && ! before.isEquivalentTo (after))
+        processorRef.pushUndoAction (before, after);
+    undoLiveSnapshot_ = after;
+}
+
+void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
+{
+    // Register the editor as listener on every control that mutates the
+    // plugin state, so a single set of handlers records ALL gestures.
+    // Sliders: snapshot at drag-start, commit at drag-end.
+    speedSlider.addListener (this);
+    amountSlider.addListener (this);
+    formantSlider.addListener (this);
+    morphSlider.addListener (this);
+    reverbMixSlider.addListener (this);
+    flexTuneSlider.addListener (this);
+    humanizeSlider.addListener (this);
+    vibratoPreserveSlider.addListener (this);
+    attackReleaseSlider.addListener (this);
+    harmonyGainSlider.addListener (this);
+    harmonyBlendSlider.addListener (this);
+    harmonyToneColorSlider.addListener (this);
+    noiseGateThresholdSlider.addListener (this);
+
+    // Toggles + combo boxes: commit on change using the last pre-change
+    // snapshot (the live baseline captured by the timer).
+    formantEnableButton.addListener (this);
+    bypassToggleButton.addListener (this);
+    midiToggleButton.addListener (this);
+    reverbEnableButton.addListener (this);
+    noiseGateEnableButton.addListener (this);
+    attackAwareButton.addListener (this);
+    correctionModeButton.addListener (this);
+    harmonyEnableButton.addListener (this);
+    harmonyFollowLeadButton.addListener (this);
+    harmonyGainMatchButton.addListener (this);
+    useVoiceButton.addListener (this);
+    keyDetectPowerButton.addListener (this);
+
+    keyBox.addListener (this);
+    scaleBox.addListener (this);
+    latencyModeBox.addListener (this);
+    detectorBox.addListener (this);
+    keySourceBox.addListener (this);
+    companionGroupBox.addListener (this);
+    harmonyTypeBox.addListener (this);
+    shiftedVoicesBox.addListener (this);
+    harmonyToneBox.addListener (this);
+    measuresComboBox.addListener (this);
+
+    // The 12 custom-scale toggle buttons (part of the scale keyboard).
+    for (int i = 0; i < 12; ++i)
+        scaleKeyboard.getButton (i).addListener (this);
+}
+
+// juce::Slider::Listener
+void OpenVoxTunerAudioProcessorEditor::sliderValueChanged (juce::Slider*)
+{
+    // Deliberately empty: the live snapshot is refreshed by the 30 fps timer
+    // and committed on sliderDragEnded, so per-tick value changes need no
+    // action here.
+}
+
+void OpenVoxTunerAudioProcessorEditor::sliderDragStarted (juce::Slider*)
+{
+    undoGestureActive_ = true;
+    undoBeforeDrag_ = processorRef.getParameters().copyState();
+}
+
+void OpenVoxTunerAudioProcessorEditor::sliderDragEnded (juce::Slider*)
+{
+    if (! undoGestureActive_)
+        return;
+    undoGestureActive_ = false;
+    commitUndoGesture (undoBeforeDrag_);
+}
+
+// juce::Button::Listener
+void OpenVoxTunerAudioProcessorEditor::buttonClicked (juce::Button*)
+{
+    commitUndoGesture (undoLiveSnapshot_);
+}
+
+// juce::ComboBox::Listener
+void OpenVoxTunerAudioProcessorEditor::comboBoxChanged (juce::ComboBox*)
+{
+    commitUndoGesture (undoLiveSnapshot_);
+}
+
+// Wrap a non-gesture state change (preset load, programmatic apply) in a
+// single undo transaction: snapshot before, run the change, snapshot after.
+void OpenVoxTunerAudioProcessorEditor::pushUndoAroundCall (std::function<void()> fn)
+{
+    if (applyingUndo_)
+        return; // never record while replaying undo/redo
+    const juce::ValueTree before = processorRef.getParameters().copyState();
+    fn();
+    commitUndoGesture (before);
 }
 
 void OpenVoxTunerAudioProcessorEditor::mouseDown (const juce::MouseEvent& event)
@@ -3129,30 +3403,32 @@ void OpenVoxTunerAudioProcessorEditor::loadCustomPresetFromFile (const juce::Fil
     if (curveEditor == nullptr) return;
     if (! file.existsAsFile()) return;
 
-    resetMorph(); // cancel any active morph when loading a preset
+    pushUndoAroundCall ([this, &file] {
+        resetMorph(); // cancel any active morph when loading a preset
 
-    std::unique_ptr<juce::XmlElement> xml (juce::XmlDocument (file).getDocumentElement());
-    if (xml == nullptr) return;
+        std::unique_ptr<juce::XmlElement> xml (juce::XmlDocument (file).getDocumentElement());
+        if (xml == nullptr) return;
 
-    const juce::XmlElement* root = xml.get();
-    const juce::XmlElement* curveXml = nullptr;
+        const juce::XmlElement* root = xml.get();
+        const juce::XmlElement* curveXml = nullptr;
 
-    if (xml->hasTagName ("OVT_PRESET"))
-        curveXml = xml->getChildByName ("PITCH_CURVE");
-    else if (xml->hasTagName ("PITCH_CURVE"))
-        curveXml = xml.get();
+        if (xml->hasTagName ("OVT_PRESET"))
+            curveXml = xml->getChildByName ("PITCH_CURVE");
+        else if (xml->hasTagName ("PITCH_CURVE"))
+            curveXml = xml.get();
 
-    if (curveXml == nullptr) return;
+        if (curveXml == nullptr) return;
 
-    ovtdsp::PitchCurve newCurve;
-    newCurve.fromXml (*curveXml);
-    curveEditor->setCurve (newCurve);
-    syncEditButtons();
+        ovtdsp::PitchCurve newCurve;
+        newCurve.fromXml (*curveXml);
+        curveEditor->setCurve (newCurve);
+        syncEditButtons();
 
-    if (root->hasTagName ("OVT_PRESET"))
-        applyPresetUiStateFromXml (*root);
-    else
-        stepModeButton.setToggleState (newCurve.isStepMode(), juce::dontSendNotification);
+        if (root->hasTagName ("OVT_PRESET"))
+            applyPresetUiStateFromXml (*root);
+        else
+            stepModeButton.setToggleState (newCurve.isStepMode(), juce::dontSendNotification);
+    });
 }
 
 void OpenVoxTunerAudioProcessorEditor::promptSaveCustomPreset()
@@ -3441,26 +3717,28 @@ void OpenVoxTunerAudioProcessorEditor::applyFactoryPreset (const juce::String& n
 {
     if (curveEditor == nullptr)
         return;
-    resetMorph(); // cancel any active morph when loading a preset
-    ovtdsp::PitchCurve newCurve;
-    newCurve.loadPreset (name);
-    curveEditor->setCurve (newCurve);
+    pushUndoAroundCall ([this, &name] {
+        resetMorph(); // cancel any active morph when loading a preset
+        ovtdsp::PitchCurve newCurve;
+        newCurve.loadPreset (name);
+        curveEditor->setCurve (newCurve);
 
-    // A preset replaces the current editor state, so commit it to the active
-    // A/B slot. Otherwise switching slots would discard the preset and reload
-    // the slot's stale stored curve (the preset only touches the editor curve,
-    // not the slot's MorphState).
-    if (isSlotAActive)
-        saveSlot (slotA, 0);
-    else
-        saveSlot (slotB, 1);
+        // A preset replaces the current editor state, so commit it to the active
+        // A/B slot. Otherwise switching slots would discard the preset and reload
+        // the slot's stale stored curve (the preset only touches the editor curve,
+        // not the slot's MorphState).
+        if (isSlotAActive)
+            saveSlot (slotA, 0);
+        else
+            saveSlot (slotB, 1);
 
-    // Keep the morph slider aligned with the active slot so the displayed
-    // curve matches the slot the preset was applied to (and the auto-save on
-    // the next slot switch captures it correctly).
-    processorRef.setMorphAmount (isSlotAActive ? 0.0f : 1.0f);
+        // Keep the morph slider aligned with the active slot so the displayed
+        // curve matches the slot the preset was applied to (and the auto-save on
+        // the next slot switch captures it correctly).
+        processorRef.setMorphAmount (isSlotAActive ? 0.0f : 1.0f);
 
-    syncEditButtons();
+        syncEditButtons();
+    });
 }
 
 juce::PopupMenu OpenVoxTunerAudioProcessorEditor::buildPresetsMenu()

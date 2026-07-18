@@ -135,6 +135,21 @@ public:
     // Parameter tree access (for the editor).
     juce::AudioProcessorValueTreeState& getParameters() { return parameters; }
 
+    // === Global plugin Undo/Redo (Option 1) ===
+    // A single history covering every automatable parameter (the full
+    // AudioProcessorValueTreeState). The Curve Editor keeps its own
+    // curve-point undo; everything else (sliders, toggles, combos, presets,
+    // scale changes) is recorded here. Snapshots are ValueTree copies, so a
+    // single UndoManager transaction restores the whole plugin state.
+    juce::UndoManager& getUndoManager() { return pluginUndoManager; }
+
+    /// Push one undoable transaction: restore `before` on Undo, `after` on Redo.
+    /// `before`/`after` are full ValueTree copies of `parameters.state`
+    /// (see AudioProcessorValueTreeState::copyState()). Both states are
+    /// captured by the editor at gesture boundaries; this method only builds
+    /// the action and performs it.
+    void pushUndoAction (const juce::ValueTree& before, const juce::ValueTree& after);
+
     /// Get the current scale intervals from the processor's ScaleQuantizer.
     /// These are the definitive intervals (key + scale or custom) used for
     /// pitch quantization, background lines, and piano keyboard highlighting.
@@ -209,6 +224,10 @@ private:
     // Uses AudioProcessorValueTreeState to expose parameters
     // to the host (automation) and GUI in a synchronized way.
     juce::AudioProcessorValueTreeState parameters;
+
+    // Global plugin Undo/Redo history (Option 1). Owns the ValueTree
+    // snapshots pushed by the editor at gesture boundaries.
+    juce::UndoManager pluginUndoManager;
 
     // Parameter targets (sliders, knobs, etc.).
     std::atomic<float>* speedParam   = nullptr; // Correction speed (ms)        

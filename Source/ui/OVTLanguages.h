@@ -249,6 +249,8 @@ namespace ovt
         static const char* kTooltipAutoScroll        = "tooltip.auto_scroll";
         static const char* kTooltipUndo              = "tooltip.undo";
         static const char* kTooltipRedo              = "tooltip.redo";
+        static const char* kLabelUndo                = "label.undo";
+        static const char* kLabelRedo                = "label.redo";
         static const char* kButtonPianoRoll          = "button.piano_roll";
         static const char* kTooltipPianoRoll         = "tooltip.piano_roll";
 
@@ -281,6 +283,7 @@ namespace ovt
         static const char* kHelpUndo         = "help.undo";
         static const char* kHelpRedo         = "help.redo";
         static const char* kHelpToggleHelp   = "help.toggle_help";
+        static const char* kHelpScope        = "help.scope";
 
         // Dialog/Alert keys
         static const char* kDlgExport          = "dlg.export";
@@ -539,6 +542,8 @@ namespace ovt
             { kTooltipAutoScroll,     "Automatically scroll the editor view during playback" },
             { kTooltipUndo,           "Undo (Ctrl+Z)" },
             { kTooltipRedo,           "Redo (Ctrl+Y)" },
+            { kLabelUndo,             "Undo" },
+            { kLabelRedo,             "Redo" },
             { kButtonPianoRoll,       "Piano Roll" },
             { kTooltipPianoRoll,      "Toggle the piano-roll editing metaphor (notes snapped to the keyboard rows)" },
             { kLegendInput,           "Input" },
@@ -565,6 +570,7 @@ namespace ovt
             { kHelpUndo,              "Undo" },
             { kHelpRedo,              "Redo" },
             { kHelpToggleHelp,        "Toggle this help overlay" },
+            { kHelpScope,             "Shortcuts apply in the Curve Editor when it has focus" },
             { kDlgExport,             "Export" },
             { kDlgExportPng,          "Export current view as PNG" },
             { kDlgExportNotFound,     "Could not find the component to export." },
@@ -807,6 +813,8 @@ namespace ovt
             { kTooltipAutoScroll,     "Defiler automatiquement la vue de l'editeur pendant la lecture" },
             { kTooltipUndo,           "Annuler (Ctrl+Z)" },
             { kTooltipRedo,           "Refaire (Ctrl+Y)" },
+            { kLabelUndo,             "Annuler" },
+            { kLabelRedo,             "Refaire" },
             { kButtonPianoRoll,       "Piano Roll" },
             { kTooltipPianoRoll,      "Bascule la metaphore d'edition piano-roll (notes alignes sur les touches)" },
             { kLegendInput,           "Entree" },
@@ -833,6 +841,7 @@ namespace ovt
             { kHelpUndo,              "Annuler" },
             { kHelpRedo,              "Refaire" },
             { kHelpToggleHelp,        "Afficher/masquer cette aide" },
+            { kHelpScope,             "Les raccourcis s'appliquent dans l'editeur de courbe quand il a le focus" },
             { kDlgExport,             "Export" },
             { kDlgExportPng,          "Exporter la vue courante en PNG" },
             { kDlgExportNotFound,     "Impossible de trouver le composant a exporter." },
@@ -1075,6 +1084,8 @@ namespace ovt
             { kTooltipAutoScroll,     "Editor-Ansicht waehrend der Wiedergabe automatisch scrollen" },
             { kTooltipUndo,           "Rueckgaengig (Ctrl+Z)" },
             { kTooltipRedo,           "Wiederholen (Ctrl+Y)" },
+            { kLabelUndo,             "Rueckgaengig" },
+            { kLabelRedo,             "Wiederholen" },
             { kButtonPianoRoll,       "Piano-Roll" },
             { kTooltipPianoRoll,      "Aktiviert die Piano-Roll-Bearbeitung (Noten an die Tastenreihen gerastet)" },
             { kLegendInput,           "Eingang" },
@@ -1101,6 +1112,7 @@ namespace ovt
             { kHelpUndo,              "Rueckgaengig" },
             { kHelpRedo,              "Wiederholen" },
             { kHelpToggleHelp,        "Diese Hilfe ein-/ausblenden" },
+            { kHelpScope,             "Kurzbefehle gelten im Kurveneditor bei Fokus" },
             { kDlgExport,             "Export" },
             { kDlgExportPng,          "Aktuelle Ansicht als PNG exportieren" },
             { kDlgExportNotFound,     "Zu exportierende Komponente nicht gefunden." },
@@ -1343,6 +1355,8 @@ namespace ovt
             { kTooltipAutoScroll,     "Desplazar automaticamente la vista del editor durante la reproduccion" },
             { kTooltipUndo,           "Deshacer (Ctrl+Z)" },
             { kTooltipRedo,           "Rehacer (Ctrl+Y)" },
+            { kLabelUndo,             "Deshacer" },
+            { kLabelRedo,             "Rehacer" },
             { kButtonPianoRoll,       "Piano Roll" },
             { kTooltipPianoRoll,      "Activa la edicion tipo piano-roll (notas ajustadas a las filas del teclado)" },
             { kLegendInput,           "Entrada" },
@@ -1369,6 +1383,7 @@ namespace ovt
             { kHelpUndo,              "Deshacer" },
             { kHelpRedo,              "Rehacer" },
             { kHelpToggleHelp,        "Mostrar/ocultar esta ayuda" },
+            { kHelpScope,             "Los atajos se aplican en el editor de curva con el foco" },
             { kDlgExport,             "Exportar" },
             { kDlgExportPng,          "Exportar la vista actual como PNG" },
             { kDlgExportNotFound,     "No se pudo encontrar el componente que exportar." },
@@ -1611,6 +1626,8 @@ namespace ovt
             { kTooltipAutoScroll,     "再生中にエディタビューを自動スクロール" },
             { kTooltipUndo,           "元に戻す (Ctrl+Z)" },
             { kTooltipRedo,           "やり直す (Ctrl+Y)" },
+            { kLabelUndo,             "元に戻す" },
+            { kLabelRedo,             "やり直す" },
             { kButtonPianoRoll,       "ピアノロール" },
             { kTooltipPianoRoll,      "ピアノロール編集モードを切り替え (鍵盤の列にスナップした音符)" },
             { kLegendInput,           "入力" },
@@ -1637,6 +1654,7 @@ namespace ovt
             { kHelpUndo,              "元に戻す" },
             { kHelpRedo,              "やり直す" },
             { kHelpToggleHelp,        "このヘルプを表示/非表示" },
+            { kHelpScope,             "ショートカットはカーブエディタにフォーカスがある時のみ有効" },
             { kDlgExport,             "エクスポート" },
             { kDlgExportPng,          "現在のビューをPNGにエクスポート" },
             { kDlgExportNotFound,     "エクスポートするコンポーネントが見つかりません。" },
@@ -1879,6 +1897,8 @@ namespace ovt
             { kTooltipAutoScroll,     "播放时自动滚动编辑器视图" },
             { kTooltipUndo,           "撤销（Ctrl+Z）" },
             { kTooltipRedo,           "重做（Ctrl+Y）" },
+            { kLabelUndo,             "撤销" },
+            { kLabelRedo,             "重做" },
             { kButtonPianoRoll,       "钢琴卷帘" },
             { kTooltipPianoRoll,      "切换钢琴卷帘编辑方式（音符吸附到键盘行）" },
             { kLegendInput,           "输入" },
@@ -1905,6 +1925,7 @@ namespace ovt
             { kHelpUndo,              "撤销" },
             { kHelpRedo,              "重做" },
             { kHelpToggleHelp,        "切换此帮助覆盖层" },
+            { kHelpScope,             "快捷键仅在曲线编辑器获得焦点时生效" },
             { kDlgExport,             "导出" },
             { kDlgExportPng,          "将当前视图导出为 PNG" },
             { kDlgExportNotFound,     "找不到要导出的组件。" },

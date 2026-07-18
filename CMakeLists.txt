@@ -289,6 +289,7 @@ target_sources(OpenVoxTunerTests PRIVATE
     test/dsp/PitchCurveTest.cpp
     test/dsp/KeyBridgeTest.cpp
     test/dsp/SidechainBusLayoutTest.cpp
+    test/dsp/PluginUndoTest.cpp
     test/ui/PitchCurveEditorTest.cpp
     test/ui/ScaleKeyboardComponentTest.cpp
 
@@ -305,6 +306,7 @@ target_sources(OpenVoxTunerTests PRIVATE
 target_link_libraries(OpenVoxTunerTests PRIVATE
     juce::juce_audio_basics
     juce::juce_audio_processors
+    juce::juce_data_structures
     juce::juce_events
     juce::juce_graphics
 )

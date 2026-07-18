@@ -38,6 +38,9 @@ public:
 
 class OpenVoxTunerAudioProcessorEditor : public juce::AudioProcessorEditor,
                                          public ui::PitchCurveEditor::Listener,
+                                         public juce::Slider::Listener,
+                                         public juce::Button::Listener,
+                                         public juce::ComboBox::Listener,
                                          public juce::Timer
 {
 public:
@@ -53,6 +56,13 @@ public:
 
     void mouseDown (const juce::MouseEvent& event) override;
     bool keyPressed (const juce::KeyPress& key) override;
+
+    // === Global plugin Undo/Redo (Option 1) — gesture listeners ===
+    void sliderValueChanged (juce::Slider*) override;
+    void sliderDragStarted (juce::Slider*) override;
+    void sliderDragEnded (juce::Slider*) override;
+    void buttonClicked (juce::Button*) override;
+    void comboBoxChanged (juce::ComboBox*) override;
 
     // === PitchCurveEditor::Listener ===
     void pitchCurveChanged() override;
@@ -316,6 +326,35 @@ private:
 
     // Last waveform display type synced to visualizer/curve editor.
     int lastWaveformDisplayType = -1;
+    // Tracks the last Harmony enable state seen by the timer so we can
+    // re-run refreshLabels() (which disables the Follow Lead / Gain Match /
+    // Use Voice sub-toggles) when Harmony changes via preset load or DAW
+    // automation — paths that bypass the button's onStateChange callback.
+    bool lastHarmonyEnabled = true;
+
+    // === Global plugin Undo/Redo (Option 1) ===
+    // Snapshot bookkeeping for the processor-owned UndoManager. We do NOT
+    // record DAW automation (it never fires these gesture handlers) and we
+    // do NOT record curve-point edits (the Curve Editor has its own undo).
+    // `undoLiveSnapshot_` is the plugin state as of the last timer tick, used
+    // as the "before" image for discrete clicks/toggles/combos. During a
+    // slider drag we snapshot once at drag-start into `undoBeforeDrag_`.
+    juce::ValueTree undoLiveSnapshot_;
+    juce::ValueTree undoBeforeDrag_;
+    bool undoGestureActive_ = false;   // inside a slider drag
+    bool applyingUndo_ = false;        // re-entrancy guard while undo/redo runs
+
+    // Global Undo/Redo buttons (icon-only DrawableButtons, placed in the
+    // header between button B and the Options gear).
+    juce::DrawableButton undoButton { "Undo", juce::DrawableButton::ImageOnButtonBackground };
+    juce::DrawableButton redoButton { "Redo", juce::DrawableButton::ImageOnButtonBackground };
+
+    void performGlobalUndo();
+    void performGlobalRedo();
+    void commitUndoGesture (const juce::ValueTree& before);
+    void registerUndoGestureListeners();
+    // Wrap a programmatic state change (preset load) in one undo transaction.
+    void pushUndoAroundCall (std::function<void()> fn);
 
     // === A/B Comparison ===
     struct ABState {

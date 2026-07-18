@@ -163,7 +163,7 @@ namespace ui
 
             float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.3f;
             float iconWidth = radius * 2.0f;
-            
+
             float textWidth = 0.0f;
             if (hasText)
             {
@@ -173,7 +173,7 @@ namespace ui
 
             float totalWidth = iconWidth + textWidth;
             float startX = (bounds.getWidth() - totalWidth) * 0.5f;
-            
+
             juce::Point<float> center(startX + radius, bounds.getHeight() * 0.5f);
 
             // Colors based on state
@@ -181,8 +181,18 @@ namespace ui
             juce::Colour offColor = ovt::text().withAlpha(0.3f);
             juce::Colour activeColor = isOn ? glowColor : offColor;
 
+            // A disabled button (e.g. a Harmony sub-toggle while Harmony is
+            // off) is dimmed so the user can see it is not interactive, even
+            // though the custom PowerButton rendering ignores isEnabled() for
+            // the glow. This keeps the visual state in line with setEnabled().
+            if (! button.isEnabled())
+            {
+                activeColor = activeColor.withAlpha (0.25f);
+                glowColor = glowColor.withAlpha (0.0f);
+            }
+
             // Draw Glow if ON
-            if (isOn) {
+            if (isOn && button.isEnabled()) {
                 juce::ColourGradient glowGrad(glowColor.withAlpha(0.4f), center.x, center.y,
                                               glowColor.withAlpha(0.0f), center.x, center.y + radius * 1.5f, true);
                 g.setGradientFill(glowGrad);
@@ -205,7 +215,8 @@ namespace ui
             // Draw Text
             if (hasText)
             {
-                g.setColour(isOn ? ovt::text() : ovt::text().withAlpha(0.5f));
+                g.setColour(isOn ? ovt::text().withAlpha(button.isEnabled() ? 1.0f : 0.25f)
+                                 : ovt::text().withAlpha(0.5f * (button.isEnabled() ? 1.0f : 0.5f)));
                 g.drawText(text, startX + iconWidth + 8.0f, 0.0f, textWidth, bounds.getHeight(), juce::Justification::centredLeft, true);
             }
         }
