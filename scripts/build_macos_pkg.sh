@@ -23,6 +23,7 @@ Options:
   --entitlements <path>  Fichier .entitlements (defaut: scripts/ovt.entitlements)
   --notarize              Notarise le pkg (xcrun notarytool) + staple
   --sign-installer <id>   Signature pkg (Developer ID Installer)
+  --companion <on|off>    Inclure le plugin compagnon OpenVoxKey (VST3) (defaut: on)
   --skip-build            Ne fait pas la compilation, package depuis les artefacts existants
   --help                  Affiche cette aide
 
@@ -51,6 +52,7 @@ SIGN_IDENTITY=""
 ENTITLEMENTS="${SCRIPT_DIR}/ovt.entitlements"
 NOTARIZE=false
 SKIP_BUILD=false
+WANT_COMPANION=true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -104,6 +106,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sign-installer)
       SIGN_INSTALLER="${2:-}"
+      shift 2
+      ;;
+    --companion)
+      val="$(echo "${2:-on}" | tr '[:upper:]' '[:lower:]')"
+      if [[ "$val" == "off" || "$val" == "false" || "$val" == "no" ]]; then
+        WANT_COMPANION=false
+      else
+        WANT_COMPANION=true
+      fi
       shift 2
       ;;
     --skip-build)
@@ -213,6 +224,11 @@ if [[ "$SKIP_BUILD" == false ]]; then
     echo "[2/4] Build target OpenVoxTuner_CLAP..."
     cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxTuner_CLAP
   fi
+
+  if [[ "$WANT_COMPANION" == true ]]; then
+    echo "[2/4] Build target OpenVoxKey_VST3 (companion)..."
+    cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxKey_VST3
+  fi
 fi
 
 echo "[3/4] Préparation du contenu package..."
@@ -222,29 +238,33 @@ echo "[3/4] Préparation du contenu package..."
 # carries a unique package identifier, and (patched to a unique
 # CFBundleIdentifier in the loop below) a unique bundle id, so relocation/upgrade
 # stays unambiguous.
-# Entry fields: artefactDir|installRelPath|bundleName|pkgId|choiceId|title|description
+# Entry fields: artefactDir|artefactSubdir|destRel|bundleName|pkgId|choiceId|title|description
+#   artefactDir    : dossier sous $BUILD_DIR (ex. OpenVoxTuner_artefacts ou OpenVoxKey_artefacts)
+#   artefactSubdir : sous-dossier dans artefacts/Release/ (ex. Standalone, VST3, Components, CLAP)
+#   destRel        : chemin d'installation relatif a la racine (ex. Library/Audio/Plug-Ins/VST3)
 COMP_DIR="$BUILD_DIR/components"
 rm -rf "$COMP_DIR"
 mkdir -p "$COMP_DIR"
 
 NL=$'\n'
 OVT_COMP_ENTRIES=()
-[[ "$WANT_STANDALONE" == true ]] && OVT_COMP_ENTRIES+=( "Standalone|Applications|OpenVoxTuner.app|com.eiffelbs.openvoxtuner.standalone|choice_standalone|Standalone (Application)|Application autonome OpenVoxTuner." )
-[[ "$WANT_VST3" == true ]]      && OVT_COMP_ENTRIES+=( "VST3|Library/Audio/Plug-Ins/VST3|OpenVoxTuner.vst3|com.eiffelbs.openvoxtuner.vst3|choice_vst3|VST3|Plug-in VST3 pour les DAW." )
-[[ "$WANT_AU" == true ]]        && OVT_COMP_ENTRIES+=( "AU|Library/Audio/Plug-Ins/Components|OpenVoxTuner.component|com.eiffelbs.openvoxtuner.au|choice_au|Audio Unit (AU)|Plug-in Audio Unit (macOS)." )
-[[ "$WANT_CLAP" == true ]]      && OVT_COMP_ENTRIES+=( "CLAP|Library/Audio/Plug-Ins/CLAP|OpenVoxTuner.clap|com.eiffelbs.openvoxtuner.clap|choice_clap|CLAP|Plug-in CLAP pour les DAW." )
+[[ "$WANT_STANDALONE" == true ]] && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|Standalone|Applications|OpenVoxTuner.app|com.eiffelbs.openvoxtuner.standalone|choice_standalone|Standalone (Application)|Application autonome OpenVoxTuner." )
+[[ "$WANT_VST3" == true ]]      && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|VST3|Library/Audio/Plug-Ins/VST3|OpenVoxTuner.vst3|com.eiffelbs.openvoxtuner.vst3|choice_vst3|VST3|Plug-in VST3 pour les DAW." )
+[[ "$WANT_AU" == true ]]        && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|AU|Library/Audio/Plug-Ins/Components|OpenVoxTuner.component|com.eiffelbs.openvoxtuner.au|choice_au|Audio Unit (AU)|Plug-in Audio Unit (macOS)." )
+[[ "$WANT_CLAP" == true ]]      && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|CLAP|Library/Audio/Plug-Ins/CLAP|OpenVoxTuner.clap|com.eiffelbs.openvoxtuner.clap|choice_clap|CLAP|Plug-in CLAP pour les DAW." )
+[[ "$WANT_COMPANION" == true ]] && OVT_COMP_ENTRIES+=( "OpenVoxKey_artefacts|VST3|Library/Audio/Plug-Ins/VST3|OpenVoxKey.vst3|com.eiffelbs.openvoxkey.vst3|choice_companion|OpenVoxKey (companion)|Plug-in compagnon de detection de tonalite (partage la tonalite avec OpenVoxTuner)." )
 
 OUTLINE_XML=""
 CHOICES_XML=""
 PKG_REFS_XML=""
 
 for entry in "${OVT_COMP_ENTRIES[@]}"; do
-  IFS='|' read -r fmt dest_rel bundle_name pkg_id choice_id title desc <<< "$entry"
+  IFS='|' read -r artefact_dir artefact_subdir dest_rel bundle_name pkg_id choice_id title desc <<< "$entry"
 
-  SRC="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/$fmt/$bundle_name"
+  SRC="$BUILD_DIR/$artefact_dir/$CONFIG/$artefact_subdir/$bundle_name"
   [[ -d "$SRC" ]] || { echo "Bundle introuvable: $SRC" >&2; exit 1; }
 
-  root="$COMP_DIR/$fmt"
+  root="$COMP_DIR/$choice_id"
   rm -rf "$root"
   mkdir -p "$root/$(dirname "$dest_rel")"
   rsync -a --delete "$SRC" "$root/$dest_rel/"
@@ -279,12 +299,12 @@ for entry in "${OVT_COMP_ENTRIES[@]}"; do
              "$root/$dest_rel/$bundle_name"
   fi
 
-  comp_pkg="$COMP_DIR/OpenVoxTuner-$fmt.pkg"
+  comp_pkg="$COMP_DIR/OpenVoxTuner-$choice_id.pkg"
   pkgbuild --root "$root" --identifier "$pkg_id" --version "$VERSION" \
            --install-location "/" "$comp_pkg"
 
   kb=$(( $(stat -f%z "$comp_pkg") / 1024 ))
-  PKG_REFS_XML+="    <pkg-ref id=\"$pkg_id\" version=\"$VERSION\" installKBytes=\"$kb\">#OpenVoxTuner-$fmt.pkg</pkg-ref>${NL}"
+  PKG_REFS_XML+="    <pkg-ref id=\"$pkg_id\" version=\"$VERSION\" installKBytes=\"$kb\">#OpenVoxTuner-$choice_id.pkg</pkg-ref>${NL}"
   OUTLINE_XML+="        <line choice=\"$choice_id\"/>${NL}"
   CHOICES_XML+="    <choice id=\"$choice_id\" visible=\"true\" title=\"$title\" description=\"$desc\">${NL}        <pkg-ref id=\"$pkg_id\"/>${NL}    </choice>${NL}"
 done
