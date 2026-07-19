@@ -34,13 +34,15 @@ namespace ovtdsp
         const double envTau  = 0.020; // 20 ms gain-envelope smoothing
         rmsCoeff = 1.0f - std::exp (-1.0 / (rmsTau * sr));
         envCoeff = 1.0f - std::exp (-1.0 / (envTau * sr));
-        // Pivot follows the signal level with a SLOW release only: it can jump
-        // up immediately (when the gate opens) but falls back slowly. This
-        // prevents the pivot from collapsing to ~0 right after the gate opens
-        // (which would otherwise divide the quiet attack by a tiny pivot and
-        // produce a loud "clac").
-        const double pivotReleaseTau = 0.300; // 300 ms slow release
-        pivotReleaseCoeff = 1.0f - std::exp (-1.0 / (pivotReleaseTau * sr));
+        // Pivot follows the signal level with a SLOW, SYMMETRIC time constant.
+        // It must never jump quickly in either direction: a fast attack would
+        // momentarily see the gate's opening front as a huge inst/pivot ratio
+        // (loud "clac"), and a fast release would let it collapse toward ~0
+        // right after the gate opens. A constant slow lag (150 ms) keeps the
+        // pivot near the signal's real average so quiet parts are still lifted
+        // but no transient spike is ever amplified.
+        const double pivotTau = 0.150; // 150 ms slow, symmetric
+        pivotCoeff = 1.0f - std::exp (-1.0 / (pivotTau * sr));
         reset();
     }
 
@@ -91,20 +93,16 @@ namespace ovtdsp
                 const float coeff = (inst > rmsState) ? rmsCoeff * 2.0f : rmsCoeff;
                 rmsState += (inst - rmsState) * coeff;
 
-                // Pivot = reference level with SLOW release only. It jumps up
-                // immediately to the current level (so it is correct the instant
-                // the gate opens) but decays slowly. This keeps the pivot near
-                // the signal's real level instead of collapsing to ~0 in the
-                // first samples after silence, which is what caused the "clac".
-                if (inst > pivotState)
-                    pivotState = inst;
-                else
-                    pivotState += (inst - pivotState) * pivotReleaseCoeff;
+                // Pivot = slow, symmetric reference level. Because it lags by a
+                // constant 150 ms in both directions, it never spikes on the
+                // gate's opening front nor collapses after the gate closes, so
+                // the inst/pivot ratio stays bounded and no "clac" is produced.
+                pivotState += (inst - pivotState) * pivotCoeff;
 
                 // Pivot floor (near-silence): skip compression to avoid
-                // amplifying noise. When the gate has just opened, pivotState is
-                // already near the signal level, so quiet attacks are NOT
-                // multiplied by a tiny pivot.
+                // amplifying noise. The slow pivot already sits near the real
+                // signal level, so quiet attacks are not multiplied by a tiny
+                // pivot.
                 const float pivot = juce::jmax (pivotState, 1.0e-4f);
 
                 // Upward gain for THIS sample's level: if level < pivot, push up.
@@ -116,8 +114,9 @@ namespace ovtdsp
                 else
                     gain = 1.0f;
                 if (! std::isfinite (gain) || gain < 1.0f) gain = 1.0f;
-                // Safety ceiling so we never explode a signal.
-                gain = juce::jmin (gain, 12.0f);
+                // Safety ceiling: 4x is plenty for an upward lift and, combined
+                // with the slow pivot, guarantees no transient spike survives.
+                gain = juce::jmin (gain, 4.0f);
 
                 // Smooth the gain envelope to avoid zipper noise.
                 gainEnv += (gain - gainEnv) * envCoeff;
@@ -132,11 +131,11 @@ namespace ovtdsp
         float amount = 0.0f;        // user parameter 0..1
         float upwardRatio = 1.0f;   // derived from amount
         float rmsState = 0.0f;      // running RMS level (linear)
-        float pivotState = 0.0f;     // reference level for upward gain (slow release only)
+        float pivotState = 0.0f;     // reference level for upward gain (slow symmetric lag)
         float gainEnv  = 1.0f;       // smoothed applied gain
         float rmsCoeff = 0.0f;
         float envCoeff = 0.0f;
-        float pivotReleaseCoeff = 0.0f;
+        float pivotCoeff = 0.0f;
         double sampleRate = 44100.0;
     };
 }

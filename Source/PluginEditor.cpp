@@ -3898,7 +3898,8 @@ namespace
             "Spoken Voice / Podcast",
             "Creative Robot",
             "Broadcast Voice",
-            "Breathy Vocals"
+            "Breathy Vocals",
+            "Lead Vocal"
         };
         return names;
     }
@@ -3970,6 +3971,22 @@ namespace
             { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
             { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.4f }
         };
+        // Lead Vocal: the flagship "thickened lead" sound. A light gate tames
+        // room tone, "-3 / +3" harmony (3rd below + above) fattens the lead
+        // without smearing it, a touch of reverb adds space, and a moderate
+        // upward compression keeps the lead consistent and present.
+        static const std::map<juce::String, float> leadVocal = {
+            { "amount", 0.9f }, { "speed", 40.0f }, { "flex_tune", 15.0f },
+            { "humanize", 20.0f }, { "vibrato_preserve", 0.2f },
+            { "harmony_enable", 1.0f }, { "harmony_type", 3.0f }, // 3rd below + above (-3 / +3)
+            { "harmony_gain_match", 1.0f }, { "harmony_follow_lead", 1.0f },
+            { "harmony_gain", 0.6f }, { "harmony_blend", 0.5f },
+            { "harmony_tone_color", 0.5f },
+            { "formant_enable", 1.0f }, { "formant_mode", 1.0f }, { "formant", 0.0f },
+            { "reverb_enable", 1.0f }, { "reverb_mix", 0.25f },
+            { "noise_gate_enable", 1.0f }, { "noise_gate_threshold", -40.0f },
+            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.5f }
+        };
 
         if (name == "Pure Correction")       return &correctionPure;
         if (name == "Transparent / Doubling") return &transparentDub;
@@ -3979,6 +3996,7 @@ namespace
         if (name == "Creative Robot")        return &creativeRobot;
         if (name == "Broadcast Voice")       return &broadcastVoice;
         if (name == "Breathy Vocals")        return &breathyVocals;
+        if (name == "Lead Vocal")            return &leadVocal;
         return nullptr; // "Default" -> factory defaults
     }
 }
