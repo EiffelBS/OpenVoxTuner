@@ -24,6 +24,7 @@ Options:
   --notarize              Notarise le pkg (xcrun notarytool) + staple
   --sign-installer <id>   Signature pkg (Developer ID Installer)
   --companion <on|off>    Inclure le plugin compagnon OpenVoxKey (memes formats que OpenVoxTuner) (defaut: on)
+  --local                 Leve la quarantaine Gatekeeper du .pkg genere (test local, sans signature)
   --skip-build            Ne fait pas la compilation, package depuis les artefacts existants
   --help                  Affiche cette aide
 
@@ -53,6 +54,7 @@ ENTITLEMENTS="${SCRIPT_DIR}/ovt.entitlements"
 NOTARIZE=false
 SKIP_BUILD=false
 WANT_COMPANION=true
+LOCAL_UNSIGN=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -119,6 +121,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-build)
       SKIP_BUILD=true
+      shift
+      ;;
+    --local)
+      # Leve la quarantaine Gatekeeper du .pkg genere pour test local en
+      # double-clic, sans certificat Developer ID. Ne remplace PAS la signature.
+      LOCAL_UNSIGN=true
       shift
       ;;
     --help|-h)
@@ -403,6 +411,22 @@ echo "[4/4] Génération du .pkg..."
 "${PRODUCTBUILD_CMD[@]}"
 
 echo "[OK] Installateur généré: $OUTPUT"
+
+# --- Local (un)signed test build ---
+# Without a Developer ID, Gatekeeper flags the .pkg as quarantined and the
+# Finder refuses to open it on double-click. --local clears the quarantine
+# attribute so the pkg can be installed locally for testing (sudo installer
+# works regardless). This is NOT a substitute for real signing/notarization.
+if [[ "$LOCAL_UNSIGN" == true ]]; then
+  if [[ -n "$SIGN_INSTALLER" || "$NOTARIZE" == true ]]; then
+    echo "Erreur: --local est incompatible avec --sign-installer/--notarize (pkg deja signe)." >&2
+    exit 1
+  fi
+  echo "[+] Levee de la quarantaine Gatekeeper (--local)..."
+  xattr -dr com.apple.quarantine "$OUTPUT" 2>/dev/null || true
+  echo "    Quarantaine levee sur: $OUTPUT"
+  echo "    Installation locale: sudo installer -pkg $OUTPUT -target /"
+fi
 
 # --- Notarization (optional) ---
 if [[ "$NOTARIZE" == true ]]; then
