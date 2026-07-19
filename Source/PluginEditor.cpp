@@ -3569,7 +3569,12 @@ void OpenVoxTunerAudioProcessorEditor::loadCustomPresetFromFile (const juce::Fil
         if (root->hasTagName ("OVT_PRESET"))
             applyPresetUiStateFromXml (*root);
         else
-            stepModeButton.setToggleState (newCurve.isStepMode(), juce::dontSendNotification);
+        {
+            // Reflect the effective Step Mode (forced ON in Piano Roll mode) rather
+            // than the raw preset value.
+            stepModeButton.setToggleState (curveEditor->isStepModeEnabled(), juce::dontSendNotification);
+            applyPresetUiStateFromXml (*root);
+        }
     });
 }
 

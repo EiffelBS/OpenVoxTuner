@@ -221,7 +221,18 @@ namespace ui
         /// model is edited; only the rendering and hit-testing change (notes are
         /// snapped to the keyboard rows instead of a continuous line). This is a
         /// second metaphor that does not replace the curve editor.
-        void setPianoRollMode (bool b) { pianoRollMode = b; repaint(); }
+        ///
+        /// When Piano Roll mode is enabled, Step Mode is forced on regardless of
+        /// the loaded preset: a piano-roll layout shows discrete note rows, so a
+        /// sliding (linear) interpolation would be visually inconsistent with the
+        /// keyboard rows and would also make the audio glide between notes.
+        void setPianoRollMode (bool b)
+        {
+            pianoRollMode = b;
+            if (b)
+                curve.setStepMode (true);
+            repaint();
+        }
         bool isPianoRollMode() const { return pianoRollMode; }
 
         /// Active/desactive l'edition (utilise pour griser en mode Auto).

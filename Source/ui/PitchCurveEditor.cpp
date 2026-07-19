@@ -1280,6 +1280,12 @@ namespace ui
     void PitchCurveEditor::setCurve (const ovtdsp::PitchCurve& newCurve)
     {
         curve = newCurve; // copie (inclut stepMode, snapEnabled, snapToGridEnabled)
+        // In Piano Roll mode we always force Step Mode (see setPianoRollMode):
+        // a preset may carry stepMode=false, but the keyboard-row layout must stay
+        // discrete, otherwise the audio would glide between notes and disagree with
+        // the displayed rows.
+        if (pianoRollMode)
+            curve.setStepMode (true);
         // Applique les parametres d'edition stockes dans la courbe
         snapEnabled = curve.isSnapEnabled();
         snapToGridEnabled = curve.isSnapToGridEnabled();
