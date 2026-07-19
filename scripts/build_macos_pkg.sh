@@ -260,6 +260,9 @@ echo "[3/4] Préparation du contenu package..."
 #   artefactSubdir : sous-dossier dans artefacts/Release/ (ex. Standalone, VST3, Components, CLAP)
 #   destRel        : chemin d'installation relatif a la racine (ex. Library/Audio/Plug-Ins/VST3)
 COMP_DIR="$BUILD_DIR/components"
+# JUCE ships plugin bundles with read-only files; make them writable before
+# removing so the clean rm -rf never fails on a stale staging dir.
+chmod -R u+w "$COMP_DIR" 2>/dev/null || true
 rm -rf "$COMP_DIR"
 mkdir -p "$COMP_DIR"
 
