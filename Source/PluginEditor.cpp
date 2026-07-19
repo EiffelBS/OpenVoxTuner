@@ -7,6 +7,7 @@
 #include "ui/OVTTheme.h"
 #include "ui/OVTLanguages.h"
 #include "ui/PresetGallery.h"
+#include <map>
 
 // === Theme colors ("autotune" style: dark + pink/purple accent) ===
 
@@ -82,6 +83,19 @@ namespace
         auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
                        .getChildFile ("OpenVoxTuner")
                        .getChildFile ("Presets");
+        dir.createDirectory();
+        return dir;
+    }
+
+    // Plugin Presets live in a separate "Presets/Plugin" folder so their files
+    // never collide with Curve Preset files (which live directly under
+    // "Presets"). The two preset kinds are fully orthogonal.
+    juce::File getUserPluginPresetsDirectory()
+    {
+        auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                       .getChildFile ("OpenVoxTuner")
+                       .getChildFile ("Presets")
+                       .getChildFile ("Plugin");
         dir.createDirectory();
         return dir;
     }
@@ -1214,6 +1228,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // from the plugin's own gear (menuButton) and icon-only (no text label).
     static const char* svgHamburger = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>)";
 
+    // Plugin Preset selector (top banner, centred): previous / next arrows and
+    // a save (download-to-disk) icon. Distinct from the Curve Presets gallery.
+    static const char* svgPresetPrev = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>)";
+    static const char* svgPresetNext = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>)";
+    static const char* svgPresetSave = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>)";
+
     // Global plugin Undo / Redo icons (curved-left arrows). Mirror the Curve
     // Editor's own undo/redo buttons, but operate on the processor-wide
     // UndoManager (every automatable parameter).
@@ -1347,6 +1367,75 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         redoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipRedo));
         redoButton.onClick = [this] { performGlobalRedo(); };
         addAndMakeVisible (redoButton);
+    }
+
+    // === Plugin Preset selector (separate from Curve Presets) ===
+    // Centred in the top banner: [<] [Combo: name] [>] [save]. Mirrors the
+    // standard plugin-preset bar. Applies the full parameter state (no
+    // curve) via the processor's global-undo-aware apply.
+    {
+        auto prevNorm = createDrawableSVG (svgPresetPrev, juce::Colours::white);
+        auto prevOver = createDrawableSVG (svgPresetPrev, ovt::accent());
+        auto prevDown = createDrawableSVG (svgPresetPrev, juce::Colours::white);
+        presetPrevButton.setImages (prevNorm.get(), prevOver.get(), prevDown.get());
+        presetPrevButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
+        presetPrevButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        presetPrevButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
+        presetPrevButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
+        presetPrevButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPluginPresetPrev));
+        presetPrevButton.onClick = [this] {
+            const int idx = pluginPresetNames.indexOf (currentPluginPresetName);
+            const int n = pluginPresetNames.size();
+            if (n == 0) return;
+            const int prev = (idx <= 0) ? n - 1 : idx - 1;
+            applyPluginPresetByName (pluginPresetNames[prev]);
+        };
+        addAndMakeVisible (presetPrevButton);
+
+        auto nextNorm = createDrawableSVG (svgPresetNext, juce::Colours::white);
+        auto nextOver = createDrawableSVG (svgPresetNext, ovt::accent());
+        auto nextDown = createDrawableSVG (svgPresetNext, juce::Colours::white);
+        presetNextButton.setImages (nextNorm.get(), nextOver.get(), nextDown.get());
+        presetNextButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
+        presetNextButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        presetNextButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
+        presetNextButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
+        presetNextButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPluginPresetNext));
+        presetNextButton.onClick = [this] {
+            const int idx = pluginPresetNames.indexOf (currentPluginPresetName);
+            const int n = pluginPresetNames.size();
+            if (n == 0) return;
+            const int next = (idx < 0 || idx >= n - 1) ? 0 : idx + 1;
+            applyPluginPresetByName (pluginPresetNames[next]);
+        };
+        addAndMakeVisible (presetNextButton);
+
+        auto saveNorm = createDrawableSVG (svgPresetSave, juce::Colours::white);
+        auto saveOver = createDrawableSVG (svgPresetSave, ovt::accent());
+        auto saveDown = createDrawableSVG (svgPresetSave, juce::Colours::white);
+        presetSaveButton.setImages (saveNorm.get(), saveOver.get(), saveDown.get());
+        presetSaveButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
+        presetSaveButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        presetSaveButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
+        presetSaveButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
+        presetSaveButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPluginPresetSave));
+        presetSaveButton.onClick = [this] { promptSavePluginPreset(); };
+        addAndMakeVisible (presetSaveButton);
+
+        presetComboBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
+        presetComboBox.setColour (juce::ComboBox::textColourId, juce::Colours::white);
+        presetComboBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
+        presetComboBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
+        presetComboBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
+        presetComboBox.setColour (juce::PopupMenu::textColourId, juce::Colours::white);
+        presetComboBox.onChange = [this] {
+            const int idx = presetComboBox.getSelectedItemIndex();
+            if (idx >= 0 && idx < pluginPresetNames.size())
+                applyPluginPresetByName (pluginPresetNames[idx]);
+        };
+        addAndMakeVisible (presetComboBox);
+
+        refreshPluginPresetList();
     }
 
     // Standalone transport: a single Play/Pause toggle plus a "Return to start"
@@ -2049,6 +2138,30 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     morphSliderLabel.setBounds (x, 2, morphW, 10);
     x -= btnSize + btnGap;
     buttonA.setBounds (x, 11, btnSize, btnSize);
+
+    // === Plugin Preset selector (separate from Curve Presets) ===
+    // Centred in the top banner, between the left edge of the title area and
+    // the right-hand control cluster (button A / morph / B / undo / redo /
+    // gear). Layout: [<] [Combo: name] [>] [save].
+    {
+        const int selBtn = 24;
+        const int selGap = 4;
+        const int comboW = 180;
+        const int totalW = selBtn + selGap + comboW + selGap + selBtn + selGap + selBtn;
+        const int bannerLeft  = titleArea.getX();
+        const int bannerRight = x; // right edge of buttonA cluster
+        const int availW = bannerRight - bannerLeft;
+        int selX = bannerLeft + juce::jmax (0, (availW - totalW) / 2);
+        const int selY = 13;
+
+        presetPrevButton.setBounds (selX, selY, selBtn, selBtn);
+        selX += selBtn + selGap;
+        presetComboBox.setBounds (selX, selY, comboW, selBtn);
+        selX += comboW + selGap;
+        presetNextButton.setBounds (selX, selY, selBtn, selBtn);
+        selX += selBtn + selGap;
+        presetSaveButton.setBounds (selX, selY, selBtn, selBtn);
+    }
 
     // Hide all old top-bar controls (they still work via attachments/handlers).
     latencyModeLabel.setBounds (0, 0, 0, 0);
@@ -3681,6 +3794,271 @@ void OpenVoxTunerAudioProcessorEditor::updateABButtonStates()
         morphSource.reset();
         morphTarget.reset();
         morphUndoState.reset();
+    }
+}
+
+// === Plugin Presets (separate from Curve Presets) ===
+
+namespace
+{
+    // Ordered factory plugin-preset names. "Default" is first and contains
+    // the plugin's factory-default parameter values.
+    const juce::StringArray& getFactoryPluginPresetNames()
+    {
+        static const juce::StringArray names {
+            "Default",
+            "Correction pure",
+            "Transparent / Doublage",
+            "Studio stack",
+            "Live scene",
+            "Voix parlee / Podcast",
+            "Creative robot"
+        };
+        return names;
+    }
+
+    // Returns the parameter overrides (id -> value) for a factory preset, or
+    // nullptr for "Default" (which uses the factory defaults verbatim).
+    const std::map<juce::String, float>* getFactoryPluginPresetOverrides (const juce::String& name)
+    {
+        static const std::map<juce::String, float> correctionPure = {
+            { "amount", 1.0f }, { "flex_tune", 0.0f }, { "humanize", 0.0f },
+            { "harmony_enable", 0.0f }, { "formant_enable", false },
+            { "vibrato_preserve", 0.0f }, { "attack_aware", 0.0f },
+            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f }
+        };
+        static const std::map<juce::String, float> transparentDub = {
+            { "amount", 0.85f }, { "flex_tune", 25.0f }, { "humanize", 15.0f },
+            { "harmony_enable", 0.0f }, { "formant_enable", false },
+            { "reverb_enable", 0.0f }, { "correction_mode", 0.0f }
+        };
+        static const std::map<juce::String, float> studioStack = {
+            { "amount", 0.9f }, { "flex_tune", 15.0f }, { "humanize", 20.0f },
+            { "harmony_enable", 1.0f }, { "harmony_type", 17.0f }, // Unison + Octaves (4 voices)
+            { "harmony_gain_match", 1.0f }, { "harmony_follow_lead", 1.0f },
+            { "harmony_gain", 0.75f }, { "harmony_blend", 0.5f },
+            { "formant_enable", 1.0f }, { "formant_mode", 1.0f }
+        };
+        static const std::map<juce::String, float> liveScene = {
+            { "amount", 0.9f }, { "flex_tune", 10.0f }, { "humanize", 30.0f },
+            { "harmony_enable", 0.0f }, { "attack_aware", 1.0f },
+            { "latency_mode", 0.0f }, // Direct Monitoring
+            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f }
+        };
+        static const std::map<juce::String, float> spokenPodcast = {
+            { "amount", 0.7f }, { "speed", 40.0f }, { "flex_tune", 35.0f },
+            { "humanize", 25.0f }, { "vibrato_preserve", 0.0f },
+            { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
+            { "formant_mode", 1.0f }, { "formant", 0.0f },
+            { "reverb_enable", 0.0f }, { "noise_gate_enable", 1.0f },
+            { "noise_gate_threshold", -45.0f }
+        };
+        static const std::map<juce::String, float> creativeRobot = {
+            { "amount", 1.0f }, { "flex_tune", 0.0f }, { "humanize", 0.0f },
+            { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
+            { "formant_mode", 1.0f }, { "formant", 3.0f }, // strong formant shift
+            { "vibrato_preserve", 0.0f }
+        };
+
+        if (name == "Correction pure")       return &correctionPure;
+        if (name == "Transparent / Doublage") return &transparentDub;
+        if (name == "Studio stack")          return &studioStack;
+        if (name == "Live scene")            return &liveScene;
+        if (name == "Voix parlee / Podcast") return &spokenPodcast;
+        if (name == "Creative robot")        return &creativeRobot;
+        return nullptr; // "Default" -> factory defaults
+    }
+}
+
+void OpenVoxTunerAudioProcessorEditor::refreshPluginPresetList()
+{
+    pluginPresetNames.clear();
+    pluginPresetNames.addArray (getFactoryPluginPresetNames());
+
+    const auto dir = getUserPluginPresetsDirectory();
+    const auto files = dir.findChildFiles (juce::File::findFiles, false, "*.xml");
+    for (const auto& f : files)
+        pluginPresetNames.add (f.getFileNameWithoutExtension());
+
+    // "User" marks a non-preset (modified) state, shown when no named preset matches.
+    if (! pluginPresetNames.contains ("User"))
+        pluginPresetNames.add ("User");
+
+    presetComboBox.clear();
+    presetComboBox.addItemList (pluginPresetNames, 1);
+}
+
+void OpenVoxTunerAudioProcessorEditor::applyPluginPresetByName (const juce::String& name)
+{
+    if (name == "User" || name.isEmpty())
+        return;
+
+    // Factory preset: build the state from the default tree + overrides.
+    const auto& factoryNames = getFactoryPluginPresetNames();
+    if (factoryNames.contains (name))
+    {
+        juce::ValueTree state = processorRef.getDefaultPluginState().createCopy();
+        if (const auto* ov = getFactoryPluginPresetOverrides (name))
+        {
+            for (const auto& [id, val] : *ov)
+            {
+                juce::ValueTree paramChild = state.getChildWithProperty ("id", id);
+                if (paramChild.isValid())
+                    paramChild.setProperty ("value", val, nullptr);
+            }
+        }
+        processorRef.applyPluginPresetState (state);
+        currentPluginPresetName = name;
+        presetComboBox.setText (name, juce::dontSendNotification);
+        return;
+    }
+
+    // Custom preset: load the XML file from the Plugin presets folder.
+    const auto file = getUserPluginPresetsDirectory().getChildFile (name + ".xml");
+    if (file.existsAsFile())
+        loadPluginPresetFromFile (file);
+}
+
+void OpenVoxTunerAudioProcessorEditor::loadPluginPresetFromFile (const juce::File& file)
+{
+    if (! file.existsAsFile())
+        return;
+
+    std::unique_ptr<juce::XmlElement> xml (juce::XmlDocument (file).getDocumentElement());
+    if (xml == nullptr)
+        return;
+
+    const juce::XmlElement* paramsXml = nullptr;
+    if (xml->hasTagName ("OVT_PLUGIN_PRESET"))
+    {
+        // The stored parameters.state element keeps its real root type
+        // (e.g. "OpenVoxTuner"); fall back to a legacy <PARAMETERS> child.
+        paramsXml = xml->getChildByName (processorRef.getParameters().state.getType());
+        if (paramsXml == nullptr)
+            paramsXml = xml->getChildByName ("PARAMETERS");
+    }
+    else if (xml->hasTagName (processorRef.getParameters().state.getType()))
+    {
+        paramsXml = xml.get();
+    }
+
+    if (paramsXml == nullptr)
+        return;
+
+    juce::ValueTree state = juce::ValueTree::fromXml (*paramsXml);
+    if (! state.isValid())
+        return;
+
+    processorRef.applyPluginPresetState (state);
+
+    // Restore the few UI-only preferences that live outside parameters.state.
+    if (xml->hasTagName ("OVT_PLUGIN_PRESET"))
+        processorRef.setAdvancedExpanded (xml->getBoolAttribute ("advancedExpanded", processorRef.getAdvancedExpanded()));
+
+    const juce::String name = file.getFileNameWithoutExtension();
+    currentPluginPresetName = name;
+    presetComboBox.setText (name, juce::dontSendNotification);
+}
+
+void OpenVoxTunerAudioProcessorEditor::promptSavePluginPreset()
+{
+    auto* w = new juce::AlertWindow (ovt::tr(ovt::Keys::kDlgSavePluginPreset),
+                                      ovt::tr(ovt::Keys::kDlgSavePluginPresetDesc),
+                                      juce::AlertWindow::NoIcon);
+    w->addTextEditor ("name", "", "Name:");
+    w->addButton (ovt::tr(ovt::Keys::kDlgSave), 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton (ovt::tr(ovt::Keys::kMenuCancel), 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w] (int result) {
+        if (result == 0)
+        {
+            delete w;
+            return;
+        }
+
+        const juce::String name = w->getTextEditorContents ("name").trim();
+        delete w;
+
+        if (name.isEmpty())
+        {
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                         ovt::tr(ovt::Keys::kDlgInvalidName),
+                                                         ovt::tr(ovt::Keys::kDlgEmptyName),
+                                                         this);
+            return;
+        }
+
+        const auto file = getUserPluginPresetsDirectory()
+                             .getChildFile (sanitizePresetFileStem (name) + ".xml");
+
+        if (file.existsAsFile())
+        {
+            auto opts = juce::MessageBoxOptions::makeOptionsYesNo (juce::MessageBoxIconType::WarningIcon,
+                                                                   ovt::tr(ovt::Keys::kDlgOverwrite),
+                                                                   ovt::tr(ovt::Keys::kDlgOverwriteDesc),
+                                                                   ovt::tr(ovt::Keys::kMenuCancel),
+                                                                   ovt::tr(ovt::Keys::kDlgOverwriteBtn),
+                                                                   this);
+            juce::NativeMessageBox::showAsync (opts, [this, file, name] (int result) {
+                if (result != 2)
+                    return;
+                writePluginPresetFile (name, file);
+                refreshPluginPresetList();
+                currentPluginPresetName = name;
+                presetComboBox.setText (name, juce::dontSendNotification);
+            });
+            return;
+        }
+
+        writePluginPresetFile (name, file);
+        refreshPluginPresetList();
+        currentPluginPresetName = name;
+        presetComboBox.setText (name, juce::dontSendNotification);
+    }), true);
+}
+
+void OpenVoxTunerAudioProcessorEditor::writePluginPresetFile (const juce::String& name, const juce::File& file)
+{
+    // A Plugin Preset captures parameters.state (no pitch curve) plus a few
+    // UI-only preferences. Serialised as <OVT_PLUGIN_PRESET> with a
+    // <PARAMETERS> child so it never collides with Curve Preset XML shape.
+    auto stateXml = processorRef.getPluginPresetState().createXml();
+    if (stateXml == nullptr)
+        return;
+
+    juce::XmlElement root ("OVT_PLUGIN_PRESET");
+    root.setAttribute ("name", name);
+    root.setAttribute ("advancedExpanded", advancedExpanded ? 1 : 0);
+    // stateXml already carries the real parameters.state root type (e.g.
+    // "OpenVoxTuner") with <PARAM id=.. value=..> children, so restoreState()
+    // via replaceState() keeps the tree type consistent.
+    root.addChildElement (stateXml.release());
+
+    const bool ok = file.replaceWithText (root.toString());
+    if (ok)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                                                     ovt::tr(ovt::Keys::kDlgPresetSaved),
+                                                     ovt::tr(ovt::Keys::kDlgPresetSavedDesc) + name,
+                                                     this);
+    }
+    else
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                     ovt::tr(ovt::Keys::kDlgSaveFailed),
+                                                     ovt::tr(ovt::Keys::kDlgSaveFailedDesc),
+                                                     this);
+    }
+}
+
+void OpenVoxTunerAudioProcessorEditor::deletePluginPresetFile (const juce::File& file)
+{
+    file.deleteFile();
+    refreshPluginPresetList();
+    if (currentPluginPresetName == file.getFileNameWithoutExtension())
+    {
+        currentPluginPresetName = "User";
+        presetComboBox.setText ("User", juce::dontSendNotification);
     }
 }
 

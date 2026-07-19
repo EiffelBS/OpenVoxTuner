@@ -654,6 +654,12 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         if (bypassParam)
             prevBypassState.store (static_cast<int>(std::round (bypassParam->load())));
     }
+
+    // Capture the factory-default parameter state (parameters.state once all
+    // AudioParameters are at their declared defaults, before any user/DAW
+    // change or setStateInformation()). This backs the "Default" Plugin
+    // Preset. Stored as a deep copy so it is never mutated.
+    defaultPluginState = parameters.copyState();
 }
 
 OpenVoxTunerAudioProcessor::~OpenVoxTunerAudioProcessor() = default;
@@ -2643,6 +2649,36 @@ void OpenVoxTunerAudioProcessor::pushUndoAction (const juce::ValueTree& before,
     pluginUndoManager.beginNewTransaction();
     auto* action = new PluginStateUndoAction (parameters, before, after);
     pluginUndoManager.perform (action); // takes ownership
+}
+
+void OpenVoxTunerAudioProcessor::applyPluginPresetState (const juce::ValueTree& presetState)
+{
+    if (! presetState.isValid())
+        return;
+
+    // Capture the current values of user/session preferences that a Plugin
+    // Preset must NOT override (they are not part of the "sound"): UI
+    // language, UI theme, the A/B morph position, and the Live/Curve mode.
+    const float savedLang   = parameters.getParameterAsValue ("ui_language").getValue();
+    const float savedTheme  = parameters.getParameterAsValue ("ui_theme").getValue();
+    const float savedMorph  = parameters.getParameterAsValue ("morph_amount").getValue();
+    const float savedMode   = parameters.getParameterAsValue ("mode").getValue();
+
+    // Restore the parameter state in one global-undo transaction so a preset
+    // load is undoable (Ctrl/Cmd+Z). pushUndoAction() performs the action
+    // immediately (which calls parameters.replaceState(after)), so the live
+    // tree is swapped in a single, atomic step before we restore the
+    // user/session preferences below.
+    const juce::ValueTree before = parameters.copyState();
+    const juce::ValueTree after  = presetState.createCopy();
+    pushUndoAction (before, after);
+
+    // Re-apply the preserved user/session preferences (replaceState swapped
+    // the whole tree, so restore them explicitly afterwards).
+    parameters.getParameterAsValue ("ui_language").setValue (savedLang);
+    parameters.getParameterAsValue ("ui_theme").setValue (savedTheme);
+    parameters.getParameterAsValue ("morph_amount").setValue (savedMorph);
+    parameters.getParameterAsValue ("mode").setValue (savedMode);
 }
 
 // === Etat du plugin : serialisation XML des parametres + pitch curve ===

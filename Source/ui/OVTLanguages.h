@@ -90,6 +90,8 @@ namespace ovt
         static const char* kMenuFormantMode    = "menu.formant_mode";
         static const char* kMenuFormantLegacy  = "menu.formant_legacy";
         static const char* kMenuFormantMulti   = "menu.formant_multi";
+        static const char* kMenuSavePluginPresetAs = "menu.save_plugin_preset_as";
+        static const char* kMenuDeletePluginPreset = "menu.delete_plugin_preset";
         static const char* kTooltipCurveOptions = "tooltip.curve_options";
         static const char* kTooltipPlay        = "tooltip.play";
         static const char* kTooltipStop        = "tooltip.stop";
@@ -251,6 +253,10 @@ namespace ovt
         static const char* kTooltipRedo              = "tooltip.redo";
         static const char* kLabelUndo                = "label.undo";
         static const char* kLabelRedo                = "label.redo";
+        static const char* kTooltipPluginPreset      = "tooltip.plugin_preset";
+        static const char* kTooltipPluginPresetPrev = "tooltip.plugin_preset_prev";
+        static const char* kTooltipPluginPresetNext = "tooltip.plugin_preset_next";
+        static const char* kTooltipPluginPresetSave = "tooltip.plugin_preset_save";
         static const char* kButtonPianoRoll          = "button.piano_roll";
         static const char* kTooltipPianoRoll         = "tooltip.piano_roll";
 
@@ -293,6 +299,8 @@ namespace ovt
         static const char* kDlgImageFailed     = "dlg.image_failed";
         static const char* kDlgSavePreset      = "dlg.save_preset";
         static const char* kDlgSavePresetDesc  = "dlg.save_preset_desc";
+        static const char* kDlgSavePluginPreset    = "dlg.save_plugin_preset";
+        static const char* kDlgSavePluginPresetDesc = "dlg.save_plugin_preset_desc";
         static const char* kDlgSave            = "dlg.save";
         static const char* kDlgInvalidName     = "dlg.invalid_name";
         static const char* kDlgEmptyName       = "dlg.empty_name";
@@ -382,6 +390,8 @@ namespace ovt
             { kMenuDeletePreset,   "Delete..." },
             { kMenuFactory,        "Factory" },
             { kMenuCustom,         "Custom" },
+            { kMenuSavePluginPresetAs, "Save Plugin Preset As..." },
+            { kMenuDeletePluginPreset, "Delete..." },
             { kMenuCleanCurves,    "Clean Curves" },
             { kMenuResetPlayhead,  "Reset Playhead" },
             { kMenuCurvePresets,   "Curve Presets" },
@@ -661,6 +671,8 @@ namespace ovt
             { kMenuDeletePreset,   "Supprimer..." },
             { kMenuFactory,        "Usine" },
             { kMenuCustom,         "Personnalise" },
+            { kMenuSavePluginPresetAs, "Sauvegarder le preset plugin sous..." },
+            { kMenuDeletePluginPreset, "Supprimer..." },
             { kMenuCurvePresets,   "Presets de courbe" },
             { kMenuPresetGallery,  "Galerie de presets" },
             { kMenuAutoScroll,     "Auto-Scroll" },
@@ -815,6 +827,10 @@ namespace ovt
             { kTooltipRedo,           "Refaire (Ctrl+Y)" },
             { kLabelUndo,             "Annuler" },
             { kLabelRedo,             "Refaire" },
+            { kTooltipPluginPreset,      "Preset plugin" },
+            { kTooltipPluginPresetPrev,  "Preset precedent" },
+            { kTooltipPluginPresetNext,  "Preset suivant" },
+            { kTooltipPluginPresetSave,  "Sauvegarder le preset plugin" },
             { kButtonPianoRoll,       "Piano Roll" },
             { kTooltipPianoRoll,      "Bascule la metaphore d'edition piano-roll (notes alignes sur les touches)" },
             { kLegendInput,           "Entree" },
@@ -849,6 +865,8 @@ namespace ovt
             { kDlgImageFailed,        "Echec de la sauvegarde de l'image." },
             { kDlgSavePreset,         "Sauvegarder le preset" },
             { kDlgSavePresetDesc,     "Sauvegarder la configuration de l'editeur de courbe comme preset personnalise." },
+            { kDlgSavePluginPreset,    "Sauvegarder le preset plugin" },
+            { kDlgSavePluginPresetDesc, "Sauvegarder la configuration actuelle du plugin comme preset personnalise." },
             { kDlgSave,               "Sauvegarder" },
             { kDlgInvalidName,        "Nom invalide" },
             { kDlgEmptyName,          "Le nom du preset ne peut pas etre vide." },
@@ -934,6 +952,8 @@ namespace ovt
             { kMenuDeletePreset,   "Loeschen..." },
             { kMenuFactory,        "Werkseinstellung" },
             { kMenuCustom,         "Benutzerdefiniert" },
+            { kMenuSavePluginPresetAs, "Plugin-Preset speichern unter..." },
+            { kMenuDeletePluginPreset, "Loschen..." },
             { kMenuCurvePresets,   "Kurven-Presets" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Eingangsspur anzeigen" },
@@ -1086,6 +1106,10 @@ namespace ovt
             { kTooltipRedo,           "Wiederholen (Ctrl+Y)" },
             { kLabelUndo,             "Rueckgaengig" },
             { kLabelRedo,             "Wiederholen" },
+            { kTooltipPluginPreset,      "Plugin-Preset" },
+            { kTooltipPluginPresetPrev,  "Vorheriger Preset" },
+            { kTooltipPluginPresetNext,  "Naechster Preset" },
+            { kTooltipPluginPresetSave,  "Plugin-Preset speichern" },
             { kButtonPianoRoll,       "Piano-Roll" },
             { kTooltipPianoRoll,      "Aktiviert die Piano-Roll-Bearbeitung (Noten an die Tastenreihen gerastet)" },
             { kLegendInput,           "Eingang" },
@@ -1120,6 +1144,8 @@ namespace ovt
             { kDlgImageFailed,        "Bildspeicherung fehlgeschlagen." },
             { kDlgSavePreset,         "Preset speichern" },
             { kDlgSavePresetDesc,     "Aktuelle Kurveneditor-Konfiguration als benutzerdefiniertes Preset speichern." },
+            { kDlgSavePluginPreset,    "Plugin-Preset speichern" },
+            { kDlgSavePluginPresetDesc, "Aktuelle Plugin-Konfiguration als benutzerdefiniertes Preset speichern." },
             { kDlgSave,               "Speichern" },
             { kDlgInvalidName,        "Ungueltiger Name" },
             { kDlgEmptyName,          "Preset-Name darf nicht leer sein." },
@@ -1205,6 +1231,8 @@ namespace ovt
             { kMenuDeletePreset,   "Eliminar..." },
             { kMenuFactory,        "Fabrica" },
             { kMenuCustom,         "Personalizado" },
+            { kMenuSavePluginPresetAs, "Guardar preset de plugin como..." },
+            { kMenuDeletePluginPreset, "Eliminar..." },
             { kMenuCurvePresets,   "Presets de curva" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Mostrar traza de entrada" },
@@ -1357,6 +1385,10 @@ namespace ovt
             { kTooltipRedo,           "Rehacer (Ctrl+Y)" },
             { kLabelUndo,             "Deshacer" },
             { kLabelRedo,             "Rehacer" },
+            { kTooltipPluginPreset,      "Preset de plugin" },
+            { kTooltipPluginPresetPrev,  "Preset anterior" },
+            { kTooltipPluginPresetNext,  "Preset siguiente" },
+            { kTooltipPluginPresetSave,  "Guardar preset de plugin" },
             { kButtonPianoRoll,       "Piano Roll" },
             { kTooltipPianoRoll,      "Activa la edicion tipo piano-roll (notas ajustadas a las filas del teclado)" },
             { kLegendInput,           "Entrada" },
@@ -1391,6 +1423,8 @@ namespace ovt
             { kDlgImageFailed,        "Error al guardar la imagen." },
             { kDlgSavePreset,         "Guardar preset" },
             { kDlgSavePresetDesc,     "Guardar la configuracion actual del editor de curva como un preset personalizado." },
+            { kDlgSavePluginPreset,    "Guardar preset de plugin" },
+            { kDlgSavePluginPresetDesc, "Guardar la configuracion actual del plugin como un preset personalizado." },
             { kDlgSave,               "Guardar" },
             { kDlgInvalidName,        "Nombre invalido" },
             { kDlgEmptyName,          "El nombre del preset no puede estar vacio." },
@@ -1476,6 +1510,8 @@ namespace ovt
             { kMenuDeletePreset,   "削除..." },
             { kMenuFactory,        "ファクトリ" },
             { kMenuCustom,         "カスタム" },
+            { kMenuSavePluginPresetAs, "プラグインプリセットを名前を付けて保存..." },
+            { kMenuDeletePluginPreset, "削除..." },
             { kMenuCurvePresets,   "カーブプリセット" },
             { kMenuAutoScroll,     "自動スクロール" },
             { kMenuShowInputTrace, "入力トレースを表示" },
@@ -1628,6 +1664,10 @@ namespace ovt
             { kTooltipRedo,           "やり直す (Ctrl+Y)" },
             { kLabelUndo,             "元に戻す" },
             { kLabelRedo,             "やり直す" },
+            { kTooltipPluginPreset,      "プラグインプリセット" },
+            { kTooltipPluginPresetPrev,  "前のプリセット" },
+            { kTooltipPluginPresetNext,  "次のプリセット" },
+            { kTooltipPluginPresetSave,  "プラグインプリセットを保存" },
             { kButtonPianoRoll,       "ピアノロール" },
             { kTooltipPianoRoll,      "ピアノロール編集モードを切り替え (鍵盤の列にスナップした音符)" },
             { kLegendInput,           "入力" },
@@ -1662,6 +1702,8 @@ namespace ovt
             { kDlgImageFailed,        "画像の保存に失敗しました。" },
             { kDlgSavePreset,         "プリセットを保存" },
             { kDlgSavePresetDesc,     "現在のカーブエディタ設定をカスタムプリセットとして保存。" },
+            { kDlgSavePluginPreset,    "プラグインプリセットを保存" },
+            { kDlgSavePluginPresetDesc, "現在のプラグイン設定をカスタムプリセットとして保存。" },
             { kDlgSave,               "保存" },
             { kDlgInvalidName,        "無効な名前" },
             { kDlgEmptyName,          "プリセット名は空にできません。" },
@@ -1745,6 +1787,8 @@ namespace ovt
             { kMenuDeletePreset,    "删除..." },
             { kMenuFactory,        "出厂" },
             { kMenuCustom,         "自定义" },
+            { kMenuSavePluginPresetAs, "将插件预设另存为..." },
+            { kMenuDeletePluginPreset, "删除..." },
             { kMenuCleanCurves,    "清理曲线" },
             { kMenuResetPlayhead,  "重置播放头" },
             { kMenuCurvePresets,   "曲线预设" },
@@ -1899,6 +1943,10 @@ namespace ovt
             { kTooltipRedo,           "重做（Ctrl+Y）" },
             { kLabelUndo,             "撤销" },
             { kLabelRedo,             "重做" },
+            { kTooltipPluginPreset,      "插件预设" },
+            { kTooltipPluginPresetPrev,  "上一个预设" },
+            { kTooltipPluginPresetNext,  "下一个预设" },
+            { kTooltipPluginPresetSave,  "保存插件预设" },
             { kButtonPianoRoll,       "钢琴卷帘" },
             { kTooltipPianoRoll,      "切换钢琴卷帘编辑方式（音符吸附到键盘行）" },
             { kLegendInput,           "输入" },
@@ -1933,6 +1981,8 @@ namespace ovt
             { kDlgImageFailed,        "保存图片失败。" },
             { kDlgSavePreset,         "保存预设" },
             { kDlgSavePresetDesc,     "将当前曲线编辑器配置保存为自定义预设。" },
+            { kDlgSavePluginPreset,    "保存插件预设" },
+            { kDlgSavePluginPresetDesc, "将当前插件配置保存为自定义预设。" },
             { kDlgSave,               "保存" },
             { kDlgInvalidName,        "名称无效" },
             { kDlgEmptyName,          "预设名称不能为空。" },

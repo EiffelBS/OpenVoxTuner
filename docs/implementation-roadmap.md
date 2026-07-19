@@ -129,6 +129,7 @@
 - [x] Right-click preset menu
 - [x] Reset playhead button (standalone/VST3) — also exposed as a "Return to start" (rewind) toolbar button in Standalone (vertical bar + left-pointing triangle glyph) 2026-07-12.
 - [x] Undo/Redo buttons (visual UI complement to keyboard shortcuts)
+- [x] Plugin Presets (separate from Curve Presets) 2026-07-18: centred top-banner selector [◀][combo][▶][💾] with a `Default` factory preset (true factory defaults) plus 6 factory presets (parameter overrides only) and custom save/load/delete to a dedicated `Presets/Plugin/` folder. Uses a distinct `<OVT_PLUGIN_PRESET>` XML shape, captures `parameters.state` only (never the pitch curve), is undoable via the global UndoManager, and preserves UI language / theme / morph position / Live-Curve mode across loads.
 - [x] Scale note lines (horizontal reference lines for current scale notes)
 - [x] Curve Editor toolbar mirrors Visualizer view controls (Zoom In/Out, Scroll Up/Down, Reset View) + "Options" menu (Clean Curves, Reset Playhead, Curve Presets) 2026-07-11: snap/grid/step kept as direct toggle icons; clear/reset moved into the Options menu; zoom/scroll reuse the Visualizer's SVGs and pitch-zoom/pitch-pan semantics (matching the Visualizer and the Curve Editor's own wheel behavior).
 - [x] "Measures" combo + label moved onto the toolbar row (same line as Options menu and view icons) so it no longer covers the ruler 2026-07-12.

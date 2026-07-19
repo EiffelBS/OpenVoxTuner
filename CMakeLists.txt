@@ -290,6 +290,7 @@ target_sources(OpenVoxTunerTests PRIVATE
     test/dsp/KeyBridgeTest.cpp
     test/dsp/SidechainBusLayoutTest.cpp
     test/dsp/PluginUndoTest.cpp
+    test/dsp/PluginPresetTest.cpp
     test/ui/PitchCurveEditorTest.cpp
     test/ui/ScaleKeyboardComponentTest.cpp
 

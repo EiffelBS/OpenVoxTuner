@@ -306,6 +306,14 @@ private:
                                 juce::Component* parentComp = nullptr);
     void applyPresetUiStateFromXml (const juce::XmlElement& xml);
     void startUpdateCheck();
+
+    // Plugin Presets (separate from Curve Presets): load/save/delete a plugin
+    // preset file (parameters.state only, no pitch curve). See the
+    // implementation block in PluginEditor.cpp.
+    void loadPluginPresetFromFile (const juce::File& file);
+    void promptSavePluginPreset();
+    void writePluginPresetFile (const juce::String& name, const juce::File& file);
+    void deletePluginPresetFile (const juce::File& file);
     static bool isVersionNewer (const juce::String& latest, const juce::String& current);
 
     // Bounds for the bottom blocks
@@ -355,6 +363,23 @@ private:
     void registerUndoGestureListeners();
     // Wrap a programmatic state change (preset load) in one undo transaction.
     void pushUndoAroundCall (std::function<void()> fn);
+
+    // === Plugin Presets (separate from Curve Presets) ===
+    // Centred selector in the top banner: [<] [Combo: name] [>] [save].
+    juce::DrawableButton presetPrevButton { "Prev Preset", juce::DrawableButton::ImageOnButtonBackground };
+    juce::DrawableButton presetNextButton { "Next Preset", juce::DrawableButton::ImageOnButtonBackground };
+    juce::DrawableButton presetSaveButton { "Save Preset", juce::DrawableButton::ImageOnButtonBackground };
+    juce::ComboBox       presetComboBox;
+    // Ordered list of plugin-preset names (factory "Default" first, then
+    // custom). Mirrors the Curve Presets pattern but never touches the curve.
+    juce::StringArray    pluginPresetNames;
+    juce::String         currentPluginPresetName;
+
+    // (Re)build pluginPresetNames from the factory list + custom files.
+    void refreshPluginPresetList();
+    // Apply a plugin preset by name (factory or custom). Wraps the processor
+    // apply in the global-undo transaction so it is undoable.
+    void applyPluginPresetByName (const juce::String& name);
 
     // === A/B Comparison ===
     struct ABState {

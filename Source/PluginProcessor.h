@@ -150,6 +150,29 @@ public:
     /// the action and performs it.
     void pushUndoAction (const juce::ValueTree& before, const juce::ValueTree& after);
 
+    // === Plugin Presets (separate from Curve Presets) ===
+    // A Plugin Preset captures the full plugin parameter state (the
+    // AudioProcessorValueTreeState, i.e. every automatable parameter) PLUS a
+    // few UI-only preferences, but NEVER the pitch curve (the curve lives
+    // outside parameters.state and is managed by the Curve Presets system).
+    // This separation keeps the two preset kinds orthogonal: loading a Plugin
+    // Preset never touches the curve, and vice-versa.
+
+    /// The factory-default parameter state (captured once at construction,
+    /// before any user/DAW change). Used by the "Default" factory preset.
+    const juce::ValueTree& getDefaultPluginState() const { return defaultPluginState; }
+
+    /// A deep copy of the current plugin parameter state (no curve). This is
+    /// what a "save preset" captures.
+    juce::ValueTree getPluginPresetState() const { return const_cast<juce::AudioProcessorValueTreeState&>(parameters).copyState(); }
+
+    /// Apply a plugin preset state. Restores parameters.state via
+    /// replaceState() wrapped in one global-undo transaction, so loading a
+    /// preset is undoable (Ctrl/Cmd+Z). User/session preferences that must
+    /// NOT be overridden by a preset (UI language, theme, morph position,
+    /// Live/Curve mode) are preserved afterwards.
+    void applyPluginPresetState (const juce::ValueTree& presetState);
+
     /// Get the current scale intervals from the processor's ScaleQuantizer.
     /// These are the definitive intervals (key + scale or custom) used for
     /// pitch quantization, background lines, and piano keyboard highlighting.
@@ -228,6 +251,11 @@ private:
     // Global plugin Undo/Redo history (Option 1). Owns the ValueTree
     // snapshots pushed by the editor at gesture boundaries.
     juce::UndoManager pluginUndoManager;
+
+    // Factory-default parameter state, captured once at construction (before
+    // any user/DAW/setStateInformation change). Backs the "Default" Plugin
+    // Preset. Stored as a deep copy so callers never mutate it.
+    juce::ValueTree defaultPluginState;
 
     // Parameter targets (sliders, knobs, etc.).
     std::atomic<float>* speedParam   = nullptr; // Correction speed (ms)        
