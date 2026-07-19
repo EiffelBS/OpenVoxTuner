@@ -3896,7 +3896,9 @@ namespace
             "Studio Stack",
             "Live Scene",
             "Spoken Voice / Podcast",
-            "Creative Robot"
+            "Creative Robot",
+            "Broadcast Voice",
+            "Breathy Vocals"
         };
         return names;
     }
@@ -3935,13 +3937,38 @@ namespace
             { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
             { "formant_mode", 1.0f }, { "formant", 0.0f },
             { "reverb_enable", 0.0f }, { "noise_gate_enable", 1.0f },
-            { "noise_gate_threshold", -45.0f }
+            { "noise_gate_threshold", -45.0f },
+            // Spoken/quiet material: lift weak passages before tuning so the
+            // pitch detector and correction see a more consistent level.
+            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.6f }
         };
         static const std::map<juce::String, float> creativeRobot = {
             { "amount", 1.0f }, { "flex_tune", 0.0f }, { "humanize", 0.0f },
             { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
             { "formant_mode", 1.0f }, { "formant", 3.0f }, // strong formant shift
             { "vibrato_preserve", 0.0f }
+        };
+        // Broadcast Voice: strong, consistent level for streaming/radio. A firm
+        // gate cuts room tone between phrases and the upward compressor lifts
+        // any dip so the loudness stays even and present on air.
+        static const std::map<juce::String, float> broadcastVoice = {
+            { "amount", 0.9f }, { "speed", 30.0f }, { "flex_tune", 20.0f },
+            { "humanize", 20.0f }, { "harmony_enable", 0.0f },
+            { "formant_enable", 1.0f }, { "formant_mode", 1.0f }, { "formant", 0.0f },
+            { "reverb_enable", 0.0f }, { "noise_gate_enable", 1.0f },
+            { "noise_gate_threshold", -50.0f },
+            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.8f }
+        };
+        // Breathy Vocals: airy, weak indie/lo-fi voice. No gate (keep the natural
+        // breath), just a gentle upward lift so the quiet, breathy parts stay
+        // intelligible and sit in tune without losing their character.
+        static const std::map<juce::String, float> breathyVocals = {
+            { "amount", 0.8f }, { "speed", 50.0f }, { "flex_tune", 30.0f },
+            { "humanize", 35.0f }, { "vibrato_preserve", 0.3f },
+            { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
+            { "formant_mode", 1.0f }, { "formant", 0.0f },
+            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
+            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.4f }
         };
 
         if (name == "Pure Correction")       return &correctionPure;
@@ -3950,6 +3977,8 @@ namespace
         if (name == "Live Scene")            return &liveScene;
         if (name == "Spoken Voice / Podcast") return &spokenPodcast;
         if (name == "Creative Robot")        return &creativeRobot;
+        if (name == "Broadcast Voice")       return &broadcastVoice;
+        if (name == "Breathy Vocals")        return &breathyVocals;
         return nullptr; // "Default" -> factory defaults
     }
 }
