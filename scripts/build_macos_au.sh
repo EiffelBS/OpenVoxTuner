@@ -92,18 +92,30 @@ cmake -S . -B "$BUILD_DIR" -G "$GENERATOR" \
 echo "[2/3] Build target OpenVoxTuner_AU..."
 cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxTuner_AU
 
+echo "[2/3] Build target OpenVoxKey_AU (companion)..."
+cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxKey_AU
+
 PLUGIN_PATH="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/AU/OpenVoxTuner.component"
 if [[ ! -d "$PLUGIN_PATH" ]]; then
   echo "Erreur: composant AU introuvable: $PLUGIN_PATH" >&2
   exit 1
 fi
 
+COMPANION_PATH="$BUILD_DIR/OpenVoxKey_artefacts/$CONFIG/AU/OpenVoxKey.component"
+if [[ ! -d "$COMPANION_PATH" ]]; then
+  echo "Erreur: composant AU compagnon introuvable: $COMPANION_PATH" >&2
+  exit 1
+fi
+
 echo "[OK] AU généré: $PLUGIN_PATH"
+echo "[OK] AU compagnon généré: $COMPANION_PATH"
 
 if [[ "$INSTALL" == true ]]; then
   DEST_DIR="$HOME/Library/Audio/Plug-Ins/Components"
   mkdir -p "$DEST_DIR"
   echo "[3/3] Installation locale..."
   rsync -a --delete "$PLUGIN_PATH" "$DEST_DIR/"
+  rsync -a --delete "$COMPANION_PATH" "$DEST_DIR/"
   echo "[OK] Installé dans: $DEST_DIR/OpenVoxTuner.component"
+  echo "[OK] Installé dans: $DEST_DIR/OpenVoxKey.component"
 fi

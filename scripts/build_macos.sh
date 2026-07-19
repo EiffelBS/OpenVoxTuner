@@ -75,9 +75,18 @@ cmake -S . -B "$BUILD_DIR" -G "$GENERATOR" \
 echo "[2/3] Compilation..."
 IFS=';' read -ra TARGET_LIST <<< "$FORMATS"
 for fmt in "${TARGET_LIST[@]}"; do
-  TARGET_NAME="OpenVoxTuner_${fmt}"
+  # JUCE target names use the native format case (Standalone, not STANDALONE).
+  case "$fmt" in
+    STANDALONE) jt="Standalone" ;;
+    *)          jt="$fmt" ;;
+  esac
+  TARGET_NAME="OpenVoxTuner_${jt}"
   echo "  -> Building $TARGET_NAME ..."
   cmake --build "$BUILD_DIR" --config "$CONFIG" --target "$TARGET_NAME"
+  # Companion key-detection plug-in (OpenVoxKey) is built for the same formats.
+  COMPANION_NAME="OpenVoxKey_${jt}"
+  echo "  -> Building $COMPANION_NAME ..."
+  cmake --build "$BUILD_DIR" --config "$CONFIG" --target "$COMPANION_NAME"
 done
 
 echo "[OK] Compilation terminee."

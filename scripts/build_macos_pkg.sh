@@ -23,7 +23,7 @@ Options:
   --entitlements <path>  Fichier .entitlements (defaut: scripts/ovt.entitlements)
   --notarize              Notarise le pkg (xcrun notarytool) + staple
   --sign-installer <id>   Signature pkg (Developer ID Installer)
-  --companion <on|off>    Inclure le plugin compagnon OpenVoxKey (VST3) (defaut: on)
+  --companion <on|off>    Inclure le plugin compagnon OpenVoxKey (memes formats que OpenVoxTuner) (defaut: on)
   --skip-build            Ne fait pas la compilation, package depuis les artefacts existants
   --help                  Affiche cette aide
 
@@ -225,9 +225,18 @@ if [[ "$SKIP_BUILD" == false ]]; then
     cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxTuner_CLAP
   fi
 
+  # Companion key-detection plug-in (OpenVoxKey) is built for the SAME formats
+  # as the main plug-in (VST3/AU/Standalone/CLAP), never VST3-only. JUCE target
+  # names use the native format case (Standalone, not STANDALONE).
   if [[ "$WANT_COMPANION" == true ]]; then
-    echo "[2/4] Build target OpenVoxKey_VST3 (companion)..."
-    cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxKey_VST3
+    for fmt in "${ITEMS[@]}"; do
+      case "$fmt" in
+        STANDALONE) jt="Standalone" ;;
+        *)          jt="$fmt" ;;
+      esac
+      echo "[2/4] Build target OpenVoxKey_${jt} (companion)..."
+      cmake --build "$BUILD_DIR" --config "$CONFIG" --target "OpenVoxKey_${jt}"
+    done
   fi
 fi
 
@@ -252,14 +261,42 @@ OVT_COMP_ENTRIES=()
 [[ "$WANT_VST3" == true ]]      && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|VST3|Library/Audio/Plug-Ins/VST3|OpenVoxTuner.vst3|com.eiffelbs.openvoxtuner.vst3|choice_vst3|VST3|Plug-in VST3 pour les DAW." )
 [[ "$WANT_AU" == true ]]        && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|AU|Library/Audio/Plug-Ins/Components|OpenVoxTuner.component|com.eiffelbs.openvoxtuner.au|choice_au|Audio Unit (AU)|Plug-in Audio Unit (macOS)." )
 [[ "$WANT_CLAP" == true ]]      && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|CLAP|Library/Audio/Plug-Ins/CLAP|OpenVoxTuner.clap|com.eiffelbs.openvoxtuner.clap|choice_clap|CLAP|Plug-in CLAP pour les DAW." )
-[[ "$WANT_COMPANION" == true ]] && OVT_COMP_ENTRIES+=( "OpenVoxKey_artefacts|VST3|Library/Audio/Plug-Ins/VST3|OpenVoxKey.vst3|com.eiffelbs.openvoxkey.vst3|choice_companion|OpenVoxKey (companion)|Plug-in compagnon de detection de tonalite (partage la tonalite avec OpenVoxTuner)." )
+
+# Companion (OpenVoxKey) follows the SAME formats as the main plug-in. Its format
+# choices are grouped under a single parent choice so the user sees one "OpenVoxKey"
+# toggle that installs every requested companion format.
+OVT_COMPANION_PARENT="choice_companion"
+if [[ "$WANT_COMPANION" == true ]]; then
+  OVT_COMP_ENTRIES+=( "PARENT|${OVT_COMPANION_PARENT}|OpenVoxKey (companion)|Plug-in compagnon de detection de tonalite (partage la tonalite avec OpenVoxTuner)." )
+  for fmt in "${ITEMS[@]}"; do
+    case "$fmt" in
+      STANDALONE) comp_subdir="Standalone";  comp_bundle="OpenVoxKey.app";  comp_dest="Applications";                          comp_pkgid="com.eiffelbs.openvoxkey.standalone" ;;
+      VST3)       comp_subdir="VST3";        comp_bundle="OpenVoxKey.vst3"; comp_dest="Library/Audio/Plug-Ins/VST3";        comp_pkgid="com.eiffelbs.openvoxkey.vst3" ;;
+      AU)         comp_subdir="AU";          comp_bundle="OpenVoxKey.component"; comp_dest="Library/Audio/Plug-Ins/Components"; comp_pkgid="com.eiffelbs.openvoxkey.au" ;;
+      CLAP)       comp_subdir="CLAP";        comp_bundle="OpenVoxKey.clap"; comp_dest="Library/Audio/Plug-Ins/CLAP";        comp_pkgid="com.eiffelbs.openvoxkey.clap" ;;
+    esac
+    comp_choice="choice_companion_$(echo "$fmt" | tr '[:upper:]' '[:lower:]')"
+    OVT_COMP_ENTRIES+=( "OpenVoxKey_artefacts|${comp_subdir}|${comp_dest}|${comp_bundle}|${comp_pkgid}|${comp_choice}|OpenVoxKey (${fmt})|Format ${fmt} du plug-in compagnon OpenVoxKey." )
+  done
+fi
 
 OUTLINE_XML=""
 CHOICES_XML=""
 PKG_REFS_XML=""
 
+# Accumulate companion child choice ids to nest them under the parent choice.
+OVT_COMPANION_CHILDREN=()
 for entry in "${OVT_COMP_ENTRIES[@]}"; do
   IFS='|' read -r artefact_dir artefact_subdir dest_rel bundle_name pkg_id choice_id title desc <<< "$entry"
+
+  # PARENT entries declare a grouping choice (no package); their following
+  # child entries are nested under them via <child> references. They use a
+  # 4-field schema: PARENT|<choiceId>|<title>|<description>.
+  if [[ "$artefact_dir" == "PARENT" ]]; then
+    IFS='|' read -r _pfx OVT_COMPANION_PARENT_ID OVT_COMPANION_PARENT_TITLE OVT_COMPANION_PARENT_DESC <<< "$entry"
+    OVT_COMPANION_CHILDREN=()
+    continue
+  fi
 
   SRC="$BUILD_DIR/$artefact_dir/$CONFIG/$artefact_subdir/$bundle_name"
   [[ -d "$SRC" ]] || { echo "Bundle introuvable: $SRC" >&2; exit 1; }
@@ -305,9 +342,32 @@ for entry in "${OVT_COMP_ENTRIES[@]}"; do
 
   kb=$(( $(stat -f%z "$comp_pkg") / 1024 ))
   PKG_REFS_XML+="    <pkg-ref id=\"$pkg_id\" version=\"$VERSION\" installKBytes=\"$kb\">#OpenVoxTuner-$choice_id.pkg</pkg-ref>${NL}"
-  OUTLINE_XML+="        <line choice=\"$choice_id\"/>${NL}"
-  CHOICES_XML+="    <choice id=\"$choice_id\" visible=\"true\" title=\"$title\" description=\"$desc\">${NL}        <pkg-ref id=\"$pkg_id\"/>${NL}    </choice>${NL}"
+
+  if [[ "$choice_id" == choice_companion_* ]]; then
+    # Companion child: track for nesting under the parent choice, and emit its
+    # own <choice> (with pkg-ref) — but NOT an outline line (it lives under the
+    # parent in the outline).
+    OVT_COMPANION_CHILDREN+=("$choice_id")
+    CHOICES_XML+="    <choice id=\"$choice_id\" visible=\"true\" title=\"$title\" description=\"$desc\">${NL}        <pkg-ref id=\"$pkg_id\"/>${NL}    </choice>${NL}"
+  else
+    OUTLINE_XML+="        <line choice=\"$choice_id\"/>${NL}"
+    CHOICES_XML+="    <choice id=\"$choice_id\" visible=\"true\" title=\"$title\" description=\"$desc\">${NL}        <pkg-ref id=\"$pkg_id\"/>${NL}    </choice>${NL}"
+  fi
 done
+
+# Emit the companion parent choice (with its children nested) once all
+# companion formats have been packaged.
+if [[ -n "${OVT_COMPANION_PARENT_ID:-}" ]]; then
+  child_xml=""
+  outline_xml="        <line choice=\"${OVT_COMPANION_PARENT_ID}\">${NL}"
+  for child in "${OVT_COMPANION_CHILDREN[@]}"; do
+    child_xml+="        <child choice=\"${child}\"/>${NL}"
+    outline_xml+="            <line choice=\"${child}\"/>${NL}"
+  done
+  outline_xml+="        </line>${NL}"
+  OUTLINE_XML+="$outline_xml"
+  CHOICES_XML+="    <choice id=\"${OVT_COMPANION_PARENT_ID}\" visible=\"true\" title=\"${OVT_COMPANION_PARENT_TITLE}\" description=\"${OVT_COMPANION_PARENT_DESC}\">${NL}${child_xml}    </choice>${NL}"
+fi
 
 PKG_DIR="$(dirname "$OUTPUT")"
 mkdir -p "$PKG_DIR"

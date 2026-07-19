@@ -2420,13 +2420,18 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // Width of a Power-style button (icon + text) as drawn by OVTLookAndFeel.
         // Keeps the on/off toggles the same footprint as the Gate / Reverb power
         // buttons (height 18 => identical icon size).
+        // Width of a Power-style button (icon + text) as drawn by OVTLookAndFeel.
+        // IMPORTANT: measure with the SAME font (ovt::fontComboBox()) that the
+        // LookAndFeel uses to draw the text. Using a raw juce::Font(14.0f) here
+        // measured the default JUCE face, which differs from "Segoe UI" on
+        // Windows and produced a too-narrow button (truncated text).
         auto powerButtonWidth = [&] (juce::Button& b) -> int
         {
             const float radius    = 18.0f * 0.3f;
             const float iconWidth = radius * 2.0f;
             float textW = 0.0f;
             if (b.getButtonText().isNotEmpty())
-                textW = juce::GlyphArrangement::getStringWidth (juce::Font (14.0f), b.getButtonText()) + 8.0f;
+                textW = juce::GlyphArrangement::getStringWidth (ovt::fontComboBox(), b.getButtonText()) + 8.0f;
             return static_cast<int> (std::ceil (iconWidth + textW + 4.0f));
         };
 
