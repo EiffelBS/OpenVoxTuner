@@ -259,11 +259,12 @@ echo "[3/4] Préparation du contenu package..."
 #   artefactDir    : dossier sous $BUILD_DIR (ex. OpenVoxTuner_artefacts ou OpenVoxKey_artefacts)
 #   artefactSubdir : sous-dossier dans artefacts/Release/ (ex. Standalone, VST3, Components, CLAP)
 #   destRel        : chemin d'installation relatif a la racine (ex. Library/Audio/Plug-Ins/VST3)
-COMP_DIR="$BUILD_DIR/components"
-# JUCE ships plugin bundles with read-only files; make them writable before
-# removing so the clean rm -rf never fails on a stale staging dir.
-chmod -R u+w "$COMP_DIR" 2>/dev/null || true
-rm -rf "$COMP_DIR"
+# Staging dir for the per-format components. Use a fresh temp dir each run so
+# we never inherit root-owned files from a previous sudo'd build (which would
+# make rm fail with "Permission denied"). The final .pkg is written to $OUTPUT,
+# not here, so the temp dir is disposable.
+COMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ovt-pkg.XXXXXX")"
+trap 'rm -rf "$COMP_DIR"' EXIT
 mkdir -p "$COMP_DIR"
 
 NL=$'\n'
