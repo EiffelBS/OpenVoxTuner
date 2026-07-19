@@ -50,6 +50,8 @@ namespace ovtdsp
         bool reverbEnable = false;
         bool noiseGateEnable = false;
         float noiseGateThreshold = 0.667f; // normalized: -40dB in -80..0 range
+        bool upwardCompEnable = false;
+        float upwardCompAmount = 0.5f; // 0..1 upward compression amount
         bool correctionMode = false; // false = Modern
 
         // PitchCurve
@@ -102,6 +104,8 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("reverb_enable"))       s.reverbEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("noise_gate_enable"))   s.noiseGateEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("noise_gate_threshold")) s.noiseGateThreshold = p->getValue();
+        if (auto* p = params.getParameter ("upward_comp_enable"))   s.upwardCompEnable = p->getValue() > 0.5f;
+        if (auto* p = params.getParameter ("upward_comp_amount"))   s.upwardCompAmount = p->getValue();
         if (auto* p = params.getParameter ("correction_mode"))     s.correctionMode = p->getValue() > 0.5f;
 
         // Curve (copy)
@@ -186,6 +190,7 @@ namespace ovtdsp
         setParam ("companion_group",    source.companionGroup + (target.companionGroup - source.companionGroup) * t);
         setParam ("key_detect",         lerpOrStep (source.keyDetect, target.keyDetect, t));
         setParam ("noise_gate_threshold", source.noiseGateThreshold + (target.noiseGateThreshold - source.noiseGateThreshold) * t);
+        setParam ("upward_comp_amount", source.upwardCompAmount + (target.upwardCompAmount - source.upwardCompAmount) * t);
 
         // Discrete parameters (step at 50%)
         setParam ("key",                    lerpOrStep ((float) source.key / 11.0f, (float) target.key / 11.0f, t));
@@ -204,6 +209,7 @@ namespace ovtdsp
         setParam ("harmony_follow_lead", lerpOrStep (source.harmonyFollowLead ? 1.0f : 0.0f, target.harmonyFollowLead ? 1.0f : 0.0f, t));
         setParam ("reverb_enable",     lerpOrStep (source.reverbEnable ? 1.0f : 0.0f, target.reverbEnable ? 1.0f : 0.0f, t));
         setParam ("noise_gate_enable", lerpOrStep ((float) source.noiseGateEnable, (float) target.noiseGateEnable, t) > 0.5f ? 1.0f : 0.0f);
+        setParam ("upward_comp_enable", lerpOrStep (source.upwardCompEnable ? 1.0f : 0.0f, target.upwardCompEnable ? 1.0f : 0.0f, t));
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));
     }
 }

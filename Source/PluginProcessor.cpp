@@ -500,6 +500,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterFloat> (
                             juce::ParameterID { "noise_gate_threshold", 1 }, "Gate Threshold",
                             juce::NormalisableRange<float> (-80.0f, 0.0f, 1.0f), -40.0f)
+                      // Upward compression: lifts quiet passages before tuning.
+                      // Single knob = amount (0..1); pivot follows the signal RMS.
+                      , std::make_unique<juce::AudioParameterBool> (
+                            "upward_comp_enable", "Upward Comp Enable", false)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "upward_comp_amount", "Upward Comp Amount",
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f)
                       , std::make_unique<juce::AudioParameterFloat> (
                             "reverb_mix", "Reverb Mix",
                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
@@ -582,6 +589,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     reverbMixParam = parameters.getRawParameterValue ("reverb_mix");
     noiseGateEnableParam = parameters.getRawParameterValue ("noise_gate_enable");
     noiseGateThresholdParam = parameters.getRawParameterValue ("noise_gate_threshold");
+    upwardCompEnableParam = parameters.getRawParameterValue ("upward_comp_enable");
+    upwardCompAmountParam = parameters.getRawParameterValue ("upward_comp_amount");
     flexTuneParam = parameters.getRawParameterValue ("flex_tune");
     humanizeParam = parameters.getRawParameterValue ("humanize");
     correctionModeParam = parameters.getRawParameterValue ("correction_mode");
@@ -705,6 +714,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     applyLatencyMode();
     pitchShifter->prepare (sampleRate, samplesPerBlock);
     noiseGate.prepare (sampleRate);
+    upwardComp.prepare (sampleRate);
     formantPreserver.prepare (sampleRate, samplesPerBlock);
     
     // Report latency to DAW for automatic compensation (PDC)
@@ -868,6 +878,19 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (gateEnabled && noiseGateThresholdParam != nullptr)
             noiseGate.setThresholdDb (noiseGateThresholdParam->load());
         noiseGate.process (buffer);
+    }
+
+    // === UPWARD COMPRESSION (input, after gate, before pitch detection) ===
+    // Lifts quiet vocal passages toward the running RMS level so weak parts are
+    // more audible to the pitch detector and tuning stage, without attenuating
+    // louder material (pure upward behaviour). Applied before the waveform
+    // capture so the visualizer reflects it too.
+    {
+        const bool ucEnabled = upwardCompEnableParam != nullptr && upwardCompEnableParam->load() > 0.5f;
+        upwardComp.setEnabled (ucEnabled);
+        if (ucEnabled && upwardCompAmountParam != nullptr)
+            upwardComp.setAmount (upwardCompAmountParam->load());
+        upwardComp.process (buffer);
     }
 
     // === WAVEFORM CAPTURE ===
@@ -2732,6 +2755,8 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("correctionMode",   ms.correctionMode);
         slotXml->setAttribute ("noiseGateEnable",  ms.noiseGateEnable);
         slotXml->setAttribute ("noiseGateThreshold", (double) ms.noiseGateThreshold);
+        slotXml->setAttribute ("upwardCompEnable", ms.upwardCompEnable);
+        slotXml->setAttribute ("upwardCompAmount", (double) ms.upwardCompAmount);
 
         // Serialize the pitch curve so the slot restores its exact line (not an
         // empty PitchCurve) after a project reload / standalone restart.
@@ -2787,6 +2812,8 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.correctionMode     = slotXml->getBoolAttribute ("correctionMode", false);
             ms.noiseGateEnable    = slotXml->getBoolAttribute ("noiseGateEnable", false);
             ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.667);
+            ms.upwardCompEnable   = slotXml->getBoolAttribute ("upwardCompEnable", false);
+            ms.upwardCompAmount   = (float) slotXml->getDoubleAttribute ("upwardCompAmount", 0.5);
             // Restore the pitch curve (absent in pre-curve states -> empty curve).
             auto* curveXml = slotXml->getChildByName ("PITCH_CURVE");
             if (curveXml != nullptr)

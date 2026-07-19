@@ -17,6 +17,7 @@
 #include "dsp/PitchCurve.h"
 #include "dsp/IEffect.h"
 #include "dsp/NoiseGate.h"
+#include "dsp/UpwardCompressor.h"
 #include "dsp/PresetMorpher.h"
 #include "dsp/VibratoPreserver.h"
 #include "dsp/AttackAwareEnv.h"
@@ -287,7 +288,9 @@ private:
     std::atomic<float>* reverbEnableParam = nullptr; // Reverb on/off
     std::atomic<float>* reverbMixParam = nullptr;   // Reverb wet mix (0-1)
     std::atomic<float>* noiseGateEnableParam = nullptr;    // Noise gate on/off
-    std::atomic<float>* noiseGateThresholdParam = nullptr; // Noise gate threshold (dB)        
+    std::atomic<float>* noiseGateThresholdParam = nullptr; // Noise gate threshold (dB)
+    std::atomic<float>* upwardCompEnableParam = nullptr;   // Upward compressor on/off
+    std::atomic<float>* upwardCompAmountParam = nullptr;   // Upward compressor amount (0-1)
     std::atomic<float>* flexTuneParam = nullptr;    // FlexTune deadband (0-100 cents)
     std::atomic<float>* humanizeParam = nullptr;    // Humanize random cents (0-50)
     std::atomic<float>* correctionModeParam = nullptr; // 0=Modern, 1=Transparent        
@@ -324,6 +327,7 @@ private:
     std::unique_ptr<ovtdsp::HarmonyEngine>     harmonyEngine;
     ovtdsp::NoiseGate                           noiseGate;
     ovtdsp::FormantPreserver                    formantPreserver;
+    ovtdsp::UpwardCompressor                    upwardComp;
 
     std::unique_ptr<ovtdsp::RetargetEnvelope>  retargetEnvelope;
     std::unique_ptr<ovtdsp::PitchCurve>        pitchCurve; // "graphic" mode

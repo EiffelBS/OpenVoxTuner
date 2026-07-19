@@ -178,6 +178,13 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> noiseGateEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> noiseGateThresholdAttachment;
 
+    // Upward Compressor (input, before tuning)
+    juce::ToggleButton upwardCompEnableButton;
+    juce::Slider       upwardCompAmountSlider;
+    juce::Label        upwardCompAmountLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> upwardCompEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> upwardCompAmountAttachment;
+
     // FlexTune / Humanize / Vibrato / Attack-Aware / Correction Mode
     juce::Slider      flexTuneSlider;
     juce::Label       flexTuneLabel;

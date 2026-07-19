@@ -1167,6 +1167,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     noiseGateThresholdAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         processorRef.getParameters(), "noise_gate_threshold", noiseGateThresholdSlider);
 
+    // Upward Compressor attachments
+    upwardCompEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        processorRef.getParameters(), "upward_comp_enable", upwardCompEnableButton);
+    upwardCompAmountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        processorRef.getParameters(), "upward_comp_amount", upwardCompAmountSlider);
+
     // FlexTune / Humanize / Vibrato / Correction Mode attachments
     flexTuneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "flex_tune", flexTuneSlider);
     humanizeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "humanize", humanizeSlider);
@@ -1695,6 +1701,32 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     noiseGateThresholdLabel.setJustificationType (juce::Justification::centred);
     noiseGateThresholdLabel.setFont (11.0f);
     noiseGateThresholdLabel.setVisible (false); // Hidden — same style as Formant/Reverb (no label)
+
+    // Upward Compressor controls (input effect, before tuning).
+    // Same visual style as the other effect knobs: power toggle on top, a single
+    // "amount" knob with no visible value (only JUCE's drag popup shows it).
+    upwardCompEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelUpwardComp));
+    upwardCompEnableButton.setName ("PowerButton");
+    upwardCompEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
+    upwardCompEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    upwardCompEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUpwardCompEn));
+    addAndMakeVisible (upwardCompEnableButton);
+
+    upwardCompAmountSlider.setSliderStyle (juce::Slider::RotaryVerticalDrag);
+    upwardCompAmountSlider.setRange (0.0, 1.0, 0.01);
+    upwardCompAmountSlider.setEnabled (false); // disabled until upward comp is toggled on
+    // No value textbox; the live value is shown in JUCE's popup display while dragging.
+    upwardCompAmountSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    upwardCompAmountSlider.setPopupDisplayEnabled (true, false, this);
+    upwardCompAmountSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    upwardCompAmountSlider.setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
+    upwardCompAmountSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
+    upwardCompAmountSlider.setColour (juce::Slider::thumbColourId, juce::Colours::white);
+    upwardCompAmountSlider.setColour (juce::Slider::textBoxTextColourId, ovt::text());
+    upwardCompAmountSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    upwardCompAmountSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+    upwardCompAmountSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipUpwardCompAmount));
+    addAndMakeVisible (upwardCompAmountSlider);
 
     // FlexTune / Humanize knobs
     setupKnob (flexTuneSlider, &flexTuneLabel, "FlexTune");
@@ -2408,7 +2440,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int rowGap       = 8;
     const int rowH         = (b4.getHeight() - rowGap) / 2;
 
-    // Row 1 : Noise Gate + Reverb (two columns)
+    // Row 1 : Noise Gate + Upward Comp (two columns)
     auto row1 = b4.removeFromTop (rowH);
     b4.removeFromTop (rowGap);
     const int effectColW = (row1.getWidth() - 8) / 2;
@@ -2422,19 +2454,33 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     }
     row1.removeFromLeft (8);
 
-    // Reverb (column 2): power toggle on top, fixed-size knob below
-    auto reverbCol = row1;
+    // Upward Comp (column 2): power toggle on top, fixed-size knob below
+    auto ucCol = row1;
+    upwardCompEnableButton.setBounds (ucCol.removeFromTop (effectPowerH));
+    {
+        const int kx = ucCol.getX() + juce::jmax (0, (ucCol.getWidth() - effKnobD) / 2);
+        upwardCompAmountSlider.setBounds (kx, ucCol.getY() + 2, effKnobD, effKnobD);
+    }
+
+    // Row 2 : Reverb + Formant (two columns)
+    auto row2 = b4;
+    const int effectColW2 = (row2.getWidth() - 8) / 2;
+
+    // Reverb (column 1): power toggle on top, fixed-size knob below
+    auto reverbCol = row2.removeFromLeft (effectColW2);
     reverbEnableButton.setBounds (reverbCol.removeFromTop (effectPowerH));
     {
         const int kx = reverbCol.getX() + juce::jmax (0, (reverbCol.getWidth() - effKnobD) / 2);
         reverbMixSlider.setBounds (kx, reverbCol.getY() + 2, effKnobD, effKnobD);
     }
+    row2.removeFromLeft (8);
 
-    // Row 2 : Formant (single column): power toggle on top, fixed-size knob below
-    formantEnableButton.setBounds (b4.removeFromTop (effectPowerH));
+    // Formant (column 2): power toggle on top, fixed-size knob below
+    auto formantCol = row2;
+    formantEnableButton.setBounds (formantCol.removeFromTop (effectPowerH));
     {
-        const int kx = b4.getX() + juce::jmax (0, (b4.getWidth() - effKnobD) / 2);
-        formantSlider.setBounds (kx, b4.getY() + 2, effKnobD, effKnobD);
+        const int kx = formantCol.getX() + juce::jmax (0, (formantCol.getWidth() - effKnobD) / 2);
+        formantSlider.setBounds (kx, formantCol.getY() + 2, effKnobD, effKnobD);
     }
 
     // Harmony controls block (rightmost block)
@@ -2731,6 +2777,10 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // Gray out Reverb slider if disabled
     bool isReverbEnabled = reverbEnableButton.getToggleState();
     reverbMixSlider.setEnabled (isReverbEnabled);
+
+    // Gray out Upward Comp slider if disabled
+    bool isUpwardCompEnabled = upwardCompEnableButton.getToggleState();
+    upwardCompAmountSlider.setEnabled (isUpwardCompEnabled);
 
     // Harmony controls enable/disable
     bool isHarmonyEnabled = harmonyEnableButton.getToggleState();
