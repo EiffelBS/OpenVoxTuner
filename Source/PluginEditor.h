@@ -307,10 +307,9 @@ private:
     void applyPresetUiStateFromXml (const juce::XmlElement& xml);
     void startUpdateCheck();
 
-    // Plugin Presets (separate from Curve Presets): load/save/delete a plugin
+    // Plugin Presets (separate from Curve Presets): save/delete a plugin
     // preset file (parameters.state only, no pitch curve). See the
     // implementation block in PluginEditor.cpp.
-    void loadPluginPresetFromFile (const juce::File& file);
     void promptSavePluginPreset();
     void writePluginPresetFile (const juce::String& name, const juce::File& file);
     void deletePluginPresetFile (const juce::File& file);
@@ -384,10 +383,20 @@ private:
     // === A/B Comparison ===
     struct ABState {
         juce::String name;
+        juce::String presetName; // plugin preset assigned to this slot (empty = none / "User")
         std::unique_ptr<juce::XmlElement> state; // for full state restore
         std::unique_ptr<ovtdsp::MorphState> morphState; // direct snapshot for morphing
         bool hasData = false;
     };
+    // Build the expected parameters.state ValueTree for a preset name
+    // (factory = defaults + overrides; custom = parsed XML file). Returns an
+    // invalid tree if the name is not a known preset. Used both to apply and
+    // to test whether a slot still matches its assigned preset.
+    juce::ValueTree buildPluginPresetStateByName (const juce::String& name);
+    // True when the live parameter values still match the preset assigned to
+    // the given slot (no user edits since the preset was loaded).
+    bool slotMatchesPreset (const ABState& slot);
+
     ABState slotA, slotB;
     bool isSlotAActive = true;  // currently active slot
     bool suppressAutoSave = false; // skip one auto-save cycle after loadSlot

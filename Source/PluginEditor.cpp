@@ -1025,15 +1025,32 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // Position slider: A=left (0), B=right (1)
             processorRef.setMorphAmount (slotIdx == 0 ? 0.0f : 1.0f);
 
+            // Reflect the (now active) slot's assigned plugin preset in the
+            // preset selector. If the slot still matches its preset exactly
+            // (no user edits since it was loaded) show that preset; otherwise
+            // it is considered "User" (detached from the preset).
+            auto& activeSlot = isSlotAActive ? slotA : slotB;
+            if (slotMatchesPreset (activeSlot))
+            {
+                currentPluginPresetName = activeSlot.presetName;
+                presetComboBox.setText (activeSlot.presetName, juce::dontSendNotification);
+            }
+            else
+            {
+                currentPluginPresetName = "User";
+                presetComboBox.setText ("User", juce::dontSendNotification);
+            }
+
             updateABButtonStates();
         };
         addAndMakeVisible (btn);
     };
     setupABButton (buttonA, "A", 0);
     setupABButton (buttonB, "B", 1);
-    // Right-click on A/B saves the current state into that slot
-    buttonA.onRightClick = [this] { saveSlot (slotA, 0); updateABButtonStates(); };
-    buttonB.onRightClick = [this] { saveSlot (slotB, 1); updateABButtonStates(); };
+    // Right-click on A/B saves the current state into that slot (detaches it
+    // from any named plugin preset, since it is now an explicit manual state).
+    buttonA.onRightClick = [this] { saveSlot (slotA, 0); slotA.presetName = ""; updateABButtonStates(); };
+    buttonB.onRightClick = [this] { saveSlot (slotB, 1); slotB.presetName = ""; updateABButtonStates(); };
     // Button A always has valid data (it's the default state)
     buttonA.hasValidData = true;
     buttonA.isActive = true;
@@ -2062,25 +2079,31 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     ga.draw (g);
     x += juce::GlyphArrangement::getStringWidth (titleFont, "Tuner");
 
-    // Version string (uses the plugin version macro when available).
+    // Version string (debug builds only — hides the version number in release).
+#if defined (JUCE_DEBUG)
     g.setColour (ovt::textDim());
     g.setFont (ovt::fontVersion());
-#if defined (JucePlugin_VersionString)
+#  if defined (JucePlugin_VersionString)
     g.drawText (juce::String ("v") + JucePlugin_VersionString, x + 8, titleY, 160, 36, juce::Justification::left);
-#elif defined (JucePlugin_Version)
+#  elif defined (JucePlugin_Version)
     g.drawText (juce::String ("v") + juce::String (JucePlugin_Version), x + 8, titleY, 160, 36, juce::Justification::left);
-#else
+#  else
     g.drawText ("v0.1.1", x + 8, titleY, 160, 36, juce::Justification::left);
+#  endif
 #endif
 
-    // CPU usage meter (top-right of header, left of A/B morph area)
+    // CPU usage meter (debug builds only). Sits to the LEFT of the A/B slot
+    // buttons in the top banner, so it is out of the way of the preset
+    // selector and the version string. Hidden entirely in release builds.
+#if defined (JUCE_DEBUG)
     {
-        const juce::Rectangle<int> headerArea (0, 0, getWidth(), 50);
         const int cpuW = 64;
         const int cpuH = 16;
-        // Position left of the morph area to avoid overlap
-        const int cpuX = headerArea.getRight() - cpuW - 195;
-        const int cpuY = headerArea.getY() + (headerArea.getHeight() - cpuH) / 2;
+        const int cpuGap = 8;
+        // Anchor to the right edge of button A (buttonA has valid bounds once
+        // resized() has run, which always precedes paint()).
+        const int cpuX = buttonA.getX() - cpuW - cpuGap;
+        const int cpuY = buttonA.getY() + (buttonA.getHeight() - cpuH) / 2;
 
         const int cpuPct = static_cast<int> (currentCpuUsage * 100.0f);
         const juce::String cpuText = ovt::tr(ovt::Keys::kLabelCpu) + juce::String (cpuPct) + "%";
@@ -2105,6 +2128,7 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
         g.setFont (ovt::fontLegendHint());
         g.drawText (cpuText, cpuX, cpuY, cpuW, cpuH, juce::Justification::centred);
     }
+#endif
 }
 
 void OpenVoxTunerAudioProcessorEditor::resized()
@@ -3812,12 +3836,12 @@ namespace
     {
         static const juce::StringArray names {
             "Default",
-            "Correction pure",
-            "Transparent / Doublage",
-            "Studio stack",
-            "Live scene",
-            "Voix parlee / Podcast",
-            "Creative robot"
+            "Pure Correction",
+            "Transparent / Doubling",
+            "Studio Stack",
+            "Live Scene",
+            "Spoken Voice / Podcast",
+            "Creative Robot"
         };
         return names;
     }
@@ -3865,12 +3889,12 @@ namespace
             { "vibrato_preserve", 0.0f }
         };
 
-        if (name == "Correction pure")       return &correctionPure;
-        if (name == "Transparent / Doublage") return &transparentDub;
-        if (name == "Studio stack")          return &studioStack;
-        if (name == "Live scene")            return &liveScene;
-        if (name == "Voix parlee / Podcast") return &spokenPodcast;
-        if (name == "Creative robot")        return &creativeRobot;
+        if (name == "Pure Correction")       return &correctionPure;
+        if (name == "Transparent / Doubling") return &transparentDub;
+        if (name == "Studio Stack")          return &studioStack;
+        if (name == "Live Scene")            return &liveScene;
+        if (name == "Spoken Voice / Podcast") return &spokenPodcast;
+        if (name == "Creative Robot")        return &creativeRobot;
         return nullptr; // "Default" -> factory defaults
     }
 }
@@ -3898,6 +3922,24 @@ void OpenVoxTunerAudioProcessorEditor::applyPluginPresetByName (const juce::Stri
     if (name == "User" || name.isEmpty())
         return;
 
+    const juce::ValueTree state = buildPluginPresetStateByName (name);
+    if (! state.isValid())
+        return;
+
+    processorRef.applyPluginPresetState (state);
+    currentPluginPresetName = name;
+    presetComboBox.setText (name, juce::dontSendNotification);
+
+    // Record the assigned preset on the active A/B slot so that switching
+    // slots later can show the preset name (or "User" if it was edited).
+    (isSlotAActive ? slotA : slotB).presetName = name;
+}
+
+juce::ValueTree OpenVoxTunerAudioProcessorEditor::buildPluginPresetStateByName (const juce::String& name)
+{
+    if (name == "User" || name.isEmpty())
+        return {};
+
     // Factory preset: build the state from the default tree + overrides.
     const auto& factoryNames = getFactoryPluginPresetNames();
     if (factoryNames.contains (name))
@@ -3912,32 +3954,21 @@ void OpenVoxTunerAudioProcessorEditor::applyPluginPresetByName (const juce::Stri
                     paramChild.setProperty ("value", val, nullptr);
             }
         }
-        processorRef.applyPluginPresetState (state);
-        currentPluginPresetName = name;
-        presetComboBox.setText (name, juce::dontSendNotification);
-        return;
+        return state;
     }
 
-    // Custom preset: load the XML file from the Plugin presets folder.
+    // Custom preset: parse the XML file from the Plugin presets folder.
     const auto file = getUserPluginPresetsDirectory().getChildFile (name + ".xml");
-    if (file.existsAsFile())
-        loadPluginPresetFromFile (file);
-}
-
-void OpenVoxTunerAudioProcessorEditor::loadPluginPresetFromFile (const juce::File& file)
-{
     if (! file.existsAsFile())
-        return;
+        return {};
 
     std::unique_ptr<juce::XmlElement> xml (juce::XmlDocument (file).getDocumentElement());
     if (xml == nullptr)
-        return;
+        return {};
 
     const juce::XmlElement* paramsXml = nullptr;
     if (xml->hasTagName ("OVT_PLUGIN_PRESET"))
     {
-        // The stored parameters.state element keeps its real root type
-        // (e.g. "OpenVoxTuner"); fall back to a legacy <PARAMETERS> child.
         paramsXml = xml->getChildByName (processorRef.getParameters().state.getType());
         if (paramsXml == nullptr)
             paramsXml = xml->getChildByName ("PARAMETERS");
@@ -3948,21 +3979,42 @@ void OpenVoxTunerAudioProcessorEditor::loadPluginPresetFromFile (const juce::Fil
     }
 
     if (paramsXml == nullptr)
-        return;
+        return {};
 
-    juce::ValueTree state = juce::ValueTree::fromXml (*paramsXml);
-    if (! state.isValid())
-        return;
+    return juce::ValueTree::fromXml (*paramsXml);
+}
 
-    processorRef.applyPluginPresetState (state);
+bool OpenVoxTunerAudioProcessorEditor::slotMatchesPreset (const ABState& slot)
+{
+    if (slot.presetName.isEmpty())
+        return false;
 
-    // Restore the few UI-only preferences that live outside parameters.state.
-    if (xml->hasTagName ("OVT_PLUGIN_PRESET"))
-        processorRef.setAdvancedExpanded (xml->getBoolAttribute ("advancedExpanded", processorRef.getAdvancedExpanded()));
+    const juce::ValueTree expected = buildPluginPresetStateByName (slot.presetName);
+    if (! expected.isValid())
+        return false;
 
-    const juce::String name = file.getFileNameWithoutExtension();
-    currentPluginPresetName = name;
-    presetComboBox.setText (name, juce::dontSendNotification);
+    // Compare only the parameters the preset defines (the preset's children).
+    // The stored "value" is the parameter's normalized 0..1 value, which is
+    // exactly what AudioProcessorParameter::getValue() returns, so a direct
+    // tolerance comparison is correct. UI language / theme / morph / mode are
+    // intentionally excluded (presets never touch them).
+    const auto& params = processorRef.getParameters();
+    for (int i = 0; i < expected.getNumChildren(); ++i)
+    {
+        const auto child = expected.getChild (i);
+        const auto idVar = child.getProperty ("id", juce::var());
+        if (idVar.isVoid())
+            continue;
+        const juce::String id = idVar;
+        if (auto* p = params.getParameter (id))
+        {
+            const float liveVal   = p->getValue();
+            const float presetVal = static_cast<float> (child.getProperty ("value", 0.0));
+            if (std::abs (liveVal - presetVal) > 1.0e-3f)
+                return false;
+        }
+    }
+    return true;
 }
 
 void OpenVoxTunerAudioProcessorEditor::promptSavePluginPreset()

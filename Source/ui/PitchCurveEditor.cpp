@@ -498,17 +498,21 @@ namespace ui
                 const juce::String readout = noteName + "  " + hzText;
                 g.setFont (ovt::fontReadout());
                 const int textW = static_cast<int> (juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), readout));
-                const int boxW = textW + 10;
+                const int boxW = textW + 14;
                 const int boxH = 16;
                 int boxX = b.getWidth() - boxW - 8;
                 int boxY = static_cast<int> (hoverMouseY) - boxH - 4;
                 if (boxY < rulerH) boxY = static_cast<int> (hoverMouseY) + 4;
+                // Keep the whole readout inside the editor so the "Hz" suffix
+                // is never clipped by the component's right edge.
+                boxX = juce::jmin (boxX, b.getWidth() - boxW - 2);
+                boxX = juce::jmax (boxX, pianoW + 2);
                 g.setColour (juce::Colour (0xcc15151e));
                 g.fillRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 3.0f);
                 g.setColour (juce::Colour (0x661A9AF0));
                 g.drawRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 3.0f, 0.5f);
                 g.setColour (juce::Colours::white);
-                g.drawText (readout, boxX + 5, boxY, boxW - 10, boxH,
+                g.drawText (readout, boxX + 7, boxY, boxW - 14, boxH,
                             juce::Justification::centredLeft);
             }
         }
