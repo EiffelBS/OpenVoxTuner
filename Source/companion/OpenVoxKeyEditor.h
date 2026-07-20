@@ -53,13 +53,13 @@ public:
 
         addAndMakeVisible (titleLabel);
         titleLabel.setText ("OpenVoxKey", juce::dontSendNotification);
-        titleLabel.setFont (juce::Font (20.0f, juce::Font::bold));
+        titleLabel.setFont (juce::Font (juce::FontOptions (20.0f, juce::Font::bold)));
         titleLabel.setColour (juce::Label::textColourId, juce::Colours::cyan);
 
         addAndMakeVisible (hintLabel);
         hintLabel.setText ("Place on an accompaniment track.\nDetects the key and shares it with OpenVoxTuner (Key/Scale Detection = OpenVoxKey).",
                            juce::dontSendNotification);
-        hintLabel.setFont (juce::Font (12.0f));
+        hintLabel.setFont (juce::Font (juce::FontOptions (12.0f)));
         hintLabel.setColour (juce::Label::textColourId, juce::Colours::lightgrey);
         hintLabel.setJustificationType (juce::Justification::topLeft);
 
@@ -80,7 +80,7 @@ public:
 
         addAndMakeVisible (keyLabel);
         keyLabel.setText ("Detected key", juce::dontSendNotification);
-        keyLabel.setFont (juce::Font (12.0f));
+        keyLabel.setFont (juce::Font (juce::FontOptions (12.0f)));
         keyLabel.setColour (juce::Label::textColourId, juce::Colours::grey);
 
         addAndMakeVisible (keyValue);
@@ -89,7 +89,7 @@ public:
 
         addAndMakeVisible (searchingDots);
         searchingDots.setVisible (false);
-        keyValue.setFont (juce::Font (28.0f, juce::Font::bold));
+        keyValue.setFont (juce::Font (juce::FontOptions (28.0f, juce::Font::bold)));
         keyValue.setColour (juce::Label::textColourId, juce::Colours::white);
         keyValue.setJustificationType (juce::Justification::centred);
 

@@ -166,13 +166,14 @@ namespace ovtdsp
             // Shared memory unavailable (e.g. sandboxed test runner or restricted
             // environment): fall back to an in-process region. Cross-binary
             // sharing won't work in that case, but the bridge still behaves
-            // correctly inside a single module.
-            std::memset (&fallbackRegion_, 0, sizeof (KeyBridgeRegion));
+            // correctly inside a single module. Value-initialise (not memset:
+            // KeyBridgeRegion holds non-trivial members like juce::Atomic).
+            fallbackRegion_ = KeyBridgeRegion{};
             region_ = &fallbackRegion_;
         #else
             // Non-Windows: in-process fallback (companion feature is primarily
             // Windows / Studio One).
-            std::memset (&fallbackRegion_, 0, sizeof (KeyBridgeRegion));
+            fallbackRegion_ = KeyBridgeRegion{};
             region_ = &fallbackRegion_;
         #endif
         }

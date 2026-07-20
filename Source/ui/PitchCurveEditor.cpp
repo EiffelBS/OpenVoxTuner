@@ -1126,7 +1126,7 @@ namespace ui
             // comme heuristique rapide pour eviter les undo vides
             auto beforeXml = pendingUndoSnapshot.toXml();
             auto afterXml = curve.toXml();
-            bool changed = (beforeXml->createDocument ("") != afterXml->createDocument (""));
+            bool changed = (beforeXml->toString() != afterXml->toString());
             if (changed)
             {
                 auto* action = new CurveEditAction (this);

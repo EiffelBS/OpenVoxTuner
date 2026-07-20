@@ -21,8 +21,8 @@ namespace ovt
         @return        juce::Font with consistent typeface */
     inline juce::Font createFont (float size, bool bold = false)
     {
-        return juce::Font (kTypefaceFamily, size,
-                           bold ? juce::Font::bold : juce::Font::plain);
+        return juce::Font (juce::FontOptions (kTypefaceFamily, size,
+                           bold ? juce::Font::bold : juce::Font::plain));
     }
 
     // === Named font constants for common sizes ===

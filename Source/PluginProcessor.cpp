@@ -827,7 +827,7 @@ void OpenVoxTunerAudioProcessor::releaseResources()
 void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                                juce::MidiBuffer& midiMessages)
 {
-    juce::ScopedNoDenormals;
+    juce::ScopedNoDenormals noDenormals;
     const auto blockStartTime = juce::Time::getHighResolutionTicks();
     // MIDI out may be produced below if enabled by parameter.
 
@@ -1252,10 +1252,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // in the MIDI OUT block. Notes are accumulated so the most-recently-
     // pressed (last in the list) becomes the correction target when the toggle is on.
     {
-        juce::MidiBuffer::Iterator midiIt (midiMessages);
-        juce::MidiMessage mm; int samplePos = 0;
-        while (midiIt.getNextEvent (mm, samplePos))
+        for (const auto& meta : midiMessages)
         {
+            const juce::MidiMessage& mm = meta.getMessage();
             if (mm.isNoteOn())
                 heldMidiNotes.addIfNotAlreadyThere (mm.getNoteNumber());
             else if (mm.isNoteOff())

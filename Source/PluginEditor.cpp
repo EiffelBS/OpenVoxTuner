@@ -294,16 +294,16 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
     int maxKeyW = 0, maxDescW = 0;
     for (int i = 0; i < numShortcuts; ++i)
     {
-        maxKeyW  = juce::jmax (maxKeyW,  legendFont.getStringWidth (shortcuts[i].key));
-        maxDescW = juce::jmax (maxDescW, legendFont.getStringWidth (ovt::tr (shortcuts[i].descKey)));
+        maxKeyW  = juce::jmax (maxKeyW,  static_cast<int> (juce::GlyphArrangement::getStringWidth (legendFont, shortcuts[i].key)));
+        maxDescW = juce::jmax (maxDescW, static_cast<int> (juce::GlyphArrangement::getStringWidth (legendFont, ovt::tr (shortcuts[i].descKey))));
     }
     const int colW = maxKeyW + colGap + maxDescW;
     const int contentW = numCols * colW + (numCols - 1) * colGapBetween;
 
     // Also account for the title / close-hint width so long translations do
     // not get clipped either.
-    const int titleW = titleFont.getStringWidth (ovt::tr (ovt::Keys::kHelpTitle));
-    const int closeW = ovt::fontLegendHint().getStringWidth (ovt::tr (ovt::Keys::kHelpCloseHint));
+    const int titleW = static_cast<int> (juce::GlyphArrangement::getStringWidth (titleFont, ovt::tr (ovt::Keys::kHelpTitle)));
+    const int closeW = static_cast<int> (juce::GlyphArrangement::getStringWidth (ovt::fontLegendHint(), ovt::tr (ovt::Keys::kHelpCloseHint)));
 
     // Final panel dimensions: leave room for inner padding, the header band,
     // the divider and the close hint.
@@ -1703,7 +1703,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
     noiseGateThresholdLabel.setColour (juce::Label::textColourId, ovt::text());
     noiseGateThresholdLabel.setJustificationType (juce::Justification::centred);
-    noiseGateThresholdLabel.setFont (11.0f);
+    noiseGateThresholdLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
     noiseGateThresholdLabel.setVisible (false); // Hidden — same style as Formant/Reverb (no label)
 
     // Upward Compressor controls (input effect, before tuning).
