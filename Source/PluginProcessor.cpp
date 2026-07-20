@@ -2681,11 +2681,16 @@ void OpenVoxTunerAudioProcessor::applyPluginPresetState (const juce::ValueTree& 
 
     // Capture the current values of user/session preferences that a Plugin
     // Preset must NOT override (they are not part of the "sound"): UI
-    // language, UI theme, the A/B morph position, and the Live/Curve mode.
+    // language, UI theme, the A/B morph position, the Live/Curve mode, and
+    // the key/scale selection (the user's musical choice, preserved by every
+    // preset so e.g. musical presets don't snap back to C Chromatic).
     const float savedLang   = parameters.getParameterAsValue ("ui_language").getValue();
     const float savedTheme  = parameters.getParameterAsValue ("ui_theme").getValue();
     const float savedMorph  = parameters.getParameterAsValue ("morph_amount").getValue();
     const float savedMode   = parameters.getParameterAsValue ("mode").getValue();
+    const float savedKey    = parameters.getParameterAsValue ("key").getValue();
+    const float savedScale  = parameters.getParameterAsValue ("scale").getValue();
+    const float savedKeyDetect = parameters.getParameterAsValue ("key_detect").getValue();
 
     // Restore the parameter state in one global-undo transaction so a preset
     // load is undoable (Ctrl/Cmd+Z). pushUndoAction() performs the action
@@ -2702,6 +2707,9 @@ void OpenVoxTunerAudioProcessor::applyPluginPresetState (const juce::ValueTree& 
     parameters.getParameterAsValue ("ui_theme").setValue (savedTheme);
     parameters.getParameterAsValue ("morph_amount").setValue (savedMorph);
     parameters.getParameterAsValue ("mode").setValue (savedMode);
+    parameters.getParameterAsValue ("key").setValue (savedKey);
+    parameters.getParameterAsValue ("scale").setValue (savedScale);
+    parameters.getParameterAsValue ("key_detect").setValue (savedKeyDetect);
 }
 
 // === Etat du plugin : serialisation XML des parametres + pitch curve ===

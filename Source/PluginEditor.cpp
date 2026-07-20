@@ -1603,6 +1603,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
                 startTimerHz (10);
             }
+            ~DebugContent() override
+            {
+                stopTimer();
+            }
             void resized() override
             {
                 auto r = getLocalBounds().reduced(8);
@@ -3968,8 +3972,8 @@ namespace
             { "humanize", 35.0f }, { "vibrato_preserve", 0.3f },
             { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
             { "formant_mode", 1.0f }, { "formant", 0.0f },
-            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
-            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.4f }
+            { "reverb_enable", 1.0f }, { "reverb_mix", 0.25f }, { "noise_gate_enable", 0.0f },
+            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.6f }
         };
         // Lead Vocal: the flagship "thickened lead" sound. A light gate tames
         // room tone, "-3 / +3" harmony (3rd below + above) fattens the lead

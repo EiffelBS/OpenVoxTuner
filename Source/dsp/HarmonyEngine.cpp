@@ -229,8 +229,15 @@ namespace ovtdsp
         // initialize amplitudes and targets if needed
         for (int v = 0; v < numVoices; ++v)
         {
+            // Spread the starting phase across voices so that newly spawned
+            // voices do not all begin at sin(0)=0 in lockstep. When several
+            // voices appear at once (e.g. Power Chord: 3-4 voices) and all
+            // start at phase 0, their summatial is constructively reinforced
+            // at the attack transient, producing a louder "thud" on the first
+            // block. A de-correlated starting phase keeps the steady-state
+            // tone identical but removes the transient brightness boost.
             if (amplitudes[v] == 0.0f)
-                phases[v] = 0.0; // start phase at zero for new voices
+                phases[v] = v * 0.5 * juce::MathConstants<double>::pi;
             // targetAmps is 1.0 when gate open, 0 otherwise. Actual per-voice
             // amplitude is computed using the 'volume' parameter passed to renderHarmonies
             targetAmps[v] = voiceGate ? 1.0f : 0.0f;
