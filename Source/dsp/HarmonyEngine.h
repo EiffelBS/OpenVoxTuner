@@ -154,8 +154,9 @@ namespace ovtdsp
         std::vector<float> targetAmps;     // target amplitude per voice
         double currentSampleRate = 44100.0; // stored sample rate
         bool voiceGate = true;             // whether voices are allowed to sound
-        float attackMs = 20.0f;             // attack time in ms (increased from 5ms to prevent clicks on staccato)
+        float attackMs = 35.0f;             // attack time in ms (linear fade-in ramp to avoid hard transient)
         float releaseMs = 80.0f;           // release time in ms (increased to reduce clicks)
+        std::vector<int> attackSamplesRemaining; // per-voice linear fade-in counter (samples left)
 
     public:
         // Control voice gating (note on/off). When turned on, volume is used as

@@ -226,6 +226,9 @@ namespace ovtdsp
         const double attackAlpha = 1.0 - std::exp(-1000.0 / (attackMs * currentSampleRate));
         const double releaseAlpha = 1.0 - std::exp(-1000.0 / (releaseMs * currentSampleRate));
 
+        // Resize the linear fade-in counter to match the voice count
+        attackSamplesRemaining.resize ((size_t) numVoices);
+
         // initialize amplitudes and targets if needed
         for (int v = 0; v < numVoices; ++v)
         {
@@ -237,7 +240,12 @@ namespace ovtdsp
             // block. A de-correlated starting phase keeps the steady-state
             // tone identical but removes the transient brightness boost.
             if (amplitudes[v] == 0.0f)
+            {
                 phases[v] = v * 0.5 * juce::MathConstants<double>::pi;
+                // Start a fresh linear fade-in so the attack is gentle (constant
+                // slope) instead of the abrupt exponential onset of a one-pole.
+                attackSamplesRemaining[v] = (int) std::llround (attackMs * 0.001 * currentSampleRate);
+            }
             // targetAmps is 1.0 when gate open, 0 otherwise. Actual per-voice
             // amplitude is computed using the 'volume' parameter passed to renderHarmonies
             targetAmps[v] = voiceGate ? 1.0f : 0.0f;
@@ -261,6 +269,9 @@ namespace ovtdsp
 
             double amp = amplitudes[v];
             double tgt = targetAmps[v] * (double)volume * (1.0 - (double)blend);
+            // Total linear fade-in length in samples (constant slope ramp).
+            const int attackTotal = (int) std::llround (attackMs * 0.001 * currentSampleRate);
+            int fadeLeft = attackSamplesRemaining[v];
 
             // Stereo placement per voice:
             // 1st=full right, 2nd=full left, 3rd=centre-right, 4th=centre-left
@@ -286,9 +297,25 @@ namespace ovtdsp
             {
                 // smooth amplitude toward target
                 if (amp < tgt)
-                    amp += (tgt - amp) * attackAlpha;
+                {
+                    // Linear fade-in while a fresh attack is still ramping.
+                    // A constant-slope ramp has no steep onset (unlike a
+                    // one-pole), so the attack transient is much softer and
+                    // there is no "thud" when several voices start together.
+                    if (fadeLeft > 0 && attackTotal > 0)
+                    {
+                        amp = tgt * (double) (attackTotal - fadeLeft) / (double) attackTotal;
+                        --fadeLeft;
+                    }
+                    else
+                    {
+                        amp += (tgt - amp) * attackAlpha;
+                    }
+                }
                 else
+                {
                     amp += (tgt - amp) * releaseAlpha;
+                }
 
                 // Tone variants:
                 // 0=Choir, 1=Bright, 2=Synth Lead, 3=Strings, 4=Guitar, 5=Vocoder-like
@@ -377,6 +404,7 @@ namespace ovtdsp
 
             phases[v] = phase;
             amplitudes[v] = static_cast<float>(amp);
+            attackSamplesRemaining[v] = fadeLeft;
         }
 
         // If amplitudes have decayed below a tiny threshold, zero them and reset phases
