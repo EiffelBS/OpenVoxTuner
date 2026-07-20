@@ -34,5 +34,11 @@ namespace ovtdsp
         juce::Reverb::Parameters params;
         double sampleRate = 44100.0;
         bool prepared = false;
+        // Smoothed master enable gain. Toggling the reverb on/off ramps this
+        // (instead of hard-cutting the wet path), so enabling/disabling the
+        // effect produces no click -- behaviour matches moving the mix slider.
+        float masterGain = 0.0f;
+        float masterTarget = 0.0f;
+        float masterCoeff = 0.0f;
     };
 }

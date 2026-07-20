@@ -36,6 +36,9 @@ namespace ovtdsp
         rmsCoeff = 1.0f - std::exp (-1.0 / (rmsTau * sr));
         envCoeff = 1.0f - std::exp (-1.0 / (envTau * sr));
         gainAttackCoeff = 1.0f - std::exp (-1.0 / (gainAttackTau * sr));
+        const double bypassTau = 0.025; // 25 ms enable/disable ramp
+        bypassCoeff = 1.0f - std::exp (-1.0 / (bypassTau * sr));
+        reset();
         // Pivot follows the signal level with a SLOW, SYMMETRIC time constant.
         // It must never jump quickly in either direction: a fast attack would
         // momentarily see the gate's opening front as a huge inst/pivot ratio
@@ -53,6 +56,7 @@ namespace ovtdsp
         rmsState = 0.0f;
         pivotState = 0.0f;
         gainEnv  = 1.0f;
+        bypassGain = enabled ? 1.0f : 0.0f;
     }
 
         void setEnabled (bool e) { enabled = e; }
@@ -69,13 +73,24 @@ namespace ovtdsp
         bool isEnabled() const { return enabled; }
 
         void process (juce::AudioBuffer<float>& buffer)
+    {
+        // Smooth enable/bypass so toggling Compress on/off fades the processed
+        // signal in/out instead of hard-switching (no click). When bypassed and
+        // the fade has fully completed, skip all work.
+        const float bypassTarget = (enabled && amount > 0.0f) ? 1.0f : 0.0f;
+        if (! enabled && amount <= 0.0f && bypassGain < 1.0e-4f)
+            return;
+        if (enabled && amount <= 0.0f)
         {
-            if (! enabled || amount <= 0.0f)
-                return;
+            // Effect on but amount is zero -> still ramp bypass in (harmless)
+            // and do nothing else; keep detectors warm.
+            bypassGain += (bypassTarget - bypassGain) * bypassCoeff;
+            return;
+        }
 
-            const int N = buffer.getNumSamples();
-            const int ch = buffer.getNumChannels();
-            if (N == 0 || ch == 0) return;
+        const int N = buffer.getNumSamples();
+        const int ch = buffer.getNumChannels();
+        if (N == 0 || ch == 0) return;
 
             // Per-sample processing keeps the RMS detector and gain envelope
             // sample-accurate and continuous across buffers (state persists).
@@ -134,8 +149,14 @@ namespace ovtdsp
                 const float gCoeff = (gain > gainEnv) ? gainAttackCoeff : envCoeff;
                 gainEnv += (gain - gainEnv) * gCoeff;
 
+                // Crossfade between bypass (unity) and the compressed signal
+                // using the smoothed enable gain, so toggling Compress on/off
+                // produces no click.
+                bypassGain += (bypassTarget - bypassGain) * bypassCoeff;
+                const float effectiveGain = 1.0f + (gainEnv - 1.0f) * bypassGain;
+
                 for (int c = 0; c < ch; ++c)
-                    buffer.setSample (c, i, buffer.getSample (c, i) * gainEnv);
+                    buffer.setSample (c, i, buffer.getSample (c, i) * effectiveGain);
             }
         }
 
@@ -150,6 +171,8 @@ namespace ovtdsp
         float envCoeff = 0.0f;
         float gainAttackCoeff = 0.0f;
         float pivotCoeff = 0.0f;
+        float bypassGain = 1.0f;   // smoothed enable/bypass gain (1=active, 0=bypassed)
+        float bypassCoeff = 0.0f;  // 25 ms ramp for click-free enable/disable
         double sampleRate = 44100.0;
     };
 }
