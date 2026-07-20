@@ -83,10 +83,13 @@ for fmt in "${TARGET_LIST[@]}"; do
   TARGET_NAME="OpenVoxTuner_${jt}"
   echo "  -> Building $TARGET_NAME ..."
   cmake --build "$BUILD_DIR" --config "$CONFIG" --target "$TARGET_NAME"
-  # Companion key-detection plug-in (OpenVoxKey) is built for the same formats.
-  COMPANION_NAME="OpenVoxKey_${jt}"
-  echo "  -> Building $COMPANION_NAME ..."
-  cmake --build "$BUILD_DIR" --config "$CONFIG" --target "$COMPANION_NAME"
+  # Companion key-detection plug-in (OpenVoxKey) is built for the same formats,
+  # except Standalone (it needs a host track + an OpenVoxTuner to consume the key).
+  if [[ "$fmt" != "STANDALONE" ]]; then
+    COMPANION_NAME="OpenVoxKey_${jt}"
+    echo "  -> Building $COMPANION_NAME ..."
+    cmake --build "$BUILD_DIR" --config "$CONFIG" --target "$COMPANION_NAME"
+  fi
 done
 
 echo "[OK] Compilation terminee."

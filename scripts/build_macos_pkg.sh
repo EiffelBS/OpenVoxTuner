@@ -233,15 +233,13 @@ if [[ "$SKIP_BUILD" == false ]]; then
     cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxTuner_CLAP
   fi
 
-  # Companion key-detection plug-in (OpenVoxKey) is built for the SAME formats
-  # as the main plug-in (VST3/AU/Standalone/CLAP), never VST3-only. JUCE target
-  # names use the native format case (Standalone, not STANDALONE).
+  # Companion key-detection plug-in (OpenVoxKey) is built for DAW formats only
+  # (VST3/AU/CLAP) — no Standalone. JUCE target names use the native format case
+  # (Standalone, not STANDALONE), but we skip Standalone entirely here.
   if [[ "$WANT_COMPANION" == true ]]; then
     for fmt in "${ITEMS[@]}"; do
-      case "$fmt" in
-        STANDALONE) jt="Standalone" ;;
-        *)          jt="$fmt" ;;
-      esac
+      [[ "$fmt" == "STANDALONE" ]] && continue
+      jt="$fmt"
       echo "[2/4] Build target OpenVoxKey_${jt} (companion)..."
       cmake --build "$BUILD_DIR" --config "$CONFIG" --target "OpenVoxKey_${jt}"
     done
@@ -274,15 +272,16 @@ OVT_COMP_ENTRIES=()
 [[ "$WANT_AU" == true ]]        && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|AU|Library/Audio/Plug-Ins/Components|OpenVoxTuner.component|com.eiffelbs.openvoxtuner.au|choice_au|Audio Unit (AU)|Plug-in Audio Unit (macOS)." )
 [[ "$WANT_CLAP" == true ]]      && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|CLAP|Library/Audio/Plug-Ins/CLAP|OpenVoxTuner.clap|com.eiffelbs.openvoxtuner.clap|choice_clap|CLAP|Plug-in CLAP pour les DAW." )
 
-# Companion (OpenVoxKey) follows the SAME formats as the main plug-in. Its format
-# choices are grouped under a single parent choice so the user sees one "OpenVoxKey"
-# toggle that installs every requested companion format.
+# Companion (OpenVoxKey) is built for DAW plug-in formats only (VST3/AU/CLAP) —
+# no Standalone, since it needs a host track to analyse and an OpenVoxTuner
+# instance to consume the detected key. Its format choices are grouped under a
+# single parent choice so the user sees one "OpenVoxKey" toggle.
 OVT_COMPANION_PARENT="choice_companion"
 if [[ "$WANT_COMPANION" == true ]]; then
   OVT_COMP_ENTRIES+=( "PARENT|${OVT_COMPANION_PARENT}|OpenVoxKey (companion)|Plug-in compagnon de detection de tonalite (partage la tonalite avec OpenVoxTuner)." )
   for fmt in "${ITEMS[@]}"; do
     case "$fmt" in
-      STANDALONE) comp_subdir="Standalone";  comp_bundle="OpenVoxKey.app";  comp_dest="Applications";                          comp_pkgid="com.eiffelbs.openvoxkey.standalone" ;;
+      STANDALONE) continue ;;  # companion has no Standalone format
       VST3)       comp_subdir="VST3";        comp_bundle="OpenVoxKey.vst3"; comp_dest="Library/Audio/Plug-Ins/VST3";        comp_pkgid="com.eiffelbs.openvoxkey.vst3" ;;
       AU)         comp_subdir="AU";          comp_bundle="OpenVoxKey.component"; comp_dest="Library/Audio/Plug-Ins/Components"; comp_pkgid="com.eiffelbs.openvoxkey.au" ;;
       CLAP)       comp_subdir="CLAP";        comp_bundle="OpenVoxKey.clap"; comp_dest="Library/Audio/Plug-Ins/CLAP";        comp_pkgid="com.eiffelbs.openvoxkey.clap" ;;

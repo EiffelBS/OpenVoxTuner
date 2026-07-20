@@ -227,11 +227,23 @@ endif()
 # musical key/scale and publishes it to the shared ovtdsp::KeyBridge so the main
 # OpenVoxTuner instance (Key Source = "Companion") can pick it up. It passes the
 # audio through unchanged so the accompaniment keeps playing.
+# Companion formats: only DAW plug-in formats (VST3/AU). A Standalone makes no
+# sense here — the companion needs a host track to analyse and an OpenVoxTuner
+# instance to consume the detected key, neither of which exists autonomously.
+set(OVT_COMPANION_FORMATS VST3)
+if(APPLE)
+    if(OVT_ENABLE_AU)
+        list(APPEND OVT_COMPANION_FORMATS AU)
+    endif()
+    if(OVT_ENABLE_CLAP)
+        list(APPEND OVT_COMPANION_FORMATS CLAP)
+    endif()
+endif()
 juce_add_plugin(OpenVoxKey
     COMPANY_NAME "EiffelBS"
     PLUGIN_MANUFACTURER_CODE Eiff
     PLUGIN_CODE OvtK
-    FORMATS ${OVT_PLUGIN_FORMATS}
+    FORMATS ${OVT_COMPANION_FORMATS}
     VST3_CATEGORIES "Fx" "Pitch"
     PRODUCT_NAME "OpenVoxKey"
     VERSION ${OVT_VERSION})
