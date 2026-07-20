@@ -31,9 +31,11 @@ namespace ovtdsp
         // Smoothing coefficients for the level detector (RMS) and the gain
         // envelope. Time constants chosen to be musical yet artefact-free.
         const double rmsTau  = 0.050; // 50 ms RMS averaging
-        const double envTau  = 0.020; // 20 ms gain-envelope smoothing
+        const double envTau  = 0.020; // 20 ms gain-envelope smoothing (downward)
+        const double gainAttackTau = 0.030; // 30 ms gain-envelope attack (upward)
         rmsCoeff = 1.0f - std::exp (-1.0 / (rmsTau * sr));
         envCoeff = 1.0f - std::exp (-1.0 / (envTau * sr));
+        gainAttackCoeff = 1.0f - std::exp (-1.0 / (gainAttackTau * sr));
         // Pivot follows the signal level with a SLOW, SYMMETRIC time constant.
         // It must never jump quickly in either direction: a fast attack would
         // momentarily see the gate's opening front as a huge inst/pivot ratio
@@ -105,12 +107,18 @@ namespace ovtdsp
                 // pivot.
                 const float pivot = juce::jmax (pivotState, 1.0e-4f);
 
-                // Upward gain for THIS sample's level: if level < pivot, push up.
-                // gain = (level / pivot) ^ (1/ratio - 1), clamped >= 1 so we
-                // never attenuate (pure upward behaviour).
+                // Upward gain is computed from the SMOOTHED level detector
+                // (rmsState), NOT the raw instantaneous level. Using the raw
+                // instantaneous level meant the gate's abrupt opening front
+                // (silence -> full signal in ~5 ms) produced a momentary
+                // inst/pivot spike that was then amplified by up to 4x and held
+                // for ~20-40 ms by the gain envelope, i.e. a louder attack
+                // transient whenever Gate + Compress were both on. rmsState has
+                // a built-in attack so it does not see that raw front.
+                const float level = rmsState;
                 float gain;
-                if (inst < pivot)
-                    gain = std::pow (inst / pivot, 1.0f / upwardRatio - 1.0f);
+                if (level < pivot)
+                    gain = std::pow (level / pivot, 1.0f / upwardRatio - 1.0f);
                 else
                     gain = 1.0f;
                 if (! std::isfinite (gain) || gain < 1.0f) gain = 1.0f;
@@ -118,8 +126,13 @@ namespace ovtdsp
                 // with the slow pivot, guarantees no transient spike survives.
                 gain = juce::jmin (gain, 4.0f);
 
-                // Smooth the gain envelope to avoid zipper noise.
-                gainEnv += (gain - gainEnv) * envCoeff;
+                // Smooth the gain envelope. Use an asymmetric time constant:
+                // the attack (gain rising toward target) is slower (30 ms) so a
+                // sudden target jump still ramps up gently instead of
+                // instantaneously amplifying the attack transient; the release
+                // (gain falling) stays at 20 ms.
+                const float gCoeff = (gain > gainEnv) ? gainAttackCoeff : envCoeff;
+                gainEnv += (gain - gainEnv) * gCoeff;
 
                 for (int c = 0; c < ch; ++c)
                     buffer.setSample (c, i, buffer.getSample (c, i) * gainEnv);
@@ -135,6 +148,7 @@ namespace ovtdsp
         float gainEnv  = 1.0f;       // smoothed applied gain
         float rmsCoeff = 0.0f;
         float envCoeff = 0.0f;
+        float gainAttackCoeff = 0.0f;
         float pivotCoeff = 0.0f;
         double sampleRate = 44100.0;
     };
