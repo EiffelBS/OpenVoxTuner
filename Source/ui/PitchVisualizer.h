@@ -52,6 +52,10 @@ namespace ui
         /// displayed as thin blue lines following the same timeline as input/output.
         void setHarmonyFrequencies (const juce::Array<float>& freqs);
 
+        /// Show/hide harmony trace lines (blue) in the visualizer.
+        void setShowHarmonies (bool show) { showHarmonies = show; repaint(); }
+        bool getShowHarmonies() const { return showHarmonies; }
+
         /// Accesseur au clavier de piano integre (correctif R2.2).
         PianoKeyboard& getPianoKeyboard() { return pianoKeyboard; }
 
@@ -91,6 +95,7 @@ namespace ui
         // Harmony history: one history buffer per voice (fixed max voices)
         static constexpr int maxHarmonyVoices = 8;
         juce::Array<juce::Array<float>> harmonyHistory;
+        bool showHarmonies = true;  // togglable via Curve Editor hamburger menu
 
         // Stockage de la derniere valeur
         float latestInputHz = 0.0f;

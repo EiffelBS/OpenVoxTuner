@@ -24,6 +24,8 @@ class PresetGallery; // defined in ui/PResetGallery.h
 
 class CorrectionModeSwitch; // graphic Modern/Transparent console switch (defined in PluginEditor.cpp)
 
+class TabSwitch; // iPhone-style Live/Curve Editor tab switch (defined in PluginEditor.cpp)
+
 // Look and feel for the Correction block's "Advanced" handle: a centred chevron
 // (direction indicator) plus grip lines, drawn on a subtle background (square left
 // edge, rounded right corners, no border) that fills the block's right edge.
@@ -127,6 +129,7 @@ private:
     // === Keyboard shortcuts help overlay (separate component for correct z-order) ===
     bool helpOverlayVisible = false;
     bool showWaveform = true; // Waveform overlay toggle (active by default)
+    bool showHarmoniesTrace = true; // Harmony blue lines toggle (active by default)
     void toggleHelpOverlay();
 
     class HelpOverlayComponent : public juce::Component
@@ -203,6 +206,10 @@ private:
     // knobs. Backed by correctionModeButton so the existing undo + parameter
     // wiring is reused unchanged.
     std::unique_ptr<CorrectionModeSwitch> modeSwitch;
+
+    // iPhone-style Live / Curve Editor tab switch, replacing the standard
+    // TabbedButtonBar. Directly controls tabbedComponent's current index.
+    std::unique_ptr<TabSwitch> tabSwitch;
 
     // Curve Editor "Options" button: icon-only (hamburger) with a distinct
     // accent-tinted background so it stands out from the neutral zoom/scroll/

@@ -87,6 +87,7 @@ namespace ovt
         static const char* kMenuPresetGallery  = "menu.preset_gallery";
         static const char* kMenuAutoScroll     = "menu.auto_scroll";
         static const char* kMenuShowInputTrace = "menu.show_input_trace";
+        static const char* kMenuShowHarmoniesTrace = "menu.show_harmonies_trace";
         static const char* kMenuLoopPlayhead   = "menu.loop_playhead";
         static const char* kMenuTempo          = "menu.tempo";
         static const char* kMenuFormantMode    = "menu.formant_mode";
@@ -405,6 +406,7 @@ namespace ovt
             { kMenuPresetGallery,  "Preset Gallery" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Show Input Trace" },
+            { kMenuShowHarmoniesTrace, "Show Harmonies Trace" },
             { kMenuLoopPlayhead,   "Loop Playhead (Measures)" },
             { kMenuTempo,          "Tempo" },
             { kMenuFormantMode,    "Formant Mode" },
@@ -695,6 +697,7 @@ namespace ovt
             { kMenuPresetGallery,  "Galerie de presets" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Afficher la trace d'entree" },
+            { kMenuShowHarmoniesTrace, "Afficher la trace des harmonies" },
             { kMenuLoopPlayhead,   "Boucle playhead (Mesures)" },
             { kMenuTempo,          "Tempo" },
             { kTooltipCurveOptions, "Options de l'editeur de courbe" },
@@ -980,6 +983,7 @@ namespace ovt
             { kMenuCurvePresets,   "Kurven-Presets" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Eingangsspur anzeigen" },
+            { kMenuShowHarmoniesTrace, "Harmoniespur anzeigen" },
             { kMenuLoopPlayhead,   "Playhead-Schleife (Takte)" },
             { kMenuTempo,          "Tempo" },
             { kTooltipCurveOptions, "Kurveneditor-Optionen" },
@@ -1264,6 +1268,7 @@ namespace ovt
             { kMenuCurvePresets,   "Presets de curva" },
             { kMenuAutoScroll,     "Auto-Scroll" },
             { kMenuShowInputTrace, "Mostrar traza de entrada" },
+            { kMenuShowHarmoniesTrace, "Mostrar traza de armon\u00edas" },
             { kMenuLoopPlayhead,   "Bucle playhead (Compases)" },
             { kMenuTempo,          "Tempo" },
             { kTooltipCurveOptions, "Opciones del editor de curva" },
@@ -1548,6 +1553,7 @@ namespace ovt
             { kMenuCurvePresets,   "カーブプリセット" },
             { kMenuAutoScroll,     "自動スクロール" },
             { kMenuShowInputTrace, "入力トレースを表示" },
+            { kMenuShowHarmoniesTrace, "\u30cf\u30fc\u30e2\u30cb\u30fc\u30c8\u30ec\u30fc\u30b9\u3092\u8868\u793a" },
             { kMenuLoopPlayhead,   "ループ再生 (小節)" },
             { kMenuTempo,          "テンポ" },
             { kTooltipCurveOptions, "カーブエディタのオプション" },
@@ -1832,6 +1838,7 @@ namespace ovt
             { kMenuCurvePresets,   "曲线预设" },
             { kMenuAutoScroll,     "自动滚动" },
             { kMenuShowInputTrace, "显示输入轨迹" },
+            { kMenuShowHarmoniesTrace, "\u663e\u793a\u548c\u58f0\u8f68\u8ff9" },
             { kMenuLoopPlayhead,   "循环播放头（小节）" },
             { kMenuTempo,          "速度" },
             { kTooltipCurveOptions, "曲线编辑器选项" },

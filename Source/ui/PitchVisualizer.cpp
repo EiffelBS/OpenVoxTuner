@@ -531,7 +531,8 @@ namespace ui
             g.strokePath (p, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
 
-        // Harmony voices (blue)
+        // Harmony voices (blue) — only when enabled via the Curve Editor menu
+        if (showHarmonies)
         {
             const float dx = static_cast<float> (plotArea.getWidth()) / static_cast<float> (historySize - 1);
             for (int v = 0; v < maxHarmonyVoices; ++v)
@@ -612,8 +613,11 @@ namespace ui
             g.drawText (ovt::tr(ovt::Keys::kLegendInput), panelX + 4, ly, 38, 10, juce::Justification::centredLeft);
             g.setColour (kOutputColour);
             g.drawText (ovt::tr(ovt::Keys::kLegendOutput), panelX + 44, ly, 40, 10, juce::Justification::centredLeft);
-            g.setColour (kHarmonyColour);
-            g.drawText (ovt::tr(ovt::Keys::kLegendHarmony), panelX + 88, ly, 26, 10, juce::Justification::centredLeft);
+            if (showHarmonies)
+            {
+                g.setColour (kHarmonyColour);
+                g.drawText (ovt::tr(ovt::Keys::kLegendHarmony), panelX + 88, ly, 26, 10, juce::Justification::centredLeft);
+            }
             ly += 12;
 
             // Row 2: Shortcut hints

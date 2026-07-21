@@ -150,6 +150,85 @@ private:
     float targetPillPos = 0.0f; // target position [0..1]
 };
 
+// === Live / Curve Editor tab switch (iPhone-style) ===
+// Replaces the standard JUCE TabbedButtonBar with an animated pill switch.
+// Two-position horizontal switch controlling the tabbed component's current
+// index (0 = Live, 1 = Curve Editor). A light Timer keeps the visual in sync
+// when the tab changes from elsewhere.
+class TabSwitch : public juce::Component,
+                  private juce::Timer
+{
+public:
+    explicit TabSwitch (juce::TabbedComponent& tabs)
+        : tabbed (tabs)
+        , pillPos (tabs.getCurrentTabIndex() == 1 ? 1.0f : 0.0f)
+        , targetPillPos (pillPos)
+    {
+        setWantsKeyboardFocus (false);
+        startTimerHz (60);
+    }
+
+    ~TabSwitch() override { stopTimer(); }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto area = getLocalBounds().toFloat().reduced (1.0f);
+        const float radius = area.getHeight() * 0.5f;
+
+        g.setColour (ovt::bgPanel());
+        g.fillRoundedRectangle (area, radius);
+        g.setColour (ovt::text().withAlpha (0.18f));
+        g.drawRoundedRectangle (area, radius, 1.0f);
+
+        const float half = area.getWidth() * 0.5f;
+        auto leftRect  = area.withWidth (half);
+        auto rightRect = area.withTrimmedLeft (half);
+
+        // Sliding accent pill.
+        const float pillW = half - 4.0f;
+        const float pillX = leftRect.getX() + 2.0f + pillPos * half;
+        auto pillRect = juce::Rectangle<float> (pillX, area.getY() + 2.0f, pillW, area.getHeight() - 4.0f);
+        g.setColour (ovt::accent());
+        g.fillRoundedRectangle (pillRect, pillRect.getHeight() * 0.5f);
+
+        const float fontH = juce::jmax (9.0f, area.getHeight() * 0.40f);
+        g.setFont (juce::Font (fontH, juce::Font::bold));
+        const bool isRight = targetPillPos > 0.5f;
+        g.setColour (isRight ? ovt::text().withAlpha (0.55f) : juce::Colours::white);
+        g.drawText (ovt::tr (ovt::Keys::kTabLive), leftRect, juce::Justification::centred);
+        g.setColour (isRight ? juce::Colours::white : ovt::text().withAlpha (0.55f));
+        g.drawText (ovt::tr (ovt::Keys::kTabCurveEditor), rightRect, juce::Justification::centred);
+    }
+
+    void mouseUp (const juce::MouseEvent&) override
+    {
+        const int newIdx = (tabbed.getCurrentTabIndex() == 0) ? 1 : 0;
+        tabbed.setCurrentTabIndex (newIdx);
+        targetPillPos = (newIdx == 1) ? 1.0f : 0.0f;
+    }
+
+    bool hitTest (int, int) override { return true; }
+
+private:
+    void timerCallback() override
+    {
+        const float target = (tabbed.getCurrentTabIndex() == 1) ? 1.0f : 0.0f;
+        if (std::abs (target - targetPillPos) > 0.001f)
+            targetPillPos = target;
+
+        constexpr float kSmoothing = 0.18f;
+        if (std::abs (pillPos - targetPillPos) > 0.001f)
+        {
+            pillPos += (targetPillPos - pillPos) * kSmoothing;
+            repaint();
+        }
+    }
+
+    juce::TabbedComponent& tabbed;
+    float pillPos = 0.0f;
+    float targetPillPos = 0.0f;
+};
+
 const juce::Colour OpenVoxTunerAudioProcessorEditor::kBgDark     = juce::Colour::fromString("#FF121318"); // Deep background
 const juce::Colour OpenVoxTunerAudioProcessorEditor::kBgPanel    = juce::Colour::fromString("#FF14151C"); // Dark panels
 const juce::Colour OpenVoxTunerAudioProcessorEditor::kAccent     = juce::Colour::fromString("#FF1A9AF0"); // Light blue (Vocal Tune)
@@ -1961,6 +2040,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     tabbedComponent.setColour (juce::TabbedComponent::backgroundColourId, ovt::bgDark());
     tabbedComponent.setColour (juce::TabbedComponent::outlineColourId, ovt::accentSoft());
 
+    // Replace the standard tab bar with an iPhone-style animated pill switch.
+    tabbedComponent.getTabbedButtonBar().setVisible (false);
+    tabSwitch = std::make_unique<TabSwitch> (tabbedComponent);
+    addAndMakeVisible (*tabSwitch);
+
     // Initialize piano keyboards with chromatic intervals so they display
     // all keys on first paint, before the first timerCallback fires.
     {
@@ -2300,16 +2384,17 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto tabBounds = tabbedComponent.getBounds();
     auto toolsArea = tabBounds.removeFromTop(30).reduced(2, 4); // height is 22
 
-    // The "Live" / "Curve Editor" tab labels occupy the left of this row.
-    // Push the left-aligned controls past them so they don't overlap the tabs.
-    const auto& tabBar = tabbedComponent.getTabbedButtonBar();
-    const int numTabs = tabBar.getNumTabs();
-    if (numTabs > 0)
+    // iPhone-style Live / Curve Editor tab switch, placed on the left of the
+    // toolbar row instead of the old JUCE TabbedButtonBar. Same height as the
+    // Modern/Transparent switch below the Speed/Amount knobs.
+    if (tabSwitch != nullptr)
     {
-        if (auto* lastTab = tabBar.getTabButton (numTabs - 1))
-            // Convert the last tab's right edge into tabbed-component space
-            // (the tab bar may not be anchored at x=0 within the tabbed component).
-            toolsArea.removeFromLeft (tabBar.getX() + lastTab->getRight() + 6);
+        const int switchW = 180;
+        const int switchH = 30;
+        auto switchRect = toolsArea.removeFromLeft (switchW);
+        switchRect = switchRect.withSizeKeepingCentre (switchW, switchH);
+        tabSwitch->setBounds (switchRect);
+        toolsArea.removeFromLeft (6); // gap
     }
 
     int iconSize = toolsArea.getHeight(); // 22
@@ -4385,8 +4470,15 @@ juce::PopupMenu OpenVoxTunerAudioProcessorEditor::buildPresetsMenu()
     custom.addSubMenu (ovt::tr (ovt::Keys::kMenuDeletePreset), deleteMenu, ! files.isEmpty());
 
     juce::PopupMenu menu;
+    // Preset Gallery opens the browsable grid (factory + custom, with thumbnails).
+    menu.addItem (ovt::tr (ovt::Keys::kMenuPresetGallery), [this] { showPresetGallery();    });
     menu.addSubMenu (ovt::tr (ovt::Keys::kMenuFactory), factory);
     menu.addSubMenu (ovt::tr (ovt::Keys::kMenuCustom), custom);
+    menu.addSeparator();
+    menu.addItem (ovt::tr (ovt::Keys::kMenuCleanCurves), [this] {
+        if (curveEditor != nullptr) curveEditor->clearCurve();
+        processorRef.resetTransportTime();
+    });
     return menu;
 }
 
@@ -4446,8 +4538,6 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
     });
 
     // Show Input Trace (ticked): toggles the live input pitch trace (red line).
-    // Off by default so the editable curve shows clean on launch without the
-    // audio-input trace (which may capture spurious signals).
     const bool showInputTrace = curveEditor->getShowInputTrace();
     menu.addItem (ovt::tr (ovt::Keys::kMenuShowInputTrace), true, showInputTrace, [this] {
         if (curveEditor == nullptr)
@@ -4456,38 +4546,22 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
         curveEditor->setShowInputTrace (next);
     });
 
-    // Clean Curves: clears the pitch curve and resets the transport playhead.
-    menu.addItem (ovt::tr (ovt::Keys::kMenuCleanCurves), [this] {
-        if (curveEditor != nullptr) curveEditor->clearCurve();
-        processorRef.resetTransportTime();
-    });
+    menu.addSeparator();
 
-    // Reset Playhead: resets the internal timeline offset (classic VST3 / Standalone).
-    // Disabled when bound to ARA, where the host owns the timeline.
-    const bool canResetPlayhead = ! processorRef.isBoundToARA_custom();
-    menu.addItem (ovt::tr (ovt::Keys::kMenuResetPlayhead), canResetPlayhead, false, [this] {
-        processorRef.resetTransportTime();
-        if (curveEditor != nullptr)
-        {
-            curveEditor->clearInputTrace();
-            curveEditor->returnToStart();
-        }
+    // Show Harmonies Trace (ticked): toggles the blue harmony voice lines.
+    menu.addItem (ovt::tr (ovt::Keys::kMenuShowHarmoniesTrace), true, showHarmoniesTrace, [this] {
+        showHarmoniesTrace = ! showHarmoniesTrace;
+        if (pitchVisualizer != nullptr)
+            pitchVisualizer->setShowHarmonies (showHarmoniesTrace);
     });
 
     menu.addSeparator();
 
-    // Curve Presets: opens the preset manager as a submenu.
-    menu.addSubMenu (ovt::tr (ovt::Keys::kMenuCurvePresets), buildPresetsMenu(), true);
-
-    // Preset Gallery: opens the browsable grid (factory + custom, with
-    // curve thumbnails / metadata) in a modeless window.
-    menu.addItem (ovt::tr (ovt::Keys::kMenuPresetGallery), [this] { showPresetGallery();    });
+    // Reset Playhead is hidden (there is a dedicated button for this now).
 
     // Standalone-only controls.
     if (isStandalone)
     {
-        menu.addSeparator();
-
         // Tempo (BPM): the standalone timeline advances at this rate.
         juce::PopupMenu tempo;
         const float currentBpm = processorRef.getBpm();
@@ -4500,6 +4574,11 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
                            [this, b] { processorRef.setBpm (b);    });
         menu.addSubMenu (ovt::tr (ovt::Keys::kMenuTempo), tempo, true);
     }
+
+    menu.addSeparator();
+
+    // Curve Presets: opens the preset manager as a submenu.
+    menu.addSubMenu (ovt::tr (ovt::Keys::kMenuCurvePresets), buildPresetsMenu(), true);
 
     applyMenuLookAndFeel (menu, customLookAndFeel);
     menu.showMenuAsync (juce::PopupMenu::Options()
