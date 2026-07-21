@@ -668,7 +668,20 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     defaultPluginState = parameters.copyState();
 }
 
-OpenVoxTunerAudioProcessor::~OpenVoxTunerAudioProcessor() = default;
+OpenVoxTunerAudioProcessor::~OpenVoxTunerAudioProcessor()
+{
+    // Delete the BufferedFileLogger (which subclasses juce::Timer) so the
+    // Timer is stopped and destroyed before JUCE module shutdown, avoiding
+    // a LeakedObjectDetector assertion.
+    //
+    // IMPORTANT: In JUCE 8, Logger::setCurrentLogger() only sets the pointer
+    // without deleting the previous logger.  We must delete it manually.
+    if (auto* logger = juce::Logger::getCurrentLogger())
+    {
+        juce::Logger::setCurrentLogger (nullptr);
+        delete logger;
+    }
+}
 
 // === Plugin name ===
 const juce::String OpenVoxTunerAudioProcessor::getName() const
