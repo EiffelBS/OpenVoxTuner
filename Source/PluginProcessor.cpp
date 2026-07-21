@@ -324,13 +324,10 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     : AudioProcessor (juce::AudioProcessor::BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                          // Optional Sidechain input bus (mono). It MUST be input bus
-                          // index 1: every sidechain code path (computeSidechainPitch,
-                          // isSidechainLayoutValid, getBusBuffer(buffer, true, 1)) reads
-                          // bus index 1. Adding a second "Input" bus before it would
-                          // shift the Sidechain to index 2 and break sidechain routing
-                          // in hosts like Studio One.
-                          .withInput  ("Sidechain", juce::AudioChannelSet::mono(), false)
+                          // Optional Sidechain input bus (stereo, but only the first channel is
+                          // analysed for pitch detection). Declared stereo so Logic
+                          // does not hang during stereo AU negotiation.
+                          .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), false)
                           ),
       parameters (*this, nullptr, juce::Identifier ("OpenVoxTuner"),
                   {
