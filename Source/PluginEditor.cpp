@@ -59,6 +59,97 @@ static void applyMenuLookAndFeel (juce::PopupMenu& m, ui::OVTLookAndFeel& lf)
     m.setLookAndFeel (&lf);
 }
 
+// === Modern / Transparent graphic switch (studio-console style) ===
+// Two-position horizontal switch placed below the Speed/Amount knobs. It is
+// backed by the existing (otherwise invisible) correctionModeButton so the
+// parameter value, undo gesture and external sync (preset load, etc.) are all
+// handled by the existing wiring. A light Timer keeps the visual in sync when
+// the parameter changes from elsewhere.
+class CorrectionModeSwitch : public juce::Component,
+                             public juce::SettableTooltipClient,
+                             private juce::Timer
+{
+public:
+    explicit CorrectionModeSwitch (juce::Button& backingButton)
+        : button (backingButton)
+        , pillPos (backingButton.getToggleState() ? 1.0f : 0.0f)
+        , targetPillPos (pillPos)
+    {
+        setTooltip (ovt::tr (ovt::Keys::kTooltipCorrection));
+        setWantsKeyboardFocus (false);
+        startTimerHz (60); // 60 Hz for smooth animation
+    }
+
+    ~CorrectionModeSwitch() override { stopTimer(); }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto area = getLocalBounds().toFloat().reduced (1.0f);
+        const float radius = area.getHeight() * 0.5f;
+
+        // Track background (dark, subtle border).
+        g.setColour (ovt::bgPanel());
+        g.fillRoundedRectangle (area, radius);
+        g.setColour (ovt::text().withAlpha (0.18f));
+        g.drawRoundedRectangle (area, radius, 1.0f);
+
+        const float half = area.getWidth() * 0.5f;
+        auto leftRect  = area.withWidth (half);
+        auto rightRect = area.withTrimmedLeft (half);
+
+        // Sliding accent pill - animated position.
+        const float pillW = half - 4.0f;
+        const float pillX = leftRect.getX() + 2.0f + pillPos * half;
+        auto pillRect = juce::Rectangle<float> (pillX, area.getY() + 2.0f, pillW, area.getHeight() - 4.0f);
+        g.setColour (ovt::accent());
+        g.fillRoundedRectangle (pillRect, pillRect.getHeight() * 0.5f);
+
+        // Labels: active = white, inactive = dimmed.
+        const float fontH = juce::jmax (9.0f, area.getHeight() * 0.40f);
+        g.setFont (juce::Font (fontH, juce::Font::bold));
+        const bool isTrans = targetPillPos > 0.5f;
+        g.setColour (isTrans ? ovt::text().withAlpha (0.55f) : juce::Colours::white);
+        g.drawText (ovt::tr (ovt::Keys::kLabelModernBtn), leftRect,
+                    juce::Justification::centred);
+        g.setColour (isTrans ? juce::Colours::white : ovt::text().withAlpha (0.55f));
+        g.drawText (ovt::tr (ovt::Keys::kLabelTransparentBtn), rightRect,
+                    juce::Justification::centred);
+    }
+
+    void mouseUp (const juce::MouseEvent&) override
+    {
+        // Toggle the backing button (fires its onClick + ButtonAttachment, which
+        // writes the parameter and triggers the editor's undo gesture).
+        const bool newState = ! button.getToggleState();
+        button.setToggleState (newState, juce::sendNotification);
+        targetPillPos = newState ? 1.0f : 0.0f;
+    }
+
+    bool hitTest (int, int) override { return true; }
+
+private:
+    void timerCallback() override
+    {
+        // Sync with external parameter changes.
+        const bool t = button.getToggleState();
+        const float target = t ? 1.0f : 0.0f;
+        if (std::abs (target - targetPillPos) > 0.001f)
+            targetPillPos = target;
+
+        // Animate pillPos toward targetPillPos.
+        constexpr float kSmoothing = 0.18f; // ~8-10 frames at 60Hz = smooth but snappy
+        if (std::abs (pillPos - targetPillPos) > 0.001f)
+        {
+            pillPos += (targetPillPos - pillPos) * kSmoothing;
+            repaint();
+        }
+    }
+
+    juce::Button& button;
+    float pillPos = 0.0f;      // current animated position [0..1]
+    float targetPillPos = 0.0f; // target position [0..1]
+};
+
 const juce::Colour OpenVoxTunerAudioProcessorEditor::kBgDark     = juce::Colour::fromString("#FF121318"); // Deep background
 const juce::Colour OpenVoxTunerAudioProcessorEditor::kBgPanel    = juce::Colour::fromString("#FF14151C"); // Dark panels
 const juce::Colour OpenVoxTunerAudioProcessorEditor::kAccent     = juce::Colour::fromString("#FF1A9AF0"); // Light blue (Vocal Tune)
@@ -691,7 +782,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
         menu.addSeparator();
 
-        // 2. MIDI OUT toggle
+        // MIDI OUT toggle
         {
             bool midiOn = processorRef.getParameters().getParameter ("midi_out_enable")->getValue() > 0.5f;
             menu.addItem (ovt::tr(ovt::Keys::kMenuMidiOut), true, midiOn, [this] {
@@ -700,7 +791,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     });
         }
 
-        // 2b. MIDI TARGET (follow) toggle : an incoming held MIDI note
+        // Tuning follows MIDI IN toggle : an incoming held MIDI note
         // drives the correction target (the voice is tuned to the note).
         {
             bool midiTargetOn = processorRef.getParameters().getParameter ("midi_target_enable")->getValue() > 0.5f;
@@ -710,185 +801,148 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     });
         }
 
-        // 3. Tuning Type submenu (Modern / Transparent)
-        {
-            juce::PopupMenu tuningMenu;
-            auto* modeParam = processorRef.getParameters().getParameter ("correction_mode");
-            const bool isTransparent = (modeParam != nullptr) ? (modeParam->getValue() > 0.5f) : false;
-            tuningMenu.addItem (ovt::tr(ovt::Keys::kMenuModern),      true, !isTransparent, [modeParam] {
-                if (modeParam != nullptr) modeParam->setValueNotifyingHost (0.0f);
-    });
-            tuningMenu.addItem (ovt::tr(ovt::Keys::kMenuTransparent), true,  isTransparent, [modeParam] {
-                if (modeParam != nullptr) modeParam->setValueNotifyingHost (1.0f);
-    });
-            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuTuningType), tuningMenu);
-        }
-
         menu.addSeparator();
 
-        // 4. Pitch Detection submenu (YIN only)
+        // Interface submenu
         {
-            juce::PopupMenu pitchMenu;
-            pitchMenu.addItem (ovt::tr(ovt::Keys::kMenuYinActive), false, true, nullptr);
-            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuPitchDetection), pitchMenu);
-        }
+            juce::PopupMenu interfaceMenu;
 
-        menu.addSeparator();
-
-        // 4b. Formant Mode submenu
-        {
-            juce::PopupMenu formantMenu;
-            auto* modeParam = dynamic_cast<juce::AudioParameterChoice*> (processorRef.getParameters().getParameter ("formant_mode"));
-            const int currentMode = modeParam ? modeParam->getIndex() : 0;
-            formantMenu.addItem (ovt::tr(ovt::Keys::kMenuFormantLegacy), true, currentMode == 0, [this] {
-                if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (processorRef.getParameters().getParameter ("formant_mode")))
-                    p->setValueNotifyingHost (0.0f);
-            });
-            formantMenu.addItem (ovt::tr(ovt::Keys::kMenuFormantMulti), true, currentMode == 1, [this] {
-                if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (processorRef.getParameters().getParameter ("formant_mode")))
-                    p->setValueNotifyingHost (1.0f);
-            });
-            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuFormantMode), formantMenu);
-        }
-
-        menu.addSeparator();
-
-        // 5. Theme toggle
-        {
-            juce::PopupMenu themeMenu;
-            const bool isDark = ovt::isDark();
-            themeMenu.addItem (ovt::tr(ovt::Keys::kMenuDarkTheme), true, isDark, [this] {
-                ovt::currentTheme() = ovt::Theme::Dark;
-                if (auto* p = processorRef.getParameters().getParameter ("ui_theme"))
-                    p->setValueNotifyingHost (0.0f);
-                applyThemeToAllComponents();
-    });
-            themeMenu.addItem (ovt::tr(ovt::Keys::kMenuLightTheme), true, !isDark, [this] {
-                ovt::currentTheme() = ovt::Theme::Light;
-                if (auto* p = processorRef.getParameters().getParameter ("ui_theme"))
-                    p->setValueNotifyingHost (1.0f);
-                applyThemeToAllComponents();
-    });
-            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuTheme), themeMenu);
-        }
-
-        menu.addSeparator();
-
-        // 6. Language selector
-        {
-            juce::PopupMenu langMenu;
-            const auto currentLang = ovt::currentLanguage();
-            auto addLangItem = [&](ovt::Language lang, int langIdx)
+            // Theme toggle
             {
-                const juce::String label = ovt::languageDisplayName (lang);
-                langMenu.addItem (label, true, (currentLang == lang), [this, lang, langIdx] {
-                    ovt::currentLanguage() = lang;
-                    if (auto* p = processorRef.getParameters().getParameter ("ui_language"))
-                        p->setValueNotifyingHost ((float) langIdx / 5.0f);
-                    repaint();
-                    refreshLabels();
-                    // Re-run layout so the tab-bar-dependent toolbar (transport +
-                    // measures) reflows for the new tab widths. Without this the
-                    // tabs resize but the buttons keep their old positions and can
-                    // overlap the tabs / truncate the Measures label.
-                    resized();
+                juce::PopupMenu themeMenu;
+                const bool isDark = ovt::isDark();
+                themeMenu.addItem (ovt::tr(ovt::Keys::kMenuDarkTheme), true, isDark, [this] {
+                    ovt::currentTheme() = ovt::Theme::Dark;
+                    if (auto* p = processorRef.getParameters().getParameter ("ui_theme"))
+                        p->setValueNotifyingHost (0.0f);
+                    applyThemeToAllComponents();
     });
-            };
-            addLangItem (ovt::Language::English,  0);
-            addLangItem (ovt::Language::French,   1);
-            addLangItem (ovt::Language::German,   2);
-            addLangItem (ovt::Language::Spanish,  3);
-            addLangItem (ovt::Language::Japanese, 4);
-            addLangItem (ovt::Language::Chinese,  5);
-            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuLanguage), langMenu);
-        }
-
-        menu.addSeparator();
-
-        // Waveform overlay toggle
-        menu.addItem (ovt::tr(ovt::Keys::kMenuShowWaveform), true, showWaveform, [this] {
-            showWaveform = ! showWaveform;
-            if (! showWaveform)
-            {
-                if (pitchVisualizer != nullptr)
-                    pitchVisualizer->setWaveformOverlay (nullptr, 0, 44100.0);
-                if (curveEditor != nullptr)
-                    curveEditor->setWaveformOverlay (nullptr, 0, 44100.0);
-            }
+                themeMenu.addItem (ovt::tr(ovt::Keys::kMenuLightTheme), true, !isDark, [this] {
+                    ovt::currentTheme() = ovt::Theme::Light;
+                    if (auto* p = processorRef.getParameters().getParameter ("ui_theme"))
+                        p->setValueNotifyingHost (1.0f);
+                    applyThemeToAllComponents();
     });
-
-        // Waveform display type submenu
-        {
-            juce::PopupMenu waveformMenu;
-            const int currentType = processorRef.getWaveformDisplayType();
-            waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformLine), true, currentType == 0, [this] { setWaveformDisplayType (0);    });
-            waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformMirror), true, currentType == 1, [this] { setWaveformDisplayType (1);    });
-            waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformSpectral), true, currentType == 2, [this] { setWaveformDisplayType (2);    });
-            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuWaveformDisplay), waveformMenu, true);
-        }
-
-        menu.addSeparator();
-
-        // 7. Export the CURRENTLY VISIBLE tab as image (Live visualizer or
-        // Curve Editor), instead of always capturing the Live tab.
-        menu.addItem (ovt::tr(ovt::Keys::kMenuExportImage), [this] {
-            const bool isCurveEditor = (tabbedComponent.getCurrentTabIndex() == 1);
-            auto* pitchViz = dynamic_cast<ui::PitchVisualizer*> (tabbedComponent.getTabContentComponent (0));
-
-            // The target component must exist for the active tab.
-            if ((isCurveEditor && curveEditor == nullptr) || (!isCurveEditor && pitchViz == nullptr))
-            {
-                juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
-                    ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgExportNotFound));
-                return;
+                interfaceMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuTheme), themeMenu);
             }
 
-            // Use a lambda to keep the FileChooser alive via shared_ptr
-            // Default to Downloads folder, PNG only
-            auto defaultDir = juce::File::getSpecialLocation (juce::File::userDesktopDirectory);
-            auto downloadsDir = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
-                                    .getChildFile ("Downloads");
-            if (downloadsDir.isDirectory())
-                defaultDir = downloadsDir;
-
-            auto chooserPtr = std::make_shared<juce::FileChooser>(
-                ovt::tr(ovt::Keys::kDlgExportPng),
-                defaultDir,
-                "*.png");
-            chooserPtr->launchAsync (
-                juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
-                [chooserPtr, isCurveEditor, pitchViz, curveEditor = curveEditor.get()] (const juce::FileChooser& fc) {
-                    auto file = fc.getResult();
-                    if (file != juce::File{})
-                    {
-                        // Ensure .png extension
-                        if (file.getFileExtension() != ".png")
-                            file = file.withFileExtension (".png");
-
-                        bool ok = false;
-                        if (isCurveEditor && curveEditor != nullptr)
-                            ok = curveEditor->exportAsImage (file);
-                        else if (pitchViz != nullptr)
-                            ok = pitchViz->exportAsImage (file);
-
-                        if (ok)
-                            juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::InfoIcon,
-                                ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgImageSaved) + file.getFullPathName());
-                        else
-                            juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
-                                ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgImageFailed));
-                    }
+            // Language selector
+            {
+                juce::PopupMenu langMenu;
+                const auto currentLang = ovt::currentLanguage();
+                auto addLangItem = [&](ovt::Language lang, int langIdx)
+                {
+                    const juce::String label = ovt::languageDisplayName (lang);
+                    langMenu.addItem (label, true, (currentLang == lang), [this, lang, langIdx] {
+                        ovt::currentLanguage() = lang;
+                        if (auto* p = processorRef.getParameters().getParameter ("ui_language"))
+                            p->setValueNotifyingHost ((float) langIdx / 5.0f);
+                        repaint();
+                        refreshLabels();
+                        resized();
     });
+                };
+                addLangItem (ovt::Language::English,  0);
+                addLangItem (ovt::Language::French,   1);
+                addLangItem (ovt::Language::German,   2);
+                addLangItem (ovt::Language::Spanish,  3);
+                addLangItem (ovt::Language::Japanese, 4);
+                addLangItem (ovt::Language::Chinese,  5);
+                interfaceMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuLanguage), langMenu);
+            }
+
+            interfaceMenu.addSeparator();
+
+            // Show Waveform toggle
+            interfaceMenu.addItem (ovt::tr(ovt::Keys::kMenuShowWaveform), true, showWaveform, [this] {
+                showWaveform = ! showWaveform;
+                if (! showWaveform)
+                {
+                    if (pitchVisualizer != nullptr)
+                        pitchVisualizer->setWaveformOverlay (nullptr, 0, 44100.0);
+                    if (curveEditor != nullptr)
+                        curveEditor->setWaveformOverlay (nullptr, 0, 44100.0);
+                }
     });
+
+            // Waveform display type submenu
+            {
+                juce::PopupMenu waveformMenu;
+                const int currentType = processorRef.getWaveformDisplayType();
+                waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformLine), true, currentType == 0, [this] { setWaveformDisplayType (0);    });
+                waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformMirror), true, currentType == 1, [this] { setWaveformDisplayType (1);    });
+                waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformSpectral), true, currentType == 2, [this] { setWaveformDisplayType (2);    });
+                interfaceMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuWaveformDisplay), waveformMenu, true);
+            }
+
+            interfaceMenu.addSeparator();
+
+            // Keyboard Shortcuts
+            interfaceMenu.addItem (ovt::tr(ovt::Keys::kMenuKeyboardShortcuts), [this] { toggleHelpOverlay();    });
+
+            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuInterface), interfaceMenu);
+        }
 
         menu.addSeparator();
 
-        // MIDI Learn submenu � useful in standalone where host MIDI mapping isn't available.
-        // In plugin/ARA the host provides its own MIDI learn, so we hide it to avoid confusion.
         const bool isStandalone = processorRef.isStandaloneWrapper();
-        if (isStandalone)
+
+        // Advanced submenu
         {
-            // 7b. MIDI Learn submenu
+            juce::PopupMenu advancedMenu;
+
+            // Export as Image...
+            advancedMenu.addItem (ovt::tr(ovt::Keys::kMenuExportImage), [this] {
+                const bool isCurveEditor = (tabbedComponent.getCurrentTabIndex() == 1);
+                auto* pitchViz = dynamic_cast<ui::PitchVisualizer*> (tabbedComponent.getTabContentComponent (0));
+
+                if ((isCurveEditor && curveEditor == nullptr) || (!isCurveEditor && pitchViz == nullptr))
+                {
+                    juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
+                        ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgExportNotFound));
+                    return;
+                }
+
+                auto defaultDir = juce::File::getSpecialLocation (juce::File::userDesktopDirectory);
+                auto downloadsDir = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+                                        .getChildFile ("Downloads");
+                if (downloadsDir.isDirectory())
+                    defaultDir = downloadsDir;
+
+                auto chooserPtr = std::make_shared<juce::FileChooser>(
+                    ovt::tr(ovt::Keys::kDlgExportPng),
+                    defaultDir,
+                    "*.png");
+                chooserPtr->launchAsync (
+                    juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
+                    [chooserPtr, isCurveEditor, pitchViz, curveEditor = curveEditor.get()] (const juce::FileChooser& fc) {
+                        auto file = fc.getResult();
+                        if (file != juce::File{})
+                        {
+                            if (file.getFileExtension() != ".png")
+                                file = file.withFileExtension (".png");
+
+                            bool ok = false;
+                            if (isCurveEditor && curveEditor != nullptr)
+                                ok = curveEditor->exportAsImage (file);
+                            else if (pitchViz != nullptr)
+                                ok = pitchViz->exportAsImage (file);
+
+                            if (ok)
+                                juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::InfoIcon,
+                                    ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgImageSaved) + file.getFullPathName());
+                            else
+                                juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
+                                    ovt::tr(ovt::Keys::kDlgExport), ovt::tr(ovt::Keys::kDlgImageFailed));
+                        }
+    });
+    });
+
+            // Formant Mode and Pitch Detection are hidden for now — may be
+            // re-enabled later when additional modes become available.
+
+            // MIDI Learn (standalone only)
+            if (isStandalone)
             {
                 juce::PopupMenu midiLearnMenu;
                 struct ParamEntry { const char* id; std::string name; };
@@ -912,56 +966,48 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                         startMidiLearn (id);
                     });
                 }
-                menu.addSubMenu (ovt::tr(ovt::Keys::kMenuMidiLearn), midiLearnMenu);
+                advancedMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuMidiLearn), midiLearnMenu);
             }
+
+            // Reset to Default
+            advancedMenu.addItem (ovt::tr(ovt::Keys::kMenuResetDefault), [this] {
+                juce::PopupMenu confirmMenu;
+                confirmMenu.addItem (ovt::tr(ovt::Keys::kMenuCancel), []{    });
+                confirmMenu.addSeparator();
+                confirmMenu.addItem (ovt::tr(ovt::Keys::kMenuConfirmReset), [this] {
+                    auto& paramTree = processorRef.getParameters().state;
+                    for (int i = 0; i < paramTree.getNumChildren(); ++i)
+                    {
+                        auto id = paramTree.getChild(i).getProperty ("id").toString();
+                        if (auto* param = processorRef.getParameters().getParameter (id))
+                            param->setValueNotifyingHost (param->getDefaultValue());
+                    }
+    });
+                applyMenuLookAndFeel (confirmMenu, customLookAndFeel);
+                confirmMenu.showMenuAsync (juce::PopupMenu::Options()
+                    .withTargetComponent (&menuButton)
+                    .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards));
+    });
+
+            // Bypass (standalone only)
+            if (processorRef.isStandaloneWrapper())
+            {
+                bool bypassOn = processorRef.getParameters().getParameter ("bypass")->getValue() > 0.5f;
+                advancedMenu.addItem (ovt::tr(ovt::Keys::kMenuBypass), true, bypassOn, [this] {
+                    if (auto* p = processorRef.getParameters().getParameter ("bypass"))
+                        p->setValueNotifyingHost (1.0f - p->getValue());
+    });
+            }
+
+            menu.addSubMenu (ovt::tr(ovt::Keys::kMenuAdvanced), advancedMenu);
         }
 
         menu.addSeparator();
 
-        // Help overlay
-        menu.addItem (ovt::tr(ovt::Keys::kMenuKeyboardShortcuts), [this] { toggleHelpOverlay();    });
-
-        menu.addSeparator();
-
-        // 8. Check for Updates
+        // Check for Updates
         menu.addItem (ovt::tr(ovt::Keys::kMenuCheckUpdates), [this] {
             updateButton.onClick();
     });
-
-        menu.addSeparator();
-
-        // 6. Reset to Default — restore all parameters to their factory defaults
-        menu.addItem (ovt::tr(ovt::Keys::kMenuResetDefault), [this] {
-            juce::PopupMenu confirmMenu;
-            confirmMenu.addItem (ovt::tr(ovt::Keys::kMenuCancel), []{    });
-            confirmMenu.addSeparator();
-            confirmMenu.addItem (ovt::tr(ovt::Keys::kMenuConfirmReset), [this] {
-                auto& paramTree = processorRef.getParameters().state;
-                for (int i = 0; i < paramTree.getNumChildren(); ++i)
-                {
-                    auto id = paramTree.getChild(i).getProperty ("id").toString();
-                    if (auto* param = processorRef.getParameters().getParameter (id))
-                        param->setValueNotifyingHost (param->getDefaultValue());
-                }
-    });
-    
-            applyMenuLookAndFeel (confirmMenu, customLookAndFeel);
-            confirmMenu.showMenuAsync (juce::PopupMenu::Options()
-                .withTargetComponent (&menuButton)
-                .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards));
-    });
-
-        menu.addSeparator();
-
-        // 6. Bypass (standalone only)
-        if (processorRef.isStandaloneWrapper())
-        {
-            bool bypassOn = processorRef.getParameters().getParameter ("bypass")->getValue() > 0.5f;
-            menu.addItem (ovt::tr(ovt::Keys::kMenuBypass), true, bypassOn, [this] {
-                if (auto* p = processorRef.getParameters().getParameter ("bypass"))
-                    p->setValueNotifyingHost (1.0f - p->getValue());
-    });
-        }
 
        #if JUCE_DEBUG
         menu.addItem (ovt::tr(ovt::Keys::kMenuDebugWindow), [this] { debugWindowButton.onClick();    });
@@ -1789,6 +1835,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     };
     addAndMakeVisible (correctionModeButton);
 
+    // Graphic Modern/Transparent switch below the Speed/Amount knobs (console style).
+    // Backed by correctionModeButton so undo + parameter sync are reused.
+    modeSwitch = std::make_unique<CorrectionModeSwitch> (correctionModeButton);
+    addAndMakeVisible (*modeSwitch);
+
     // Attack-Aware correction toggle button — power-icon style like Gate / Reverb / Formant.
     attackAwareButton.setButtonText (ovt::tr(ovt::Keys::kLabelAttackBtn));
     attackAwareButton.setName ("PowerButton");
@@ -2357,10 +2408,19 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // Content area excludes the banner strip on the right.
     auto content = b2.withTrimmedRight (bannerW);
 
-    // Speed + Amount: the two prominent big knobs on the left.
+    // Speed + Amount: the two prominent big knobs on the left. A strip is
+    // reserved at the bottom of this area for the Modern/Transparent graphic
+    // switch, which shrinks the two knobs vertically.
     const int baseContentW = knobBlockWidth - bannerW - 20;  // width reserved for Speed + Amount
     auto baseArea = content.removeFromLeft (baseContentW);
     auto advancedArea = content;                              // Flex / Humanize / Vibrato / Attack
+
+    // Reserve the switch strip at the bottom of the base area, then let the
+    // knobs fill the remaining top space (so they get smaller).
+    const int switchH   = 30;
+    const int switchGap = 8;
+    auto switchRect = baseArea.removeFromBottom (switchH);
+    baseArea.removeFromBottom (switchGap);
 
     const int knobPadding = 6;
     const int bigHalf = (baseArea.getWidth() - knobPadding) / 2;
@@ -2373,6 +2433,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto bAmount = baseArea;
     amountLabel.setBounds (bAmount.removeFromTop (18));
     amountSlider.setBounds (bAmount);
+
+    // Modern / Transparent studio-console switch, spanning the base area width.
+    if (modeSwitch != nullptr)
+        modeSwitch->setBounds (switchRect);
 
     // Advanced correction knobs (revealed when the block is expanded). They are
     // compact, laid out in a 2x2 grid that FILLS the advanced area width (no empty
@@ -2406,14 +2470,15 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         advancedArea.removeFromTop (advGapY);
         auto rowB = advancedArea;
 
-        auto flexCell  = rowA.removeFromLeft (colW);   // top-left
+        // Top row: Vibrato + Humanize. Bottom row: Flex + Attack-Aware.
+        auto vibCell   = rowA.removeFromLeft (colW);   // top-left
         auto humanCell = rowA;                          // top-right
-        auto vibCell   = rowB.removeFromLeft (colW);   // bottom-left
+        auto flexCell  = rowB.removeFromLeft (colW);   // bottom-left
         auto atkCell   = rowB;                          // bottom-right
 
-        placeKnob (flexTuneSlider,    flexTuneLabel,    flexCell);
-        placeKnob (humanizeSlider,    humanizeLabel,    humanCell);
         placeKnob (vibratoPreserveSlider, vibratoPreserveLabel, vibCell);
+        placeKnob (humanizeSlider,    humanizeLabel,    humanCell);
+        placeKnob (flexTuneSlider,    flexTuneLabel,    flexCell);
 
         // Attack-Aware: power toggle on top, release knob below (fills the cell).
         const int atkToggleH = 18;

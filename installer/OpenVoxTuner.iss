@@ -17,8 +17,14 @@ PrivilegesRequired=admin
 SetupIconFile=compiler:SetupClassicIcon.ico
 UninstallDisplayIcon={app}\unins000.exe
 ; Detect the user's Windows UI language so the installer opens in the right language.
-; Falls back to English when the locale is unsupported.
+; Falls back to English when the locale is unsupported. ShowLanguageDialog=no
+; suppresses the manual language picker entirely: the installer auto-selects the
+; detected (or fallback) language without prompting.
+; English is listed first so it is the fallback language when the detected
+; Windows locale is unsupported. A recognised locale (fr/de/es/ja) still wins
+; via LanguageDetectionMethod=locale.
 LanguageDetectionMethod=locale
+ShowLanguageDialog=no
 
 [Languages]
 Name: "english"; MessagesFile: "lang\ovt_en.isl"
@@ -71,3 +77,5 @@ Name: "{autoprograms}\{cm:MsgShortcutStandalone}"; Filename: "{app}\OpenVoxTuner
 [Run]
 ; Option to launch the standalone app after installation
 Filename: "{app}\OpenVoxTuner.exe"; Description: "{cm:MsgRunLaunch}"; Flags: nowait postinstall skipifsilent; Components: standalone
+
+

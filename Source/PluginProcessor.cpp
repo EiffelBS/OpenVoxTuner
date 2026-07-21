@@ -510,11 +510,11 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       // FlexTune: deadband around the target note (0-100 cents)
                       , std::make_unique<juce::AudioParameterFloat> (
                             "flex_tune", "FlexTune",
-                            juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 10.0f)
+                            juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f)
                       // Humanize: random pitch fluctuations (0-50 cents)
                       , std::make_unique<juce::AudioParameterFloat> (
                             "humanize", "Humanize",
-                            juce::NormalisableRange<float> (0.0f, 50.0f, 1.0f), 40.0f)
+                            juce::NormalisableRange<float> (0.0f, 50.0f, 1.0f), 10.0f)
                       // Correction mode: Modern (false) / Transparent (true)
                       , std::make_unique<juce::AudioParameterBool> (
                             "correction_mode", "Correction Mode", false)
@@ -523,7 +523,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       // vibrato modulation survives.
                       , std::make_unique<juce::AudioParameterFloat> (
                             "vibrato_preserve", "Vibrato Preserve",
-                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.20f)
                       // Attack-aware correction: enable + release time (ms). When
                       // enabled, the correction is eased off on note onsets/transients.
                       , std::make_unique<juce::AudioParameterBool> (
@@ -1505,23 +1505,20 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // pitch keeps the vibrato modulation intact while still snapping the
         // note to the scale. At preserve == 0 this is the classic behaviour.
         float vibratoPreserve = (vibratoPreserveParam != nullptr) ? vibratoPreserveParam->load() : 0.0f;
-        if (vibratoPreserve > 0.001f)
+        const float center = vibratoPreserver.getCenter();
+        if (center > 0.0f)
         {
-            const float center = vibratoPreserver.getCenter();
-            if (center > 0.0f)
-            {
-                // Target for the smoothed center reference, using the same mode
-                // logic as the instantaneous path above.
-                float f0_target_center = f0_target;
-                if (mode == 1 && pitchCurve != nullptr && pitchCurve->getNumPoints() >= 2)
-                    f0_target_center = pitchCurve->getPitchAt (currentTransportTime, center);
-                else
-                    f0_target_center = scaleQuantizer->quantize (center);
+            // Target for the smoothed center reference, using the same mode
+            // logic as the instantaneous path above.
+            float f0_target_center = f0_target;
+            if (mode == 1 && pitchCurve != nullptr && pitchCurve->getNumPoints() >= 2)
+                f0_target_center = pitchCurve->getPitchAt (currentTransportTime, center);
+            else
+                f0_target_center = scaleQuantizer->quantize (center);
 
-                targetRatio = vibratoPreserver.blend (targetRatio, f0_in, f0_target_center, vibratoPreserve);
-                f0_target = f0_in * targetRatio;
-                f0_out = f0_target; // keep GUI/harmony note in sync with the blended target
-            }
+            targetRatio = vibratoPreserver.blend (targetRatio, f0_in, f0_target_center, vibratoPreserve);
+            f0_target = f0_in * targetRatio;
+            f0_out = f0_target; // keep GUI/harmony note in sync with the blended target
         }
 
         // Calcul de l'offset en cents between pitch d'entree et pitch quantife.
@@ -1803,6 +1800,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     bool useVoiceLocal = (harmonyUseVoiceParam != nullptr) ? (harmonyUseVoiceParam->load() > 0.5f) : false;
     bool harmonyEnabled = (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f);
 
+    // Smooth the harmony master enable gain (25 ms) so toggling the Harmony
+    // button fades the bus in/out instead of hard-cutting it (no click).
+    harmonyEnableGain.setTargetValue (harmonyEnabled ? 1.0f : 0.0f);
+
     // Early calculation of shiftedCount (needed for clamping before harmony generation).
     int shiftedCount = 0;
     if (useVoiceLocal && harmonyShiftedVoicesParam != nullptr)
@@ -1829,7 +1830,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     bool forceShiftedProcessing = (currentHarmonyTypeVal != 0 && harmonyEnabled && useVoiceLocal);
 
     if ( (currentHarmonyTypeVal != 0 && ( (f0_out > 0.0f) || (harmonyEngine != nullptr && harmonyEngine->isActive()) || shiftedVoicesActive ) && harmonyEnabled)
-         || forceShiftedProcessing )
+         || forceShiftedProcessing
+         // Keep rendering while the enable gain is still fading out, so the
+         // harmony bus ramps to silence smoothly instead of clicking off.
+         || (harmonyEnableGain.getCurrentValue() > 1.0e-3f) )
     {
         const int numSamples = buffer.getNumSamples();
         const int numChannels = juce::jmax (1, getMainBusNumOutputChannels());
@@ -2088,14 +2092,27 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                      : 1.0f;
                  const float hGainFinal = hGain * gainMatchFactor;
 
-                 for (int i = 0; i < numS; ++i)
-                 {
-                     const float hL = harmonyBuffer.getReadPointer (0)[i];
-                     const float hR = numCh == 1 ? hL : harmonyBuffer.getReadPointer (1)[i];
-                     outL[i] += hL * hGainFinal;
-                     if (outR != nullptr)
-                         outR[i] += hR * hGainFinal;
-                 }
+                 // Scale the harmony contribution by the noise gate's current
+                // gain so that harmony voices track the gate envelope. When
+                // the gate is closed the harmony is silent; when the gate is
+                // opening the harmony is attenuated proportionally. This
+                // prevents a "survolume" burst where the dry signal is still
+                // ramping up but the harmony voices are already at full
+                // amplitude (their 35-ms attack is faster than the gate's
+                // one-pole attack). When the gate is disabled, currentGain
+                // stays at 1.0 so the harmony is unaffected.
+                const float gateGain = (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f)
+                    ? noiseGate.getCurrentGain() : 1.0f;
+
+                for (int i = 0; i < numS; ++i)
+                {
+                    const float hL = harmonyBuffer.getReadPointer (0)[i];
+                    const float hR = numCh == 1 ? hL : harmonyBuffer.getReadPointer (1)[i];
+                    const float hg = hGainFinal * harmonyEnableGain.getNextValue() * gateGain;
+                    outL[i] += hL * hg;
+                    if (outR != nullptr)
+                        outR[i] += hR * hg;
+                }
 
                  // Compute stereo level of harmony output
                  harmonyOutputLevel.store (

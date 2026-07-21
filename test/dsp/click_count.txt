@@ -1,0 +1,2 @@
+clickCount=0
+positions=

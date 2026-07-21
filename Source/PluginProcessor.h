@@ -452,6 +452,10 @@ private:
     // last mixed harmony buffer saved to perform a crossfade on stop
     juce::AudioBuffer<float> lastMixedHarmonyBuffer;
     bool wasHarmonyActiveLastBlock { false };
+    // Smoothed master enable gain for the harmony bus. Toggling the Harmony
+    // enable button ramps this (instead of hard-cutting the mix) so enabling/
+    // disabling harmony produces no click.
+    juce::LinearSmoothedValue<float> harmonyEnableGain { 0.0f };
     // Temporary buffers to hold pitch-shifted voices (preallocated)
     std::vector<juce::AudioBuffer<float>> shiftedVoiceBuffers;
     // Dedicated pitch shifters per shifted voice (separate state from main pitchShifter)
