@@ -48,7 +48,8 @@ public:
     void releaseResources() override;
 
     // === Main audio routine: called for each audio block ===
-    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;  
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void reset() override;  
 
     // === Plugin information (editable in Projucer) ===
     const juce::String getName() const override;

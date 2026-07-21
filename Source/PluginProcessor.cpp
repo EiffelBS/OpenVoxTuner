@@ -806,14 +806,32 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
 void OpenVoxTunerAudioProcessor::releaseResources()
 {
     releaseResourcesForARA();
+}
 
-    for (int i = 0; i < 1; ++i)
-        if (pitchDetectors[i] != nullptr) pitchDetectors[i]->reset();
-    if (pitchShifter != nullptr)     pitchShifter->reset();
-    if (retargetEnvelope != nullptr) retargetEnvelope->reset();
+void OpenVoxTunerAudioProcessor::reset()
+{
+    // Reset DSP state when the host resets the plugin (e.g. transport stop,
+    // sample rate change). Some hosts (Cubase, Live) require this to be
+    // implemented, otherwise they may hang.
+    for (auto& g : shiftedVoiceGains)
+        g.setCurrentAndTargetValue (0.0f);
     for (auto& ps : shiftedVoicePitchShifters)
         if (ps != nullptr)
             ps->reset();
+    if (pitchShifter != nullptr)
+        pitchShifter->reset();
+    harmonyBuffer.clear();
+    synthWorkBuffer.clear();
+    lastMixedHarmonyBuffer.clear();
+    silenceSamples = 0;
+    lastInputPitch.store (0.0f);
+    lastOutputPitch.store (0.0f);
+    lastCentsOffset.store (0.0f);
+    appliedLatencyMode = -1;
+
+    for (int i = 0; i < 1; ++i)
+        if (pitchDetectors[i] != nullptr) pitchDetectors[i]->reset();
+    if (retargetEnvelope != nullptr) retargetEnvelope->reset();
 
     // Reset MIDI tracking state (host is releasing audio graph)
     for (int ch = 0; ch < 16; ++ch)
@@ -2847,7 +2865,10 @@ bool OpenVoxTunerAudioProcessor::hasEditor() const { return true; }
 
 juce::VST3ClientExtensions* OpenVoxTunerAudioProcessor::getVST3ClientExtensions()
 {
-    return vst3Extensions.get();
+    // Only return the PreSonus MicroView extension for Studio One; other hosts
+    // (Cubase, Live, etc.) may hang when presented with an unknown VST3 extension.
+    // Returning nullptr is safe for all hosts — the MicroView is purely cosmetic.
+    return nullptr;
 }
 
 // === getScaleNoteNames (static) ===
