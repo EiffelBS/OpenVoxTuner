@@ -22,6 +22,7 @@ ARCHS="arm64;x86_64"
 GENERATOR="Ninja"
 FORMATS="VST3;AU;Standalone"
 INSTALL=false
+ENABLE_ARA=ON
 
 # === Parse arguments ===
 while [[ $# -gt 0 ]]; do
@@ -33,8 +34,9 @@ while [[ $# -gt 0 ]]; do
     --generator)   GENERATOR="${2:-}"; shift 2 ;;
     --formats)     FORMATS="${2:-}"; shift 2 ;;
     --install)     INSTALL=true; shift ;;
+    --no-ara)      ENABLE_ARA=OFF; shift ;;
     --help|-h)
-      echo "Usage: $0 [--juce-path <path>] [--config Release|Debug] [--formats VST3;AU;Standalone] [--install]"
+      echo "Usage: $0 [--juce-path <path>] [--config Release|Debug] [--formats VST3;AU;Standalone] [--install] [--no-ara]"
       exit 0 ;;
     *) echo "Option inconnue: $1"; exit 1 ;;
   esac
@@ -62,6 +64,7 @@ echo "  CONFIG       = $CONFIG"
 echo "  ARCHS        = $ARCHS"
 echo "  FORMATS      = $FORMATS"
 echo "  INSTALL      = $INSTALL"
+echo "  ARA          = $ENABLE_ARA"
 echo ""
 
 # === Etape 1 : Configuration CMake ===
@@ -69,7 +72,8 @@ echo "[1/3] Configuration CMake..."
 cmake -S . -B "$BUILD_DIR" -G "$GENERATOR" \
   -DCMAKE_BUILD_TYPE="$CONFIG" \
   -DJUCE_PATH="$JUCE_PATH" \
-  -DCMAKE_OSX_ARCHITECTURES="$ARCHS"
+  -DCMAKE_OSX_ARCHITECTURES="$ARCHS" \
+  -DOVT_ENABLE_ARA="$ENABLE_ARA"
 
 # === Etape 2 : Compilation ===
 echo "[2/3] Compilation..."
@@ -85,7 +89,7 @@ for fmt in "${TARGET_LIST[@]}"; do
   cmake --build "$BUILD_DIR" --config "$CONFIG" --target "$TARGET_NAME"
   # Companion key-detection plug-in (OpenVoxKey) is built for the same formats,
   # except Standalone (it needs a host track + an OpenVoxTuner to consume the key).
-  if [[ "$fmt" != "STANDALONE" ]]; then
+  if [[ "$fmt" != "Standalone" ]]; then
     COMPANION_NAME="OpenVoxKey_${jt}"
     echo "  -> Building $COMPANION_NAME ..."
     cmake --build "$BUILD_DIR" --config "$CONFIG" --target "$COMPANION_NAME"
@@ -103,17 +107,17 @@ if [[ "$INSTALL" == true ]]; then
     case "$fmt" in
       VST3)
         SRC="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/VST3/OpenVoxTuner.vst3"
-        DST="$HOME/Library/Audio/Plug-Ins/VST3/"
-        mkdir -p "$DST"
-        rsync -a --delete "$SRC" "$DST"
-        echo "  VST3 -> $DST"
+        DST="/Library/Audio/Plug-Ins/VST3/"
+        echo "  VST3 -> $DST (sudo requis)"
+        sudo mkdir -p "$DST"
+        sudo rsync -a --delete "$SRC" "$DST"
         ;;
       AU)
         SRC="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/AU/OpenVoxTuner.component"
-        DST="$HOME/Library/Audio/Plug-Ins/Components/"
-        mkdir -p "$DST"
-        rsync -a --delete "$SRC" "$DST"
-        echo "  AU   -> $DST"
+        DST="/Library/Audio/Plug-Ins/Components/"
+        echo "  AU   -> $DST (sudo requis)"
+        sudo mkdir -p "$DST"
+        sudo rsync -a --delete "$SRC" "$DST"
         ;;
       Standalone)
         SRC="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/Standalone/OpenVoxTuner.app"

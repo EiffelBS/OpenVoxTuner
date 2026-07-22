@@ -533,6 +533,13 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
 OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTunerAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
+    // Reset the editor-shutdown flag set by the previous editor instance's
+    // destructor.  The processor outlives the editor, so without this
+    // reset the flag would stay stuck at `true` after every close/reopen
+    // cycle, short-circuiting updateHostTransport() and starving the
+    // visualizer of data.
+    processorRef.notifyEditorResumed();
+
     setLookAndFeel (&customLookAndFeel);
 
     // Restore theme preference from plugin state
@@ -935,6 +942,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // Show Waveform toggle
             interfaceMenu.addItem (ovt::tr(ovt::Keys::kMenuShowWaveform), true, showWaveform, [this] {
                 showWaveform = ! showWaveform;
+                processorRef.setWaveformCaptureEnabled (showWaveform);
                 if (! showWaveform)
                 {
                     if (pitchVisualizer != nullptr)
@@ -1253,8 +1261,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // re-trigger the "switch to Custom" logic (which would set the combo
             // back to "Custom" and cancel the user's preset selection).
             scaleKeyboard.setUpdatingFromScaleCombo (true);
-            auto* rawKey = processorRef.getParameters().getRawParameterValue ("key");
-            const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load() * 11.0f)) : 0;
+            const int keyIdx = processorRef.getKeyIndex();
 
             ovtdsp::ScaleQuantizer tempQuantizer;
             tempQuantizer.setKey (keyIdx);
@@ -2023,9 +2030,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // the next block). In Loop Playhead (Measures) / Standalone / ARA the seek
     // is honoured.
     curveEditor->onSeek = [this] (double t) {
+#if OVT_ARA_ENABLED
         if (processorRef.isBoundToARA())
             processorRef.seekToTime (t);          // ARA: host follows the plug-in
-        else if (processorRef.isPlayheadLooping())
+        else
+#endif
+        if (processorRef.isPlayheadLooping())
             processorRef.seekToTime (t);          // Loop / Standalone: local timeline
         // else: Follow host -> DAW is master, ignore (no desync)
     };
@@ -2133,6 +2143,14 @@ OpenVoxTunerAudioProcessorEditor::~OpenVoxTunerAudioProcessorEditor()
 {
     if (updateCheckState != nullptr)
         updateCheckState->cancelled.store (true);
+
+    // Signal the processor to stop touching the AU playhead BEFORE we
+    // stop our own timer.  A MessageQueue timer callback may already be
+    // queued (it is dispatched asynchronously), so without this flag the
+    // callback could reach updateHostTransport() -> getPlayHead()->
+    // getPosition() after the AU's internal state has been torn down,
+    // crashing the host (Live 12 AU, macOS 26).
+    processorRef.notifyEditorShuttingDown();
 
     stopTimer();
 
@@ -2813,7 +2831,40 @@ void OpenVoxTunerAudioProcessorEditor::parentHierarchyChanged()
 
 void OpenVoxTunerAudioProcessorEditor::timerCallback()
 {
+    // If the editor is being destroyed, do nothing.  A MessageQueue
+    // timer callback may already be in flight when the destructor
+    // runs, and the AU's internal state may already be torn down.
+    if (processorRef.isEditorShuttingDown())
+        return;
+
     currentCpuUsage = processorRef.getCpuUsage();
+
+    // Apply deferred parameter changes from the audio thread (key/scale detection).
+    // Must happen on the UI thread to avoid deadlocks in some hosts.
+    processorRef.flushPendingParameterChanges();
+
+    // Read host transport (playhead position, playing state, time signature).
+    // getPlayHead()->getPosition() can deadlock Cubase and Live VST3 from
+    // the audio thread, so we read it here and cache in atomics.  Wrapped
+    // in try/catch because on macOS a torn-down AU can throw Objective-C++
+    // exceptions out of JUCE internals.
+    try
+    {
+        processorRef.updateHostTransport();
+    }
+    catch (...)
+    {
+    }
+
+    // Read ARA metadata (key/bar signatures) from the host on the UI thread.
+    // HostContentReader can deadlock the audio thread in Cubase/Live VST3.
+    try
+    {
+        processorRef.updateAraMetadata();
+    }
+    catch (...)
+    {
+    }
 
     refreshVisualizer();
 
@@ -2984,7 +3035,12 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // Update edit state and playhead
     if (curveEditor != nullptr) {
         curveEditor->setEditorEnabled(tabIndex == 1);
-        curveEditor->setPlayheadTime(processorRef.getLoopTransportTime(), processorRef.getIsPlaying(), processorRef.isPlayheadLooping());
+        // Pass the extrapolated transport time so the playhead moves
+        // smoothly at 60 fps even though the worker only refreshes the
+        // host PPQ at 30 Hz (see getInterpolatedTransportTime in the
+        // processor header).  When the host is paused, the extrapolation
+        // returns the frozen PPQ, so the playhead does not drift.
+        curveEditor->setPlayheadTime(processorRef.getInterpolatedTransportTime(), processorRef.getIsPlaying(), processorRef.isPlayheadLooping());
         // Propagate time signature (Feature 1) — read from processor
         int num = processorRef.getCurrentTimeSigNumerator();
         int den = processorRef.getCurrentTimeSigDenominator();
@@ -3131,10 +3187,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
         curveEditor->setScaleIntervals (intervals);
         scaleKeyboard.setActiveScaleIntervals (intervals);
 
-        auto* rawKey = processorRef.getParameters().getRawParameterValue ("key");
-        auto* rawScale = processorRef.getParameters().getRawParameterValue ("scale");
-        const int keyIdx = rawKey ? static_cast<int> (std::round (rawKey->load() * 11.0f)) : 0;
-        const int scaleIdx = rawScale ? static_cast<int> (std::round (rawScale->load() * 13.0f)) : 0;
+        const int keyIdx = processorRef.getKeyIndex();
+        const int scaleIdx = processorRef.getScaleIndex();
         
         if (scaleIdx == 13)
         {

@@ -12,6 +12,8 @@
 #include "dsp/PitchShifter.h" // for gPitchShifterGrainEvents
 #include <vector>
 #include <algorithm>
+#include <iostream>
+#include <fstream>
 #include <juce_data_structures/juce_data_structures.h> // juce::UndoManager, juce::ValueTree
 
 // IMPORTANT: OVT_LOG is wrapped in #if JUCE_DEBUG to match the convention
@@ -292,7 +294,9 @@ private:
 //==============================================================================
 // Minimal class for the ARA controller (DocumentController)
 // Necessary for createARAFactory() to be implemented.
+// Only compiled when ARA support is enabled (OVT_ARA_ENABLED=1).
 //==============================================================================
+#if OVT_ARA_ENABLED
 class OpenVoxTunerARADocumentController : public juce::ARADocumentControllerSpecialisation
 {
 public:
@@ -318,6 +322,7 @@ const ARA::ARAFactory* createARAFactory()
     return juce::ARADocumentControllerSpecialisation::createARAFactory<OpenVoxTunerARADocumentController>();
 }
 JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+#endif // OVT_ARA_ENABLED
 
 //==============================================================================
 OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
@@ -561,6 +566,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     keyParam     = parameters.getRawParameterValue ("key");
     scaleParam   = parameters.getRawParameterValue ("scale");
     scaleChoiceParam = dynamic_cast<juce::AudioParameterChoice*>(parameters.getParameter("scale"));
+    keyIntParam = dynamic_cast<juce::AudioParameterInt*>(parameters.getParameter("key"));
     bypassParam = parameters.getRawParameterValue ("bypass");
     modeParam   = parameters.getRawParameterValue ("mode");
 
@@ -625,8 +631,24 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     effects.push_back (std::make_unique<ovtdsp::ReverbEffect>());
     OVT_LOG ("Effects initialized: " + juce::String (static_cast<int> (effects.size())));
 
-    // Instantiation of the VST3 extension for Fender Studio Pro (Micro View)
-    vst3Extensions = std::make_unique<PresonusMicroViewExtension>();
+    // VST3 extension for Studio One's Micro View.
+    // Only allocated for Studio One — for every other host getVST3ClientExtensions()
+    // returns nullptr, so there is no point in constructing the object (it
+    // would just be dead memory).  Detecting Studio One via the JUCE host
+    // type: Studio One identifies itself with the application path
+    // ".../Studio One.app/Contents/MacOS/Studio One" on macOS.
+    {
+        juce::PluginHostType hostType;
+        if (hostType.getHostPath().contains ("Studio One"))
+        {
+            vst3Extensions = std::make_unique<PresonusMicroViewExtension>();
+            OVT_LOG ("VST3 Micro View extension enabled (Studio One detected).");
+        }
+        else
+        {
+            OVT_LOG ("VST3 Micro View extension disabled (host: " + hostType.getHostDescription() + ").");
+        }
+    }
 
     // Install file logger in Debug AND Release (so we can diagnose drops in the field).
     {
@@ -670,6 +692,22 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
 
 OpenVoxTunerAudioProcessor::~OpenVoxTunerAudioProcessor()
 {
+    // The processor outlives the editor, but the editor's destructor
+    // may not have run yet (e.g. host kills the processor first).  Be
+    // defensive: flip both flags off and stop the worker so any
+    // pending callback that reaches readAndCachePlayHeadInfo() bails
+    // out cleanly.
+    notifyAuReleased();
+    notifyEditorShuttingDown();
+    // Stop the dedicated playhead worker (started in prepareToPlay()).
+    // It runs on its own thread so we can safely call getPlayHead() from
+    // there even on hosts that block when called from the audio/UI thread.
+    // The worker was temporarily disabled while hunting a rainbow
+    // beach-ball bug, but that bug was actually caused by a setLatency
+    // ping-pong in applyLatencyMode(), not by the worker.  Re-enabled
+    // 2026-07-22.
+    stopPlayheadThread();
+
     // Delete the BufferedFileLogger (which subclasses juce::Timer) so the
     // Timer is stopped and destroyed before JUCE module shutdown, avoiding
     // a LeakedObjectDetector assertion.
@@ -698,37 +736,31 @@ void OpenVoxTunerAudioProcessor::setMorphAmount (float v)
 // === Audio configuration (before the first processBlock) ===
 void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+
     currentSampleRate = sampleRate;
 
     // Prepare ARA support
+#if OVT_ARA_ENABLED
     prepareToPlayForARA (sampleRate, samplesPerBlock, getMainBusNumOutputChannels(), getProcessingPrecision());
+#endif
 
     // Initialize DSP modules with the current sample rate.
     // Prepare the YIN pitch detector.
     if (pitchDetectors[0] != nullptr)
         pitchDetectors[0]->prepare (sampleRate / 4.0, samplesPerBlock);
-    // Reset the latency-mode cache so applyLatencyMode() ALWAYS re-runs
-    // setLatencySamples() on this prepareToPlay(), even if the user has
-    // not changed the mode since the last prepare. This is needed
-    // because some hosts (notably Studio One with VST3) do NOT re-call
-    // prepareToPlay() when the user disables and re-enables the insert
-    // slot — they only re-read the last reported latency from the
-    // plugin. If we early-return inside applyLatencyMode() (which we
-    // do in syncParameters() to avoid spamming the host every block),
-    // the host keeps showing the previous latency value, which can
-    // disagree with the actual mode selected in the plugin UI. Forcing
-    // the re-apply here guarantees the host's PDC always matches the
-    // plugin's current mode, regardless of whether prepareToPlay() is
-    // the only host hook that fires on insert re-enable.
-    appliedLatencyMode = -1;
-    applyLatencyMode();
+
+    // IMPORTANT: prepare the PitchShifter BEFORE calling applyLatencyMode().
+    // PitchShifter::prepare() resets latencyMs/latencySamples to its hard-coded
+    // default (20 ms). If applyLatencyMode() runs first, its setLatencySamples
+    // value is immediately overwritten by the next line `setLatencySamples
+    // (pitchShifter->getLatencySamples())`. Worse, on hosts like Live 12 the
+    // latency ping-pong (576 then 960) triggers an immediate re-setActive
+    // and a fresh prepareToPlay() — we observed 600 000+ setActive calls
+    // in a single session, which manifested as the rainbow beach-ball.
     pitchShifter->prepare (sampleRate, samplesPerBlock);
     noiseGate.prepare (sampleRate);
     upwardComp.prepare (sampleRate);
     formantPreserver.prepare (sampleRate, samplesPerBlock);
-    
-    // Report latency to DAW for automatic compensation (PDC)
-    setLatencySamples(pitchShifter->getLatencySamples());
 
     retargetEnvelope->prepare (sampleRate);
     harmonyEngine->prepare (sampleRate);
@@ -802,10 +834,36 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     sidechainSamplesSinceLastAnalysis = 0;
     sidechainLinearBuffer.allocate (analysisWindow, true);
 
+    // Reset the latency-mode cache so applyLatencyMode() ALWAYS re-runs
+    // setLatencySamples() on this prepareToPlay(), even if the user has
+    // not changed the mode since the last prepare. This is needed
+    // because some hosts (notably Studio One with VST3) do NOT re-call
+    // prepareToPlay() when the user disables and re-enables the insert
+    // slot — they only re-read the last reported latency from the
+    // plugin. If we early-return inside applyLatencyMode() (which we
+    // do in syncParameters() to avoid spamming the host every block),
+    // the host keeps showing the previous latency value, which can
+    // disagree with the actual mode selected in the plugin UI. Forcing
+    // the re-apply here guarantees the host's PDC always matches the
+    // plugin's current mode, regardless of whether prepareToPlay() is
+    // the only host hook that fires on insert re-enable.
+    //
+    // CRITICAL: must be called AFTER pitchShifter->prepare() above,
+    // because that call resets the shifter's latency to its hard-coded
+    // 20 ms default. Calling applyLatencyMode() first would race with
+    // that reset and report a different (mode-specific) latency that
+    // gets overwritten a few lines later, causing a 576↔960 ping-pong
+    // that made Live 12 re-setActive 600 000+ times per session.
+    appliedLatencyMode = -1;
+    applyLatencyMode();
+
     // Configure the plugin latency based on the host's block size.
     // This allows the DAW to compensate for the delay introduced by buffering.
+    // NOTE: do NOT call setLatencySamples() here. applyLatencyMode() above
+    // already called it with the mode-correct value; calling it again
+    // would overwrite the mode with the shifter's hard-coded 20 ms
+    // default and re-trigger the Live 12 re-setActive loop.
     latencySamples = pitchShifter->getLatencySamples();
-    setLatencySamples (latencySamples);
 
     // Debug: log prepareToPlay info
     OVT_LOG ("prepareToPlay: sampleRate=" + juce::String(sampleRate) +
@@ -814,11 +872,40 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
 
     // Reset the silence counter
     maxSilenceSamples = static_cast<int>(sampleRate * 0.5); // 500 ms silence tail
+
+    // The audio side is now in a stable state — the host's playhead can
+    // be safely read.  The dedicated worker is started here so that
+    // getPlayHead()->getPosition() runs on its own thread and never
+    // blocks the audio thread or the UI thread (both of which would
+    // freeze on misbehaving hosts like Cubase LE 15).  The worker was
+    // temporarily disabled while we were hunting the rainbow
+    // beach-ball bug, but that was actually caused by a setLatency
+    // ping-pong in applyLatencyMode(), not by the worker.  Re-enabled
+    // 2026-07-22.
+    notifyAuReady();
+    startPlayheadThread();
 }
 
 void OpenVoxTunerAudioProcessor::releaseResources()
 {
+    // Stop the playhead worker BEFORE we tear down any ARA/host state.
+    // The worker calls getPlayHead() which dereferences host state that
+    // is about to become invalid (e.g. on insert re-enable).  The
+    // worker was temporarily disabled while hunting a rainbow
+    // beach-ball bug, but that bug was actually caused by a setLatency
+    // ping-pong in applyLatencyMode(), not by the worker.  Re-enabled
+    // 2026-07-22.
+    stopPlayheadThread();
+
+    // Mark the AU as no longer safe to query so the worker (if it ever
+    // races past the stop) bails out of readAndCachePlayHeadInfo()
+    // instead of dereferencing a pointer that is about to become
+    // invalid.
+    notifyAuReleased();
+
+#if OVT_ARA_ENABLED
     releaseResourcesForARA();
+#endif
 }
 
 void OpenVoxTunerAudioProcessor::reset()
@@ -925,6 +1012,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Cache a mono downmix of the (post-gate) input audio for the visualizer overlay,
     // so the displayed waveform reflects the noise gate when it is enabled. Works in all
     // modes. Captured after the gate but before the rest of the DSP chain.
+    // Guarded by waveformCaptureEnabled to avoid spin-lock contention when the waveform
+    // overlay is hidden in the UI (fixes beachball / deadlock in Cubase/Live VST3).
+    if (waveformCaptureEnabled.load (std::memory_order_relaxed))
     {
         const int numSamples = buffer.getNumSamples();
         const int numCh = buffer.getNumChannels();
@@ -942,99 +1032,34 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // === LECTURE DES METADONNEES ARA ===
-    // Si ARA est actif, on extrait la tonalite (Key) du projet.
-    if (isBoundToARA())
-    {
-        if (auto* dc = getDocumentController())
-        {
-            if (auto* doc = dc->getDocument())
-            {
-                auto contexts = doc->getMusicalContexts();
-                if (!contexts.empty() && contexts[0] != nullptr)
-                {
-                    ARA::PlugIn::HostContentReader<ARA::kARAContentTypeKeySignatures> reader (contexts[0]);
-                    if (reader.getEventCount() > 0)
-                    {
-                        auto* keySig = reader.getDataPtrForEvent(0);
-                        if (keySig != nullptr)
-                        {
-                            // Convertir circle of fifths (-6 a +6) en chromatic (0 a 11)
-                            int chromatic = ((keySig->root * 7) % 12 + 12) % 12;
-                            
-                            // Determiner le type de gamme (Majeur vs Mineur vs Chromatique)
-                            int scaleIndex = 0; // Par defaut Chromatique
-                            
-                            int activeNotes = 0;
-                            for (int i = 0; i < 12; ++i) {
-                                if (keySig->intervals[i] == 0xFF) activeNotes++;
-                            }
-                            
-                            if (activeNotes == 12) {
-                                scaleIndex = 0; // Chromatic
-                            } else if (keySig->intervals[4] == 0xFF) {
-                                scaleIndex = 1; // Major (index 1 dans la liste)
-                            } else if (keySig->intervals[3] == 0xFF) {
-                                scaleIndex = 4; // Natural Minor (index 4 dans la liste)
-                            }
-                            
-                            // Mettre a jour les parametres si changement (notifie l'UI et l'hote)
-                            if (keyParam && static_cast<int> (std::round (keyParam->load() * 11.0f)) != chromatic)
-                            {
-                                if (auto* param = parameters.getParameter("key"))
-                                    param->setValueNotifyingHost (param->convertTo0to1 (chromatic));
-                            }
-                            
-                            if (scaleParam && static_cast<int>(scaleParam->load()) != scaleIndex)
-                            {
-                                if (auto* param = parameters.getParameter("scale"))
-                                    param->setValueNotifyingHost (param->convertTo0to1 (scaleIndex));
-                            }
-                        }
-
-                    // Lire les Bar Signatures ARA (time signature) pour le Curve Editor.
-                    {
-                        ARA::PlugIn::HostContentReader<ARA::kARAContentTypeBarSignatures> barReader (contexts[0]);
-                        juce::ScopedLock lock (araBarSigLock);
-                        araBarSignatures.clear();
-                        for (int i = 0; i < barReader.getEventCount(); ++i)
-                        {
-                            auto* barSig = barReader.getDataPtrForEvent (i);
-                            if (barSig != nullptr)
-                            {
-                                araBarSignatures.push_back ({
-                                    static_cast<double> (barSig->position),
-                                    static_cast<int> (barSig->numerator),
-                                    static_cast<int> (barSig->denominator)
-                                });
-                            }
-                        }
-                        if (!araBarSignatures.empty())
-                        {
-                            currentTimeSigNumerator.store (araBarSignatures[0].numerator);
-                            currentTimeSigDenominator.store (araBarSignatures[0].denominator);
-                        }
-                    }
+    // Déplacée vers updateAraMetadata() (thread UI) pour éviter les deadlocks
+    // audio/UI causés par HostContentReader + setValueNotifyingHost dans le
+    // thread audio (beachball Cubase/Live VST3).
 
     // After mixing, if engine has finished releasing, shifted voices have ramped down
     // and there's no live pitch, clear cached notes so we don't re-trigger residual rendering.
-    bool shiftedActive = false;
-    for (const auto& g : shiftedVoiceGains)
-        if (g.getCurrentValue() > 0.001f) shiftedActive = true;
-
-    if (harmonyEngine != nullptr && !harmonyEngine->isActive() && !shiftedActive && lastOutputPitch.load() <= 0.0f)
     {
-        lastHarmonyNotes.clear();
-        harmonyFrequencies.clear();
-        harmonyBuffer.clear();
-    }
-                    }
-                }
-            }
+        bool shiftedActive = false;
+        for (const auto& g : shiftedVoiceGains)
+            if (g.getCurrentValue() > 0.001f) shiftedActive = true;
+
+        if (harmonyEngine != nullptr && !harmonyEngine->isActive() && !shiftedActive && lastOutputPitch.load() <= 0.0f)
+        {
+            lastHarmonyNotes.clear();
+            harmonyFrequencies.clear();
+            harmonyBuffer.clear();
         }
     }
 
     // Synchronise les parametres avec les modules DSP.
     syncParameters();
+
+    // === Host transport read ===
+    // The actual getPlayHead()->getPosition() call now runs on a
+    // dedicated worker thread (see startPlayheadThread) so that
+    // misbehaving hosts (Cubase, Live VST3) cannot freeze this audio
+    // thread or the message thread.  Here we only consume the
+    // atomics that the worker keeps fresh.
 
     // === DETECTION DE SILENCE (SLEEP MODE) ===
     // Calcule la magnitude maximale du buffer pour savoir si on bypass les calculs lourds (YIN, etc)
@@ -1059,106 +1084,52 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // 2) Mise a jour du temps de transport (pour le mode graphic).
-    //    On interroge le host via getPlayHead() qui donne le PPQ (Beats).
-    //    IMPORTANT : les appels getPlayHead() et getLoopPoints() sont coûteux
-    //    et peuvent bloquer le thread audio (XRuns sur Reaper/FL Studio).
-    //    On limite les mises à jour à 1x / 10 ms via cachedTransportTime.
+    //    Le getPlayHead() est appelé depuis le thread UI (updateHostTransport)
+    //    et mis en cache dans des atomics pour le thread audio.
+    // Voice/silence hysteresis for harmony gate (prevents rapid on/off chattering)
+    constexpr float harmonyGateOnThreshold  = 0.0040f;
+    constexpr float harmonyGateOffThreshold = 0.0025f;
+    if (maxMagnitude >= harmonyGateOnThreshold)
+        harmonyInputGateOpen = true;
+    else if (maxMagnitude <= harmonyGateOffThreshold)
+        harmonyInputGateOpen = false;
+
     double currentTime = transportTime.load();
-    bool hostProvidesTime = false;
-    bool isStandalone = (wrapperType == juce::AudioProcessor::wrapperType_Standalone);
+    const bool isStandalone = (wrapperType == juce::AudioProcessor::wrapperType_Standalone);
 
-    uint32_t transportNowMs = juce::Time::getMillisecondCounter();
-    uint32_t lastUpd = lastTransportTimeUpdateMs.load();
-    if (transportNowMs - lastUpd > 10)  // mise à jour au plus 1x / 10 ms
+    // Read cached host transport (updated by updateHostTransport() on the UI
+    // thread).  Calling getPlayHead()->getPosition() from the audio thread
+    // can deadlock Cubase and Live VST3.
+    const bool hostProvidesTime = !isStandalone && hostProvidesTimeCached.load (std::memory_order_relaxed);
+
+    if (hostProvidesTime)
     {
-        lastTransportTimeUpdateMs.store (transportNowMs);
+        currentTime = cachedHostPpq.load (std::memory_order_relaxed);
+    }
 
-        // Voice/silence hysteresis for harmony gate (prevents rapid on/off chattering)
-        constexpr float harmonyGateOnThreshold  = 0.0040f;
-        constexpr float harmonyGateOffThreshold = 0.0025f;
-        if (maxMagnitude >= harmonyGateOnThreshold)
-            harmonyInputGateOpen = true;
-        else if (maxMagnitude <= harmonyGateOffThreshold)
-            harmonyInputGateOpen = false;
+    rawHostTime.store(currentTime);
 
-        if (auto* playHead = getPlayHead())
+    if (hostProvidesTime && !isBoundToARA_custom()) {
+        // En mode plugin classique (VST3 sans ARA), on soustrait l'offset
+        // pour permettre au bouton "Reset Playhead" de fonctionner
+        currentTime -= customTimeOffset.load();
+    }
+
+    timeProvidedByHost.store(hostProvidesTime);
+
+    // Fallback pour le Standalone (ou host sans playhead)
+    if (!hostProvidesTime && getSampleRate() > 0.0)
+    {
+        // Standalone transport: when stopped, freeze the timeline so the user can edit
+        // the curve. When playing, advance at the standalone tempo (BPM).
+        if (transportPlaying.load())
         {
-            auto position = playHead->getPosition();
-            if (position.hasValue() && !isStandalone)
-            {
-                hostProvidesTime = true;
-                if (position->getIsPlaying())
-                {
-                    double ppq = position->getPpqPosition().orFallback (currentTime);
-                    hostIsPlaying.store (1);
-
-                    // getLoopPoints() peut bloquer sur certains hosts (Reaper).
-                    // Bypass en Standalone ou si le DAW ne boucle pas.
-                    if (position->getIsLooping() && !isStandalone)
-                    {
-                        if (auto loop = position->getLoopPoints())
-                        {
-                            ppq -= loop->ppqStart;
-                        }
-                    }
-                    currentTime = ppq;
-
-                    // Lire la time signature du DAW (non-ARA).
-                    if (!isBoundToARA())
-                    {
-                        auto sig = position->getTimeSignature();
-                        if (sig.hasValue())
-                        {
-                            currentTimeSigNumerator.store (sig->numerator);
-                            currentTimeSigDenominator.store (sig->denominator);
-                        }
-                    }
-                }
-                else
-                {
-                    hostIsPlaying.store (0);
-                    currentTime = position->getPpqPosition().orFallback (currentTime);
-                }
-            }
+            const double beatsPerSecond = static_cast<double> (bpm.load()) / 60.0;
+            currentTime += (static_cast<double>(buffer.getNumSamples()) / getSampleRate()) * beatsPerSecond;
         }
-
-        cachedTransportTime.store (currentTime);
-    }
-    else
-    {
-        // Utilise la valeur en cache pour eviter les appels synchrones
-        // au DAW (getPlayHead) qui degraderaient les performances temps reel.
-        // En Standalone (aucun host), on se base sur transportTime pour que
-        // l'avance de CHAQUE block s'accumule correctement : la cache 10 ms
-        // ferait sinon perdre les blocks intermediaires et ralentirait
-        // l'horloge (facteur dependant de la taille de block, ~4x a 48 kHz /
-        // 120 echantillons). Le mode host garde la valeur en cache.
-        currentTime = hostProvidesTime ? cachedTransportTime.load() : transportTime.load();
     }
 
-      rawHostTime.store(currentTime);
-
-      if (hostProvidesTime && !isBoundToARA_custom()) {
-          // En mode plugin classique (VST3 sans ARA), on soustrait l'offset
-          // pour permettre au bouton "Reset Playhead" de fonctionner
-          currentTime -= customTimeOffset.load();
-      }
-
-      timeProvidedByHost.store(hostProvidesTime);
-
-      // Fallback pour le Standalone (ou host sans playhead)
-      if (!hostProvidesTime && getSampleRate() > 0.0)
-      {
-          // Standalone transport: when stopped, freeze the timeline so the user can edit
-          // the curve. When playing, advance at the standalone tempo (BPM).
-          if (transportPlaying.load())
-          {
-              const double beatsPerSecond = static_cast<double> (bpm.load()) / 60.0;
-              currentTime += (static_cast<double>(buffer.getNumSamples()) / getSampleRate()) * beatsPerSecond;
-          }
-      }
-
-      transportTime.store (currentTime);
+    transportTime.store (currentTime);
 
     if (silenceSamples > maxSilenceSamples)
     {
@@ -1293,7 +1264,13 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // === AUTOMATIC KEY DETECTION (non-ARA sources) ===
     // ARA (if bound) already sets key/scale from the host musical context above,
     // so we only run the in-plugin / companion sources when ARA is NOT bound.
-    if (!isBoundToARA())
+    const bool runKeyDetection =
+#if OVT_ARA_ENABLED
+        !isBoundToARA();
+#else
+        true;
+#endif
+    if (runKeyDetection)
     {
         const bool detectOn = (keyDetectParam != nullptr) ? keyDetectParam->load() > 0.5f : false;
         if (detectOn)
@@ -1383,9 +1360,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             OVT_LOG ("Debug param requested test grain -> forcing grain creation in audio thread");
             if (pitchShifter) pitchShifter->forceCreateTestGrain();
-            // reset the parameter to 0 via the ValueTree so editor sees it cleared
-            if (auto* p = parameters.getParameter ("dbg_test_grain"))
-                p->setValueNotifyingHost (0.0f);
+            // Defer the parameter reset to the UI thread (flushPendingParameterChanges).
+            // Calling setValueNotifyingHost() from the audio thread can deadlock
+            // Cubase and Live VST3.
+            pendingDbgGrainReset.store (true);
         }
         prevDbgTestGrain.store(cur);
     }
@@ -1558,8 +1536,8 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             && (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f))
         {
             // Extraire les paramètres pour l'engine d'harmonie
-            int currentKey = (keyParam != nullptr) ? static_cast<int> (std::round (keyParam->load() * 11.0f)) : 0;
-            int currentScaleIdx = (scaleParam != nullptr) ? static_cast<int>(scaleParam->load()) : 0;
+            int currentKey = keyIntParam != nullptr ? keyIntParam->get() : static_cast<int> (std::round (keyParam->load() * 11.0f));
+            int currentScaleIdx = scaleChoiceParam != nullptr ? scaleChoiceParam->getIndex() : static_cast<int>(scaleParam->load());
 
             // Récupère les intervalles de la gamme depuis le quantizer
             const juce::Array<int>& intervals = scaleQuantizer->getScaleIntervals();
@@ -1852,8 +1830,8 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const int numChannels = juce::jmax (1, getMainBusNumOutputChannels());
         const float harmonyBlend = (harmonyBlendParam ? harmonyBlendParam->load() : 0.0f);
 
-        int currentKey = (keyParam != nullptr) ? static_cast<int>(keyParam->load()) : 0;
-        int currentScaleIdx = (scaleParam != nullptr) ? static_cast<int>(scaleParam->load()) : 0;
+        int currentKey = keyIntParam != nullptr ? keyIntParam->get() : static_cast<int> (std::round (keyParam->load() * 11.0f));
+        int currentScaleIdx = scaleChoiceParam != nullptr ? scaleChoiceParam->getIndex() : static_cast<int>(scaleParam->load());
 
         // choose notes to use for audio rendering: use cached harmony notes,
         // fallback to harmonyFrequencies only if needed.
@@ -2286,10 +2264,380 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
 void OpenVoxTunerAudioProcessor::copyAraWaveform (juce::AudioBuffer<float>& dest, double& sr)
 {
-    const juce::CriticalSection::ScopedLockType sl (araWaveformLock);
-    dest.makeCopyOf (araWaveformBuffer);
-    sr = araWaveformSampleRate;
+    if (araWaveformLock.tryEnter())
+    {
+        dest.makeCopyOf (araWaveformBuffer);
+        sr = araWaveformSampleRate;
+        araWaveformLock.exit();
+    }
+    else
+    {
+        dest.setSize (1, 0, false, false, true);
+        sr = 44100.0;
+    }
 }
+
+// --- Deferred parameter changes (audio → UI thread) ---
+// Reads atomics written by the audio thread (applyDetectedKey) and applies
+// them via setValueNotifyingHost on the UI thread, avoiding deadlocks.
+void OpenVoxTunerAudioProcessor::flushPendingParameterChanges()
+{
+    const int key = pendingDetectedKey.exchange (kPendingNone);
+    if (key != kPendingNone)
+    {
+        if (auto* p = parameters.getParameter ("key"))
+            p->setValueNotifyingHost (p->convertTo0to1 (static_cast<double> (key)));
+    }
+
+    const int scale = pendingDetectedScale.exchange (kPendingNone);
+    if (scale != kPendingNone)
+    {
+        if (auto* p = parameters.getParameter ("scale"))
+            p->setValueNotifyingHost (p->convertTo0to1 (static_cast<double> (scale)));
+    }
+
+    // Deferred debug grain parameter reset (audio thread requested, UI thread applies).
+    if (pendingDbgGrainReset.exchange (false))
+    {
+        if (auto* p = parameters.getParameter ("dbg_test_grain"))
+            p->setValueNotifyingHost (0.0f);
+    }
+}
+
+// --- Host transport reading (UI thread) ---
+// Historically this function called getPlayHead()->getPosition() from
+// the editor's timer.  That pattern is UNSAFE on multiple hosts:
+//   * Live 12 AU:  the JuceAU::ScopedPlayHead dereferences an internal
+//                  pointer that can be invalidated at any time, causing
+//                  a SIGSEGV that cannot be caught.
+//   * Cubase LE 15 and Live 12 VST3: getPosition() busy-loops inside
+//                  the host, saturating the message thread and
+//                  producing the rainbow cursor.
+// Both problems are now avoided by running the call on a dedicated
+// background thread started in prepareToPlay() (see
+// startPlayheadThread).  This function is kept as a no-op for
+// backwards compatibility with the editor's timer — the editor keeps
+// calling it every 30 Hz, but all it does now is bail out early if
+// the editor is being torn down.
+void OpenVoxTunerAudioProcessor::updateHostTransport()
+{
+    if (editorShuttingDown.load (std::memory_order_acquire))
+    {
+        hostProvidesTimeCached.store (false, std::memory_order_relaxed);
+        return;
+    }
+
+    // The dedicated worker is responsible for calling getPlayHead().
+    // Nothing to do here.
+}
+
+void OpenVoxTunerAudioProcessor::readAndCachePlayHeadInfo (juce::AudioPlayHead& playHead) noexcept
+{
+    // Wall-clock time at the moment we ask the host for transport info.
+    // Captured ONCE at the top of the function so both branches (playing
+    // and stopped) end up with a consistent timestamp paired with the
+    // cachedHostPpq they store, which the editor needs to extrapolate
+    // the playhead position between worker updates (see
+    // cachedHostPpqAtUpdate / cachedHostPpqAtUpdateMs in the header).
+    const double updateTimeMs = juce::Time::getMillisecondCounterHiRes();
+
+    try
+    {
+        auto position = playHead.getPosition();
+        if (position.hasValue())
+        {
+            hostProvidesTimeCached.store (true, std::memory_order_relaxed);
+
+            if (position->getIsPlaying())
+            {
+                double ppq = position->getPpqPosition().orFallback (cachedHostPpq.load());
+                hostIsPlaying.store (1);
+
+                if (position->getIsLooping())
+                {
+                    if (auto loop = position->getLoopPoints())
+                        ppq -= loop->ppqStart;
+                }
+                cachedHostPpq.store (ppq, std::memory_order_relaxed);
+                // Record the (PPQ, timestamp) pair so the UI can
+                // extrapolate a smooth playhead position at 60 fps
+                // even though the worker only refreshes at 30 Hz.
+                cachedHostPpqAtUpdate.store (ppq, std::memory_order_relaxed);
+                cachedHostPpqAtUpdateMs.store (updateTimeMs, std::memory_order_relaxed);
+
+#if OVT_ARA_ENABLED
+                if (!isBoundToARA())
+#endif
+                {
+                    auto sig = position->getTimeSignature();
+                    if (sig.hasValue())
+                    {
+                        currentTimeSigNumerator.store (sig->numerator);
+                        currentTimeSigDenominator.store (sig->denominator);
+                    }
+                }
+            }
+            else
+            {
+                hostIsPlaying.store (0);
+                const auto ppq = position->getPpqPosition().orFallback (cachedHostPpq.load());
+                cachedHostPpq.store (ppq, std::memory_order_relaxed);
+                // Paused/Stopped: still record the pair so the UI freezes
+                // the playhead exactly at this PPQ and timestamp
+                // (extrapolation below returns cachedHostPpq unchanged
+                // when !hostIsPlaying, so the playhead does not drift).
+                cachedHostPpqAtUpdate.store (ppq, std::memory_order_relaxed);
+                cachedHostPpqAtUpdateMs.store (updateTimeMs, std::memory_order_relaxed);
+            }
+        }
+        else
+        {
+            hostProvidesTimeCached.store (false, std::memory_order_relaxed);
+        }
+    }
+    catch (...)
+    {
+        // AU host state can be torn down mid-call in Live 12 when the
+        // plugin window closes or the device is reconfigured.  Swallow
+        // any exception so the caller (UI timer or audio callback) never
+        // propagates a fault out of this function.
+        hostProvidesTimeCached.store (false, std::memory_order_relaxed);
+    }
+}
+
+double OpenVoxTunerAudioProcessor::getInterpolatedTransportTime() const
+{
+    // If the host never told us a position, fall back to the
+    // transportTime field (which the audio callback keeps up to date in
+    // standalone mode).  This branch is also what the editor hits
+    // between worker startup and the first readAndCachePlayHeadInfo().
+    if (! hostProvidesTimeCached.load (std::memory_order_relaxed))
+        return transportTime.load (std::memory_order_relaxed);
+
+    const double lastPpq       = cachedHostPpqAtUpdate.load    (std::memory_order_relaxed);
+    const double lastUpdateMs  = cachedHostPpqAtUpdateMs.load   (std::memory_order_relaxed);
+    const double nowMs         = juce::Time::getMillisecondCounterHiRes();
+
+    // Paused/Stopped: do NOT extrapolate, just return the frozen PPQ.
+    // The pair (lastPpq, lastUpdateMs) is still updated every worker
+    // tick, so once the user resumes playback the extrapolation
+    // continues seamlessly from the right baseline.
+    if (hostIsPlaying.load (std::memory_order_relaxed) == 0)
+        return lastPpq;
+
+    // Playing: extrapolate beats elapsed since the last worker update.
+    // (now - lastUpdate) is in ms; divide by 1000 to get seconds, then
+    // multiply by beatsPerSecond (= bpm/60) to get beats.
+    const double deltaSeconds = (nowMs - lastUpdateMs) * 0.001;
+    const double beatsPerSecond = static_cast<double> (bpm.load()) * (1.0 / 60.0);
+
+    // Guard against a negative delta (clock skew, very first call, or
+    // the worker writing the pair while we're reading it).  In all
+    // these cases returning the last known PPQ is the safe choice.
+    if (deltaSeconds < 0.0)
+        return lastPpq;
+
+    return lastPpq + deltaSeconds * beatsPerSecond;
+}
+
+// --- Dedicated playhead reader thread ---
+// Runs on its own std::thread, off the UI thread, the audio thread and
+// the message thread.  This is the ONLY thread that ever calls
+// getPlayHead()->getPosition() at runtime.  Reasoning:
+//   * Calling it on the UI thread (timer, original code) freezes Cubase
+//     and Live VST3 — those hosts busy-loop or deadlock inside
+//     getPosition(), saturating the message thread and triggering the
+//     rainbow cursor.  Observed on Cubase LE 15.
+//   * Calling it on the audio thread (processBlock) is also documented
+//     as a deadlock risk in some hosts.
+//   * Calling it on a dedicated background thread isolates the cost:
+//     if the host misbehaves, only this worker is affected.  The UI
+//     thread keeps running, the DAW stays responsive, and the cached
+//     atomics simply keep their last good value.
+void OpenVoxTunerAudioProcessor::startPlayheadThread()
+{
+    if (playheadThread.joinable())
+        return;
+
+    playheadThreadShouldExit.store (false, std::memory_order_release);
+
+    playheadThread = std::thread ([this]
+    {
+        using clock = std::chrono::steady_clock;
+        // 30 Hz (33 ms) is the sweet spot for a smooth playhead at 60 fps
+        // UI refresh: each worker update advances the playhead by ~1 frame
+        // at typical tempos, so the visual position feels continuous.
+        // 10 Hz (the previous value) was visibly jerky: the playhead
+        // jumped 6 frames at a time, which the eye reads as stuttering.
+        // Higher rates (60 Hz) double the getPlayHead() call cost without
+        // a perceptible visual gain.
+        constexpr auto period   = std::chrono::milliseconds (33); // ~30 Hz
+        constexpr auto slowThreshold = std::chrono::milliseconds (20);
+        constexpr auto backoffPeriod = std::chrono::seconds (1);
+
+        while (! playheadThreadShouldExit.load (std::memory_order_acquire))
+        {
+            if (auReady.load (std::memory_order_acquire)
+                && ! editorShuttingDown.load (std::memory_order_acquire))
+            {
+                // Measure how long getPlayHead() takes.  On Cubase LE 15
+                // and Live 12 VST3 the call can busy-loop inside the host;
+                // if it takes longer than slowThreshold we back off so the
+                // worker does not saturate the CPU and starve the UI
+                // thread of scheduling slots.
+                const auto callStart = clock::now();
+
+                juce::AudioPlayHead* playHead = nullptr;
+                try
+                {
+                    playHead = getPlayHead();
+                }
+                catch (...)
+                {
+                    hostProvidesTimeCached.store (false, std::memory_order_relaxed);
+                }
+
+                if (playHead != nullptr)
+                    readAndCachePlayHeadInfo (*playHead);
+                else
+                    hostProvidesTimeCached.store (false, std::memory_order_relaxed);
+
+                const auto callDuration = clock::now() - callStart;
+                if (callDuration > slowThreshold)
+                {
+                    // Host is misbehaving.  Sleep for backoffPeriod in
+                    // small slices so we can still react to a stop
+                    // request.
+                    const auto backoffEnd = clock::now() + backoffPeriod;
+                    while (! playheadThreadShouldExit.load (std::memory_order_acquire)
+                           && clock::now() < backoffEnd)
+                    {
+                        std::this_thread::sleep_for (std::chrono::milliseconds (20));
+                    }
+                    continue;
+                }
+            }
+
+            // Normal idle sleep, in small slices so stopPlayheadThread()
+            // can join quickly even if the host is blocking the call.
+            const auto deadline = clock::now() + period;
+            while (! playheadThreadShouldExit.load (std::memory_order_acquire)
+                   && clock::now() < deadline)
+            {
+                std::this_thread::sleep_for (std::chrono::milliseconds (5));
+            }
+        }
+    });
+}
+
+void OpenVoxTunerAudioProcessor::stopPlayheadThread() noexcept
+{
+    playheadThreadShouldExit.store (true, std::memory_order_release);
+
+    if (playheadThread.joinable())
+    {
+        // If the host is currently busy-looping inside getPosition()
+        // we cannot interrupt it; std::thread::join() will block until
+        // the call eventually returns.  That's acceptable: the UI
+        // thread is unaffected and the host stays responsive.  Worst
+        // case: a few extra seconds at shutdown.
+        try
+        {
+            playheadThread.join();
+        }
+        catch (...)
+        {
+            // std::system_error if the thread is not joinable — ignore.
+        }
+    }
+}
+
+// --- ARA metadata reading (UI thread only) ---
+// Reads key signatures and bar signatures from the ARA document controller.
+// MUST be called from the UI thread — HostContentReader acquires a lock that
+// can deadlock the audio thread in some hosts (Cubase LE 15, Live VST3).
+#if OVT_ARA_ENABLED
+void OpenVoxTunerAudioProcessor::updateAraMetadata()
+{
+    if (! isBoundToARA())
+        return;
+
+    auto* dc = getDocumentController();
+    if (dc == nullptr)
+        return;
+
+    auto* doc = dc->getDocument();
+    if (doc == nullptr)
+        return;
+
+    auto contexts = doc->getMusicalContexts();
+    if (contexts.empty() || contexts[0] == nullptr)
+        return;
+
+    // --- Key signatures ---
+    {
+        ARA::PlugIn::HostContentReader<ARA::kARAContentTypeKeySignatures> reader (contexts[0]);
+        if (reader.getEventCount() > 0)
+        {
+            auto* keySig = reader.getDataPtrForEvent (0);
+            if (keySig != nullptr)
+            {
+                int chromatic = ((keySig->root * 7) % 12 + 12) % 12;
+
+                int scaleIndex = 0; // Chromatique par defaut
+                int activeNotes = 0;
+                for (int i = 0; i < 12; ++i)
+                    if (keySig->intervals[i] == 0xFF) activeNotes++;
+
+                if (activeNotes == 12)
+                    scaleIndex = 0; // Chromatique
+                else if (keySig->intervals[4] == 0xFF)
+                    scaleIndex = 1; // Major
+                else if (keySig->intervals[3] == 0xFF)
+                    scaleIndex = 4; // Natural Minor
+
+                if (keyParam && (keyIntParam != nullptr ? keyIntParam->get() : static_cast<int> (std::round (keyParam->load() * 11.0f))) != chromatic)
+                {
+                    if (auto* param = parameters.getParameter ("key"))
+                        param->setValueNotifyingHost (param->convertTo0to1 (chromatic));
+                }
+
+                if (scaleParam && (scaleChoiceParam != nullptr ? scaleChoiceParam->getIndex() : static_cast<int> (scaleParam->load())) != scaleIndex)
+                {
+                    if (auto* param = parameters.getParameter ("scale"))
+                        param->setValueNotifyingHost (param->convertTo0to1 (scaleIndex));
+                }
+            }
+        }
+    }
+
+    // --- Bar signatures ---
+    {
+        ARA::PlugIn::HostContentReader<ARA::kARAContentTypeBarSignatures> barReader (contexts[0]);
+        juce::ScopedLock lock (araBarSigLock);
+        araBarSignatures.clear();
+        for (int i = 0; i < barReader.getEventCount(); ++i)
+        {
+            auto* barSig = barReader.getDataPtrForEvent (i);
+            if (barSig != nullptr)
+            {
+                araBarSignatures.push_back ({
+                    static_cast<double> (barSig->position),
+                    static_cast<int> (barSig->numerator),
+                    static_cast<int> (barSig->denominator)
+                });
+            }
+        }
+        if (! araBarSignatures.empty())
+        {
+            currentTimeSigNumerator.store (araBarSignatures[0].numerator);
+            currentTimeSigDenominator.store (araBarSignatures[0].denominator);
+        }
+    }
+}
+#else
+void OpenVoxTunerAudioProcessor::updateAraMetadata() {}
+#endif // OVT_ARA_ENABLED
 
 void OpenVoxTunerAudioProcessor::applyLatencyMode()
 {
@@ -2328,7 +2676,7 @@ void OpenVoxTunerAudioProcessor::syncParameters()
         return;
 
     // Gamme musicale.
-    const int keyIdx = static_cast<int> (std::round (keyParam->load() * 11.0f));
+    const int keyIdx = keyIntParam != nullptr ? keyIntParam->get() : static_cast<int> (std::round (keyParam->load() * 11.0f));
     // Use AudioParameterChoice::getIndex() for reliable conversion,
     // avoiding fragile round(load() * 13.0f) arithmetic that can fail
     // after setStateInformation restores a non-normalized stored value.
@@ -2394,8 +2742,10 @@ void OpenVoxTunerAudioProcessor::getTimeSignatureAt (double ppq, int& num, int& 
 // === Curve Editor playhead loop mode ===
 bool OpenVoxTunerAudioProcessor::isPlayheadLooping() const
 {
+#if OVT_ARA_ENABLED
     if (isBoundToARA())                                   // ARA: follow the host timeline
         return false;
+#endif
     if (wrapperType == juce::AudioProcessor::wrapperType_Standalone)
         return true;                                      // Standalone: always loop
     return getPlayheadLoop();                             // Plugin: user choice
@@ -2446,10 +2796,11 @@ void OpenVoxTunerAudioProcessor::applyDetectedKey (int musicalKey, int scaleIdx)
     lastAutoKey = musicalKey;
     lastAutoScale = scaleIdx;
 
-    if (auto* keyP = parameters.getParameter ("key"))
-        keyP->setValueNotifyingHost (keyP->convertTo0to1 (static_cast<double> (musicalKey)));
-    if (auto* scaleP = parameters.getParameter ("scale"))
-        scaleP->setValueNotifyingHost (scaleP->convertTo0to1 (static_cast<double> (scaleIdx)));
+    // Defer the actual parameter update to the UI thread via flushPendingParameterChanges().
+    // Calling setValueNotifyingHost() from the audio thread can deadlock certain hosts
+    // (Cubase, Live VST3) when combined with ARA locks or heavy UI activity.
+    pendingDetectedKey.store (musicalKey);
+    pendingDetectedScale.store (scaleIdx);
 }
 
 float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<float>& buffer)
@@ -2628,8 +2979,10 @@ bool OpenVoxTunerAudioProcessor::isMidiEffect() const { return false; }
 double OpenVoxTunerAudioProcessor::getTailLengthSeconds() const
 {
     double tail = 0.0;
+#if OVT_ARA_ENABLED
     if (getTailLengthSecondsForARA (tail))
         return tail;
+#endif
     return 0.0;
 }
 

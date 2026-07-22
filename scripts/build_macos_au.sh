@@ -111,11 +111,11 @@ echo "[OK] AU généré: $PLUGIN_PATH"
 echo "[OK] AU compagnon généré: $COMPANION_PATH"
 
 if [[ "$INSTALL" == true ]]; then
-  DEST_DIR="$HOME/Library/Audio/Plug-Ins/Components"
-  mkdir -p "$DEST_DIR"
-  echo "[3/3] Installation locale..."
-  rsync -a --delete "$PLUGIN_PATH" "$DEST_DIR/"
-  rsync -a --delete "$COMPANION_PATH" "$DEST_DIR/"
+  DEST_DIR="/Library/Audio/Plug-Ins/Components"
+  echo "[3/3] Installation locale (sudo requis)..."
+  sudo mkdir -p "$DEST_DIR"
+  sudo rsync -a --delete "$PLUGIN_PATH" "$DEST_DIR/"
+  sudo rsync -a --delete "$COMPANION_PATH" "$DEST_DIR/"
   echo "[OK] Installé dans: $DEST_DIR/OpenVoxTuner.component"
   echo "[OK] Installé dans: $DEST_DIR/OpenVoxKey.component"
 fi

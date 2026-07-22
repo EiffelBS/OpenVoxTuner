@@ -62,8 +62,12 @@ option(AUTOTUNE_BUILD_TESTS "Compile les tests unitaires" OFF)
 # Charge le support JUCE pour CMake.
 add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 
-# Chemin vers l'ARA SDK (necessaire pour le support ARA)
-juce_set_ara_sdk_path(${CMAKE_CURRENT_SOURCE_DIR}/external/ARA_SDK)
+# ARA2 support (optionnel -- desactiver pour les hotes qui ne le supportent pas,
+# ex. Ableton Live, FL Studio).
+option(OVT_ENABLE_ARA "Build with ARA2 support" ON)
+if(OVT_ENABLE_ARA)
+    juce_set_ara_sdk_path(${CMAKE_CURRENT_SOURCE_DIR}/external/ARA_SDK)
+endif()
 
 # Formats plugin : VST3 + Standalone partout, AU/CLAP en option sur macOS.
 set(OVT_PLUGIN_FORMATS VST3 Standalone)
@@ -96,7 +100,7 @@ juce_add_plugin(OpenVoxTuner
     # routing to other tracks. Without this, MIDI routes show "Missing Device"
     # on project reload. The MIDI input is not processed by the plugin.
     NEEDS_MIDI_INPUT TRUE
-    IS_ARA_EFFECT TRUE             # Active le support ARA2 (Audio Random Access)
+    IS_ARA_EFFECT ${OVT_ENABLE_ARA}  # ARA2 support (optionnel, voir OVT_ENABLE_ARA)
     # VST3 category: effect ("Fx") with the "Pitch" sub-category so DAWs (Cubase,
     # Nuendo, Studio One, ...) file the plugin under "Pitch & Time" alongside other
     # pitch-correction plug-ins (Auto-Tune, Melodyne, Graillon, ...). Without this,
@@ -148,6 +152,7 @@ target_compile_definitions(OpenVoxTuner PRIVATE
     JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1
     JUCE_PLUGIN_WANTS_MIDI_INPUT=1
     OVT_UPDATE_INFO_URL="${OVT_UPDATE_INFO_URL}"
+    OVT_ARA_ENABLED=$<BOOL:${OVT_ENABLE_ARA}>
 )
 
 # Workaround for VST3 JUCE 8 Parameter ID Warning.
@@ -214,12 +219,58 @@ target_link_libraries(OpenVoxTuner PRIVATE
     juce::juce_graphics
     juce::juce_gui_basics
     juce::juce_gui_extra
-    juce_ara_sdk
+    $<$<BOOL:${OVT_ENABLE_ARA}>:juce_ara_sdk>
 )
 
 # URL de mise a jour (JSON public sur GitHub raw).
 if(NOT DEFINED OVT_UPDATE_INFO_URL)
     set(OVT_UPDATE_INFO_URL "https://raw.githubusercontent.com/EiffelBS/OpenVoxTuner/main/docs/releases/latest.json" CACHE STRING "Update info JSON URL")
+endif()
+
+# --- Install targets (system-wide plugin deployment) ---
+# Allows `cmake --install build-mac` to deploy all plugin formats to
+# /Library/Audio/Plug-Ins/.  Use `--component <name>` to install just
+# one format.  Adjust the DESTINATION paths if you prefer the per-user
+# ~/Library/Audio/Plug-Ins/ tree (drop the leading `/Library/`).
+#
+# Typical workflow after a successful build:
+#   sudo cmake --install build-mac
+#   sudo codesign --force --sign - \
+#       /Library/Audio/Plug-Ins/Components/OpenVoxTuner.component \
+#       /Library/Audio/Plug-Ins/VST3/OpenVoxTuner.vst3
+#
+# Available components: AU, VST3, Standalone, CompanionAU, CompanionVST3
+
+# OpenVoxTuner
+if(TARGET OpenVoxTuner_AU)
+    install(TARGETS OpenVoxTuner_AU
+        COMPONENT AU
+        DESTINATION "/Library/Audio/Plug-Ins/Components")
+endif()
+
+if(TARGET OpenVoxTuner_VST3)
+    install(TARGETS OpenVoxTuner_VST3
+        COMPONENT VST3
+        DESTINATION "/Library/Audio/Plug-Ins/VST3")
+endif()
+
+if(TARGET OpenVoxTuner_Standalone)
+    install(TARGETS OpenVoxTuner_Standalone
+        COMPONENT Standalone
+        DESTINATION "/Applications")
+endif()
+
+# OpenVoxKey (companion plugin)
+if(TARGET OpenVoxKey_AU)
+    install(TARGETS OpenVoxKey_AU
+        COMPONENT CompanionAU
+        DESTINATION "/Library/Audio/Plug-Ins/Components")
+endif()
+
+if(TARGET OpenVoxKey_VST3)
+    install(TARGETS OpenVoxKey_VST3
+        COMPONENT CompanionVST3
+        DESTINATION "/Library/Audio/Plug-Ins/VST3")
 endif()
 
 # === Companion key-detection plug-in (OpenVoxKey) ===========================

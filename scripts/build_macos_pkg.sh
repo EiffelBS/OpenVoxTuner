@@ -348,7 +348,36 @@ for entry in "${OVT_COMP_ENTRIES[@]}"; do
   fi
 
   comp_pkg="$COMP_DIR/OpenVoxTuner-$choice_id.pkg"
+
+  PKG_SCRIPTS=""
+  # For the Standalone choice, add a postinstall script that launches the app
+  # after installation (like Windows installers do).
+  if [[ "$choice_id" == "choice_standalone" ]]; then
+    scripts_dir="$COMP_DIR/scripts_standalone"
+    mkdir -p "$scripts_dir"
+    cat > "$scripts_dir/postinstall" << 'POSTINSTALL'
+#!/bin/bash
+# Post-install: launch the OpenVoxTuner standalone app as the current user.
+# The installer runs as root via sudo, so we find the console user and use
+# launchctl asuser to access the GUI session.
+if [ "$1" == "/" ]; then
+  CURRENT_USER=$(stat -f "%Su" /dev/console 2>/dev/null)
+  APP_PATH="/Applications/OpenVoxTuner.app"
+  if [ -n "$CURRENT_USER" ] && [ -d "$APP_PATH" ]; then
+    USER_ID=$(id -u "$CURRENT_USER" 2>/dev/null)
+    if [ -n "$USER_ID" ]; then
+      launchctl asuser "$USER_ID" open "$APP_PATH" &
+    fi
+  fi
+fi
+exit 0
+POSTINSTALL
+    chmod +x "$scripts_dir/postinstall"
+    PKG_SCRIPTS="--scripts $scripts_dir"
+  fi
+
   pkgbuild --root "$root" --identifier "$pkg_id" --version "$VERSION" \
+           $PKG_SCRIPTS \
            --install-location "/" "$comp_pkg"
 
   kb=$(( $(stat -f%z "$comp_pkg") / 1024 ))

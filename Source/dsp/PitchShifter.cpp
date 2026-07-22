@@ -35,7 +35,16 @@ namespace ovtdsp
     // early in prepare() to measure the KBD COLA sum.
     static inline double kbdWindow (double phase, double beta);
 
-    PitchShifter::PitchShifter() = default;
+    PitchShifter::PitchShifter()
+    {
+        // Le ringBuffer a une taille constexpr (65536), donc on l'alloue une
+        // seule fois ici, au lieu de le (re)allouer a chaque prepare(). C'est
+        // crucial : sur Live/Cubase VST3, prepareToPlay() peut etre appele des
+        // dizaines de fois en cascade au demarrage, et chaque ringBuffer de
+        // 512 KB (5 instances) alloue + memset a 0 coutait ~18s cumules.
+        ringBuffer.setSize (2, bufferSize);
+        ringBuffer.clear();
+    }
 
     void PitchShifter::prepare (double sr, int maxBlockSize)
     {
@@ -74,6 +83,11 @@ namespace ovtdsp
         // ou N = 2.5 (arrondi a 3 grains au maximum, legerement
         // conservateur). Pour cette fenetre Kaiser beta=6, on mesure
         // ~1.27 (au lieu de 1.07 pour 2 fenetres a 50%).
+        //
+        // Idempotence : ce calcul ne depend pas de sampleRate (uniquement
+        // de beta et du nombre d'overlaps), donc on ne le fait qu'une fois
+        // par instance (au premier prepare()).
+        if (kbdColaSum < 0.0)  // sentinel: initialise a -1 dans le header
         {
             constexpr int N = 2048;
             constexpr int numOverlap = 3;   // 2.5 grains, arrondi a 3
@@ -97,7 +111,8 @@ namespace ovtdsp
             kbdColaSum = colaPerSample;
         }
 
-        ringBuffer.setSize (2, bufferSize);
+        // ringBuffer deja alloue dans le constructeur (taille constexpr).
+        // On le clear() pour repartir d'un etat propre (zeros).
         ringBuffer.clear();
 
         reset();

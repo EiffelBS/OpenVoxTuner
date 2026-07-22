@@ -8,6 +8,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 #include <array>
+#include <atomic>
+#include <thread>
 #include "dsp/IPitchDetector.h"
 #include "dsp/YinPitchDetector.h"
 #include "dsp/ScaleQuantizer.h"
@@ -35,8 +37,10 @@
  *   - Expose parameters to the host and GUI
  *   - Save/load the plugin state
  */
-class OpenVoxTunerAudioProcessor : public juce::AudioProcessor,
-                                    public juce::AudioProcessorARAExtension     
+class OpenVoxTunerAudioProcessor : public juce::AudioProcessor
+#if OVT_ARA_ENABLED
+                                   , public juce::AudioProcessorARAExtension
+#endif
 {
 public:
     // === Construction / destruction ===
@@ -118,10 +122,19 @@ public:
     void setBpm (float b) { bpm.store (juce::jlimit (20.0f, 400.0f, b)); }
     float getBpm() const { return bpm.load(); }
     bool isTimeProvidedByHost() const { return timeProvidedByHost.load(); }
-    std::atomic<bool>& getPendingCurveRestore() { return pendingCurveRestore; }     
-    
+    std::atomic<bool>& getPendingCurveRestore() { return pendingCurveRestore; }
+
+    // Safe typed accessors for key/scale indices (avoids fragile raw-value arithmetic
+    // that breaks after setStateInformation in AU).
+    int getKeyIndex() const   { return keyIntParam    != nullptr ? keyIntParam->get()       : static_cast<int> (std::round (keyParam->load() * 11.0f)); }
+    int getScaleIndex() const { return scaleChoiceParam != nullptr ? scaleChoiceParam->getIndex() : static_cast<int> (std::round (scaleParam->load() * 13.0f)); }
+
     // Checks if the plugin is bound to the ARA environment (via ARADocumentController)
+#if OVT_ARA_ENABLED
     bool isBoundToARA_custom() const { return isBoundToARA(); }
+#else
+    bool isBoundToARA_custom() const { return false; }
+#endif
     bool isStandaloneWrapper() const { return wrapperType == juce::AudioProcessor::wrapperType_Standalone; }
 
     // Curve Editor playhead loop mode.
@@ -183,6 +196,99 @@ public:
     // VST3 Extension (Micro View, etc.)
     juce::VST3ClientExtensions* getVST3ClientExtensions() override;
 
+    // Enable/disable waveform capture in the audio thread. When the waveform
+    // overlay is hidden in the UI, this avoids unnecessary lock contention.
+    void setWaveformCaptureEnabled (bool enabled) { waveformCaptureEnabled.store (enabled); }
+    bool isWaveformCaptureEnabled() const { return waveformCaptureEnabled.load(); }
+
+    // --- Deferred parameter changes (audio → UI thread) ---
+    // Called from the UI thread (editor timerCallback) to apply key/scale
+    // changes that were detected on the audio thread.  Using
+    // setValueNotifyingHost() from the audio thread can deadlock certain
+    // hosts (Cubase, Live VST3) when combined with ARA locks, so we defer
+    // the actual parameter update to the UI thread.
+    void flushPendingParameterChanges();
+
+    // Read host transport (playhead position, playing state, time signature).
+    // MUST be called from the UI thread only — getPlayHead()->getPosition()
+    // can deadlock Cubase and Live VST3 when called from the audio thread.
+    void updateHostTransport();
+
+    // Reads getPlayHead()->getPosition() and refreshes cachedHostPpq /
+    // hostIsPlaying / time-signature atomics.  Safe to call from any
+    // thread provided the caller has already verified that getPlayHead()
+    // is reachable (auReady, !editorShuttingDown, !isStandalone).  All
+    // exceptions are swallowed — on macOS a torn-down AU can raise an
+    // Objective-C++ exception that we never want to propagate out of
+    // an audio callback.
+    void readAndCachePlayHeadInfo (juce::AudioPlayHead& playHead) noexcept;
+
+    // Editor lifecycle helpers.  The editor sets the shutting-down flag
+    // at the very start of its destructor (BEFORE stopTimer()) so that
+    // any MessageQueue timer callback still in flight bails out of
+    // updateHostTransport() before touching getPlayHead().  Without this
+    // guard, Live 12 (AU) crashes inside JuceAU::ScopedPlayHead::
+    // getPosition() with a null dereference when the plugin window
+    // closes or the device is reconfigured.
+    void notifyEditorShuttingDown() noexcept
+    {
+        editorShuttingDown.store (true, std::memory_order_release);
+    }
+
+    bool isEditorShuttingDown() const noexcept
+    {
+        return editorShuttingDown.load (std::memory_order_acquire);
+    }
+
+    // Called by the editor's constructor to clear the shutting-down
+    // flag set by the previous editor instance's destructor.  Required
+    // because the processor outlives the editor and the flag would
+    // otherwise stay stuck at `true` forever after the first close.
+    void notifyEditorResumed() noexcept
+    {
+        editorShuttingDown.store (false, std::memory_order_release);
+    }
+
+    // AU-host lifecycle helpers.  getPlayHead()->getPosition() from the
+    // UI thread is unsafe on AU: JuceAU::ScopedPlayHead dereferences an
+    // internal pointer (to the JuceAU instance) that can be invalidated
+    // at any time by the host (device change, sample-rate change,
+    // project reload, …).  The resulting SIGSEGV is a Mach exception
+    // and CANNOT be caught by try/catch.  We therefore gate every call
+    // to getPlayHead() on `auReady`, which is true only between a
+    // prepareToPlay() and the next releaseResources() (and false again
+    // on destruction).  For AU we additionally skip the call entirely
+    // — see updateHostTransport().
+    void notifyAuReady() noexcept
+    {
+        auReady.store (true, std::memory_order_release);
+    }
+
+    void notifyAuReleased() noexcept
+    {
+        auReady.store (false, std::memory_order_release);
+    }
+
+    bool isAuReady() const noexcept
+    {
+        return auReady.load (std::memory_order_acquire);
+    }
+
+    // Dedicated worker thread that calls getPlayHead()->getPosition() off
+    // the UI/audio threads.  Some hosts (Cubase LE 15, Live 12 VST3) busy-
+    // loop or deadlock inside this call, which would otherwise saturate
+    // the message thread and freeze the host.  The thread is started in
+    // prepareToPlay() and joined in releaseResources()/the destructor.
+    // Its sole job is to feed the cachedHostPpq / hostIsPlaying / time-
+    // signature atomics via readAndCachePlayHeadInfo().
+    void startPlayheadThread();
+    void stopPlayheadThread() noexcept;
+
+    // Read ARA metadata (key signatures, bar signatures) from the host.
+    // MUST be called from the UI thread only (HostContentReader acquires a
+    // lock that can deadlock the audio thread in some hosts).
+    void updateAraMetadata();
+
     // Expose envelope control for UI debug
     void setHarmonyEnvelopeTimes (float attackMs, float releaseMs);
     // Force-clear harmony internal cached data (for debug)
@@ -231,6 +337,15 @@ public:
         transportTime.store(0.0);
     }
 
+    // Returns the host PPQ position extrapolated from the last worker
+    // update to "now".  The worker refreshes cachedHostPpq at 30 Hz, but
+    // the editor needs a smooth 60 fps playhead, so we add
+    // (now - lastUpdate) * (bpm / 60) to the last known PPQ.  When the
+    // host reports !isPlaying we return the last known PPQ unchanged
+    // so the playhead freezes.  All operations are atomic and lock-free
+    // so this is safe to call from the UI thread (timerCallback).
+    double getInterpolatedTransportTime() const;
+
     // Seeks the transport to an absolute time (ruler-click / programmatic seek).
     // Updates both the standalone clock and the DAW host-time offset so the displayed
     // playhead jumps to `t` in every context.
@@ -268,7 +383,8 @@ private:
     std::atomic<float>* formantModeParam = nullptr; // Formant mode: 0=Legacy, 1=MultiFormant
     std::atomic<float>* keyParam     = nullptr; // Tonic index (0-11)
     std::atomic<float>* scaleParam   = nullptr; // Mode index (0-5, 5=custom)
-    juce::AudioParameterChoice* scaleChoiceParam = nullptr; // Direct accessor for getIndex()   
+    juce::AudioParameterChoice* scaleChoiceParam = nullptr; // Direct accessor for getIndex()
+    juce::AudioParameterInt* keyIntParam = nullptr; // Direct accessor for get()   
     std::atomic<float>* bypassParam  = nullptr; // Bypass on/off
     std::atomic<float>* modeParam    = nullptr; // Auto/graphic mode
     std::atomic<float>* engineParam  = nullptr; // Audio engine (0=RubberBand, 1=SoundTouch, 2=PSOLA)
@@ -398,14 +514,22 @@ private:
     static constexpr int octaveJumpPersistenceThreshold = 3;
     int octaveJumpRejectionCount = 0;
 
-    // Cached transport time (beats) refreshed at most every 10 ms in
-    // the audio thread to avoid blocking calls to getPlayHead() and
-    // getLoopPoints() which can stall Reaper / FL Studio.
-    std::atomic<double> cachedTransportTime { 0.0 };
-    std::atomic<uint32_t> lastTransportTimeUpdateMs { 0 };
+    // Cached host transport info refreshed from the UI thread
+    // (updateHostTransport) to avoid calling getPlayHead() from the audio
+    // thread, which can deadlock Cubase and Live VST3.
+    std::atomic<double> cachedHostPpq { 0.0 };       // last known host PPQ
+    std::atomic<bool>   hostProvidesTimeCached { false }; // host gives transport?
     // True host playback state (1 = playing, 0 = stopped).
     // Propagated to the UI to avoid delta-based heuristics.
     std::atomic<int> hostIsPlaying { 0 };
+    // Interpolation support: the editor runs at 30 Hz but renders at 60 fps,
+    // so the playhead position must be extrapolated between worker updates
+    // to look smooth.  These two atomics capture the PPQ reported by the
+    // worker along with the wall-clock time (ms since epoch) at which it
+    // was captured.  The editor reads them in its timerCallback and
+    // extrapolates using the current bpm.
+    std::atomic<double> cachedHostPpqAtUpdateMs { 0.0 }; // juce::Time::getMillisecondCounterHiRes() when cachedHostPpq was last refreshed
+    std::atomic<double> cachedHostPpqAtUpdate { 0.0 };    // value of cachedHostPpq at that moment (pre-offset)
     // Standalone-only transport state (see setTransportPlaying / setBpm in the public API).
     std::atomic<bool> transportPlaying { true };
     std::atomic<float> bpm { 120.0f };
@@ -413,6 +537,25 @@ private:
     // editor needs to pick up. The processor always outlives the editor,
     // so this works regardless of createEditor() ordering.
     std::atomic<bool> pendingCurveRestore { false };
+
+    // Set to true by the editor's destructor BEFORE stopTimer() to prevent
+    // a queued MessageQueue timer callback from invoking getPlayHead()
+    // after the AU's internal state has been torn down.  Without this
+    // guard, Live 12 (AU) can crash inside JuceAU::ScopedPlayHead::
+    // getPosition() with a null pointer dereference when the plugin
+    // window is closing or the device is being reconfigured.
+    std::atomic<bool> editorShuttingDown { false };
+
+    // Tracks whether the audio side is currently in a stable state
+    // (between prepareToPlay() and releaseResources()).  updateHostTransport()
+    // refuses to call getPlayHead() while this is false, which is the only
+    // way to avoid the Live-12-AU SIGSEGV during device/SR reconfigurations
+    // since the resulting fault is not a catchable C++ exception.
+    std::atomic<bool> auReady { false };
+
+    // Dedicated playhead-reader worker.  see startPlayheadThread().
+    std::thread playheadThread;
+    std::atomic<bool> playheadThreadShouldExit { false };
 
     // Waveform display type preference (persisted across sessions).
     int waveformDisplayType = 1; // 0=Line, 1=Mirror (default)
@@ -429,6 +572,14 @@ private:
     double araWaveformSampleRate = 44100.0;
     bool araWaveformReady = false;
     juce::CriticalSection araWaveformLock;
+    std::atomic<bool> waveformCaptureEnabled { true };
+
+    // Deferred key/scale changes detected on the audio thread.
+    // flushPendingParameterChanges() (UI thread) reads these and calls
+    // setValueNotifyingHost() safely.
+    static constexpr int kPendingNone = -999;
+    std::atomic<int> pendingDetectedKey { kPendingNone };
+    std::atomic<int> pendingDetectedScale { kPendingNone };
 
     // Time signature state (for Curve Editor ruler).
     std::atomic<int> currentTimeSigNumerator { 4 };
@@ -504,6 +655,7 @@ private:
     // Debug: test grain parameter
     std::atomic<float>* dbgTestGrainParam = nullptr;
     std::atomic<int> prevDbgTestGrain { 0 };
+    std::atomic<bool> pendingDbgGrainReset { false }; // deferred reset for UI thread
     // Debug: throttle frequent logs (ms)
     std::atomic<uint32_t> lastProcessLogTime { 0 };
     std::atomic<uint32_t> lastHarmonyLogTime { 0 };

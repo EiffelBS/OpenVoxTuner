@@ -100,9 +100,9 @@ fi
 echo "[OK] VST3 généré: $PLUGIN_PATH"
 
 if [[ "$INSTALL" == true ]]; then
-  DEST_DIR="$HOME/Library/Audio/Plug-Ins/VST3"
-  mkdir -p "$DEST_DIR"
-  echo "[3/3] Installation locale..."
-  rsync -a --delete "$PLUGIN_PATH" "$DEST_DIR/"
+  DEST_DIR="/Library/Audio/Plug-Ins/VST3"
+  echo "[3/3] Installation locale (sudo requis)..."
+  sudo mkdir -p "$DEST_DIR"
+  sudo rsync -a --delete "$PLUGIN_PATH" "$DEST_DIR/"
   echo "[OK] Installé dans: $DEST_DIR/OpenVoxTuner.vst3"
 fi

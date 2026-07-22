@@ -68,7 +68,8 @@ namespace ovtdsp
         // calcule pour que la somme des fenetres vaille 2.0 (cas Hann) ;
         // comme le KBD a une somme COLA differente, on la mesure une fois
         // dans prepare() et on en tient compte pour eviter sur-gain/clip.
-        double kbdColaSum = 2.0;
+        // Sentinel: -1.0 = pas encore calcule (calcule au premier prepare()).
+        double kbdColaSum = -1.0;
         
         static constexpr int bufferSize = 65536; 
         static constexpr int bufferMask = bufferSize - 1;
