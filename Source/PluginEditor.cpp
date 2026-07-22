@@ -600,8 +600,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         }
     }
 
-    tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 100);
+    tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 700);
     tooltipWindow->setLookAndFeel (&customLookAndFeel);
+    // Sync the TooltipWindow with the user-configured delay (Normal=700ms
+    // by default; the user can pick Slow=1500ms or Fast=200ms via the
+    // wrench / Interface / Tooltip Delay submenu).
+    setTooltipDelayChoice (tooltipDelayChoice);
 
     updateButton.setButtonText (ovt::tr(ovt::Keys::kLabelUpdates));
     updateButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCheckUpdates));
@@ -994,6 +998,27 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformMirror), true, currentType == 1, [this] { setWaveformDisplayType (1);    });
                 waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformSpectral), true, currentType == 2, [this] { setWaveformDisplayType (2);    });
                 interfaceMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuWaveformDisplay), waveformMenu, true);
+            }
+
+            interfaceMenu.addSeparator();
+
+            // Tooltip delay submenu. Slow=1500ms (more contemplative,
+            // useful when demoing the plugin), Normal=700ms (JUCE default),
+            // Fast=200ms (snappy, for power users). The choice is applied
+            // live to the global TooltipWindow so the user sees the effect
+            // on the very next hover, no editor restart required.
+            {
+                juce::PopupMenu tooltipMenu;
+                auto addDelayItem = [&](int idx, const char* key)
+                {
+                    tooltipMenu.addItem (ovt::tr (key), true,
+                                         (tooltipDelayChoice == idx),
+                                         [this, idx] { setTooltipDelayChoice (idx); });
+                };
+                addDelayItem (0, ovt::Keys::kLabelTooltipDelaySlow);
+                addDelayItem (1, ovt::Keys::kLabelTooltipDelayNormal);
+                addDelayItem (2, ovt::Keys::kLabelTooltipDelayFast);
+                interfaceMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuTooltipDelay), tooltipMenu);
             }
 
             interfaceMenu.addSeparator();
@@ -3821,6 +3846,25 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     resetViewButton.setTooltip (ovt::tr (ovt::Keys::kTooltipResetView));
     rewindButton.setTooltip (ovt::tr (ovt::Keys::kTooltipRewind));
 
+    // Refresh tooltips for components that were created in the constructor
+    // and were NOT being updated on language change. Without these calls
+    // the user would see the tooltip in the language that was active at
+    // first launch, even after switching to a different one via
+    // wrench/Interface/Language. Affects: Upward Compress (enable + amount
+    // knob), Modern/Transparent pill switch, and the plugin preset
+    // prev/next/save + gallery buttons.
+    upwardCompEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipUpwardCompEn));
+    upwardCompAmountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipUpwardCompAmount));
+    correctionModeButton.setTooltip (ovt::tr (ovt::Keys::kTooltipCorrection));
+    if (modeSwitch != nullptr)
+        modeSwitch->setTooltip (ovt::tr (ovt::Keys::kTooltipCorrection));
+    presetPrevButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPluginPresetPrev));
+    presetNextButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPluginPresetNext));
+    presetSaveButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPluginPresetSave));
+    presetGalleryButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPresetGallery));
+    undoButton.setTooltip (ovt::tr (ovt::Keys::kTooltipUndo));
+    redoButton.setTooltip (ovt::tr (ovt::Keys::kTooltipRedo));
+
     // "Measures" control label follows the active language.
     measuresLabel.setText (ovt::tr (ovt::Keys::kLabelMeasures), juce::dontSendNotification);
 
@@ -4656,27 +4700,30 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
         processorRef.setPlayheadLoop (! processorRef.getPlayheadLoop());
     });
 
-    // Show Input Trace (ticked): toggles the live input pitch trace (red line).
-    const bool showInputTrace = curveEditor->getShowInputTrace();
-    menu.addItem (ovt::tr (ovt::Keys::kMenuShowInputTrace), true, showInputTrace, [this] {
-        if (curveEditor == nullptr)
-            return;
-        const bool next = ! curveEditor->getShowInputTrace();
-        curveEditor->setShowInputTrace (next);
-    });
-
     menu.addSeparator();
 
-    // Show Harmonies Trace (ticked): toggles the blue harmony voice lines.
-    // Must update BOTH the PitchVisualizer (Live tab) and the Curve Editor so
-    // the option is honoured whichever tab the user is currently viewing.
-    menu.addItem (ovt::tr (ovt::Keys::kMenuShowHarmoniesTrace), true, showHarmoniesTrace, [this] {
-        showHarmoniesTrace = ! showHarmoniesTrace;
-        if (pitchVisualizer != nullptr)
-            pitchVisualizer->setShowHarmonies (showHarmoniesTrace);
-        if (curveEditor != nullptr)
-            curveEditor->setShowHarmoniesTrace (showHarmoniesTrace);
-    });
+    // === Display options (Curve Editor only) ===
+    // Both "Show Input Trace" (red line) and "Show Harmonies Trace" (blue
+    // lines) are kept together here because they belong to the same logical
+    // group: visual overlays of the curve editor. The PitchVisualizer is
+    // unaffected and manages its own overlays via the harmony engine.
+    {
+        const bool showInputTrace = curveEditor->getShowInputTrace();
+        menu.addItem (ovt::tr (ovt::Keys::kMenuShowInputTrace), true, showInputTrace, [this] {
+            if (curveEditor == nullptr)
+                return;
+            const bool next = ! curveEditor->getShowInputTrace();
+            curveEditor->setShowInputTrace (next);
+        });
+
+        // Show Harmonies Trace: toggles the blue harmony voice lines
+        // in the Curve Editor only.
+        menu.addItem (ovt::tr (ovt::Keys::kMenuShowHarmoniesTrace), true, showHarmoniesTrace, [this] {
+            showHarmoniesTrace = ! showHarmoniesTrace;
+            if (curveEditor != nullptr)
+                curveEditor->setShowHarmoniesTrace (showHarmoniesTrace);
+        });
+    }
 
     menu.addSeparator();
 

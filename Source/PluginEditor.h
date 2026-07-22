@@ -130,7 +130,19 @@ private:
     bool helpOverlayVisible = false;
     bool showWaveform = true; // Waveform overlay toggle (active by default)
     bool showHarmoniesTrace = true; // Harmony blue lines toggle (active by default)
+    // 0=Slow (1500ms), 1=Normal (700ms, JUCE default), 2=Fast (200ms)
+    int tooltipDelayChoice = 1;
     void toggleHelpOverlay();
+
+    /// Apply the user's choice (0=Slow/1500ms, 1=Normal/700ms, 2=Fast/200ms)
+    /// to the global TooltipWindow so the change is immediate on the next hover.
+    void setTooltipDelayChoice (int idx)
+    {
+        constexpr int delaysMs[3] = { 1500, 700, 200 };
+        tooltipDelayChoice = juce::jlimit (0, 2, idx);
+        if (tooltipWindow != nullptr)
+            tooltipWindow->setMillisecondsBeforeTipAppears (delaysMs[tooltipDelayChoice]);
+    }
 
     class HelpOverlayComponent : public juce::Component
     {

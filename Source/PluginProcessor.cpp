@@ -2407,37 +2407,64 @@ void OpenVoxTunerAudioProcessor::readAndCachePlayHeadInfo (juce::AudioPlayHead& 
 
 double OpenVoxTunerAudioProcessor::getInterpolatedTransportTime() const
 {
+    double t;
+
     // If the host never told us a position, fall back to the
     // transportTime field (which the audio callback keeps up to date in
     // standalone mode).  This branch is also what the editor hits
     // between worker startup and the first readAndCachePlayHeadInfo().
     if (! hostProvidesTimeCached.load (std::memory_order_relaxed))
-        return transportTime.load (std::memory_order_relaxed);
+    {
+        t = transportTime.load (std::memory_order_relaxed);
+    }
+    else
+    {
+        const double lastPpq       = cachedHostPpqAtUpdate.load    (std::memory_order_relaxed);
+        const double lastUpdateMs  = cachedHostPpqAtUpdateMs.load   (std::memory_order_relaxed);
+        const double nowMs         = juce::Time::getMillisecondCounterHiRes();
 
-    const double lastPpq       = cachedHostPpqAtUpdate.load    (std::memory_order_relaxed);
-    const double lastUpdateMs  = cachedHostPpqAtUpdateMs.load   (std::memory_order_relaxed);
-    const double nowMs         = juce::Time::getMillisecondCounterHiRes();
+        // Paused/Stopped: do NOT extrapolate, just return the frozen PPQ.
+        // The pair (lastPpq, lastUpdateMs) is still updated every worker
+        // tick, so once the user resumes playback the extrapolation
+        // continues seamlessly from the right baseline.
+        if (hostIsPlaying.load (std::memory_order_relaxed) == 0)
+        {
+            t = lastPpq;
+        }
+        else
+        {
+            // Playing: extrapolate beats elapsed since the last worker update.
+            // (now - lastUpdate) is in ms; divide by 1000 to get seconds, then
+            // multiply by beatsPerSecond (= bpm/60) to get beats.
+            const double deltaSeconds = (nowMs - lastUpdateMs) * 0.001;
+            const double beatsPerSecond = static_cast<double> (bpm.load()) * (1.0 / 60.0);
 
-    // Paused/Stopped: do NOT extrapolate, just return the frozen PPQ.
-    // The pair (lastPpq, lastUpdateMs) is still updated every worker
-    // tick, so once the user resumes playback the extrapolation
-    // continues seamlessly from the right baseline.
-    if (hostIsPlaying.load (std::memory_order_relaxed) == 0)
-        return lastPpq;
+            // Guard against a negative delta (clock skew, very first call, or
+            // the worker writing the pair while we're reading it).  In all
+            // these cases returning the last known PPQ is the safe choice.
+            if (deltaSeconds < 0.0)
+                t = lastPpq;
+            else
+                t = lastPpq + deltaSeconds * beatsPerSecond;
+        }
+    }
 
-    // Playing: extrapolate beats elapsed since the last worker update.
-    // (now - lastUpdate) is in ms; divide by 1000 to get seconds, then
-    // multiply by beatsPerSecond (= bpm/60) to get beats.
-    const double deltaSeconds = (nowMs - lastUpdateMs) * 0.001;
-    const double beatsPerSecond = static_cast<double> (bpm.load()) * (1.0 / 60.0);
-
-    // Guard against a negative delta (clock skew, very first call, or
-    // the worker writing the pair while we're reading it).  In all
-    // these cases returning the last known PPQ is the safe choice.
-    if (deltaSeconds < 0.0)
-        return lastPpq;
-
-    return lastPpq + deltaSeconds * beatsPerSecond;
+    // Wrap to [0, L] when the playhead is set to loop. In Standalone this
+    // is always the case (the menu option is forced ON), and in plugin
+    // mode the user can enable it via "Loop Playhead (Measures)". Without
+    // this wrap the standalone playhead would keep advancing forever
+    // instead of looping on the Measures window the user picked in the
+    // combo box, and the curve editor's auto-scroll would slide off the
+    // right side of the timeline within seconds.
+    if (isPlayheadLooping())
+    {
+        const double L = getLoopLengthBeats();
+        if (L > 0.0)
+            t = std::fmod (t, L);
+        if (t < 0.0) // std::fmod can return negative on some platforms
+            t += L;
+    }
+    return t;
 }
 
 // --- Dedicated playhead reader thread ---
