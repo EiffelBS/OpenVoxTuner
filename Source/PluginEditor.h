@@ -433,6 +433,7 @@ private:
     bool morphActive = false;
     float lastMorphValue = 0.0f;
     double lastTransportTime = 0.0; // for DAW transport jump detection
+    double lastHarmonyTransportTime = 0.0; // for DAW transport jump detection (harmony traces)
     juce::String morphSourceName = "Source";
     juce::String morphTargetName = "Target";
     std::unique_ptr<ovtdsp::MorphState> morphUndoState; // pre-morph snapshot for undo

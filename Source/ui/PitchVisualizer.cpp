@@ -575,7 +575,10 @@ namespace ui
             const juce::String hzText = juce::String (static_cast<int> (std::round (hoverHz))) + " Hz";
             const juce::String readout = noteName + "  " + hzText;
             g.setFont (ovt::fontReadout());
-            const int textW = static_cast<int> (juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), readout));
+            // Round UP + 2px safety margin: getStringWidth truncating cast
+            // used to leave the "Hz" suffix clipped with "..." ellipsis.
+            const int textW = static_cast<int> (std::ceil (
+                juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), readout))) + 2;
             const int boxW = textW + 14;
             const int boxH = 16;
             int boxX = plotArea.getX() + 4;

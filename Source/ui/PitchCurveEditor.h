@@ -156,6 +156,13 @@ namespace ui
         /// editor can draw harmony traces aligned with the curve timeline.
         void addHarmonySamples (double time, const juce::Array<float>& freqs);
 
+        /// Active/desactive l'affichage des traces d'harmonie (lignes bleues).
+        /// Par defaut active : la trace des voix d'harmonie s'affiche des que
+        /// des samples sont recus via addHarmonySamples().
+        void setShowHarmoniesTrace (bool show) { showHarmoniesTrace = show; repaint(); }
+        /// Retourne l'etat d'affichage des traces d'harmonie.
+        bool getShowHarmoniesTrace() const { return showHarmoniesTrace; }
+
         /// Push an input pitch sample with its timestamp for trace display.
         void addInputTraceSample (double time, float hz);
         /// Clear the input pitch trace.
@@ -329,6 +336,8 @@ namespace ui
         static constexpr int maxHarmonyVoices = 8;
         juce::Array<juce::Array<double>> harmonyTimes;
         juce::Array<juce::Array<float>>  harmonyPitches;
+        // Toggle for harmony blue lines (set by the Curve Editor hamburger menu).
+        bool showHarmoniesTrace = true;
 
         // Input pitch trace (red line, same as PitchVisualizer)
         juce::Array<double> inputTraceTimes;

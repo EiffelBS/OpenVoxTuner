@@ -25,6 +25,7 @@ namespace ui
         
         juce::Font getComboBoxFont (juce::ComboBox& box) override;
         juce::Font getLabelFont (juce::Label& label) override;
+        juce::Font getPopupMenuFont() override;
         
         void drawToggleButton (juce::Graphics& g, juce::ToggleButton& button, 
                                bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;

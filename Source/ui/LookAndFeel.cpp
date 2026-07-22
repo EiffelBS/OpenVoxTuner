@@ -148,6 +148,16 @@ namespace ui
         return ovt::fontComboBox();
     }
 
+    juce::Font OVTLookAndFeel::getPopupMenuFont()
+    {
+        // JUCE's default popup menu font is a hard-coded 17pt and bypasses
+        // the LookAndFeel font system. On macOS, this renders visibly larger
+        // than the rest of the UI. Route through our scaled font helpers so
+        // wrench menus, options menus and combo dropdowns match the other
+        // text elements in the plugin.
+        return ovt::fontPopupMenu();
+    }
+
     void OVTLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& button,
                                                 bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown)
     {

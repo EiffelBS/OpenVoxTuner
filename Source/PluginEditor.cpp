@@ -170,6 +170,28 @@ public:
 
     ~TabSwitch() override { stopTimer(); }
 
+    /// Minimum width required to render the two labels (Live + translated
+    /// "Curve Editor") at the standard font size (40% of @p height) without
+    /// truncating any translation, including the long ones (FR: "Editeur de
+    /// courbe", DE: "Kurveneditor", ES: "Editor de curva", JP/CN full-width).
+    /// The layout must call this and allocate at least that many pixels
+    /// horizontally — the Live/Curve tabs are critical navigation, so
+    /// widening the pill is always preferable to shrinking the label font.
+    static int getPreferredWidth (float height)
+    {
+        const float fontH = juce::jmax (9.0f, height * 0.40f);
+        // Bypass the platform font scale: the Live/Curve pill is critical
+        // navigation and must visually match the Modern/Transparent pill,
+        // which paints at the raw 40%-of-height point size on every OS.
+        juce::Font f = ovt::createFontRaw (fontH, true);
+        const float liveW  = juce::GlyphArrangement::getStringWidth (f, ovt::tr (ovt::Keys::kTabLive));
+        const float curveW = juce::GlyphArrangement::getStringWidth (f, ovt::tr (ovt::Keys::kTabCurveEditor));
+        // Two labels side by side, each with horizontal padding (6px each side)
+        // plus a small outer breathing room.
+        const float labelW = juce::jmax (liveW, curveW) + 12.0f;
+        return juce::roundToInt (labelW * 2.0f + 8.0f);
+    }
+
     void paint (juce::Graphics& g) override
     {
         auto area = getLocalBounds().toFloat().reduced (1.0f);
@@ -191,13 +213,25 @@ public:
         g.setColour (ovt::accent());
         g.fillRoundedRectangle (pillRect, pillRect.getHeight() * 0.5f);
 
+        // Use the standard 40%-of-height font size, in the plugin typeface
+        // family. Bypass the platform font scale (createFontRaw) so the
+        // label visually matches the Modern/Transparent pill below the
+        // Speed/Amount knobs (which also paints at the raw 40% size). The
+        // pill is allocated enough width (see getPreferredWidth() and the
+        // layout at the call site) so that even the longest translation
+        // of "Curve Editor" fits without truncation — Live/Curve Editor
+        // are critical navigation, so widening the pill beats shrinking
+        // the label.
         const float fontH = juce::jmax (9.0f, area.getHeight() * 0.40f);
-        g.setFont (juce::Font (fontH, juce::Font::bold));
+        g.setFont (ovt::createFontRaw (fontH, true));
+
+        const juce::String liveText  = ovt::tr (ovt::Keys::kTabLive);
+        const juce::String curveText = ovt::tr (ovt::Keys::kTabCurveEditor);
         const bool isRight = targetPillPos > 0.5f;
         g.setColour (isRight ? ovt::text().withAlpha (0.55f) : juce::Colours::white);
-        g.drawText (ovt::tr (ovt::Keys::kTabLive), leftRect, juce::Justification::centred);
+        g.drawText (liveText, leftRect, juce::Justification::centred);
         g.setColour (isRight ? juce::Colours::white : ovt::text().withAlpha (0.55f));
-        g.drawText (ovt::tr (ovt::Keys::kTabCurveEditor), rightRect, juce::Justification::centred);
+        g.drawText (curveText, rightRect, juce::Justification::centred);
     }
 
     void mouseUp (const juce::MouseEvent&) override
@@ -2407,8 +2441,13 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // Modern/Transparent switch below the Speed/Amount knobs.
     if (tabSwitch != nullptr)
     {
-        const int switchW = 180;
         const int switchH = 30;
+        // Width is computed from the translated labels so the longest
+        // translation of "Curve Editor" (FR "Editeur de courbe",
+        // DE "Kurveneditor", ES "Editor de curva", JP/CN full-width)
+        // never gets truncated — the Live/Curve tabs are critical
+        // navigation, so we widen the pill rather than shrink the font.
+        const int switchW = TabSwitch::getPreferredWidth (static_cast<float> (switchH));
         auto switchRect = toolsArea.removeFromLeft (switchW);
         switchRect = switchRect.withSizeKeepingCentre (switchW, switchH);
         tabSwitch->setBounds (switchRect);
@@ -2955,9 +2994,9 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // Visibility of Curve Editor Mode specific buttons
     bool isCurveEditorMode = (tabIndex == 1);
     
-    // When switching to Curve Editor tab, clear previous harmony traces
-    if (isCurveEditorMode && curveEditor != nullptr)
-        curveEditor->clearHarmonyTraces();
+    // (clearHarmonyTraces is now done in the tab-change detection block
+    // below — doing it on every tick would wipe the buffer the draw
+    // routine needs to render the harmony blue lines.)
     
     optionsButton.setVisible (isCurveEditorMode);
     snapButton.setVisible (isCurveEditorMode);
@@ -3030,6 +3069,11 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // If user clicked a tab
     if (tabIndex != static_cast<int>(modeParam->getValue())) {
         modeParam->setValueNotifyingHost(tabIndex == 1 ? 1.0f : 0.0f);
+        // Just-entered the Curve Editor: start with a fresh harmony buffer
+        // so the first few blue lines appear from a clean state instead of
+        // mixing with stale samples from a previous tab visit.
+        if (tabIndex == 1 && curveEditor != nullptr)
+            curveEditor->clearHarmonyTraces();
     }
     
     // Update edit state and playhead
@@ -3113,8 +3157,29 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         // Use a slightly higher threshold to avoid traces from near-silent residuals
         if (harmonyOn && harmonyLevel > 0.01f)
         {
+            // Detect DAW transport jump (loop wrap, seek) for the harmony
+            // traces too. The red input trace is already cleared in
+            // refreshVisualizer() the same way — without this, the blue
+            // lines from the previous loop iteration remain visible after
+            // the playhead wraps back to 0, because they still fall inside
+            // the curve editor's timeVisible window.
+            const double nowLoop = processorRef.getLoopTransportTime();
+            const double loopDelta = std::abs (nowLoop - lastHarmonyTransportTime);
+            if (loopDelta > 0.5 && lastHarmonyTransportTime > 0.0 && curveEditor != nullptr)
+                curveEditor->clearHarmonyTraces();
+            lastHarmonyTransportTime = nowLoop;
+
             freqsToSend = processorRef.getHarmonyFrequencies();
             pitchVisualizer->setHarmonyFrequencies(freqsToSend);
+
+            // Also feed the Curve Editor so its "Show Harmonies Trace" menu
+            // option has something to display (it was being updated on the
+            // PitchVisualizer only, leaving the curve editor's buffer empty).
+            if (curveEditor != nullptr && curveEditor->getShowHarmoniesTrace())
+            {
+                const double hostTime = processorRef.getInterpolatedTransportTime();
+                curveEditor->addHarmonySamples (hostTime, freqsToSend);
+            }
         }
         else
         {
@@ -4603,10 +4668,14 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
     menu.addSeparator();
 
     // Show Harmonies Trace (ticked): toggles the blue harmony voice lines.
+    // Must update BOTH the PitchVisualizer (Live tab) and the Curve Editor so
+    // the option is honoured whichever tab the user is currently viewing.
     menu.addItem (ovt::tr (ovt::Keys::kMenuShowHarmoniesTrace), true, showHarmoniesTrace, [this] {
         showHarmoniesTrace = ! showHarmoniesTrace;
         if (pitchVisualizer != nullptr)
             pitchVisualizer->setShowHarmonies (showHarmoniesTrace);
+        if (curveEditor != nullptr)
+            curveEditor->setShowHarmoniesTrace (showHarmoniesTrace);
     });
 
     menu.addSeparator();

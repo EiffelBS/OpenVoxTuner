@@ -331,7 +331,10 @@ namespace ui
             g.strokePath (p, juce::PathStrokeType (2.0f, juce::PathStrokeType::mitered, juce::PathStrokeType::rounded));
         }
 
-        // Draw harmony traces (dashed blue lines) aligned with timeline
+        // Draw harmony traces (dashed blue lines) aligned with timeline.
+        // Gated by showHarmoniesTrace so the Curve Editor hamburger menu
+        // "Show Harmonies Trace" actually toggles these lines.
+        if (showHarmoniesTrace)
         {
             juce::Colour harmonyCol = juce::Colour (0xff1A9AF0).withAlpha (0.8f);
             const float strokeW = 1.0f;
@@ -497,7 +500,13 @@ namespace ui
                 const juce::String hzText = juce::String (static_cast<int> (std::round (hz))) + " Hz";
                 const juce::String readout = noteName + "  " + hzText;
                 g.setFont (ovt::fontReadout());
-                const int textW = static_cast<int> (juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), readout));
+                // Round UP instead of truncating: a float-to-int cast can shave
+                // a pixel off the measured width, which used to make drawText
+                // fall back to "..." ellipsis on the Hz suffix. Add 2px of
+                // safety margin to absorb any kerning / sub-pixel mismatch
+                // between getStringWidth and the actual glyph layout.
+                const int textW = static_cast<int> (std::ceil (
+                    juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), readout))) + 2;
                 const int boxW = textW + 14;
                 const int boxH = 16;
                 int boxX = b.getWidth() - boxW - 8;
