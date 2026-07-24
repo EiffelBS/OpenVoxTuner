@@ -97,11 +97,23 @@ namespace ovtdsp
         };
         juce::Array<ChannelState> channels;
 
-        // Coefficient de lissage des biquads (un pas par bloc).
-        // ~0.002 donne une constante de temps d'environ 8 ms a 44.1 kHz,
-        // suffisante pour adoucir le saut de coefficient au demarrage d'une
-        // note sans colorer le timbre de facon audible.
-        float biquadSmoothAlpha = 0.002f;
+        // Coefficient de lissage des biquads (un pas par bloc, applique a
+        // chaque echantillon du bloc pour rester buffer-size independent).
+        //
+        // 2026-07-23 (Fix AZ): increased from 0.002 (~2.9s TC at 256/44100,
+        // which produced a 5Hz warble of formant frequencies when the input
+        // pitch had any vibrato modulation) to 0.05 (~115ms TC). At 115ms
+        // the smoother is fast enough to track the typical 5Hz vibrato
+        // (|H(5Hz)| ~ 0.42, so the biquad response moves with ~half the
+        // vibrato amplitude, which is the right perceptual balance:
+        // "formants follow pitch" without being completely static), but
+        // still smooths out per-block YIN jitter and OLA retarget steps.
+        // Without this fix, the FormantPreserver acted as a 5Hz bandpass
+        // on its own compensation ratio (1/sqrt(targetRatio)) and produced
+        // an audible "warble" that the user reports as a "scratch" with
+        // Flex>0 + Speed=0. The previous 2.9s TC was an unintended
+        // side-effect of an old buffer-size-dependent formula.
+        float biquadSmoothAlpha = 0.05f;
 
         // Configuration des formants par defaut (F1-F4 typiques voix masculine)
         struct FormantConfig

@@ -32,14 +32,14 @@ public:
                     "disabled sidechain must be valid");
         }
 
-        beginTest ("Stereo sidechain is rejected");
+        beginTest ("Stereo sidechain is accepted for Logic AU compatibility");
         {
             juce::AudioProcessor::BusesLayout layout;
             layout.inputBuses.add (juce::AudioChannelSet::stereo());
             layout.inputBuses.add (juce::AudioChannelSet::stereo()); // sidechain stereo
             layout.outputBuses.add (juce::AudioChannelSet::stereo());
-            expect (! ovtdsp::isSidechainLayoutValid (layout),
-                     "stereo sidechain must be rejected");
+            expect (ovtdsp::isSidechainLayoutValid (layout),
+                     "stereo sidechain must be accepted (Logic AU compatibility)");
         }
 
         beginTest ("Layouts without a sidechain bus are always valid");

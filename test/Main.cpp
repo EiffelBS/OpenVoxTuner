@@ -12,10 +12,12 @@
 #include "dsp/FormantPreserverTest.cpp"
 #include "dsp/PitchCurveTest.cpp"
 #include "dsp/VibratoTest.cpp"
-#include "dsp/AttackAwareTest.cpp"
 #include "dsp/KeyDetectorTest.cpp"
 #include "dsp/KeyBridgeTest.cpp"
 #include "dsp/SidechainBusLayoutTest.cpp"
+#include "dsp/SpeedFloorTest.cpp"
+#include "dsp/FormantPreserverModulationTest.cpp"
+#include "dsp/BlockAwareOnePoleTest.cpp"
 #include "ScaleSnapPipelineTest.cpp"
 
 int main (int argc, char* argv[])

@@ -226,7 +226,7 @@ The mode is saved in the plugin state via the "mode" parameter (AudioParameterCh
 | reverb_mix | float   | 0.0 - 1.0                                          | 0.30                | Reverb mix                                    |
 | noise_gate_enable | bool | off / on                                       | off                 | Noise gate enable                             |
 | noise_gate_threshold | float | -80.0 - 0.0 (dB)                              | -40.0               | Gate threshold                                |
-| flex_tune | float    | 0.0 - 100.0 (cents)                               | 10.0                | FlexTune deadband around target note          |
+| flex_tune | float    | 0.0 - 100.0 (cents)                               | 0.0 (DEPRECATED)    | FlexTune deadband (disabled 2026-07-24)       |
 | humanize | float    | 0.0 - 50.0 (cents)                                | 40.0                | Humanize fluctuation                          |
 | correction_mode | bool | Modern (false) / Transparent (true)             | Modern (false)      | Correction mode                               |
 | ui_theme | int      | 0 - 1                                              | 0 (Dark)            | UI theme                                      |

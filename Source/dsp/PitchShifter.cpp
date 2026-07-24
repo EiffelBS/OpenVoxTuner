@@ -52,6 +52,15 @@ namespace ovtdsp
         latencyMs = juce::jlimit (8.0f, 40.0f, 20.0f);
         latencySamples = static_cast<int> (sampleRate * (latencyMs * 0.001f));
 
+        // 2026-07-23 (Fix AW): initialize the external attack-gain smoother.
+        // The smoother's TC is set to its default (15 ms); it can be tuned
+        // at any time via setExternalAttackTauSeconds().
+        externalAttackSmoother.prepare (sr);
+        externalAttackSmoother.setTimeConstantSeconds (externalAttackTauSeconds);
+        externalAttackSmoother.snapTo (1.0f);
+        externalAttackEnabled = false;
+        attackGain = 1.0f;
+
         // Initialize attack envelope alpha (one-pole smoothing)
         if (attackMs > 0.0f)
         {
@@ -127,7 +136,11 @@ namespace ovtdsp
     currentFormantRatio = 1.0f;
     outPhase = 0.0;
     lastGrainCenter = 0.0;
-    
+    // 2026-07-23 (Fix BB): reset the previous-pitch-ratio tracker so
+    // the next process() call does not see a "fake" delta from the
+    // initial state.
+    lastPitchRatio = 1.0f;
+
     // Reset attack envelope state
     attackGain = (attackMs > 0.0f) ? 0.0f : 1.0f;
     wasVoiced = false;
@@ -160,9 +173,17 @@ namespace ovtdsp
         smoothedF0 = 0.0f;
         outPhase = 0.0;
         lastGrainCenter = 0.0;
+        // 2026-07-23 (Fix BB): reset the previous-pitch-ratio tracker.
+        lastPitchRatio = 1.0f;
         attackGain = (attackMs > 0.0f) ? 0.0f : 1.0f;
         wasVoiced = false;
         lastF0 = 0.0f;
+        // 2026-07-23 (Fix AW): reset the external attack-gain smoother so
+        // the first block after a transport stop / preset change doesn't
+        // carry any residual modulation from the previous session.
+        externalAttackSmoother.snapTo (1.0f);
+        attackGain = 1.0f;
+        externalAttackEnabled = false;
         // startupSamplesRemaining et startupGain NE SONT PAS reinitialises.
         for (int i = 0; i < MAX_GRAINS; ++i)
             grains[i].active = false;
@@ -402,9 +423,14 @@ namespace ovtdsp
         formantRatio = juce::jlimit (minPitchRatio, maxPitchRatio, formantRatio);
 
         // Block-level voice onset detection: if first sample has f0 > 0
-        // and lastF0 was 0 (or very small), it's a voice onset
+        // and lastF0 was 0 (or very small), it's a voice onset. Only used
+        // to arm the internal attack envelope (slowAttackSamplesRemaining /
+        // attackRampDownSamplesRemaining); the grain chain reset and the
+        // "idealCenter / lastGrainCenter = 0" logic below is independent
+        // and always runs, because it is what keeps the OLA chain from
+        // reading stale positions.
         bool blockOnset = (f0 > 40.0f && lastF0 <= 40.0f);
-        if (blockOnset)
+        if (blockOnset && attackEnvelopeEnabled)
         {
             attackGain = 0.0f; // Trigger attack envelope at start of block
         }
@@ -493,24 +519,86 @@ namespace ovtdsp
                 if (pitchRatio > 1.12 || pitchRatio < 0.89) // ~2 semitones
                     onsetDetected = true;
             }
+
+            // 2026-07-23 (Fix BB.2): detect sudden changes in `pitchRatio`
+            // (the per-block correction ratio passed by the caller, which
+            // includes FlexTune modulation, humanize random walk, and
+            // vibrato preservation). When the per-block delta exceeds
+            // 3% (the OLA grain spacing sensitivity threshold for
+            // pitch-ratio discontinuities), the internal attack envelope
+            // is armed to mask the OLA re-organisation. Without this,
+            // the OLA chain "snaps" to a new period every time the
+            // smoother output changes by more than ~1% per block,
+            // producing the user-reported "pop/clics aux changements de
+            // pitch" with Flex>0 (which can change currentFlexTuneAmount
+            // from 0 to 1.0 at every deadband transition, i.e. several
+            // times per vibrato cycle).
+            //
+            // IMPORTANT: we only arm the envelope (not the OLA chain
+            // reset), because the OLA chain reset would re-introduce the
+            // "trumpet" attack artifact at every deadband transition
+            // (5+ per second with vibrato). The envelope-only path is
+            // the right balance: it masks the OLA re-organisation but
+            // doesn't restart the chain.
+            //
+            // Note: we use the current per-block pitchRatio (not the
+            // smoothed currentRatio), because the smoothing in
+            // currentRatio is buffer-rate and we want to detect the
+            // INTENTION of the caller, not the in-block average.
+            bool ratioJumpDetected = false;
+            if (attackEnvelopeEnabled && !onsetDetected)
+            {
+                const float ratioDelta = std::abs (pitchRatio - lastPitchRatio);
+                if (ratioDelta > 0.03f) // 3% = ~50 cents at ratio=1
+                    ratioJumpDetected = true;
+            }
+            lastPitchRatio = pitchRatio;
             
+            // 2026-07-23 (Fix BB.2): when a sudden ratio change is
+            // detected (e.g. FlexTune deadband transition), arm the
+            // internal attack envelope WITHOUT resetting the OLA chain.
+            // This is the same envelope arming as the ONSET case, but
+            // without `outPhase = 1.0` and `lastGrainCenter = 0.0`
+            // (which would re-introduce the "trumpet" artifact at every
+            // deadband transition).
+            if (ratioJumpDetected)
+            {
+                slowAttackSamplesRemaining = static_cast<int> (sampleRate * 0.100);
+                attackRampDownSamplesRemaining = static_cast<int> (sampleRate * 0.015);
+            }
+
             if (onsetDetected)
             {
-                // Do NOT reset attackGain to 0 here: that creates an instant
-                // step from the previous output (attackGain=1, e.g. -0.39) to
-                // 0 at the first sample after the jump -> audible click.
-                // Instead, drive the smoother's target to 0 for ~20 ms (882
-                // samples @ 44.1 kHz), so the attackGain ramps DOWN smoothly
-                // from 1.0 to ~0.17, then ramps back UP to 1.0 over a
-                // total slow window of ~150 ms. The deeper + longer dip
-                // masks the OLA re-organisation that follows a continuous
-                // pitch jump (200 -> 300 Hz): the old 200 Hz grains die
-                // and the new 300 Hz grains start, causing local OLA sum
-                // fluctuations of up to ±0.4 around the steady-state value
-                // during ~20-50 ms. By keeping attackGain < 0.5 during
-                // that window, the audible delta stays below 0.1.
-                slowAttackSamplesRemaining = static_cast<int> (sampleRate * 0.150);
-                attackRampDownSamplesRemaining = static_cast<int> (sampleRate * 0.020);
+                // The slowAttackSamplesRemaining / attackRampDownSamplesRemaining
+                // arming below is what gives the internal attack envelope its
+                // 150 ms / 20 ms "ramp down then ramp up" behaviour on note
+                // onsets and pitch jumps. When an external helper (e.g.
+                // ovtdsp::AttackAwareEnv) is driving the correction amount,
+                // we don't want the internal envelope to ALSO run — that
+                // double-attenuation is what the user reports as a
+                // "scratchy attack" at low Amount. Skip the arming, but
+                // still do the OLA chain reset (outPhase = 1.0,
+                // lastGrainCenter = 0.0) which is independent of the
+                // envelope and is what prevents clicks from mis-aligned
+                // grains.
+                if (attackEnvelopeEnabled)
+                {
+                    // Do NOT reset attackGain to 0 here: that creates an instant
+                    // step from the previous output (attackGain=1, e.g. -0.39) to
+                    // 0 at the first sample after the jump -> audible click.
+                    // Instead, drive the smoother's target to 0 for ~20 ms (882
+                    // samples @ 44.1 kHz), so the attackGain ramps DOWN smoothly
+                    // from 1.0 to ~0.17, then ramps back UP to 1.0 over a
+                    // total slow window of ~150 ms. The deeper + longer dip
+                    // masks the OLA re-organisation that follows a continuous
+                    // pitch jump (200 -> 300 Hz): the old 200 Hz grains die
+                    // and the new 300 Hz grains start, causing local OLA sum
+                    // fluctuations of up to ±0.4 around the steady-state value
+                    // during ~20-50 ms. By keeping attackGain < 0.5 during
+                    // that window, the audible delta stays below 0.1.
+                    slowAttackSamplesRemaining = static_cast<int> (sampleRate * 0.150);
+                    attackRampDownSamplesRemaining = static_cast<int> (sampleRate * 0.020);
+                }
 
                 // Clamp outPhase to 1.0 to prevent a burst of grains at the
                 // onset. After a silence of N ms, the !isVoiced branch above
@@ -761,7 +849,38 @@ namespace ovtdsp
             // 2) then ramp UP to 1.0 with a slower ~80 ms time constant
             //    (slowAttackSamplesRemaining) instead of the user attackMs,
             //    so the old 200 Hz content is fully masked.
-            if (attackMs > 0.0f)
+            //
+            // The envelope can be disabled by an external helper (e.g.
+            // ovtdsp::AttackAwareEnv) that already controls the correction
+            // gain via the amount multiplier. In that case we leave
+            // attackGain at 1.0 and skip the per-sample math entirely. This
+            // is critical for the Attack feature at low Amount: with the
+            // helper enabled, both the helper AND the internal envelope
+            // would compete, producing a "double attenuation" that the
+            // user perceives as a scratchy artifact.
+            // 2026-07-23 (Fix AW): external attack-gain driver. When the
+            // external driver is enabled (set via setExternalAttackGain),
+            // the per-block smoothed value is used as the OUTPUT
+            // multiplier directly, without per-sample ramping. The
+            // modulation is applied to the OUTPUT (not the OLA target
+            // ratio) so the OLA chain's grain spacing is stable across
+            // the transition. The internal envelope's onset-ramping
+            // (slowAttackSamplesRemaining / attackRampDownSamplesRemaining)
+            // is bypassed in this case to avoid double-attenuation.
+            if (externalAttackEnabled)
+            {
+                // attackGain was already updated by setExternalAttackGain
+                // before the audio block was processed. Apply it to the
+                // output here. Per-sample ramping is a no-op because
+                // attackGain is constant within the block.
+                outL *= attackGain;
+                outR *= attackGain;
+                // Clear the onset-ramping counters so they don't fire
+                // on a later onset in a stale state.
+                slowAttackSamplesRemaining = 0;
+                attackRampDownSamplesRemaining = 0;
+            }
+            else if (attackEnvelopeEnabled && attackMs > 0.0f)
             {
                 const double currentAlpha = (slowAttackSamplesRemaining > 0)
                     ? (1.0 - std::exp (-1.0 / (0.080 * sampleRate)))   // ~80 ms TC
@@ -777,6 +896,12 @@ namespace ovtdsp
                     attackGain = 1.0f;
                 outL *= attackGain;
                 outR *= attackGain;
+            }
+            else
+            {
+                // Bypass: ensure attackGain stays at 1.0 in case the helper
+                // toggles the envelope on/off mid-session.
+                attackGain = 1.0f;
             }
 
             // Startup fade-in: ring buffer starts empty, so first ~20ms reads zeros

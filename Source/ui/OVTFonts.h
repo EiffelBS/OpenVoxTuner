@@ -9,19 +9,18 @@
 
 namespace ovt
 {
+// Use the system default sans-serif on macOS so the plugin renders
+    // with native typography (San Francisco / Helvetica Neue).
+    // On Windows, hard-code "Segoe UI" because JUCE's
+    // getDefaultSansSerifFontName() resolves to "Verdana" (a much wider
+    // face), which would make all text look visibly larger than intended.
+    // On macOS, apply a 0.85 scale because San Francisco has a larger
+    // x-height than Segoe UI at the same nominal point size.
 #if JUCE_MAC
-    // Segoe UI is a Windows-only font. On macOS we use the system default
-    // sans-serif (San Francisco on recent OSes, Helvetica Neue otherwise) so
-    // the plugin renders with native macOS typography instead of a fallback.
-    // We also apply a scale factor because San Francisco has a larger x-height
-    // than Segoe UI at the same nominal point size, which would otherwise
-    // make labels, combos, menus and tooltips look visibly bigger on macOS.
     static const juce::String kTypefaceFamily =
         juce::Font::getDefaultSansSerifFontName();
     static constexpr float kPlatformFontScale = 0.85f;
 #else
-    // Default typeface family used across the entire plugin.
-    // Changing this single constant updates all fonts at once.
     static const juce::String kTypefaceFamily = "Segoe UI";
     static constexpr float kPlatformFontScale = 1.0f;
 #endif

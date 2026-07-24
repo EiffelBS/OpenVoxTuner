@@ -23,6 +23,7 @@
 #include "dsp/PresetMorpher.h"
 #include "dsp/VibratoPreserver.h"
 #include "dsp/AttackAwareEnv.h"
+#include "dsp/BlockAwareOnePole.h"
 #include "dsp/KeyDetector.h"
 #include "dsp/KeyBridge.h"
 #include "dsp/SidechainBusLayout.h"
@@ -624,9 +625,56 @@ private:
 
     // Random generator for Humanize effect.
     juce::Random random;
-    float currentHumanizeCents = 0.0f;
-    float currentFlexTuneAmount = 1.0f;
-    float smoothedFlexTuneAmount = 1.0f; // Smoothed for click-free knob changes
+
+    // Block-aware one-pole smoothers for parameters that change every audio
+    // block. Replacing the old "y = y*0.95 + x*0.05" form, which is buffer-size
+    // dependent (the time constant halves at 128 samples vs. 256 samples).
+    // These smoothers compute the alpha from the actual block duration so
+    // the time constant is the same in seconds regardless of buffer size.
+    ovtdsp::BlockAwareOnePole flexTuneSmoother;     // ~200 ms TC (Fix BC, was 500ms in Fix BB), sees raw 0..1
+    // 2026-07-23 (Fix BC): upstream smoother for the FlexTune DEADBAND
+    // threshold crossing. The deadband is a step function (0 inside the
+    // threshold, smoothstep outside), so when the singer's pitch
+    // (modulated by 5Hz vibrato) crosses the threshold back and forth,
+    // the deadband output is a 5Hz square wave. The downstream
+    // flexTuneSmoother can only attenuate this square wave by ~80%
+    // (|H(5Hz)| = 0.20 at TC=500ms), leaving 20% of the step amplitude
+    // in `targetRatio`, which is audibly perceived as pops at every
+    // deadband crossing. By smoothing the INPUT pitch (f0_in) before
+    // the deadband computation, we convert the 5Hz square wave into a
+    // 5Hz SINE wave (much smoother), and the deadband output becomes a
+    // 5Hz soft transition (no step). The downstream flexTuneSmoother
+    // then barely has any work to do (TC=200ms is sufficient).
+    // This is the "Option B: double lissage" approach.
+    ovtdsp::BlockAwareOnePole f0SmootherForDeadband;  // ~150 ms TC, sees raw f0_in (Hz)
+    ovtdsp::BlockAwareOnePole humanizeSmoother;      // ~150 ms TC, sees raw cents
+    float currentFlexTuneAmount = 1.0f;              // raw target for flexTuneSmoother
+    float currentHumanizeCents = 0.0f;               // raw target for humanizeSmoother
+
+    // 2026-07-23 (Fix AY + Fix AZ): minimum smoothing on the ratio AFTER
+    // the RetargetEnvelope. The RetargetEnvelope at Speed=0 is transparent
+    // (no smoothing), and at moderate Speed (10-50 ms) the per-block jitter
+    // from vibrato preservation (5 Hz, ~5 cents), YIN pitch detection steps
+    // (every 2048 samples = 46 ms) and the residual modulation from
+    // flexTuneSmoother (TC=200ms) and humanizeSmoother (TC=150ms) reaches
+    // the OLA chain as discrete steps. With a grain spacing of ~512
+    // samples, even a 0.2% per-block step in `targetRatio` translates to
+    // ~1 sample of grain misalignment, which the OLA window cannot absorb
+    // cleanly and the user perceives as a "scratch" (most audible with
+    // Flex > 0 cents; more pronounced in Modern mode than Transparent mode
+    // because Modern preserves the full vibrato amplitude).
+    //
+    // 2026-07-23 (Fix AZ): TC was raised from 50ms to 80ms. At 50ms the
+    // 5Hz vibrato was only reduced by 53% (|H(5Hz)| = 0.53), still leaving
+    // ~0.14% residual modulation in the targetRatio that the OLA chain
+    // could not fully absorb. At 80ms the 5Hz vibrato is reduced by 70%
+    // (|H(5Hz)| = 0.30), bringing the residual modulation below the OLA
+    // grain spacing sensitivity threshold (~0.5 sample misalignment). The
+    // compounded retargeting time is approximately
+    // `max(Speed, 80ms) + 80ms / 2`, still allowing Speed=10ms to be
+    // perceptibly faster than Speed=100ms (compounded ~14 vs ~36 blocks to
+    // reach 90%).
+    ovtdsp::BlockAwareOnePole speedFloor;            // 80 ms TC, on `ratio` after retarget
 
     // Vibrato preservation: smooths the detected pitch to a center reference
     // (vibrato modulation removed) so the correction can preserve the vibrato.

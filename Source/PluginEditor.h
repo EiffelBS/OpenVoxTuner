@@ -202,16 +202,22 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> upwardCompEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> upwardCompAmountAttachment;
 
-    // FlexTune / Humanize / Vibrato / Attack-Aware / Correction Mode
-    juce::Slider      flexTuneSlider;
-    juce::Label       flexTuneLabel;
+    // 2026-07-24 (Deprecation): FlexTune and Attack-Aware features are
+    // temporarily disabled because of persistent audio artefacts (pops,
+    // clicks, warble) at small buffer sizes that could not be fully
+    // eliminated after 8 successive fixes (AY, AZ, BA, BB, BC, ...).
+    // The DSP code (AttackAwareEnv, FlexTune smoother) is preserved in
+    // Source/dsp/ for future re-implementation. The UI elements are
+    // kept as members but are not visible / not attached to parameters.
+    juce::Slider      flexTuneSlider;       // DEPRECATED: hidden, no attachment
+    juce::Label       flexTuneLabel;        // DEPRECATED: hidden
     juce::Slider      humanizeSlider;
     juce::Label       humanizeLabel;
     juce::Slider      vibratoPreserveSlider;
     juce::Label       vibratoPreserveLabel;
-    juce::ToggleButton attackAwareButton;
-    juce::Slider      attackReleaseSlider;
-    juce::Label       attackReleaseLabel;
+    juce::ToggleButton attackAwareButton;   // DEPRECATED: hidden, no attachment
+    juce::Slider      attackReleaseSlider;  // DEPRECATED: hidden, no attachment
+    juce::Label       attackReleaseLabel;   // DEPRECATED: hidden
     juce::TextButton  correctionModeButton;
 
     // Graphic Modern/Transparent console switch, placed below the Speed/Amount
@@ -285,11 +291,14 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> reverbEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbMixAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> flexTuneAttachment;
+    // 2026-07-24 (Deprecation): FlexTune and Attack-Aware attachments are
+    // disabled. The APVTS parameters still exist (for preset compatibility)
+    // but no longer have a UI control attached.
+    // std::unique_ptr<...::SliderAttachment> flexTuneAttachment;       // DEPRECATED
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> humanizeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> vibratoPreserveAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> attackAwareAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attackReleaseAttachment;
+    // std::unique_ptr<...::ButtonAttachment> attackAwareAttachment;    // DEPRECATED
+    // std::unique_ptr<...::SliderAttachment> attackReleaseAttachment;  // DEPRECATED
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> correctionModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> detectorAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keySourceAttachment;

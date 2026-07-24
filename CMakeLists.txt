@@ -341,6 +341,10 @@ juce_add_console_app(OpenVoxTunerTests
 
 target_sources(OpenVoxTunerTests PRIVATE
     test/Main.cpp
+    test/dsp/BlockAwareOnePoleTest.cpp
+    test/dsp/PerformanceBudgetTest.cpp
+    test/dsp/SpeedFloorTest.cpp
+    test/dsp/FormantPreserverModulationTest.cpp
     test/dsp/PitchDetectorTest.cpp
     test/dsp/ScaleQuantizerTest.cpp
     test/dsp/RetargetEnvelopeTest.cpp

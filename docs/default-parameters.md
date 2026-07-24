@@ -24,7 +24,7 @@
 
 | Parameter | ID | Type | Default | Range |
 |-----------|-----|------|---------|-------|
-| FlexTune | `flex_tune` | Float | **10.0** | 0 – 100 cents |
+| FlexTune *(DEPRECATED)* | `flex_tune` | Float | **0.0** | 0 – 100 cents |
 | Humanize | `humanize` | Float | **40.0** | 0 – 50 cents |
 | Reverb Enable | `reverb_enable` | Bool | **false** | false / true |
 | Reverb Mix | `reverb_mix` | Float | **0.30** | 0 – 1 |

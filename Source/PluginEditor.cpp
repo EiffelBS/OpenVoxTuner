@@ -179,10 +179,13 @@ public:
     /// widening the pill is always preferable to shrinking the label font.
     static int getPreferredWidth (float height)
     {
-        const float fontH = juce::jmax (9.0f, height * 0.40f);
-        // Bypass the platform font scale: the Live/Curve pill is critical
-        // navigation and must visually match the Modern/Transparent pill,
-        // which paints at the raw 40%-of-height point size on every OS.
+        const float fontH = juce::jmax (9.0f, height * 0.50f);
+        // Bypass the platform font scale (createFontRaw) so the pill
+        // label visually matches the Modern/Transparent pill below the
+        // Speed/Amount knobs (which paints at the raw 40%-of-height
+        // point size).  The multiplier is 0.50 (vs the Modern pill's
+        // 0.40) so the "Live" / "Curve Editor" navigation labels are
+        // noticeably larger, as befits a primary navigation element.
         juce::Font f = ovt::createFontRaw (fontH, true);
         const float liveW  = juce::GlyphArrangement::getStringWidth (f, ovt::tr (ovt::Keys::kTabLive));
         const float curveW = juce::GlyphArrangement::getStringWidth (f, ovt::tr (ovt::Keys::kTabCurveEditor));
@@ -213,16 +216,18 @@ public:
         g.setColour (ovt::accent());
         g.fillRoundedRectangle (pillRect, pillRect.getHeight() * 0.5f);
 
-        // Use the standard 40%-of-height font size, in the plugin typeface
-        // family. Bypass the platform font scale (createFontRaw) so the
-        // label visually matches the Modern/Transparent pill below the
-        // Speed/Amount knobs (which also paints at the raw 40% size). The
-        // pill is allocated enough width (see getPreferredWidth() and the
-        // layout at the call site) so that even the longest translation
+        // Use ~50%-of-height font size, in the plugin typeface family.
+        // Bypass the platform font scale (createFontRaw) so the label
+        // visually matches the Modern/Transparent pill below the
+        // Speed/Amount knobs.  The multiplier is 0.50 (vs the Modern
+        // pill's 0.40) so the "Live" / "Curve Editor" navigation labels
+        // are noticeably larger, as befits a primary navigation element.
+        // The pill is allocated enough width (see getPreferredWidth() and
+        // the layout at the call site) so that even the longest translation
         // of "Curve Editor" fits without truncation — Live/Curve Editor
         // are critical navigation, so widening the pill beats shrinking
         // the label.
-        const float fontH = juce::jmax (9.0f, area.getHeight() * 0.40f);
+        const float fontH = juce::jmax (9.0f, area.getHeight() * 0.50f);
         g.setFont (ovt::createFontRaw (fontH, true));
 
         const juce::String liveText  = ovt::tr (ovt::Keys::kTabLive);
@@ -1365,11 +1370,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         processorRef.getParameters(), "upward_comp_amount", upwardCompAmountSlider);
 
     // FlexTune / Humanize / Vibrato / Correction Mode attachments
-    flexTuneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "flex_tune", flexTuneSlider);
+    // 2026-07-24 (Deprecation): FlexTune and Attack-Aware attachments
+    // are disabled (see PluginEditor.h). The APVTS parameters still
+    // exist for preset compatibility, but the UI sliders/buttons are
+    // not attached and not visible.
+    // flexTuneAttachment = std::make_unique<...> (...);  // DEPRECATED
     humanizeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "humanize", humanizeSlider);
     vibratoPreserveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "vibrato_preserve", vibratoPreserveSlider);
-    attackAwareAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "attack_aware", attackAwareButton);
-    attackReleaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "attack_release", attackReleaseSlider);
+    // attackAwareAttachment = std::make_unique<...> (...);   // DEPRECATED
+    // attackReleaseAttachment = std::make_unique<...> (...); // DEPRECATED
     correctionModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "correction_mode", correctionModeButton);
 
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
@@ -1923,12 +1932,18 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     upwardCompAmountSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipUpwardCompAmount));
     addAndMakeVisible (upwardCompAmountSlider);
 
+    // 2026-07-24 (Deprecation): FlexTune and Attack-Aware UI setup
+    // is disabled. The slider/label members still exist (in
+    // PluginEditor.h) for future re-implementation, but they are
+    // not added to the visible UI and not attached to parameters.
+    // The setupKnob calls are commented out to keep the code
+    // available as reference.
+    // ----------------------------------------------------------------
     // FlexTune / Humanize knobs
-    setupKnob (flexTuneSlider, &flexTuneLabel, "FlexTune");
-    translatableLabels.push_back ({ &flexTuneLabel, ovt::Keys::kLabelFlex    });
-    flexTuneSlider.setRange (0.0, 100.0, 1.0);
-    flexTuneSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipFlexTune));
-    // The live value is shown in JUCE's popup display while dragging (see below).
+    // setupKnob (flexTuneSlider, &flexTuneLabel, "FlexTune");
+    // translatableLabels.push_back ({ &flexTuneLabel, ovt::Keys::kLabelFlex    });
+    // flexTuneSlider.setRange (0.0, 100.0, 1.0);
+    // flexTuneSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipFlexTune));
 
     setupKnob (humanizeSlider, &humanizeLabel, "Humanize");
     translatableLabels.push_back ({ &humanizeLabel, ovt::Keys::kLabelHumanize    });
@@ -1937,10 +1952,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // The live value is shown in JUCE's popup display while dragging (see below).
 
     // FlexTune and Humanize: no textbox, smaller inline labels
-    flexTuneLabel.setText ("Flex", juce::dontSendNotification);
-    flexTuneSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-    flexTuneSlider.setPopupDisplayEnabled (true, false, this);
-    flexTuneSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " cents"; };
+    // flexTuneLabel.setText ("Flex", juce::dontSendNotification);
+    // flexTuneSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    // flexTuneSlider.setPopupDisplayEnabled (true, false, this);
+    // flexTuneSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " cents"; };
     humanizeLabel.setText ("Humanize", juce::dontSendNotification);
     humanizeSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     humanizeSlider.setPopupDisplayEnabled (true, false, this);
@@ -1956,15 +1971,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     vibratoPreserveSlider.setPopupDisplayEnabled (true, false, this);
     vibratoPreserveSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0)) + " %"; };
 
-    // Attack release knob (ms)
-    setupKnob (attackReleaseSlider, &attackReleaseLabel, "Attack Rel");
-    translatableLabels.push_back ({ &attackReleaseLabel, ovt::Keys::kLabelAttackRelease    });
-    attackReleaseSlider.setRange (10.0, 300.0, 1.0);
-    attackReleaseSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipAttackRelease));
-    attackReleaseLabel.setText ("Rel", juce::dontSendNotification);
-    attackReleaseSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-    attackReleaseSlider.setPopupDisplayEnabled (true, false, this);
-    attackReleaseSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " ms"; };
+    // 2026-07-24 (Deprecation): Attack release knob setup is disabled.
+    // setupKnob (attackReleaseSlider, &attackReleaseLabel, "Attack Rel");
+    // translatableLabels.push_back ({ &attackReleaseLabel, ovt::Keys::kLabelAttackRelease    });
+    // attackReleaseSlider.setRange (10.0, 300.0, 1.0);
+    // attackReleaseSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipAttackRelease));
+    // attackReleaseLabel.setText ("Rel", juce::dontSendNotification);
+    // attackReleaseSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    // attackReleaseSlider.setPopupDisplayEnabled (true, false, this);
+    // attackReleaseSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " ms"; };
 
     // Correction Mode toggle button
     correctionModeButton.setButtonText (ovt::tr(ovt::Keys::kLabelModernBtn));
@@ -1986,12 +2001,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     addAndMakeVisible (*modeSwitch);
 
     // Attack-Aware correction toggle button — power-icon style like Gate / Reverb / Formant.
-    attackAwareButton.setButtonText (ovt::tr(ovt::Keys::kLabelAttackBtn));
-    attackAwareButton.setName ("PowerButton");
-    attackAwareButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    attackAwareButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
-    attackAwareButton.setTooltip (ovt::tr(ovt::Keys::kTooltipAttack));
-    addAndMakeVisible (attackAwareButton);
+    // 2026-07-24 (Deprecation): Attack-Aware button setup is disabled.
+    // attackAwareButton.setButtonText (ovt::tr(ovt::Keys::kLabelAttackBtn));
+    // attackAwareButton.setName ("PowerButton");
+    // attackAwareButton.setColour (juce::ToggleButton::textColourId, ovt::text());
+    // attackAwareButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    // attackAwareButton.setTooltip (ovt::tr(ovt::Keys::kTooltipAttack));
+    // addAndMakeVisible (attackAwareButton);
 
     addAndMakeVisible (scaleKeyboard);
 
@@ -2627,42 +2643,38 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     if (advancedArea.getWidth() > 4)
     {
-        // Split the advanced area into 2 equal columns and 2 equal rows, then
-        // place each control in its own cell (sized to fill, so there is no
-        // wasted space on either side).
-        const int colW = (advancedArea.getWidth() - advGapX) / 2;
+        // 2026-07-24 (Layout update after FlexTune + Attack-Aware deprecation):
+        // the advanced area is now organised as 1x2 (1 column, 2 rows),
+        // with Vibrato on top and Humanize below, both centered
+        // horizontally in the available space. The 2 cells that used
+        // to hold FlexTune + Attack-Aware are gone, so the two
+        // remaining knobs are LARGER and the layout reads as a clean
+        // vertical column instead of a 2x2 grid with empty cells.
         const int rowH = (advancedArea.getHeight() - advGapY) / 2;
 
-        auto rowA = advancedArea.removeFromTop (rowH);
+        auto vibCell   = advancedArea.removeFromTop (rowH);    // top
         advancedArea.removeFromTop (advGapY);
-        auto rowB = advancedArea;
-
-        // Top row: Vibrato + Humanize. Bottom row: Flex + Attack-Aware.
-        auto vibCell   = rowA.removeFromLeft (colW);   // top-left
-        auto humanCell = rowA;                          // top-right
-        auto flexCell  = rowB.removeFromLeft (colW);   // bottom-left
-        auto atkCell   = rowB;                          // bottom-right
+        auto humanCell = advancedArea;                          // bottom
 
         placeKnob (vibratoPreserveSlider, vibratoPreserveLabel, vibCell);
-        placeKnob (humanizeSlider,    humanizeLabel,    humanCell);
-        placeKnob (flexTuneSlider,    flexTuneLabel,    flexCell);
-
-        // Attack-Aware: power toggle on top, release knob below (fills the cell).
-        const int atkToggleH = 18;
-        attackAwareButton.setBounds (atkCell.removeFromTop (atkToggleH));
-        attackReleaseSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-        attackReleaseSlider.setPopupDisplayEnabled (true, false, this);
-        const int d = juce::jmin (atkCell.getWidth() - 4, atkCell.getHeight() - 4, knobMax);
-        const int kx = atkCell.getX() + (atkCell.getWidth() - d) / 2;
-        const int ky = atkCell.getY() + (atkCell.getHeight() - d) / 2;
-        attackReleaseSlider.setBounds (kx, ky, d, d);
+        placeKnob (humanizeSlider,         humanizeLabel,        humanCell);
+        // 2026-07-24 (Deprecation): FlexTune and Attack-Aware knobs
+        // are no longer placed in the visible UI. Their slider/label
+        // members are still kept (in PluginEditor.h) for future
+        // re-implementation, but the placeKnob calls are commented
+        // out so the two visible knobs (Vibrato, Humanize) take the
+        // full advanced area in a 1x2 column.
     }
     else
     {
         // Collapsed: hide the advanced knobs so they don't overlap other blocks.
+        // 2026-07-24 (Deprecation): FlexTune bounds set to (0,0,0,0) is
+        // no longer needed (not visible), but kept for safety.
         flexTuneSlider.setBounds (0, 0, 0, 0);   flexTuneLabel.setBounds (0, 0, 0, 0);
         humanizeSlider.setBounds (0, 0, 0, 0);   humanizeLabel.setBounds (0, 0, 0, 0);
         vibratoPreserveSlider.setBounds (0, 0, 0, 0); vibratoPreserveLabel.setBounds (0, 0, 0, 0);
+        // 2026-07-24 (Deprecation): Attack-Aware bounds no longer needed
+        // (not visible), but kept for safety.
         attackReleaseSlider.setBounds (0, 0, 0, 0);       attackAwareButton.setBounds (0, 0, 0, 0);
     }
 
@@ -3615,10 +3627,12 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     formantSlider.addListener (this);
     morphSlider.addListener (this);
     reverbMixSlider.addListener (this);
-    flexTuneSlider.addListener (this);
+    // 2026-07-24 (Deprecation): FlexTune listener disabled (UI hidden).
+    // flexTuneSlider.addListener (this);
     humanizeSlider.addListener (this);
     vibratoPreserveSlider.addListener (this);
-    attackReleaseSlider.addListener (this);
+    // 2026-07-24 (Deprecation): Attack-Aware listeners disabled.
+    // attackReleaseSlider.addListener (this);
     harmonyGainSlider.addListener (this);
     harmonyBlendSlider.addListener (this);
     harmonyToneColorSlider.addListener (this);
@@ -3631,7 +3645,8 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     midiToggleButton.addListener (this);
     reverbEnableButton.addListener (this);
     noiseGateEnableButton.addListener (this);
-    attackAwareButton.addListener (this);
+    // 2026-07-24 (Deprecation): Attack-Aware button listener disabled.
+    // attackAwareButton.addListener (this);
     correctionModeButton.addListener (this);
     harmonyEnableButton.addListener (this);
     harmonyFollowLeadButton.addListener (this);

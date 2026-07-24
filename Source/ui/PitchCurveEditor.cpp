@@ -1603,14 +1603,37 @@ namespace ui
             targetScroll = juce::jmax (0.0, targetScroll);
             scrollOffset = scrollOffset + (targetScroll - scrollOffset) * 0.15;
         }
-        else if (isSeek)
+        else if (isSeek && !isLooping)
         {
+            // 2026-07-24 (Fix curve editor scroll bug): the previous
+            // implementation treated every "seek" (large discontinuity in
+            // the transport position) as a user-driven seek and centered
+            // the view on the playhead. This worked for explicit seeks
+            // (Reset Playhead / DAW scrub) but ALSO fired on loop
+            // boundaries (the transport wraps from the end of the loop
+            // back to 0, which is a large backward jump) when the loop
+            // is shorter than 90% of the visible window, because the
+            // `isWrap` detection (`|delta| > timeVisible * 0.9`) was
+            // false. The result: every loop boundary caused a "jump" of
+            // the playhead line, as if the view were trying to recenter
+            // the playhead.
+            //
+            // The fix: when the Loop Playhead is enabled, NEVER
+            // re-center the view on seek. The view stays where the user
+            // put it, regardless of what the transport does. This is
+            // the expected behaviour: "autoscroll OFF + Loop Playhead
+            // ON" means the user wants the view to be static while the
+            // playhead loops on a fixed window.
+            //
             // Auto-scroll OFF: keep the view fixed during playback so the playhead
             // can run past the visible window. Only reveal the playhead on an
             // explicit seek so the user is not left staring at empty space.
             scrollOffset = juce::jmax (0.0, time - timeVisible * 0.5);
         }
         // else: auto-scroll OFF and continuous playback -> leave the view untouched.
+        // ALSO: auto-scroll OFF + Loop Playhead ON + loop boundary seek
+        // -> leave the view untouched (the loop is a deliberate user
+        // setting, not a seek to reveal).
 
         playheadTime = time;
         loopingPlayhead = isLooping;

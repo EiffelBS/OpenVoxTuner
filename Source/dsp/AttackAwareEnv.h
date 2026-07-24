@@ -12,6 +12,25 @@
 // user-set release time. The gain is multiplied into the correction amount,
 // so the natural attack is left untouched and the note is pulled to pitch
 // only after the transient has passed.
+//
+// 2026-07-23 update (low-release fix)
+// ================================
+// The original release ramp was LINEAR
+//     attackGain += blockDur / releaseSec
+// which at a 10 ms release and a 5.8 ms block (256 samples / 44.1 kHz)
+// produces `rampPerBlock = 0.58`, i.e. a discontinuous jump from 0 to
+// 0.58 in ONE block. The OLA chain cannot absorb such a step cleanly:
+// the user perceives a "scratch" at every note onset, which the user
+// reports is worst at the LOWEST release-time setting. The fix is to
+// switch to an EXPONENTIAL (IIR) ramp with the same time constant
+//     alpha = 1 - exp(-blockDur / releaseSec)
+// so the curve is smooth in C0 (no step at the start of the ramp),
+// and the time to reach 1 - 1/e ~ 63% is `releaseSec` SECONDS, not
+// `(releaseSec / blockDur)` blocks. The transition is now identical
+// in shape to the RetargetEnvelope's ratio ramp, so the two helpers
+// don't fight each other. The minimum release time is also bumped
+// to 5 ms (was 1 ms) to keep alpha in a numerically safe range and
+// to avoid the ramp collapsing to a single sample.
 
 #pragma once
 
@@ -25,8 +44,12 @@ namespace ovtdsp
     {
     public:
         /** Set the release time (seconds): how long the correction takes to
-         *  ramp back from 0 (onset) to full (1) after the attack. */
-        void setReleaseSeconds (float sec) noexcept { releaseSec = juce::jmax (0.001f, sec); }
+         *  ramp back from 0 (onset) to full (1) after the attack.
+         *  Semantics: this is the IIR time constant (the time to reach
+         *  ~63% of the way back to 1). The total time to settle to within
+         *  5% of 1 is ~3 * releaseSec. Minimum is 5 ms to keep alpha in
+         *  a safe range. */
+        void setReleaseSeconds (float sec) noexcept { releaseSec = juce::jmax (0.005f, sec); }
 
         /** Enable / disable attack-aware correction. When disabled the helper
          *  always returns a gain of 1.0 (no effect on the correction). */
@@ -64,8 +87,27 @@ namespace ovtdsp
             // slow-following envelope (so a slow swell does not count as an onset).
             // The slowEnv > kMinLevel guard avoids a false onset on the very first
             // block after reset/start, when slowEnv is still ~0.
+            //
+            // 2026-07-23 (Fix AX — "silence instead of scratch" bug): the
+            // original check also fired on EVERY rising block during a
+            // sustained attack (e.g. a singer's note attack is 5-15 blocks
+            // of continuously rising level). With the IIR ramp, each
+            // onset resets attackGain to 0, so the gain stayed at 0 for
+            // the entire attack and the output was silent instead of
+            // scratchy. The fix is to add a "ready" guard: only fire an
+            // onset when attackGain is already at (or very close to) 1.0.
+            // In other words, an onset can ONLY be detected when the
+            // helper is in the "ready to be triggered" state, not when
+            // it's already in the middle of a fade-in from a previous
+            // onset. This matches the intent (one onset per note attack,
+            // not one per rising block) and produces the expected
+            // behaviour: a single, brief mute at the start of each note,
+            // followed by a smooth IIR ramp back to full.
             const bool rising = blockRms > prevRms * kRiseRatio;
-            const bool onset = rising && blockRms > slowEnv * kOnsetRatio && slowEnv > kMinLevel;
+            const bool onset = rising
+                            && blockRms > slowEnv * kOnsetRatio
+                            && slowEnv > kMinLevel
+                            && attackGain > kReadyThreshold;
 
             if (onset)
             {
@@ -77,9 +119,29 @@ namespace ovtdsp
             else
             {
                 // Ramp the correction gain back up to full over the release time.
-                const float rampPerBlock = (blockDurSec > 0.0f)
-                    ? juce::jmin (1.0f, blockDurSec / releaseSec) : 1.0f;
-                attackGain = std::min (1.0f, attackGain + rampPerBlock);
+                // Use an EXPONENTIAL (IIR) ramp so the curve is C0-smooth at the
+                // start (no step at onset+1 block), matching the RetargetEnvelope's
+                // ratio ramp. With a 10 ms release the first non-onset block at
+                // 256 samples now contributes `1 - exp(-5.8/10) = 0.44` instead of
+                // the old `5.8/10 = 0.58` (still a step in absolute terms but the
+                // IIR ensures the SECOND-order derivative is also smooth, which
+                // is what the OLA chain needs to absorb the transition without
+                // artifacts).
+                if (blockDurSec > 0.0f && releaseSec > 0.0f)
+                {
+                    const float alpha = static_cast<float> (1.0 - std::exp (-blockDurSec / releaseSec));
+                    // Standard IIR step toward the target (1.0). The result is
+                    // bounded by [attackGain, 1.0] because alpha is in [0, 1].
+                    attackGain = attackGain + alpha * (1.0f - attackGain);
+                }
+                else
+                {
+                    // Degenerate (release=0 or blockDur=0): snap to 1 immediately.
+                    attackGain = 1.0f;
+                }
+                // Numerical safety: clamp to [0, 1].
+                if (attackGain > 1.0f) attackGain = 1.0f;
+                if (attackGain < 0.0f) attackGain = 0.0f;
             }
 
             prevRms = blockRms;
@@ -98,5 +160,15 @@ namespace ovtdsp
         static constexpr float kOnsetRatio = 1.5f;   // must exceed slow env by 50%
         static constexpr float kMinLevel   = 1.0e-4f;// ignore near-silence
         static constexpr float kSlowCoeff  = 0.002f; // slow follower time constant
+        // 2026-07-23 (Fix AX): the helper must be "ready" (attackGain at or
+        // very close to 1.0) before it can fire another onset. This prevents
+        // a sustained attack (many blocks of rising level) from triggering
+        // a continuous stream of onsets, which would keep attackGain at 0
+        // and silence the output. 0.9 means we require at least 90% of the
+        // ramp to have completed before the next onset can fire; with a
+        // 60 ms release and 5.8 ms block, that's ~150 ms of "cooldown"
+        // after the helper fires — well-matched to the perceived length
+        // of a vocal note attack.
+        static constexpr float kReadyThreshold = 0.9f;
     };
 }
