@@ -38,6 +38,32 @@ void YinPitchDetector::reset()
     lastValidPitch = 0.0f;
 }
 
+void YinPitchDetector::setFrequencyRange (float minHz, float maxHz)
+{
+    // Clamp to sane bounds. Anything below ~20Hz is sub-bass, anything above
+    // ~2000Hz is a harmonic of the fundamental (or pure noise/sibilance).
+    minHz = juce::jlimit (20.0f, 2000.0f, minHz);
+    maxHz = juce::jmax (minHz + 10.0f, juce::jlimit (40.0f, 4000.0f, maxHz));
+
+    freqMinHz = minHz;
+    freqMaxHz = maxHz;
+
+    if (sampleRate <= 0.0)
+        return; // prepare() will apply the range when called
+
+    const int newMaxLag = static_cast<int> (sampleRate / freqMinHz);
+    maxLag = newMaxLag;
+
+    // Grow the working buffer if the new range needs more samples. The
+    // buffer must be at least 2*maxLag to evaluate d(tau) at the largest lag.
+    const int neededSize = juce::jmax (bufferSize, newMaxLag * 2);
+    if (neededSize > bufferSize)
+    {
+        bufferSize = neededSize;
+        yinBuffer.allocate (bufferSize, true);
+    }
+}
+
 float YinPitchDetector::getMedianFiltered (float newValue)
 {
     history[historyIdx] = newValue;

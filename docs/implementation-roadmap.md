@@ -366,6 +366,18 @@ A new Harmony Formant knob allows independent formant control for harmony voices
 - [x] **HFORM.4 (MorphState integration, 2026-07-24)** — `Source/dsp/PresetMorpher.h`. Added `harmonyFormant` to `MorphState`, `captureState`, `getMorphParameterIds`, and morph lerp.
 - [x] **HFORM.5 (Build verification, 2026-07-24)** — VST3 + Standalone + tests all build successfully. Unit-test suite: **138 OK / 0 KO**.
 
+### 8n1. Voice Type selector (2026-07-27)
+A new `voice_type` parameter constrains the pitch detector's YIN search range to a vocal register. Reduces octave errors and CPU usage for singers with a well-defined tessitura. Default = "Universal" (full 30-1000 Hz range) — backward-compatible behavior for existing projects.
+
+- [x] **VT.1 (APVTS parameter, 2026-07-27)** — `Source/PluginProcessor.cpp`. Added `voice_type` parameter (AudioParameterChoice, 6 options: Universal / Bass / Baritone / Tenor / Alto / Soprano, default 0=Universal).
+- [x] **VT.2 (DSP: YinPitchDetector::setFrequencyRange, 2026-07-27)** — `Source/dsp/YinPitchDetector.h` + `.cpp`. New public method updates the search range at runtime, recomputes `maxLag`, grows the working buffer if needed, no-op until `prepare()` is called. Safe to call from the audio thread (single `HeapBlock` grow on range expansion).
+- [x] **VT.3 (PluginProcessor wiring, 2026-07-27)** — `Source/PluginProcessor.h` + `.cpp`. Added `voiceTypeMinHz` / `voiceTypeMaxHz` constexpr tables (6 entries), `lastVoiceType` cache, and `voiceTypeParam` atomic pointer. `prepareToPlay()` applies the initial range to both main and sidechain YIN detectors. `syncParameters()` detects changes and calls `setFrequencyRange()`.
+- [x] **VT.4 (UI: Voice Type combo in Correction block, 2026-07-27)** — `Source/PluginEditor.h` + `.cpp`. Added `voiceTypeBox` ComboBox + `voiceTypeLabel` + `voiceTypeAttachment`. Reorganized the advanced area: row 1 = Vibrato + Humanize side-by-side (small knobs), row 2 = Voice Type combo (full width, hidden when Advanced is collapsed). Same visual style as Scale/Key combos.
+- [x] **VT.5 (PresetMorpher integration, 2026-07-27)** — `Source/dsp/PresetMorpher.h`. Added `int voiceType` to `MorphState` (default 0), captured in `captureState`, added to `getMorphParameterIds`, step-at-50% interpolation in `applyInterpolatedState`. Persists across A/B morphs and plugin presets.
+- [x] **VT.6 (Build + test verification, 2026-07-27)** — VST3 + Standalone + tests all build successfully. Unit-test suite: **139 OK / 0 KO** (no new tests added; voice type is exercised by existing HarmonyAttackTest and YinPitchDetectorTest via the API change). See `docs/voice-type-feasibility-report.md` for the full feasibility study.
+
+Frequency ranges (Hz): Universal=30-1000, Bass=82.41-329.63, Baritone=110-440, Tenor=130.81-523.25, Alto=174.61-698.46, Soprano=261.63-1046.50.
+
 ### 8n. Pitch Visualizer: Auto-center pitch display (2026-07-24)
 
 A new Auto-Center Pitch option keeps the tuned voice vertically centered in the visualizer. When enabled, the Y-axis scrolls smoothly to follow pitch changes. Any manual zoom/scroll automatically disables auto-center.

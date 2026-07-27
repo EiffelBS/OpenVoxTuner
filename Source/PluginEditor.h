@@ -68,6 +68,11 @@ public:
     void buttonClicked (juce::Button*) override;
     void comboBoxChanged (juce::ComboBox*) override;
 
+    // === Voice Type === (combo box in Correction block advanced area)
+    juce::ComboBox voiceTypeBox;
+    juce::Label   voiceTypeLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> voiceTypeAttachment;
+
     // === PitchCurveEditor::Listener ===
     void pitchCurveChanged() override;
 

@@ -445,6 +445,16 @@ private:
     // Pitch detector selection parameter (0=YIN).
     std::atomic<float>* detectorParam = nullptr;
 
+    // Voice Type parameter (0=Universal, 1=Bass, 2=Baritone, 3=Tenor, 4=Alto, 5=Soprano).
+    std::atomic<float>* voiceTypeParam = nullptr;
+
+    // Voice Type frequency ranges (Hz). Index matches voice_type parameter:
+    // 0=Universal(30-1000), 1=Bass(82.41-329.63), 2=Baritone(110-440),
+    // 3=Tenor(130.81-523.25), 4=Alto(174.61-698.46), 5=Soprano(261.63-1046.50)
+    static constexpr std::array<float, 6> voiceTypeMinHz = {30.0f, 82.41f, 110.0f, 130.81f, 174.61f, 261.63f};
+    static constexpr std::array<float, 6> voiceTypeMaxHz = {1000.0f, 329.63f, 440.0f, 523.25f, 698.46f, 1046.50f};
+    int lastVoiceType = 0;
+
     // === DSP Modules (Phase 1 + 4) ===
     // YIN pitch detector.
     std::unique_ptr<ovtdsp::IPitchDetector> pitchDetectors[1];

@@ -44,6 +44,14 @@ public:
     float getThreshold() const override { return threshold; }
     juce::String getName() const override { return "YIN"; }
 
+    /** Update the detection frequency range at runtime (no-op if sampleRate==0).
+        Used by the Voice Type selector to constrain the YIN search range to a
+        vocal register (Bass, Tenor, Soprano, etc.). Recomputes the lag bounds
+        and reallocates the working buffer if the new maxLag exceeds the current
+        allocation. Safe to call from the audio thread; the worst case is a
+        single heapBlock grow. */
+    void setFrequencyRange (float minHz, float maxHz);
+
 private:
     /** Core YIN computation (steps 1-2). */
     float computeYin (const float* samples, int numSamples);

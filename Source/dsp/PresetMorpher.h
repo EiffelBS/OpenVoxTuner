@@ -42,6 +42,7 @@ namespace ovtdsp
         int harmonyShiftedVoices = 4;
         int latencyMode = 2;
         int editorMeasures = 4;
+        int voiceType = 0; // 0=Universal, 1=Bass, 2=Baritone, 3=Tenor, 4=Alto, 5=Soprano
 
         // Boolean parameters (step at 50%)
         bool formantEnable = false;
@@ -99,6 +100,7 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("harmony_shifted_voices"))   s.harmonyShiftedVoices = (int) std::round (p->getValue() * 3.0f) + 1;
         if (auto* p = params.getParameter ("latency_mode"))             s.latencyMode = (int) std::round (p->getValue() * 3.0f);
         if (auto* p = params.getParameter ("editor_measures"))          s.editorMeasures = (int) std::round (p->getValue() * 31.0f) + 1;
+        if (auto* p = params.getParameter ("voice_type"))               s.voiceType = (int) std::round (p->getValue() * 5.0f);
 
         // Booleans
         if (auto* p = params.getParameter ("formant_enable"))      s.formantEnable = p->getValue() > 0.5f;
@@ -133,7 +135,7 @@ namespace ovtdsp
                         "key_source", "companion_group", "key_detect",
                         "noise_gate_threshold", "key", "scale", "harmony_type",
                         "harmony_tone", "harmony_shifted_voices", "latency_mode",
-                        "editor_measures", "formant_enable", "bypass", "harmony_enable",
+                        "editor_measures", "voice_type", "formant_enable", "bypass", "harmony_enable",
                         "harmony_use_voice", "harmony_follow_lead", "reverb_enable",
                         "noise_gate_enable", "correction_mode" });
         return ids;
@@ -205,6 +207,7 @@ namespace ovtdsp
         setParam ("harmony_shifted_voices", lerpOrStep ((float) (source.harmonyShiftedVoices - 1) / 3.0f, (float) (target.harmonyShiftedVoices - 1) / 3.0f, t));
         setParam ("latency_mode",           lerpOrStep ((float) source.latencyMode / 3.0f, (float) target.latencyMode / 3.0f, t));
         setParam ("editor_measures",        lerpOrStep ((float) (source.editorMeasures - 1) / 31.0f, (float) (target.editorMeasures - 1) / 31.0f, t));
+        setParam ("voice_type",             lerpOrStep ((float) source.voiceType / 5.0f, (float) target.voiceType / 5.0f, t));
 
         // Boolean parameters (step at 50%)
         setParam ("formant_enable",    lerpOrStep (source.formantEnable ? 1.0f : 0.0f, target.formantEnable ? 1.0f : 0.0f, t));

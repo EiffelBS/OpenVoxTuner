@@ -1451,6 +1451,28 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // attackReleaseAttachment = std::make_unique<...> (...); // DEPRECATED
     correctionModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "correction_mode", correctionModeButton);
 
+    // === Voice Type combo (Correction block, Advanced area, row 2) ===
+    // Same visual style as the other dropdowns (Scale, Key, etc.).
+    voiceTypeBox.addItemList ({ "Universal", "Bass", "Baritone", "Tenor", "Alto", "Soprano" }, 1);
+    voiceTypeBox.setSelectedItemIndex (0, juce::dontSendNotification);
+    voiceTypeBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
+    voiceTypeBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
+    voiceTypeBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
+    voiceTypeBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
+    voiceTypeBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
+    voiceTypeBox.setColour (juce::PopupMenu::textColourId, juce::Colour (0xffcccccc));
+    voiceTypeBox.setTooltip ("Constrain pitch detection to a vocal register. Universal (default) covers the full voice range. Select Bass / Baritone / Tenor / Alto / Soprano to reduce octave errors and CPU for that register.");
+    voiceTypeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        processorRef.getParameters(), "voice_type", voiceTypeBox);
+    addAndMakeVisible (voiceTypeBox);
+
+    voiceTypeLabel.setText ("Voice Type", juce::dontSendNotification);
+    voiceTypeLabel.setJustificationType (juce::Justification::left);
+    voiceTypeLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
+    voiceTypeLabel.setFont (ovt::fontLegendHint());
+    voiceTypeLabel.setTooltip ("Constrain pitch detection to a vocal register. Universal (default) covers the full voice range.");
+    addAndMakeVisible (voiceTypeLabel);
+
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
 
     // Helper for creating Drawables from full SVG XML (with viewBox).
@@ -2742,18 +2764,20 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     if (advancedArea.getWidth() > 4)
     {
-        // 2026-07-24 (Layout update after FlexTune + Attack-Aware deprecation):
-        // the advanced area is now organised as 1x2 (1 column, 2 rows),
-        // with Vibrato on top and Humanize below, both centered
-        // horizontally in the available space. The 2 cells that used
-        // to hold FlexTune + Attack-Aware are gone, so the two
-        // remaining knobs are LARGER and the layout reads as a clean
-        // vertical column instead of a 2x2 grid with empty cells.
-        const int rowH = (advancedArea.getHeight() - advGapY) / 2;
+        // 2026-07-27 (Layout update with Voice Type selector): the advanced
+        // area now uses 2 rows: row 1 = Vibrato + Humanize side-by-side
+        // (2 small knobs centered), row 2 = Voice Type combo box (full width).
+        // This matches the proposal in docs/voice-type-feasibility-report.md.
 
-        auto vibCell   = advancedArea.removeFromTop (rowH);    // top
+        // Row 1: Vibrato + Humanize (2 columns). Each cell is half width.
+        const int advRow1H = (int)((advancedArea.getHeight() - advGapY) * 0.62f);
+        auto row1Area = advancedArea.removeFromTop (advRow1H);
         advancedArea.removeFromTop (advGapY);
-        auto humanCell = advancedArea;                          // bottom
+
+        const int colW = (row1Area.getWidth() - advGapX) / 2;
+        auto vibCell   = row1Area.removeFromLeft (colW);
+        row1Area.removeFromLeft (advGapX);
+        auto humanCell = row1Area;
 
         placeKnob (vibratoPreserveSlider, vibratoPreserveLabel, vibCell);
         placeKnob (humanizeSlider,         humanizeLabel,        humanCell);
@@ -2763,6 +2787,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // re-implementation, but the placeKnob calls are commented
         // out so the two visible knobs (Vibrato, Humanize) take the
         // full advanced area in a 1x2 column.
+
+        // Row 2: Voice Type label + combo. Full advancedArea width.
+        auto row2Area = advancedArea;
+        voiceTypeLabel.setBounds (row2Area.removeFromTop (advLabelH));
+        voiceTypeBox.setBounds (row2Area.removeFromTop (22));
     }
     else
     {
@@ -2775,6 +2804,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // 2026-07-24 (Deprecation): Attack-Aware bounds no longer needed
         // (not visible), but kept for safety.
         attackReleaseSlider.setBounds (0, 0, 0, 0);       attackAwareButton.setBounds (0, 0, 0, 0);
+        // Voice Type is hidden when Advanced is collapsed
+        voiceTypeBox.setBounds (0, 0, 0, 0);
+        voiceTypeLabel.setBounds (0, 0, 0, 0);
     }
 
     // --- Block 4 : Effects — 2 rows (Gate + Reverb on top, Formant below) ---

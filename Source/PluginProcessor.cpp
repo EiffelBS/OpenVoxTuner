@@ -512,6 +512,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterChoice> (
                             "pitch_detector", "Pitch Detector",
                             juce::StringArray { "YIN", "Reserved" }, 0)
+                      // Voice Type: constrains pitch detector search range to reduce
+                      // octave errors and improve detection speed. Default = Universal
+                      // (full 30-1000 Hz range). Other options narrow the range to
+                      // typical vocal registers.
+                      , std::make_unique<juce::AudioParameterChoice> (
+                            "voice_type", "Voice Type",
+                            juce::StringArray { "Universal", "Bass", "Baritone", "Tenor", "Alto", "Soprano" }, 0)
                       , std::make_unique<juce::AudioParameterBool> (
                             "reverb_enable", "Reverb Enable", false)
                       , std::make_unique<juce::AudioParameterBool> (
@@ -634,6 +641,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     editorMeasuresParam = parameters.getRawParameterValue ("editor_measures");
     editorPlayheadLoopParam = parameters.getRawParameterValue ("editor_playhead_loop");
     detectorParam = parameters.getRawParameterValue ("pitch_detector");
+    voiceTypeParam = parameters.getRawParameterValue ("voice_type");
     reverbEnableParam = parameters.getRawParameterValue ("reverb_enable");
     reverbMixParam = parameters.getRawParameterValue ("reverb_mix");
     noiseGateEnableParam = parameters.getRawParameterValue ("noise_gate_enable");
@@ -794,6 +802,19 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // Prepare the YIN pitch detector.
     if (pitchDetectors[0] != nullptr)
         pitchDetectors[0]->prepare (sampleRate / 4.0, samplesPerBlock);
+
+    // Voice Type: apply the initial frequency range from the parameter.
+    // Subsequent changes are picked up by syncParameters() per block.
+    if (voiceTypeParam != nullptr)
+    {
+        lastVoiceType = juce::jlimit (0, 5, static_cast<int> (std::round (voiceTypeParam->load())));
+        const float minHz = voiceTypeMinHz[lastVoiceType];
+        const float maxHz = voiceTypeMaxHz[lastVoiceType];
+        if (auto* pd = dynamic_cast<ovtdsp::YinPitchDetector*>(pitchDetectors[0].get()))
+            pd->setFrequencyRange (minHz, maxHz);
+        if (sidechainPitchDetector)
+            sidechainPitchDetector->setFrequencyRange (minHz, maxHz);
+    }
 
     // IMPORTANT: prepare the PitchShifter BEFORE calling applyLatencyMode().
     // PitchShifter::prepare() resets latencyMs/latencySamples to its hard-coded
@@ -3195,6 +3216,27 @@ void OpenVoxTunerAudioProcessor::syncParameters()
                 customNotes.add (i);
         }
         scaleQuantizer->setCustomIntervals (customNotes);
+    }
+
+    // Voice Type: constrain pitch detector search range to reduce octave errors
+    // and improve detection speed. Applied when parameter changes.
+    if (voiceTypeParam != nullptr && pitchDetectors[0] != nullptr)
+    {
+        const int currentVoiceType = juce::jlimit (0, 5, static_cast<int> (std::round (voiceTypeParam->load())));
+        if (currentVoiceType != lastVoiceType)
+        {
+            // Apply the new frequency range to the pitch detector
+            if (auto* pd = dynamic_cast<ovtdsp::YinPitchDetector*>(pitchDetectors[0].get()))
+            {
+                pd->setFrequencyRange (voiceTypeMinHz[currentVoiceType], voiceTypeMaxHz[currentVoiceType]);
+            }
+            // Also update sidechain detector if it exists
+            if (sidechainPitchDetector)
+            {
+                sidechainPitchDetector->setFrequencyRange (voiceTypeMinHz[currentVoiceType], voiceTypeMaxHz[currentVoiceType]);
+            }
+            lastVoiceType = currentVoiceType;
+        }
     }
 
     // Vitesse de retargeting — modulée par le mode de correction.
