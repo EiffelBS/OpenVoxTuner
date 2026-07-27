@@ -33,6 +33,8 @@ namespace ui
         /// Trackpad pinch-to-zoom (macOS delivers a pinch as mouseMagnify;
         /// the Ctrl/Cmd + wheel equivalent is handled in mouseWheelMove).
         void mouseMagnify (const juce::MouseEvent& e, float scaleFactor) override;
+        /// Right-click opens the wrench menu (via onRightClick callback).
+        void mouseDown (const juce::MouseEvent& event) override;
         void mouseMove (const juce::MouseEvent& e) override;
         void mouseExit (const juce::MouseEvent& e) override;
 
@@ -79,6 +81,21 @@ namespace ui
         void zoomIn();
         void zoomOut();
         void resetView();
+
+        /// Auto-center: keeps the output pitch vertically centered.
+        void setAutoCenter (bool enabled);
+        bool isAutoCenter() const { return autoCenter; }
+
+        /// Zoom state save/restore (Hz range).
+        void setZoomRange (float newFMin, float newFMax);
+        float getFMin() const { return fMin; }
+        float getFMax() const { return fMax; }
+
+        /// Callback fired when zoom range changes (for persisting to APVTS).
+        std::function<void(float fMinHz, float fMaxHz)> onZoomChanged;
+
+        /// Callback fired on right-click (used to open the wrench menu).
+        std::function<void()> onRightClick;
 
     private:
         // Historique des pitches (Hz), taille max ~5 secondes a 30 fps.
@@ -169,6 +186,17 @@ namespace ui
         // Timestamp (ms) of the last pinch gesture, used to suppress the
         // concurrent trackpad scroll that can accompany a pinch.
         juce::uint32 lastMagnifyMs = 0;
+
+        // Animated unified note badge width (smooth transition between
+        // single-note and split-note display modes).
+        float badgeAnimW = 90.0f;
+        float badgeTargetW = 90.0f;
+        float badgeSplitX = 90.0f;
+        float badgeTargetSplitX = 90.0f;
+
+        // Auto-center: keeps the output pitch vertically centered.
+        bool  autoCenter = false;
+        float smoothedOutputHz = 5.61f; // log(440 Hz) — initial seed
 
         // Setup helper for SVG icon buttons.
         void setupIconBtn (juce::DrawableButton& btn, const char* svgXml,

@@ -282,51 +282,100 @@ namespace ui
 
             const int badgeH = headerH - 12;
             const int badgeY = (headerH - badgeH) / 2;
-
-            const juce::String noteDisplay = noteInfo.valid ? noteInfo.name : "--";
-            const int noteAreaW = 90;
             const int noteAreaX = 14;
+            const int curW = static_cast<int> (std::round (badgeAnimW));
 
-            juce::Colour badgeCol = noteInfo.valid
-                ? juce::Colour (0x221A9AF0) : juce::Colour (0x11ffffff);
-            g.setColour (badgeCol);
-            g.fillRoundedRectangle ((float) noteAreaX, (float) badgeY,
-                                    (float) noteAreaW, (float) badgeH, 6.0f);
-            g.setColour (juce::Colour (0x441A9AF0));
-            g.drawRoundedRectangle ((float) noteAreaX, (float) badgeY,
-                                    (float) noteAreaW, (float) badgeH, 6.0f, 1.0f);
-
-            g.setColour (juce::Colours::white);
-            g.setFont (ovt::fontNoteLarge());
-            g.drawText (noteDisplay, noteAreaX, badgeY, noteAreaW, badgeH,
-                        juce::Justification::centred);
-
-            const juce::String targetDisplay = (noteInfo.valid && noteInfo.targetName != noteInfo.name)
-                                                   ? noteInfo.targetName : juce::String();
-            if (targetDisplay.isNotEmpty())
+            // ---- Unified animated note badge ----
             {
-                g.setColour (juce::Colour (0xff8bc34a));
-                g.setFont (ovt::fontTarget());
-                g.drawText ("> " + targetDisplay,
-                            noteAreaX + noteAreaW + 4, badgeY, 80, badgeH,
-                            juce::Justification::centredLeft);
-            }
+                const bool splitMode = noteInfo.valid
+                                       && noteInfo.targetName != noteInfo.name;
 
-            if (noteInfo.valid)
-            {
-                const float cents = noteInfo.cents;
-                juce::Colour centsCol;
-                if (std::abs (cents) < 5.0f)      centsCol = juce::Colour (0xff4caf50);
-                else if (std::abs (cents) < 15.0f) centsCol = juce::Colour (0xffcddc39);
-                else if (std::abs (cents) < 35.0f) centsCol = juce::Colour (0xffff9800);
-                else                                centsCol = juce::Colour (0xffe57373);
+                // Glow behind the badge
+                if (noteInfo.valid)
+                {
+                    const juce::Colour glowCol = splitMode
+                        ? juce::Colour (0x15e53935) : juce::Colour (0x151A9AF0);
+                    g.setColour (glowCol);
+                    g.fillRoundedRectangle ((float) (noteAreaX - 3), (float) (badgeY - 3),
+                                            (float) (curW + 6), (float) (badgeH + 6), 8.0f);
+                }
 
-                g.setColour (centsCol);
-                g.setFont (ovt::fontCents());
-                const juce::String centsStr = (cents >= 0.0f ? "+" : "")
-                    + juce::String (static_cast<int> (std::round (cents)))
-                    + juce::String (juce::CharPointer_UTF8 ("\xc2\xa2"));  // cent sign ¢
-                g.drawText (centsStr, 185, badgeY, 72, badgeH, juce::Justification::centred);
+                // Badge background
+                if (! noteInfo.valid)
+                {
+                    g.setColour (juce::Colour (0x11ffffff));
+                    g.fillRoundedRectangle ((float) noteAreaX, (float) badgeY,
+                                            (float) curW, (float) badgeH, 6.0f);
+                    g.setColour (juce::Colour (0x22ffffff));
+                    g.drawRoundedRectangle ((float) noteAreaX, (float) badgeY,
+                                            (float) curW, (float) badgeH, 6.0f, 1.0f);
+                }
+                else if (splitMode)
+                {
+                    // Split: left half = detected (red), right half = target (green)
+                    const int splitPx = static_cast<int> (std::round (badgeSplitX));
+
+                    // 1) Full badge in detected color (red) — covers the entire
+                    //    badge area including the rounded corners.
+                    g.setColour (juce::Colour (0xffe53935));
+                    g.fillRoundedRectangle ((float) noteAreaX, (float) badgeY,
+                                            (float) curW, (float) badgeH, 6.0f);
+
+                    // 2) Green right half — use a pixel-perfect Rectangle clip
+                    //    (no anti-aliasing) to prevent any red bleed at the edges.
+                    //    The rectangle extends to the badge right edge; the
+                    //    rounded corners are masked by the border drawn in step 3.
+                    g.saveState();
+                    g.reduceClipRegion (noteAreaX + splitPx, badgeY,
+                                        curW - splitPx, badgeH);
+                    g.setColour (juce::Colour (0xff66bb6a));
+                    g.fillRect (noteAreaX + splitPx, badgeY, curW - splitPx, badgeH);
+                    g.restoreState();
+
+                    // 3) Border — covers the sharp green corners at the seam and
+                    //    provides a consistent outline around the full badge.
+                    g.setColour (juce::Colour (0x55ffffff));
+                    g.drawRoundedRectangle ((float) noteAreaX, (float) badgeY,
+                                            (float) curW, (float) badgeH, 6.0f, 1.0f);
+                }
+                else
+                {
+                    // Single note (green — in tune)
+                    g.setColour (juce::Colour (0xff66bb6a));
+                    g.fillRoundedRectangle ((float) noteAreaX, (float) badgeY,
+                                            (float) curW, (float) badgeH, 6.0f);
+                    g.setColour (juce::Colour (0x554caf50));
+                    g.drawRoundedRectangle ((float) noteAreaX, (float) badgeY,
+                                            (float) curW, (float) badgeH, 6.0f, 1.0f);
+                }
+
+                // Text
+                g.setFont (ovt::fontNoteLarge());
+                if (! noteInfo.valid)
+                {
+                    g.setColour (juce::Colour (0x66ffffff));
+                    g.drawText ("--", noteAreaX, badgeY, curW, badgeH,
+                                juce::Justification::centred);
+                }
+                else if (splitMode)
+                {
+                    const int splitPx = static_cast<int> (std::round (badgeSplitX));
+                    // Detected note (white on red)
+                    g.setColour (juce::Colours::white);
+                    g.drawText (noteInfo.name, noteAreaX, badgeY, splitPx, badgeH,
+                                juce::Justification::centred);
+                    // Target note (black on green)
+                    g.setColour (juce::Colour (0xff1a1a1a));
+                    g.drawText (noteInfo.targetName,
+                                noteAreaX + splitPx, badgeY, curW - splitPx, badgeH,
+                                juce::Justification::centred);
+                }
+                else
+                {
+                    g.setColour (juce::Colour (0xff1a1a1a));
+                    g.drawText (noteInfo.name, noteAreaX, badgeY, curW, badgeH,
+                                juce::Justification::centred);
+                }
             }
 
             // ---- LED-grid VU meter ----
@@ -336,9 +385,15 @@ namespace ui
                 constexpr int totalSegments = 2 * segmentsPerSide + 1;
                 constexpr float centsPerSegment = 50.0f / (float) segmentsPerSide;
                 constexpr int meterFixedW = 300;
-                const int availW = W - 285;
-                const int meterW = juce::jmin (meterFixedW, juce::jmax (160, availW));
-                const int meterLeft = (W - meterW) / 2 + 20;
+                // Center the meter in the full plugin width; clamp so it
+                // never overlaps the badge (left) or the toolbar buttons (right).
+                const int meterW = juce::jmin (meterFixedW, juce::jmax (160, W / 2));
+                const int btnZoneW = 5 * 20 + 4 * 3 + 16;
+                const int badgeRight = noteAreaX + curW + 8;
+                const int minLeft = badgeRight;
+                const int maxLeft = W - btnZoneW - meterW;
+                const int idealLeft = (W - meterW) / 2;
+                const int meterLeft = juce::jlimit (minLeft, juce::jmax (minLeft, maxLeft), idealLeft);
                 const int meterY = badgeY + 3;
                 const int meterH = badgeH - 6;
 
@@ -721,9 +776,57 @@ namespace ui
                 fMin = targetFMin;
                 fMax = targetFMax;
                 animating = false;
+                if (onZoomChanged) onZoomChanged (fMin, fMax);
             }
             pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (fMin)),
                                     static_cast<int> (ovtdsp::hzToMidiFloat (fMax)));
+        }
+
+        // Animate unified note badge width (single vs split mode).
+        {
+            const bool showTarget = noteInfo.valid
+                                    && noteInfo.targetName != noteInfo.name;
+            badgeTargetW = showTarget ? 180.0f : 90.0f;
+            badgeTargetSplitX = showTarget ? 90.0f : 90.0f;
+            const float bwLerp = 0.20f;
+            badgeAnimW += (badgeTargetW - badgeAnimW) * bwLerp;
+            badgeSplitX += (badgeTargetSplitX - badgeSplitX) * bwLerp;
+        }
+
+        // Auto-center: keep the output pitch vertically centered.
+        // Uses log-space smoothing (matches the semi-log Y-axis) and
+        // direct view lerp for fluid, jank-free scrolling.
+        if (autoCenter && latestOutputHz > 0.0f)
+        {
+            // IIR smoothing in log space to absorb vibrato and fast pitch jitter.
+            const float targetLogHz = std::log (latestOutputHz);
+            const float smoothCoeff = 0.12f;
+            smoothedOutputHz += (targetLogHz - smoothedOutputHz) * smoothCoeff;
+
+            const float halfRangeLog = (std::log (fMax) - std::log (fMin)) / 2.0f;
+            const float newMin = std::exp (smoothedOutputHz - halfRangeLog);
+            const float newMax = std::exp (smoothedOutputHz + halfRangeLog);
+
+            // Lerp the actual view for fluid movement (matches the zoom animation).
+            const float viewLerp = 0.18f;
+            fMin += (newMin - fMin) * viewLerp;
+            fMax += (newMax - fMax) * viewLerp;
+
+            // Clamp to safe frequency range.
+            if (fMin < 16.35f) { float r = fMax / fMin; fMin = 16.35f; fMax = fMin * r; }
+            if (fMax > 8372.0f) { float r = fMax / fMin; fMax = 8372.0f; fMin = fMax / r; }
+
+            // Keep targets in sync so a manual interaction starts from the correct position.
+            targetFMin = fMin;
+            targetFMax = fMax;
+            pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (fMin)),
+                                    static_cast<int> (ovtdsp::hzToMidiFloat (fMax)));
+        }
+        else if (autoCenter && latestOutputHz <= 0.0f)
+        {
+            // Signal lost — keep the last known center position.
+            // Do NOT reset smoothedOutputHz; the view stays put until a new
+            // note is detected, preventing the scroll-to-bottom on silence.
         }
 
         repaint();
@@ -737,6 +840,7 @@ namespace ui
         if (juce::Time::getMillisecondCounter() - lastMagnifyMs < 120)
             return;
 
+        autoCenter = false;
         float scrollAmount = wheel.deltaY;
 
         if (e.mods.isCtrlDown() || e.mods.isCommandDown())
@@ -775,6 +879,7 @@ namespace ui
         pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (fMin)),
                                 static_cast<int> (ovtdsp::hzToMidiFloat (fMax)));
         animating = false;
+        if (onZoomChanged) onZoomChanged (fMin, fMax);
         repaint();
     }
 
@@ -818,6 +923,7 @@ namespace ui
 
     void PitchVisualizer::scrollUp()
     {
+        autoCenter = false;
         float currentRangeLog = std::log (fMax / fMin);
         float shiftLog = currentRangeLog * 0.15f;
         targetFMin = std::exp (std::log (fMin) + shiftLog);
@@ -828,6 +934,7 @@ namespace ui
 
     void PitchVisualizer::scrollDown()
     {
+        autoCenter = false;
         float currentRangeLog = std::log (fMax / fMin);
         float shiftLog = currentRangeLog * 0.15f;
         targetFMin = std::exp (std::log (fMin) - shiftLog);
@@ -838,6 +945,7 @@ namespace ui
 
     void PitchVisualizer::zoomIn()
     {
+        autoCenter = false;
         float centerPitch = std::exp (std::log (fMin) + (std::log (fMax) - std::log (fMin)) * 0.5f);
         float currentRangeCents = 1200.0f * std::log2 (fMax / fMin);
         float newRangeCents = currentRangeCents * 0.7f;
@@ -851,6 +959,7 @@ namespace ui
 
     void PitchVisualizer::zoomOut()
     {
+        autoCenter = false;
         float centerPitch = std::exp (std::log (fMin) + (std::log (fMax) - std::log (fMin)) * 0.5f);
         float currentRangeCents = 1200.0f * std::log2 (fMax / fMin);
         float newRangeCents = currentRangeCents * 1.4f;
@@ -866,9 +975,44 @@ namespace ui
 
     void PitchVisualizer::resetView()
     {
+        autoCenter = false;
         targetFMin = kDefaultFMin;
         targetFMax = kDefaultFMax;
         animating = true;
+    }
+
+    void PitchVisualizer::setAutoCenter (bool enabled)
+    {
+        autoCenter = enabled;
+        if (enabled && latestOutputHz > 0.0f)
+        {
+            // Seed the smoothed value with the current pitch (log space).
+            smoothedOutputHz = std::log (latestOutputHz);
+            const float halfRangeLog = (std::log (fMax) - std::log (fMin)) / 2.0f;
+            targetFMin = std::exp (smoothedOutputHz - halfRangeLog);
+            targetFMax = std::exp (smoothedOutputHz + halfRangeLog);
+            animating = true;
+        }
+    }
+
+    void PitchVisualizer::setZoomRange (float newFMin, float newFMax)
+    {
+        fMin = targetFMin = juce::jmax (16.0f, newFMin);
+        fMax = targetFMax = juce::jmin (8372.0f, newFMax);
+        if (fMin >= fMax) { fMin = targetFMin = 50.0f; fMax = targetFMax = 1500.0f; }
+        pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (fMin)),
+                                static_cast<int> (ovtdsp::hzToMidiFloat (fMax)));
+    }
+
+    void PitchVisualizer::mouseDown (const juce::MouseEvent& event)
+    {
+        if (event.mods.isRightButtonDown())
+        {
+            if (onRightClick)
+                onRightClick();
+            return;
+        }
+        Component::mouseDown (event);
     }
 
     bool PitchVisualizer::exportAsImage (const juce::File& filePath)

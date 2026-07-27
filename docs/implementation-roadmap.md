@@ -1,6 +1,6 @@
 # OpenVoxTuner - Implementation Roadmap
 
-> Last updated: 2026-07-23 13:53 CEST
+> Last updated: 2026-07-27 16:40 CEST
 
 ## Legend
 
@@ -27,6 +27,7 @@
 - [x] Retarget envelope (attack/release smoothing)
 - [x] Pitch curve (programmatic control over time)
 - [x] Vibrato preservation (2026-07-14): correct against a smoothed center pitch instead of the instantaneous pitch, so the vibrato modulation survives while the note still snaps to the scale. New `vibrato_preserve` parameter (0-100%), `ovtdsp::VibratoPreserver` helper, Correction-section knob, A/B-morph + preset persistence, and unit test.
+- [x] **Harmony Attack fix (2026-07-27)**: Eliminated volume surplus at harmony voice onsets when Gate + Harmony are both active. Per-voice smoothstep (raised-cosine) fade-in retriggers on every gate-open; gate-follow clamp (12 ms) aligns harmony with gated dry signal; configurable `harmony_attack` parameter (1-300 ms, default 35 ms) under the Blend knob. New `HarmonyAttack` regression test covers all 21 harmony profiles (gate on/off, retrigger, long attack clamping). 139 tests pass.
 
 ## 2. Audio I/O and Plugin Format
 
@@ -92,6 +93,9 @@
 - [x] LED-grid VU meter (tuning cents indicator)
 - [x] Current note display with cents offset
 - [x] Target note indicator
+- [x] Redesigned pitch metrics display (2026-07-24): unified animated note badge (green when in-tune, red/green split with smooth animation when out-of-tune), dynamic VU meter positioning
+- [x] Auto-center pitch display (2026-07-24): wrench menu option, IIR-smoothed tracking, auto-disables on manual zoom/scroll
+- [x] Right-click opens wrench menu in Live tab (2026-07-24)
 - [x] Vertical piano keyboard (notes highlighted by scale and active pitch)
 - [x] Mouse wheel scroll (vertical pan)
 - [x] Ctrl/Cmd + mouse wheel zoom
@@ -351,6 +355,25 @@ The user reported that with Harmony ON, the onset of a sung note produces a "sur
 - [x] **HAR.1 (Per-voice staggered TC, 2026-07-24)** — `Source/PluginProcessor.cpp`. The `shiftedVoiceGains` initialisation in `prepareToPlay` now uses a per-voice TC: voice 0 = 40ms, voice 1 = 46ms, voice 2 = 52ms, voice 3 = 58ms (6ms offset per voice). The base TC was raised from 20ms to 40ms.
 - [x] **HAR.2 (Master enable gain TC, 2026-07-24)** — `Source/PluginProcessor.cpp`. `harmonyEnableGain.reset(sampleRate, 0.040)` in `prepareToPlay` (was implicitly 25ms by default).
 - [x] **HAR.3 (Build verification, 2026-07-24)** — VST3 + Standalone + tests all build successfully. Unit-test suite: **138 OK / 0 KO**. The audio fix will be validated by the user with Harmony ON.
+
+### 8m. Harmony: Independent formant shift knob (2026-07-24)
+
+A new Harmony Formant knob allows independent formant control for harmony voices, separate from the main voice formant. This enables creative combinations like normal lead + formant-shifted harmonies, or vice versa.
+
+- [x] **HFORM.1 (APVTS parameter, 2026-07-24)** — `Source/PluginProcessor.cpp`. Added `harmony_formant` parameter (float, -5 to +5 semitones, default 0).
+- [x] **HFORM.2 (Second FormantPreserver, 2026-07-24)** — `Source/PluginProcessor.h` + `PluginProcessor.cpp`. Added `formantPreserverHarmony` member, `formantHarmonyParam` atomic pointer, `prepare()` call, and restructured `processBlock` to take the `synthWorkBuffer` snapshot before any formant processing.
+- [x] **HFORM.3 (UI knob, 2026-07-24)** — `Source/PluginEditor.h` + `PluginEditor.cpp`. Added "Formant" rotary knob in the Harmony block's right column (stacked below Volume and Blend). Includes setup, APVTS attachment, enable/disable when Harmony is off, color application, and preset sync.
+- [x] **HFORM.4 (MorphState integration, 2026-07-24)** — `Source/dsp/PresetMorpher.h`. Added `harmonyFormant` to `MorphState`, `captureState`, `getMorphParameterIds`, and morph lerp.
+- [x] **HFORM.5 (Build verification, 2026-07-24)** — VST3 + Standalone + tests all build successfully. Unit-test suite: **138 OK / 0 KO**.
+
+### 8n. Pitch Visualizer: Auto-center pitch display (2026-07-24)
+
+A new Auto-Center Pitch option keeps the tuned voice vertically centered in the visualizer. When enabled, the Y-axis scrolls smoothly to follow pitch changes. Any manual zoom/scroll automatically disables auto-center.
+
+- [x] **AC.1 (PitchVisualizer API, 2026-07-24)** — `Source/ui/PitchVisualizer.h` + `.cpp`. Added `setAutoCenter(bool)`, `isAutoCenter()`, `onRightClick` callback, `mouseDown` override, `autoCenter` and `smoothedOutputHz` members.
+- [x] **AC.2 (Auto-center logic, 2026-07-24)** — `Source/ui/PitchVisualizer.cpp`. Auto-center in `timerCallback()`: IIR-smoothed output pitch (coeff 0.15) centers `targetFMin`/`targetFMax`. Disabled in `scrollUp()`, `scrollDown()`, `zoomIn()`, `zoomOut()`, `resetView()`, `mouseWheelMove()`.
+- [x] **AC.3 (Wrench menu + right-click, 2026-07-24)** — `Source/PluginEditor.cpp`. Added "Auto-Center Pitch" toggle in Interface submenu. Right-click in Live tab visualizer opens wrench menu via `menuButton.triggerClick()`.
+- [x] **AC.4 (Build verification, 2026-07-24)** — VST3 + Standalone + tests all build successfully. Unit-test suite: **138 OK / 0 KO**.
 
 ## 9. Documentation
 

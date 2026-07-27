@@ -303,9 +303,18 @@ public:
     int getCurrentTimeSigNumerator() const { return currentTimeSigNumerator.load(); }
     int getCurrentTimeSigDenominator() const { return currentTimeSigDenominator.load(); }
 
-    // Waveform display type preference (persisted across sessions).
-    int getWaveformDisplayType() const { return waveformDisplayType; }
-    void setWaveformDisplayType (int type) { waveformDisplayType = type; }
+    // Waveform display type preference (persisted via APVTS).
+    int getWaveformDisplayType() const
+    {
+        if (auto* p = parameters.getParameter ("ui_waveform_type"))
+            return juce::jlimit (0, 2, juce::roundToInt (p->getValue() * 2.0f));
+        return 1;
+    }
+    void setWaveformDisplayType (int type)
+    {
+        if (auto* p = parameters.getParameter ("ui_waveform_type"))
+            p->setValueNotifyingHost ((float) juce::jlimit (0, 2, type) / 2.0f);
+    }
 
     // Correction block "Advanced" expand/collapse state (persisted across sessions).
     bool getAdvancedExpanded() const { return advancedExpandedState; }
@@ -392,6 +401,7 @@ private:
     std::atomic<float>* harmonyTypeParam = nullptr; // Harmony type (0-9)       
     std::atomic<float>* harmonyGainParam = nullptr; // Harmony volume level     
     std::atomic<float>* harmonyBlendParam = nullptr; // Harmony blend (0-1)     
+    std::atomic<float>* harmonyAttackParam = nullptr; // Harmony attack (ms) per-voice fade-in 
     std::atomic<float>* harmonyEnableParam = nullptr; // Harmony on/off
     std::atomic<float>* harmonyUseVoiceParam = nullptr; // Use real voice for harmony (bool)
     std::atomic<float>* harmonyShiftedVoicesParam = nullptr; // number of shifted voices (1..4)
@@ -399,6 +409,7 @@ private:
     std::atomic<float>* harmonyToneColorParam = nullptr; // synth harmony tone color (continuous)
     std::atomic<float>* harmonyFollowLeadParam = nullptr; // harmonies follow lead character (bool)
     std::atomic<float>* harmonyGainMatchParam = nullptr; // gain match on/off: scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
+    std::atomic<float>* harmonyFormantParam = nullptr; // Harmony formant shift (-5 to +5 st)
     std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
     std::atomic<float>* midiTargetEnableParam = nullptr; // MIDI target / follow enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
@@ -445,6 +456,7 @@ private:
     std::unique_ptr<ovtdsp::HarmonyEngine>     harmonyEngine;
     ovtdsp::NoiseGate                           noiseGate;
     ovtdsp::FormantPreserver                    formantPreserver;
+    ovtdsp::FormantPreserver                    formantPreserverHarmony;
     ovtdsp::UpwardCompressor                    upwardComp;
 
     std::unique_ptr<ovtdsp::RetargetEnvelope>  retargetEnvelope;
@@ -558,9 +570,6 @@ private:
     std::thread playheadThread;
     std::atomic<bool> playheadThreadShouldExit { false };
 
-    // Waveform display type preference (persisted across sessions).
-    int waveformDisplayType = 1; // 0=Line, 1=Mirror (default)
-
     // Correction block "Advanced" expand/collapse state (persisted across sessions).
     bool advancedExpandedState = false;
 
@@ -608,6 +617,9 @@ private:
     // enable button ramps this (instead of hard-cutting the mix) so enabling/
     // disabling harmony produces no click.
     juce::LinearSmoothedValue<float> harmonyEnableGain { 0.0f };
+    // Smoothed gate gain for harmony voices — prevents clicks when the
+    // Noise Gate opens/closes (the raw gateGain jumps instantly).
+    juce::LinearSmoothedValue<float> harmonyGateGain { 0.0f };
     // Temporary buffers to hold pitch-shifted voices (preallocated)
     std::vector<juce::AudioBuffer<float>> shiftedVoiceBuffers;
     // Dedicated pitch shifters per shifted voice (separate state from main pitchShifter)

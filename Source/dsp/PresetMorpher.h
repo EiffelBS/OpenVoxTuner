@@ -21,6 +21,8 @@ namespace ovtdsp
         float formant = 0.0f;
         float harmonyGain = 1.0f;
         float harmonyBlend = 0.5f;
+        float harmonyAttack = 0.1137f; // normalized value of "harmony_attack" (35 ms in 1..300 ms range)
+        float harmonyFormant = 0.0f;
         float harmonyToneColor = 0.5f;
         float reverbMix = 0.0f;
         float flexTune = 0.0f;
@@ -49,7 +51,7 @@ namespace ovtdsp
         bool harmonyFollowLead = true;
         bool reverbEnable = false;
         bool noiseGateEnable = false;
-        float noiseGateThreshold = 0.667f; // normalized: -40dB in -80..0 range
+        float noiseGateThreshold = 0.375f; // normalized: -50dB in -80..0 range
         bool upwardCompEnable = false;
         float upwardCompAmount = 0.5f; // 0..1 upward compression amount
         bool correctionMode = false; // false = Modern
@@ -75,6 +77,8 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("formant"))            s.formant = p->getValue();
         if (auto* p = params.getParameter ("harmony_gain"))       s.harmonyGain = p->getValue();
         if (auto* p = params.getParameter ("harmony_blend"))      s.harmonyBlend = p->getValue();
+        if (auto* p = params.getParameter ("harmony_attack"))     s.harmonyAttack = p->getValue();
+        if (auto* p = params.getParameter ("harmony_formant"))    s.harmonyFormant = p->getValue();
         if (auto* p = params.getParameter ("harmony_tone_color")) s.harmonyToneColor = p->getValue();
         if (auto* p = params.getParameter ("reverb_mix"))         s.reverbMix = p->getValue();
         if (auto* p = params.getParameter ("flex_tune"))          s.flexTune = p->getValue();
@@ -123,7 +127,7 @@ namespace ovtdsp
     {
         juce::StringArray ids;
         ids.addArray ({ "speed", "amount", "formant", "harmony_gain", "harmony_blend",
-                        "harmony_tone_color", "reverb_mix", "flex_tune", "humanize",
+                        "harmony_formant", "harmony_tone_color", "reverb_mix", "flex_tune", "humanize",
                         "vibrato_preserve",
                         "attack_aware", "attack_release",
                         "key_source", "companion_group", "key_detect",
@@ -179,6 +183,7 @@ namespace ovtdsp
         setParam ("formant",            source.formant + (target.formant - source.formant) * t);
         setParam ("harmony_gain",       source.harmonyGain + (target.harmonyGain - source.harmonyGain) * t);
         setParam ("harmony_blend",      source.harmonyBlend + (target.harmonyBlend - source.harmonyBlend) * t);
+        setParam ("harmony_formant",    source.harmonyFormant + (target.harmonyFormant - source.harmonyFormant) * t);
         setParam ("harmony_tone_color", source.harmonyToneColor + (target.harmonyToneColor - source.harmonyToneColor) * t);
         setParam ("reverb_mix",         source.reverbMix + (target.reverbMix - source.reverbMix) * t);
         setParam ("flex_tune",          source.flexTune + (target.flexTune - source.flexTune) * t);

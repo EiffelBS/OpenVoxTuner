@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\build-tests\_juce_build\tools\CMakeFiles\e8531b1ff1217eaa9aaca30798acc05b\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{94B8DA24-34CD-3C1F-ABBA-91B5BDAD3308}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

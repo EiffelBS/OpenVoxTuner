@@ -605,6 +605,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         }
     }
 
+    // Restore waveform overlay preference from APVTS.
+    if (auto* wfParam = processorRef.getParameters().getParameter ("ui_show_waveform"))
+    {
+        showWaveform = wfParam->getValue() > 0.5f;
+        processorRef.setWaveformCaptureEnabled (showWaveform);
+    }
+
     tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 700);
     tooltipWindow->setLookAndFeel (&customLookAndFeel);
     // Sync the TooltipWindow with the user-configured delay (Normal=700ms
@@ -747,17 +754,52 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     addAndMakeVisible (harmonyTypeBox);
 
     // Harmony knobs (Volume, Blend) — use same rotary knob style as main knobs
-    setupKnob (harmonyGainSlider, &harmonyGainLabel, "Volume");
-    translatableLabels.push_back ({ &harmonyGainLabel, ovt::Keys::kLabelVolume    });
+    setupKnob (harmonyGainSlider, nullptr, "");
     harmonyGainSlider.setRange (0.0, 1.0, 0.01);
     harmonyGainSlider.setValue (1.0);
+    harmonyGainSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    harmonyGainSlider.setPopupDisplayEnabled (true, false, this);
+    harmonyGainSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
     harmonyGainSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipVolume));
 
-    setupKnob (harmonyBlendSlider, &harmonyBlendLabel, "Blend");
-    translatableLabels.push_back ({ &harmonyBlendLabel, ovt::Keys::kLabelBlend    });
+    setupKnob (harmonyBlendSlider, nullptr, "");
     harmonyBlendSlider.setRange (0.0, 1.0, 0.01);
     harmonyBlendSlider.setValue (0.5);
+    harmonyBlendSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    harmonyBlendSlider.setPopupDisplayEnabled (true, false, this);
+    harmonyBlendSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
     harmonyBlendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipBlend));
+    harmonyAttackSlider.setTooltip ("Harmony Attack: per-voice fade-in duration. Smoother, more progressive harmony onsets. When the Noise Gate is on, the attack follows the gate.");
+
+    // Harmony Attack knob: per-voice fade-in duration (ms). Placed under Blend.
+    setupKnob (harmonyAttackSlider, nullptr, "");
+    harmonyAttackSlider.setRange (1.0, 300.0, 1.0);
+    harmonyAttackSlider.setValue (35.0);
+    harmonyAttackSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    harmonyAttackSlider.setPopupDisplayEnabled (true, false, this);
+    harmonyAttackSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " ms"; };
+    harmonyAttackSlider.setTooltip ("Harmony Attack: per-voice fade-in duration. Smoother, more progressive harmony onsets. When the Noise Gate is on, the attack follows the gate.");
+
+    setupKnob (harmonyFormantSlider, nullptr, "");
+    harmonyFormantSlider.setRange (-5.0, 5.0, 0.1);
+    harmonyFormantSlider.setValue (0.0);
+    harmonyFormantSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    harmonyFormantSlider.setPopupDisplayEnabled (true, false, this);
+    harmonyFormantSlider.textFromValueFunction = [] (double v) { return juce::String (v, 1) + " st"; };
+    harmonyFormantSlider.setTooltip ("Formant shift for harmony voices (semitones)");
+
+    // Title labels above the Harmony knobs (no value display, just names).
+    auto setupTitleLabel = [this] (juce::Label& l, const juce::String& name) {
+        l.setText (name, juce::dontSendNotification);
+        l.setJustificationType (juce::Justification::centred);
+        l.setColour (juce::Label::textColourId, ovt::text());
+        l.setFont (ovt::fontLabelSmall());
+        addAndMakeVisible (l);
+    };
+    setupTitleLabel (harmonyGainLabel, "Volume");
+    setupTitleLabel (harmonyBlendLabel, "Blend");
+    setupTitleLabel (harmonyAttackLabel, "Attack");
+    setupTitleLabel (harmonyFormantLabel, "Formant");
 
     // Use Voice controls
     useVoiceButton.setButtonText (ovt::tr(ovt::Keys::kLabelUseVoice));
@@ -985,6 +1027,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // Show Waveform toggle
             interfaceMenu.addItem (ovt::tr(ovt::Keys::kMenuShowWaveform), true, showWaveform, [this] {
                 showWaveform = ! showWaveform;
+                if (auto* p = processorRef.getParameters().getParameter ("ui_show_waveform"))
+                    p->setValueNotifyingHost (showWaveform ? 1.0f : 0.0f);
                 processorRef.setWaveformCaptureEnabled (showWaveform);
                 if (! showWaveform)
                 {
@@ -1003,6 +1047,22 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformMirror), true, currentType == 1, [this] { setWaveformDisplayType (1);    });
                 waveformMenu.addItem (ovt::tr(ovt::Keys::kMenuWaveformSpectral), true, currentType == 2, [this] { setWaveformDisplayType (2);    });
                 interfaceMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuWaveformDisplay), waveformMenu, true);
+            }
+
+            interfaceMenu.addSeparator();
+
+            // Auto-Center Pitch Display (Live tab only)
+            if (pitchVisualizer != nullptr)
+            {
+                const bool acEnabled = pitchVisualizer->isAutoCenter();
+                interfaceMenu.addItem ("Auto-Center Pitch", true, acEnabled, [this] {
+                    if (pitchVisualizer != nullptr)
+                    {
+                        pitchVisualizer->setAutoCenter (! pitchVisualizer->isAutoCenter());
+                        if (auto* p = processorRef.getParameters().getParameter ("ui_auto_center"))
+                            p->setValueNotifyingHost (pitchVisualizer->isAutoCenter() ? 1.0f : 0.0f);
+                    }
+                });
             }
 
             interfaceMenu.addSeparator();
@@ -1166,9 +1226,19 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
 
         applyMenuLookAndFeel (menu, customLookAndFeel);
-        menu.showMenuAsync (juce::PopupMenu::Options()
-            .withTargetComponent (&menuButton)
-            .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards));
+        auto opts = juce::PopupMenu::Options();
+        if (! pendingMenuScreenPos.isOrigin())
+        {
+            opts = opts.withTargetScreenArea (juce::Rectangle<int> (
+                pendingMenuScreenPos.x, pendingMenuScreenPos.y, 1, 1));
+            pendingMenuScreenPos = {};
+        }
+        else
+        {
+            opts = opts.withTargetComponent (&menuButton)
+                       .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards);
+        }
+        menu.showMenuAsync (opts);
     };
     addAndMakeVisible (menuButton);
 
@@ -1748,6 +1818,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             void closeButtonPressed() override
             {
                 setVisible (false);
+                delete this;   // SafePointer will null out automatically.
             }
         };
 
@@ -1890,7 +1961,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     noiseGateThresholdSlider.setPopupDisplayEnabled (true, false, this);
     noiseGateThresholdSlider.textFromValueFunction = [] (double v) { return juce::String (v, 0) + " dB"; };
     noiseGateThresholdSlider.setRange (-80.0, 0.0, 1.0);
-    noiseGateThresholdSlider.setValue (-40.0, juce::dontSendNotification);
     noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
     noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
     noiseGateThresholdSlider.setColour (juce::Slider::thumbColourId, juce::Colours::white);
@@ -2029,8 +2099,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyTypeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (tree, "harmony_type", harmonyTypeBox);
     harmonyGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_gain", harmonyGainSlider);
     harmonyBlendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_blend", harmonyBlendSlider);
+    harmonyAttackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_attack", harmonyAttackSlider);
     harmonyFollowLeadAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_follow_lead", harmonyFollowLeadButton);
     harmonyGainMatchAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_gain_match", harmonyGainMatchButton);
+    harmonyFormantAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_formant", harmonyFormantSlider);
     // Keep the Follow Lead and Gain Match sub-toggles in sync with the parent
     // Harmony switch. onStateChange fires on a direct click, so we re-run
     // refreshLabels() (which now also disables those two sub-toggles based on
@@ -2090,6 +2162,33 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Key/scale ComboBox binding was already done above via ComboBoxAttachment.
     // === Pitch visualizer ===
     pitchVisualizer = std::make_unique<ui::PitchVisualizer>();
+    pitchVisualizer->onRightClick = [this] {
+        // Store the current mouse position so the wrench menu opens at the cursor.
+        pendingMenuScreenPos = juce::Desktop::getInstance().getMousePosition();
+        menuButton.triggerClick();
+    };
+
+    // Restore auto-center pitch preference from APVTS.
+    if (auto* acParam = processorRef.getParameters().getParameter ("ui_auto_center"))
+        pitchVisualizer->setAutoCenter (acParam->getValue() > 0.5f);
+
+    // Restore visualizer zoom range from APVTS.
+    {
+        float fMinHz = 50.0f, fMaxHz = 1500.0f;
+        if (auto* p = processorRef.getParameters().getParameter ("viz_fmin"))
+            fMinHz = p->convertFrom0to1 (p->getValue());
+        if (auto* p = processorRef.getParameters().getParameter ("viz_fmax"))
+            fMaxHz = p->convertFrom0to1 (p->getValue());
+        pitchVisualizer->setZoomRange (fMinHz, fMaxHz);
+    }
+
+    // Save visualizer zoom to APVTS when it changes.
+    pitchVisualizer->onZoomChanged = [this] (float fMinHz, float fMaxHz) {
+        if (auto* p = processorRef.getParameters().getParameter ("viz_fmin"))
+            p->setValueNotifyingHost (p->convertTo0to1 (fMinHz));
+        if (auto* p = processorRef.getParameters().getParameter ("viz_fmax"))
+            p->setValueNotifyingHost (p->convertTo0to1 (fMaxHz));
+    };
 
     curveEditor = std::make_unique<ui::PitchCurveEditor>();
     curveEditor->addListener (this);
@@ -2732,17 +2831,12 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     }
 
     // Harmony controls block (rightmost block)
+    // Split into left/right columns FIRST, then fill each column.
+    // Left: enable button + type + voices + toggles
+    // Right: Volume/Blend/Formant knobs
     {
         auto h = block3Bounds.reduced(10);
 
-        // Width of a Power-style button (icon + text) as drawn by OVTLookAndFeel.
-        // Keeps the on/off toggles the same footprint as the Gate / Reverb power
-        // buttons (height 18 => identical icon size).
-        // Width of a Power-style button (icon + text) as drawn by OVTLookAndFeel.
-        // IMPORTANT: measure with the SAME font (ovt::fontComboBox()) that the
-        // LookAndFeel uses to draw the text. Using a raw juce::Font(14.0f) here
-        // measured the default JUCE face, which differs from "Segoe UI" on
-        // Windows and produced a too-narrow button (truncated text).
         auto powerButtonWidth = [&] (juce::Button& b) -> int
         {
             const float radius    = 18.0f * 0.3f;
@@ -2753,16 +2847,17 @@ void OpenVoxTunerAudioProcessorEditor::resized()
             return static_cast<int> (std::ceil (iconWidth + textW + 4.0f));
         };
 
-        // First row: Harmony on/off only (sized to its text, height 18 so the
-        // icon matches Gate/Reverb).
-        auto firstRow = h.removeFromTop (22);
-        const int harmonyEnableW = powerButtonWidth (harmonyEnableButton);
-        harmonyEnableButton.setBounds (firstRow.removeFromLeft (harmonyEnableW).reduced (0, 2));
-
-        // Remaining controls split into a left and right column.
+        // Split left/right columns from the full height.
         auto leftCol = h.removeFromLeft ((int) std::round (h.getWidth() * 0.58f));
         h.removeFromLeft (8);
         auto rightCol = h;
+
+        // --- Left column: enable button, type, voices, toggles ---
+        {
+            auto enableRow = leftCol.removeFromTop (18);
+            const int harmonyEnableW = powerButtonWidth (harmonyEnableButton);
+            harmonyEnableButton.setBounds (enableRow.removeFromLeft (harmonyEnableW).reduced (0, 0));
+        }
 
         harmonyTypeBox.setBounds (leftCol.removeFromTop(26));
 
@@ -2776,34 +2871,49 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         harmonyToneBox.setBounds (selectorBox.reduced (0, 2));
         harmonyToneColorSlider.setBounds (selectorRow.withSizeKeepingCentre (28, 24));
 
-        // Follow Lead toggle: first row, below the "number of voices"
-        // combo, left-aligned and sized to its content (like the other
-        // Power buttons).
         auto flRow = leftCol.removeFromTop (20);
         const int flW = powerButtonWidth (harmonyFollowLeadButton);
         harmonyFollowLeadButton.setBounds (flRow.removeFromLeft (flW).reduced (0, 1));
 
-        // Gain Match toggle: second row, directly UNDER the Follow Lead
-        // toggle (as requested by the user on 2026-07-17). Previously
-        // these two toggles were side-by-side on the same row, but that
-        // layout made the two related controls harder to scan when the
-        // column was narrow. Stacking them keeps each toggle on its own
-        // row at the same x position, matching the other Power-button
-        // rows in the panel.
         auto gmRow = leftCol.removeFromTop (20);
         const int gmW = powerButtonWidth (harmonyGainMatchButton);
         harmonyGainMatchButton.setBounds (gmRow.removeFromLeft (gmW).reduced (0, 1));
 
-        // Knobs on the right column (two rotary knobs side-by-side)
-        int knobAreaHeight = 80;
-        auto knobArea = rightCol.removeFromTop(knobAreaHeight);
-        int hkWidth = knobArea.getWidth() / 2;
-        auto hk1 = knobArea.removeFromLeft(hkWidth);
-        harmonyGainLabel.setBounds(hk1.removeFromTop(20));
-        harmonyGainSlider.setBounds(hk1);
-        auto hk2 = knobArea;
-        harmonyBlendLabel.setBounds(hk2.removeFromTop(20));
-        harmonyBlendSlider.setBounds(hk2);
+        // --- Right column: Volume + Blend side-by-side, Formant below ---
+        const int harmLabelH = 14;
+        const int harmKnobD  = 44;
+        const int harmRowH   = harmLabelH + harmKnobD + 2;
+        const int harmRowGap = 8;
+        const int harmKnobGap = 8;
+        auto knobColW = (rightCol.getWidth() - harmKnobGap) / 2;
+
+        auto knobRow1 = rightCol.removeFromTop (harmRowH);
+        {
+            const int kx = knobRow1.getX() + juce::jmax (0, (knobColW - harmKnobD) / 2);
+            harmonyGainLabel.setBounds (kx, knobRow1.getY(), harmKnobD, harmLabelH);
+            harmonyGainSlider.setBounds (kx, knobRow1.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+        }
+        {
+            const int kx = knobRow1.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
+            harmonyBlendLabel.setBounds (kx, knobRow1.getY(), harmKnobD, harmLabelH);
+            harmonyBlendSlider.setBounds (kx, knobRow1.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+        }
+
+        rightCol.removeFromTop (harmRowGap);
+        auto knobRow2 = rightCol.removeFromTop (harmRowH);
+        {
+            // Formant stays under the Volume knob (left column).
+            const int kxL = knobRow2.getX() + juce::jmax (0, (knobColW - harmKnobD) / 2);
+            harmonyFormantLabel.setBounds (kxL, knobRow2.getY(), harmKnobD, harmLabelH);
+            harmonyFormantSlider.setBounds (kxL, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+        }
+        {
+            // Harmony Attack (per-voice fade-in) is placed directly under the
+            // Blend knob (right column), as requested.
+            const int kxR = knobRow2.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
+            harmonyAttackLabel.setBounds (kxR, knobRow2.getY(), harmKnobD, harmLabelH);
+            harmonyAttackSlider.setBounds (kxR, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+        }
     }
 
     // --- Block 1 : Key, Scale, Keyboard (middle) ---
@@ -3068,6 +3178,8 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     harmonyTypeBox.setEnabled (isHarmonyEnabled);
     harmonyGainSlider.setEnabled (isHarmonyEnabled);
     harmonyBlendSlider.setEnabled (isHarmonyEnabled);
+    harmonyAttackSlider.setEnabled (isHarmonyEnabled);
+    harmonyFormantSlider.setEnabled (isHarmonyEnabled);
     // Use Voice is a sub-toggle of Harmony: it must be disabled whenever
     // Harmony is off (otherwise its state is silently read on re-enable).
     useVoiceButton.setEnabled (isHarmonyEnabled);
@@ -3214,8 +3326,13 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
             // PitchVisualizer only, leaving the curve editor's buffer empty).
             if (curveEditor != nullptr && curveEditor->getShowHarmoniesTrace())
             {
+                // Sort frequencies by pitch so each voice tracks the same
+                // musical line across calls (prevents crossing blue lines
+                // when the notes array changes size between blocks).
+                juce::Array<float> sortedFreqs = freqsToSend;
+                sortedFreqs.sort();
                 const double hostTime = processorRef.getInterpolatedTransportTime();
-                curveEditor->addHarmonySamples (hostTime, freqsToSend);
+                curveEditor->addHarmonySamples (hostTime, sortedFreqs);
             }
         }
         else
@@ -3635,6 +3752,7 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     // attackReleaseSlider.addListener (this);
     harmonyGainSlider.addListener (this);
     harmonyBlendSlider.addListener (this);
+    harmonyAttackSlider.addListener (this);
     harmonyToneColorSlider.addListener (this);
     noiseGateThresholdSlider.addListener (this);
 
@@ -3842,6 +3960,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     amountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipAmount));
     harmonyGainSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipVolume));
     harmonyBlendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipBlend));
+    harmonyAttackSlider.setTooltip ("Harmony Attack: per-voice fade-in duration. Smoother, more progressive harmony onsets. When the Noise Gate is on, the attack follows the gate.");
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
     buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
     buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));
@@ -4151,6 +4270,8 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("formant",            saved.formant,            formantSlider);
     setSlider ("harmony_gain",       saved.harmonyGain,        harmonyGainSlider);
     setSlider ("harmony_blend",      saved.harmonyBlend,       harmonyBlendSlider);
+    setSlider ("harmony_attack",     saved.harmonyAttack,      harmonyAttackSlider);
+    setSlider ("harmony_formant",    saved.harmonyFormant,     harmonyFormantSlider);
     setSlider ("harmony_tone_color", saved.harmonyToneColor,   harmonyToneColorSlider);
     setSlider ("reverb_mix",         saved.reverbMix,          reverbMixSlider);
     setSlider ("noise_gate_threshold", saved.noiseGateThreshold, noiseGateThresholdSlider);
@@ -4865,6 +4986,7 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applySliderColours (attackReleaseSlider);
     applySliderColours (harmonyGainSlider);
     applySliderColours (harmonyBlendSlider);
+    applySliderColours (harmonyFormantSlider);
 
     // Re-apply colours to ALL labels
     auto applyLabelColours = [] (juce::Label& l) {
@@ -4878,8 +5000,6 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (attackReleaseLabel);
     applyLabelColours (reverbMixLabel);
     applyLabelColours (noiseGateThresholdLabel);
-    applyLabelColours (harmonyGainLabel);
-    applyLabelColours (harmonyBlendLabel);
     applyLabelColours (harmonyToneColorLabel);
     applyLabelColours (keyLabel);
     applyLabelColours (scaleLabel);

@@ -72,10 +72,17 @@ namespace ovtdsp
         /**
          * Render les harmonies directement dans un buffer audio.
          * Implementation simplification pour le moment.
+         * @param gateActive When the Noise Gate module is enabled, the per-voice
+         *        attack is forced to a short "gate-follow" time so the harmony
+         *        voices swell together WITH the gated dry signal instead of
+         *        arriving later and creating a perceived volume surplus at the
+         *        note onset. When the gate is off, the configurable attackMs
+         *        (set via setEnvelopeTimes) governs the per-voice fade-in.
          */
-        void renderHarmonies (float inputFreq, const juce::Array<float>& harmonyFrequencies, 
+        void renderHarmonies (float inputFreq, const juce::Array<float>& harmonyFrequencies,
                               float volume, double sampleRate, juce::AudioBuffer<float>& outputBuffer,
-                              int key, int scaleIndex, float blend, int toneMode = 0, float toneColor = 0.5f);
+                              int key, int scaleIndex, float blend, int toneMode = 0, float toneColor = 0.5f,
+                              bool gateActive = false);
 
         /**
          * Retourne le nom lisible d'un preset d'harmonie.
@@ -154,9 +161,18 @@ namespace ovtdsp
         std::vector<float> targetAmps;     // target amplitude per voice
         double currentSampleRate = 44100.0; // stored sample rate
         bool voiceGate = true;             // whether voices are allowed to sound
-        float attackMs = 35.0f;             // attack time in ms (linear fade-in ramp to avoid hard transient)
+        float attackMs = 35.0f;             // attack time in ms (smoothstep fade-in ramp to avoid hard transient)
         float releaseMs = 80.0f;           // release time in ms (increased to reduce clicks)
-        std::vector<int> attackSamplesRemaining; // per-voice linear fade-in counter (samples left)
+        // Per-voice progressive (smoothstep) attack envelope state.
+        // A smoothstep (raised-cosine) ramp has zero slope at both ends, so the
+        // note-onset transient is much softer than a linear ramp or a one-pole.
+        std::vector<int>   attackSamplesRemaining; // samples left in the current attack ramp
+        std::vector<int>   attackTotalSamples;     // total length (samples) of the current attack ramp
+        std::vector<float> attackStartAmp;         // amplitude captured when the current attack started
+        std::vector<uint8_t> voicePrevGate;         // previous block's gate state per voice (for retrigger)
+        // When the Noise Gate is enabled, the per-voice attack is clamped to this
+        // short time so harmony voices track the gate envelope (no late swell).
+        float gateFollowMs = 12.0f;
 
     public:
         // Control voice gating (note on/off). When turned on, volume is used as

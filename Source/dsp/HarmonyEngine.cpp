@@ -202,7 +202,8 @@ namespace ovtdsp
 
     void HarmonyEngine::renderHarmonies (float inputFreq, const juce::Array<float>& harmonyFrequencies,
                                          float volume, double sampleRate, juce::AudioBuffer<float>& outputBuffer,
-                                         int key, int scaleIndex, float blend, int toneMode, float toneColor)
+                                         int key, int scaleIndex, float blend, int toneMode, float toneColor,
+                                         bool gateActive)
     {
         const int numSamples = outputBuffer.getNumSamples();
         const int numChannels = outputBuffer.getNumChannels();
@@ -221,6 +222,9 @@ namespace ovtdsp
         phases.resize((size_t)numVoices);
         amplitudes.resize((size_t)numVoices);
         targetAmps.resize((size_t)numVoices);
+        attackTotalSamples.resize((size_t)numVoices);
+        attackStartAmp.resize((size_t)numVoices);
+        voicePrevGate.resize((size_t)numVoices);
 
         // compute attack/release smoothing coefficients (simple one-pole)
         const double attackAlpha = 1.0 - std::exp(-1000.0 / (attackMs * currentSampleRate));
@@ -228,6 +232,15 @@ namespace ovtdsp
 
         // Resize the linear fade-in counter to match the voice count
         attackSamplesRemaining.resize ((size_t) numVoices);
+
+        // Effective attack length: when the Noise Gate is active the per-voice
+        // attack is clamped to a short gate-follow time so the harmony voices
+        // swell together WITH the gated dry signal. When the gate is off, the
+        // user-configurable attackMs drives the per-voice fade-in.
+        const float effectiveAttackMs = gateActive
+            ? juce::jmin (attackMs, gateFollowMs)
+            : attackMs;
+        const int effectiveAttackSamples = (int) std::llround (effectiveAttackMs * 0.001 * currentSampleRate);
 
         // initialize amplitudes and targets if needed
         for (int v = 0; v < numVoices; ++v)
@@ -242,13 +255,28 @@ namespace ovtdsp
             if (amplitudes[v] == 0.0f)
             {
                 phases[v] = v * 0.5 * juce::MathConstants<double>::pi;
-                // Start a fresh linear fade-in so the attack is gentle (constant
-                // slope) instead of the abrupt exponential onset of a one-pole.
-                attackSamplesRemaining[v] = (int) std::llround (attackMs * 0.001 * currentSampleRate);
+            }
+
+            // Retrigger the progressive attack envelope on every gate-open
+            // transition (and on a true restart from silence). Previously the
+            // linear fade-in only fired when the voice had fully decayed to
+            // zero, so a quick gate re-open (after a short close) skipped the
+            // gentle ramp and used the abrupt exponential one-pole, producing a
+            // click. We now capture the current amplitude as the ramp start and
+            // (re)arm the smoothstep counter every time the gate opens.
+            const bool gateJustOpened = (voiceGate && (voicePrevGate[v] == 0));
+            const bool startedFromSilence = (amplitudes[v] == 0.0f);
+            if (gateJustOpened || startedFromSilence)
+            {
+                attackStartAmp[v] = static_cast<float> (amplitudes[v]);
+                attackTotalSamples[v] = effectiveAttackSamples;
+                attackSamplesRemaining[v] = effectiveAttackSamples;
             }
             // targetAmps is 1.0 when gate open, 0 otherwise. Actual per-voice
             // amplitude is computed using the 'volume' parameter passed to renderHarmonies
             targetAmps[v] = voiceGate ? 1.0f : 0.0f;
+            // Remember gate state for the next block's retrigger detection.
+            voicePrevGate[v] = voiceGate ? 1 : 0;
         }
 
         // Clear output buffer area we will write to (we accumulate)
@@ -269,9 +297,11 @@ namespace ovtdsp
 
             double amp = amplitudes[v];
             double tgt = targetAmps[v] * (double)volume * (1.0 - (double)blend);
-            // Total linear fade-in length in samples (constant slope ramp).
-            const int attackTotal = (int) std::llround (attackMs * 0.001 * currentSampleRate);
-            int fadeLeft = attackSamplesRemaining[v];
+            // Per-voice progressive attack state (configured at block start,
+            // already accounting for gateActive). Reference the member directly
+            // so decrements persist across blocks.
+            const int attackTotal = attackTotalSamples[v];
+            int& fadeLeft = attackSamplesRemaining[v];
 
             // Stereo placement per voice:
             // 1st=full right, 2nd=full left, 3rd=centre-right, 4th=centre-left
@@ -298,13 +328,18 @@ namespace ovtdsp
                 // smooth amplitude toward target
                 if (amp < tgt)
                 {
-                    // Linear fade-in while a fresh attack is still ramping.
-                    // A constant-slope ramp has no steep onset (unlike a
-                    // one-pole), so the attack transient is much softer and
-                    // there is no "thud" when several voices start together.
+                    // Progressive (smoothstep / raised-cosine) fade-in while a
+                    // fresh attack is still ramping. A smoothstep has ZERO slope
+                    // at both ends, so unlike a linear ramp (constant slope) or a
+                    // one-pole (infinite slope at t=0) it has no abrupt onset and
+                    // no "thud" when several voices start together. The ramp is
+                    // always (re)armed on a gate-open / silence restart, so every
+                    // harmony-voice attack is gently eased in.
                     if (fadeLeft > 0 && attackTotal > 0)
                     {
-                        amp = tgt * (double) (attackTotal - fadeLeft) / (double) attackTotal;
+                        const double progress = (double) (attackTotal - fadeLeft) / (double) attackTotal;
+                        const double smooth = progress * progress * (3.0 - 2.0 * progress); // smoothstep
+                        amp = attackStartAmp[v] + (tgt - (double) attackStartAmp[v]) * smooth;
                         --fadeLeft;
                     }
                     else

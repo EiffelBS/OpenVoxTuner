@@ -94,6 +94,154 @@ When the Loop Playhead is enabled (`isLooping = true`), the seek detection is by
 
 Unit-test suite: **138 OK / 0 KO** (VST3 + Standalone + tests build successfully). The visual fix will be validated by the user in the Standalone.
 
+## Pitch Visualizer: Auto-center pitch display (2026-07-24)
+
+A new **Auto-Center Pitch** option keeps the tuned voice (output pitch) vertically centered in the visualizer. When enabled, the Y-axis scrolls smoothly to follow pitch changes.
+
+### Features
+
+- **Auto-center option**: Available in the wrench menu under Interface > Auto-Center Pitch (toggle)
+- **Smooth tracking**: IIR-smoothed output pitch (coefficient 0.15) prevents jittery scroll from vibrato or fast pitch changes
+- **Automatic disable**: Any manual zoom/scroll interaction (toolbar buttons, keyboard shortcuts, trackpad gestures) automatically disables auto-center
+- **Re-enable**: Re-enabling via the menu immediately re-centers on the current pitch
+- **Right-click menu**: Right-clicking in the Live tab visualizer opens the wrench menu (same as clicking the gear button)
+
+### Implementation details
+
+- `PitchVisualizer::setAutoCenter(bool)` — enables/disables auto-centering
+- `PitchVisualizer::isAutoCenter()` — queries current state
+- `PitchVisualizer::onRightClick` — callback fired on right-click (wired to `menuButton.triggerClick()`)
+- Auto-center logic in `timerCallback()`: computes `targetFMin`/`targetFMax` to center on `smoothedOutputHz` with the current zoom level preserved
+- Disabled in `scrollUp()`, `scrollDown()`, `zoomIn()`, `zoomOut()`, `resetView()`, and `mouseWheelMove()`
+
+### Files touched
+
+- `Source/ui/PitchVisualizer.h` (added `setAutoCenter`, `isAutoCenter`, `onRightClick`, `mouseDown` override, `autoCenter`, `smoothedOutputHz` members)
+- `Source/ui/PitchVisualizer.cpp` (auto-center logic in `timerCallback`, `setAutoCenter`, `mouseDown`, auto-center disable in all zoom/scroll methods)
+- `Source/PluginEditor.cpp` (auto-center menu item in Interface submenu, right-click callback wiring)
+
+### Verification
+
+Unit-test suite: **138 OK / 0 KO** (VST3 + Standalone + tests build successfully).
+
+## Harmony block: Layout alignment, formant fix, right-click menu + smoother auto-center (2026-07-24)
+
+### Harmony knobs aligned with Effects block
+
+The Harmony block layout now mirrors the Effects block structure:
+- **Enable button** (18px) matches Gate/Reverb power toggle height
+- **Title labels** ("Volume", "Blend", "Formant") above each knob
+- **Fixed 54px knobs** in two side-by-side columns with 8px gap
+- **Row structure**: 16px label + 54px knob + 2px gap = 72px per row, 8px between rows
+- Formant knob no longer overflows the block
+
+### Harmony formant knob fixed
+
+The harmony formant knob now actually produces an effect. Previously, `formantPreserverHarmony` processed `synthWorkBuffer` BEFORE the pitch shifters, but the pitch shifters overwrote the buffer with `formantRatio=1.0`, undoing the formant work. Fix: removed the separate `formantPreserverHarmony` and now pass `harmonyFormantRatio` directly to each harmony voice's pitch shifter as the `formantRatio` parameter.
+
+### Right-click wrench menu at cursor position
+
+Right-clicking in the Live tab visualizer opens the wrench menu at the mouse cursor position (not at the gear button). Uses `withTargetScreenArea` instead of `withTargetComponent` when triggered from a right-click.
+
+### Smoother auto-center animation
+
+Auto-center pitch tracking now uses log-space IIR smoothing (coeff 0.12) and direct view lerp (coeff 0.18) for fluid, jank-free scrolling. On silence, the view now holds its last position instead of scrolling to the bottom.
+
+### Files touched
+
+- `Source/PluginEditor.h` (restored `harmonyGainLabel`, `harmonyBlendLabel`, `harmonyFormantLabel`; added `pendingMenuScreenPos`)
+- `Source/PluginEditor.cpp` (title label setup, layout with 18px enable + 72px knob rows, right-click menu positioning)
+- `Source/PluginProcessor.cpp` (removed `formantPreserverHarmony.process()`, added `harmonyFormantRatio`, passed to harmony pitch shifters)
+- `Source/ui/PitchVisualizer.h` (initialized `smoothedOutputHz` to log(440))
+- `Source/ui/PitchVisualizer.cpp` (log-space smoothing + view lerp, silence fix)
+
+### Verification
+
+Unit-test suite: **138 OK / 0 KO** (VST3 + Standalone + tests build successfully).
+
+## Pitch Visualizer: Redesigned metrics display (2026-07-24)
+
+The pitch metrics area (detected note, target note, cents offset) in the PitchVisualizer header has been redesigned for a modern, polished look that matches the quality of the LED-grid VU meter.
+
+### Before (problems)
+
+- **Detected note badge**: Flat blue rectangle with very faint background (13% alpha), no visual depth
+- **Target note**: Raw green text ("> C3") with no container, looked unpolished
+- **Cents offset**: Plain colored text at a fixed X position (185px), no visual representation of the deviation
+- **Layout**: Hardcoded pixel positions that didn't adapt well to different widths
+
+### After (new design)
+
+- **Unified animated note badge**: Single badge that smoothly animates between two modes:
+  - **In-tune** (detected = target): compact green badge with black text
+  - **Out-of-tune** (detected ≠ target): badge expands to double width via smooth animation, splitting into:
+    - Left half: detected note (red background, white text)
+    - Right half: target note (light green background, black text)
+  - Glow effect adapts (blue when in-tune, red when out-of-tune)
+- **VU meter**: Dynamically repositioned based on badge width, sole cents visualization
+- **Responsive**: Metrics layout adapts to window width; VU meter scales proportionally
+
+### Design rationale
+
+- **Single source of truth**: One badge communicates both detected and target note, eliminating visual redundancy
+- **Animation**: Smooth lerp-based width transition (badgeAnimW) provides clear visual feedback when the note diverges from target
+- **Color semantics**: Green = correct, Red = wrong — universally understood without requiring legend lookup
+- **No redundancy**: Cents are visualized solely by the LED-grid VU meter
+
+### Files touched
+
+- `Source/ui/PitchVisualizer.h` (added badgeAnimW, badgeTargetW, badgeSplitX, badgeTargetSplitX members)
+- `Source/ui/PitchVisualizer.cpp` (unified note badge with animation, removed separate target badge, dynamic VU meter positioning)
+
+### Verification
+
+Unit-test suite: **138 OK / 0 KO** (VST3 + Standalone + tests build successfully). The visual redesign will be validated by the user.
+
+## Harmony: Independent formant shift knob (2026-07-24)
+
+A new **Harmony Formant** knob has been added to the Harmony block, allowing independent formant control for harmony voices separate from the main voice formant.
+
+### What changed
+
+- **New APVTS parameter**: `harmony_formant` (float, -5 to +5 semitones, default 0)
+- **New DSP module**: `formantPreserverHarmony` — a second `FormantPreserver` instance dedicated to harmony voices
+- **New UI knob**: "Formant" rotary knob in the Harmony block's right column (stacked below Volume and Blend)
+- **Processing chain restructured**: The `synthWorkBuffer` snapshot is now taken **before** any formant processing, so each voice path (main vs harmony) can be processed with its own independent formant shift
+
+### Processing flow (before → after)
+
+**Before:**
+```
+buffer → formantPreserver.process(buffer) → snapshot → synthWorkBuffer
+buffer → pitchShifter (main voice)
+synthWorkBuffer → pitchShifter (harmony, formantRatio=1.0 — inherited from snapshot)
+```
+
+**After:**
+```
+snapshot → synthWorkBuffer (raw, no formant yet)
+buffer → formantPreserver.process(buffer) → pitchShifter (main voice)
+synthWorkBuffer → formantPreserverHarmony.process(synthWorkBuffer) → pitchShifter (harmony)
+```
+
+### Use cases enabled
+
+- Main voice normal + harmonies with formant shift (e.g., choir-like effect)
+- Main voice with formant shift + harmonies normal (e.g., lead vocal with natural harmonies)
+- Both with different formant shifts (e.g., creative sound design)
+
+### Files touched
+
+- `Source/PluginProcessor.h` (added `formantHarmonyParam` pointer, `formantPreserverHarmony` member)
+- `Source/PluginProcessor.cpp` (added APVTS parameter, `getRawParameterValue`, `prepare`, restructured `processBlock`)
+- `Source/PluginEditor.h` (added `harmonyFormantSlider`, `harmonyFormantLabel`, `harmonyFormantAttachment`)
+- `Source/PluginEditor.cpp` (knob setup, attachment, layout, enable/disable, colors, preset sync)
+- `Source/dsp/PresetMorpher.h` (added `harmonyFormant` to `MorphState`, `captureState`, `getMorphParameterIds`, morph lerp)
+
+### Verification
+
+Unit-test suite: **138 OK / 0 KO** (VST3 + Standalone + tests build successfully).
+
 ## Harmony: Staggered attack to avoid "survolume" burst (2026-07-24)
 
 The user reported that with **Harmony ON** and multiple voices, the onset of a sung note produces a transient "survolume" (over-volume burst). This is because all harmony voices were ramping up from 0 to 1 in parallel, summing to 4x amplitude (for 4 voices) during the first few milliseconds of the note.

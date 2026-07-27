@@ -39,14 +39,12 @@ namespace ovtdsp
         const double bypassTau = 0.025; // 25 ms enable/disable ramp
         bypassCoeff = 1.0f - std::exp (-1.0 / (bypassTau * sr));
         reset();
-        // Pivot follows the signal level with a SLOW, SYMMETRIC time constant.
-        // It must never jump quickly in either direction: a fast attack would
-        // momentarily see the gate's opening front as a huge inst/pivot ratio
-        // (loud "clac"), and a fast release would let it collapse toward ~0
-        // right after the gate opens. A constant slow lag (150 ms) keeps the
-        // pivot near the signal's real average so quiet parts are still lifted
-        // but no transient spike is ever amplified.
-        const double pivotTau = 0.150; // 150 ms slow, symmetric
+        // Pivot follows the signal level with a VERY SLOW time constant (2 s).
+        // It represents the long-term average level, not the instantaneous
+        // level. Quiet passages (below the pivot) get boosted; loud passages
+        // (at/above the pivot) stay at unity. The 2 s TC ensures the pivot
+        // doesn't track individual words or notes, only the overall level.
+        const double pivotTau = 2.0; // 2 seconds — very slow
         pivotCoeff = 1.0f - std::exp (-1.0 / (pivotTau * sr));
         reset();
     }
@@ -66,8 +64,8 @@ namespace ovtdsp
         void setAmount (float a)
         {
             amount = juce::jlimit (0.0f, 1.0f, a);
-            // Map amount to an upward ratio: 1.0 (no lift) .. 4.0 (strong).
-            upwardRatio = 1.0f + amount * 3.0f;
+            // Map amount to an upward ratio: 1.0 (no lift) .. 8.0 (strong).
+            upwardRatio = 1.0f + amount * 7.0f;
         }
 
         bool isEnabled() const { return enabled; }
@@ -110,16 +108,15 @@ namespace ovtdsp
                 const float coeff = (inst > rmsState) ? rmsCoeff * 2.0f : rmsCoeff;
                 rmsState += (inst - rmsState) * coeff;
 
-                // Pivot = slow, symmetric reference level. Because it lags by a
-                // constant 150 ms in both directions, it never spikes on the
-                // gate's opening front nor collapses after the gate closes, so
-                // the inst/pivot ratio stays bounded and no "clac" is produced.
+                // Pivot = VERY slow reference level (2 seconds). It represents
+                // the long-term average level of the signal. Quiet passages
+                // (below the pivot) are boosted; loud passages (at/above the
+                // pivot) stay at unity. The slow pivot ensures the compressor
+                // acts on dynamics, not on instantaneous level.
                 pivotState += (inst - pivotState) * pivotCoeff;
 
                 // Pivot floor (near-silence): skip compression to avoid
-                // amplifying noise. The slow pivot already sits near the real
-                // signal level, so quiet attacks are not multiplied by a tiny
-                // pivot.
+                // amplifying noise.
                 const float pivot = juce::jmax (pivotState, 1.0e-4f);
 
                 // Upward gain is computed from the SMOOTHED level detector
@@ -137,9 +134,8 @@ namespace ovtdsp
                 else
                     gain = 1.0f;
                 if (! std::isfinite (gain) || gain < 1.0f) gain = 1.0f;
-                // Safety ceiling: 4x is plenty for an upward lift and, combined
-                // with the slow pivot, guarantees no transient spike survives.
-                gain = juce::jmin (gain, 4.0f);
+                // Safety ceiling: 8x matches the max upward ratio (8:1).
+                gain = juce::jmin (gain, 8.0f);
 
                 // Smooth the gain envelope. Use an asymmetric time constant:
                 // the attack (gain rising toward target) is slower (30 ms) so a

@@ -165,15 +165,19 @@ private:
 
     // Hamburger menu (gear icon button, replaces all top-bar controls).
     juce::DrawableButton menuButton { "Options", juce::DrawableButton::ImageOnButtonBackground };
+    // Screen position for right-click triggered wrench menu (0,0 = use menuButton position).
+    juce::Point<int> pendingMenuScreenPos;
 
     // Harmony controls
     juce::ToggleButton harmonyEnableButton;
     juce::ComboBox    harmonyTypeBox;
     juce::Slider      harmonyGainSlider;
     juce::Slider      harmonyBlendSlider;
-    juce::Label       harmonyTypeLabel;
+    juce::Slider      harmonyAttackSlider;   // Per-voice harmony fade-in duration (ms)
     juce::Label       harmonyGainLabel;
     juce::Label       harmonyBlendLabel;
+    juce::Label       harmonyAttackLabel;
+    juce::Label       harmonyTypeLabel;
     // Use voice toggle and shifted voices selector
     juce::ToggleButton useVoiceButton;
     juce::ComboBox    shiftedVoicesBox;
@@ -182,6 +186,8 @@ private:
     juce::Label       harmonyToneColorLabel;
     juce::ToggleButton harmonyFollowLeadButton; // Harmony voices follow the lead correction character
     juce::ToggleButton harmonyGainMatchButton; // Scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
+    juce::Slider      harmonyFormantSlider;   // Formant shift for harmony voices only
+    juce::Label       harmonyFormantLabel;
 
     // Reverb controls (post-processing effect)
     juce::ToggleButton reverbEnableButton;
@@ -283,8 +289,10 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> harmonyTypeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyGainAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyBlendAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyAttackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> harmonyFollowLeadAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> harmonyGainMatchAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyFormantAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;

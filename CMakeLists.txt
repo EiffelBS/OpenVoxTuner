@@ -353,6 +353,7 @@ target_sources(OpenVoxTunerTests PRIVATE
     test/dsp/PitchShifterOutputRmsTest.cpp
     test/dsp/PitchShifterClickTest.cpp
     test/dsp/HarmonyGainMatchTest.cpp
+    test/dsp/HarmonyAttackTest.cpp
     test/dsp/PitchCurveTest.cpp
     test/dsp/KeyBridgeTest.cpp
     test/dsp/SidechainBusLayoutTest.cpp

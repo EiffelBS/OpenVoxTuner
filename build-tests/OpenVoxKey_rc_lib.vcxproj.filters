@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\build-tests\CMakeFiles\d9d1e9d5a9fd98f07c04235f8fe2fdd1\OpenVoxKey_resources.rc.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\build-tests\OpenVoxKey_artefacts\JuceLibraryCode\OpenVoxKey_resources.rc">
+      <Filter>Source Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{EB670E24-BBDA-3769-9700-E75123FC259B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{C30AE8F9-A44C-3104-9F96-633DF32FC147}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

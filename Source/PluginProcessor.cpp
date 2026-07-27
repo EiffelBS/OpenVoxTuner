@@ -451,6 +451,16 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           "harmony_blend", "Harmony Blend",
                           juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f)
                       ,
+                      // Harmony Attack : per-voice fade-in duration (ms) applied to each
+                      // harmony voice's attack. Smoother / more progressive than a hard
+                      // onset. When the Noise Gate is enabled the effective attack is
+                      // clamped to a short gate-follow time so the harmony swells with the
+                      // gated dry signal. 35 ms by default (matches the previous internal
+                      // attack). Range 1..300 ms.
+                      std::make_unique<juce::AudioParameterFloat> (
+                          "harmony_attack", "Harmony Attack (ms)",
+                          juce::NormalisableRange<float> (1.0f, 300.0f, 1.0f), 35.0f)
+                      ,
                       // Use Voice : enabled by default
                       std::make_unique<juce::AudioParameterBool> (
                           "harmony_use_voice", "Use Voice for Harmony", true),
@@ -479,6 +489,12 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                        // restore the natural "additive" boost.
                        std::make_unique<juce::AudioParameterBool> (
                           "harmony_gain_match", "Harmony Gain Match", true),
+
+                       // Harmony Formant Shift : formant shift for harmony voices only (-5 to +5 st)
+                       std::make_unique<juce::AudioParameterFloat> (
+                          "harmony_formant", "Harmony Formant Shift",
+                          juce::NormalisableRange<float> (-5.0f, 5.0f, 0.1f), 0.0f),
+
                        std::make_unique<juce::AudioParameterBool> (
                           "midi_out_enable", "MIDI Out Enable",
                           // In standalone mode, disable MIDI out by default.
@@ -502,7 +518,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             juce::ParameterID { "noise_gate_enable", 1 }, "Noise Gate", false)
                       , std::make_unique<juce::AudioParameterFloat> (
                             juce::ParameterID { "noise_gate_threshold", 1 }, "Gate Threshold",
-                            juce::NormalisableRange<float> (-80.0f, 0.0f, 1.0f), -40.0f)
+                            juce::NormalisableRange<float> (-80.0f, 0.0f, 1.0f), -50.0f)
                       // Upward compression: lifts quiet passages before tuning.
                       // Single knob = amount (0..1); pivot follows the signal RMS.
                       , std::make_unique<juce::AudioParameterBool> (
@@ -533,7 +549,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             juce::NormalisableRange<float> (0.0f, 50.0f, 1.0f), 10.0f)
                       // Correction mode: Modern (false) / Transparent (true)
                       , std::make_unique<juce::AudioParameterBool> (
-                            "correction_mode", "Correction Mode", false)
+                            "correction_mode", "Correction Mode", true)
                       // Vibrato preservation: 0% = classic instantaneous correction,
                       // 100% = correction against the smoothed center pitch so the
                       // vibrato modulation survives.
@@ -554,6 +570,22 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       // UI Language: 0 = English (default), 1 = French, 2 = German, 3 = Spanish, 4 = Japanese, 5 = Chinese
                       , std::make_unique<juce::AudioParameterInt> (
                             "ui_language", "UI Language", 0, 5, 0)
+                      // UI waveform: show/hide overlay (0 = hidden, 1 = shown, default 1)
+                      , std::make_unique<juce::AudioParameterInt> (
+                            "ui_show_waveform", "Show Waveform", 0, 1, 1)
+                      // UI waveform display type: 0 = Line, 1 = Mirror, 2 = Spectral (default)
+                      , std::make_unique<juce::AudioParameterInt> (
+                            "ui_waveform_type", "Waveform Display Type", 0, 2, 2)
+                      // UI auto-center pitch display (0 = off, 1 = on, default 0)
+                      , std::make_unique<juce::AudioParameterInt> (
+                            "ui_auto_center", "Auto-Center Pitch", 0, 1, 0)
+                      // Visualizer zoom range (Hz, log scale)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "viz_fmin", "Visualizer Min Hz",
+                            juce::NormalisableRange<float> (16.0f, 2000.0f, 0.1f), 50.0f)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "viz_fmax", "Visualizer Max Hz",
+                            juce::NormalisableRange<float> (100.0f, 8372.0f, 0.1f), 1500.0f)
                       // Morph: A/B crossfade position (0 = source slot A, 1 = target slot B).
                       // Made a host-automatable parameter so the DAW can automate the morph.
                       , std::make_unique<juce::AudioParameterFloat> (
@@ -585,6 +617,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     harmonyTypeParam  = parameters.getRawParameterValue ("harmony_type");
     harmonyGainParam  = parameters.getRawParameterValue ("harmony_gain");
     harmonyBlendParam = parameters.getRawParameterValue ("harmony_blend");
+    harmonyAttackParam = parameters.getRawParameterValue ("harmony_attack");
     harmonyEnableParam = parameters.getRawParameterValue ("harmony_enable");
     harmonyUseVoiceParam = parameters.getRawParameterValue ("harmony_use_voice");
     harmonyShiftedVoicesParam = parameters.getRawParameterValue ("harmony_shifted_voices");
@@ -592,6 +625,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     harmonyToneColorParam = parameters.getRawParameterValue ("harmony_tone_color");
     harmonyFollowLeadParam = parameters.getRawParameterValue ("harmony_follow_lead");
     harmonyGainMatchParam = parameters.getRawParameterValue ("harmony_gain_match");
+    harmonyFormantParam = parameters.getRawParameterValue ("harmony_formant");
     midiOutEnableParam = parameters.getRawParameterValue ("midi_out_enable");
     midiTargetEnableParam = parameters.getRawParameterValue ("midi_target_enable");
     dbgTestGrainParam = parameters.getRawParameterValue ("dbg_test_grain");
@@ -654,11 +688,11 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         if (hostType.getHostPath().contains ("Studio One"))
         {
             vst3Extensions = std::make_unique<PresonusMicroViewExtension>();
-            OVT_LOG ("VST3 Micro View extension enabled (Studio One detected).");
+            OVT_LOG (juce::String("VST3 Micro View extension enabled (Studio One detected)."));
         }
         else
         {
-            OVT_LOG ("VST3 Micro View extension disabled (host: " + hostType.getHostDescription() + ").");
+            OVT_LOG(juce::String("VST3 Micro View extension disabled (host: ") + hostType.getHostDescription() + ").");
         }
     }
 
@@ -773,6 +807,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     noiseGate.prepare (sampleRate);
     upwardComp.prepare (sampleRate);
     formantPreserver.prepare (sampleRate, samplesPerBlock);
+    formantPreserverHarmony.prepare (sampleRate, samplesPerBlock);
 
     retargetEnvelope->prepare (sampleRate);
     harmonyEngine->prepare (sampleRate);
@@ -850,6 +885,10 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // gain TC from 25ms to 40ms so the harmony bus fades in/out
     // smoother, complementing the per-voice staggered TCs.
     harmonyEnableGain.reset (sampleRate, 0.040);
+    // Smooth the raw noise-gate gain for the harmony mix to prevent clicks.
+    // 15 ms matches the gate's own attack smoothing.
+    harmonyGateGain.reset (sampleRate, 0.015);
+    harmonyGateGain.setCurrentAndTargetValue (0.0f);
     synthWorkBuffer.setSize (workCh, samplesPerBlock, false, true, false);
     synthWorkBuffer.clear();
     lastMixedHarmonyBuffer.setSize (workCh, samplesPerBlock, false, true, false);
@@ -995,6 +1034,7 @@ void OpenVoxTunerAudioProcessor::reset()
     // implemented, otherwise they may hang.
     for (auto& g : shiftedVoiceGains)
         g.setCurrentAndTargetValue (0.0f);
+    harmonyGateGain.setCurrentAndTargetValue (0.0f);
     for (auto& ps : shiftedVoicePitchShifters)
         if (ps != nullptr)
             ps->reset();
@@ -1101,7 +1141,51 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         upwardComp.setEnabled (ucEnabled);
         if (ucEnabled && upwardCompAmountParam != nullptr)
             upwardComp.setAmount (upwardCompAmountParam->load());
+
+        // TEMPORARY DIAGNOSTIC: measure RMS before/after compressor
+        const int numS = buffer.getNumSamples();
+        const int numCh = buffer.getNumChannels();
+        float rmsBefore = 0.0f;
+        if (numS > 0 && numCh > 0)
+        {
+            float sumSq = 0.0f;
+            for (int ch = 0; ch < numCh; ++ch)
+                for (int s = 0; s < numS; ++s)
+                { float v = buffer.getSample (ch, s); sumSq += v * v; }
+            rmsBefore = std::sqrt (sumSq / (float) (numS * numCh));
+        }
+
         upwardComp.process (buffer);
+
+        float rmsAfter = 0.0f;
+        if (numS > 0 && numCh > 0)
+        {
+            float sumSq = 0.0f;
+            for (int ch = 0; ch < numCh; ++ch)
+                for (int s = 0; s < numS; ++s)
+                { float v = buffer.getSample (ch, s); sumSq += v * v; }
+            rmsAfter = std::sqrt (sumSq / (float) (numS * numCh));
+        }
+
+        {
+            static std::atomic<uint32_t> lastCompLogMs { 0 };
+            uint32_t now = juce::Time::getMillisecondCounter();
+            uint32_t last = lastCompLogMs.load();
+            if (now - last > 1000)
+            {
+                if (lastCompLogMs.compare_exchange_strong (last, now))
+                {
+                    float paramVal = (upwardCompAmountParam != nullptr) ? upwardCompAmountParam->load() : -1.0f;
+                    float gainDb = (rmsAfter > 1e-6f && rmsBefore > 1e-6f)
+                                   ? 20.0f * std::log10 (rmsAfter / rmsBefore) : 0.0f;
+                    OVT_LOG ("COMP: enabled=" + juce::String (ucEnabled ? "Y" : "N")
+                           + " amt=" + juce::String (paramVal, 2)
+                           + " rmsIn=" + juce::String (rmsBefore, 4)
+                           + " rmsOut=" + juce::String (rmsAfter, 4)
+                           + " gain=" + juce::String (gainDb, 1) + "dB");
+                }
+            }
+        }
     }
 
     // === WAVEFORM CAPTURE ===
@@ -1987,36 +2071,12 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float shiftSemitones = (isFormantEffectEnabled && formantParam != nullptr) ? formantParam->load() : 0.0f;
     float userFormantRatio = std::pow (2.0f, shiftSemitones / 12.0f);
 
-    // Formant PRESERVATION (anti-chipmunk quality) - ALWAYS ON for main voice + harmony "use voice"
-    // Update FormantPreserver mode from parameter (set via menu, not UI combo)
-    if (formantModeParam != nullptr)
-    {
-        int modeIdx = static_cast<int> (std::round (formantModeParam->load()));
-        formantPreserver.setMode (static_cast<ovtdsp::FormantPreserver::Mode> (juce::jlimit (0, 1, modeIdx)));
-    }
-    // Always enabled for quality preservation
-    formantPreserver.setEnabled (true);
-    formantPreserver.setFormantShift (shiftSemitones);
+    // Harmony formant shift (independent from main voice)
+    float harmonyShiftSemitones = (harmonyFormantParam != nullptr) ? harmonyFormantParam->load() : 0.0f;
+    float harmonyFormantRatio = std::pow (2.0f, harmonyShiftSemitones / 12.0f);
 
-    // Apply formant preservation BEFORE pitch shifting (PSOLA)
-    formantPreserver.process (buffer, ratio);
-
-    // Throttled log around pitchShifter call (once per second)
-    static std::atomic<uint32_t> lastPitchLogMs { 0 };
-    uint32_t nowP = juce::Time::getMillisecondCounter();
-    uint32_t lastP = lastPitchLogMs.load();
-    if (nowP - lastP > 1000)
-    {
-        if (lastPitchLogMs.compare_exchange_strong (lastP, nowP))
-        {
-            OVT_LOG ("calling pitchShifter->process: ratio=" + juce::String(ratio, 6)
-                                      + " formantRatio=" + juce::String(userFormantRatio, 6)
-                                      + " f0_in=" + juce::String(f0_in, 6));
-        }
-    }
-
-    // Save input snapshot BEFORE pitchShifter modifies buffer in-place,
-    // so shifted harmony voices can read from the original (un-formanted) signal.
+    // Save input snapshot BEFORE any formant processing, so harmony voices
+    // can be processed with their own independent formant shift.
     {
         int typeVal = static_cast<int>((harmonyTypeParam != nullptr) ? harmonyTypeParam->load() : 0);
         bool harmonyEn = (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f);
@@ -2029,6 +2089,36 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             synthWorkBuffer.copyFrom (0, 0, buffer, 0, 0, buffer.getNumSamples());
             if (buffer.getNumChannels() > 1)
                 synthWorkBuffer.copyFrom (1, 0, buffer, 1, 0, buffer.getNumSamples());
+        }
+    }
+
+    // Formant PRESERVATION (anti-chipmunk quality) - ALWAYS ON for main voice
+    // Update FormantPreserver mode from parameter (set via menu, not UI combo)
+    if (formantModeParam != nullptr)
+    {
+        int modeIdx = static_cast<int> (std::round (formantModeParam->load()));
+        formantPreserver.setMode (static_cast<ovtdsp::FormantPreserver::Mode> (juce::jlimit (0, 1, modeIdx)));
+        formantPreserverHarmony.setMode (static_cast<ovtdsp::FormantPreserver::Mode> (juce::jlimit (0, 1, modeIdx)));
+    }
+    // Main voice: formant preservation + creative shift
+    formantPreserver.setEnabled (true);
+    formantPreserver.setFormantShift (shiftSemitones);
+    formantPreserver.process (buffer, ratio);
+
+    // Harmony voices: no separate formant preserver needed — the harmony
+    // formant ratio is passed directly to each pitch shifter below.
+
+    // Throttled log around pitchShifter call (once per second)
+    static std::atomic<uint32_t> lastPitchLogMs { 0 };
+    uint32_t nowP = juce::Time::getMillisecondCounter();
+    uint32_t lastP = lastPitchLogMs.load();
+    if (nowP - lastP > 1000)
+    {
+        if (lastPitchLogMs.compare_exchange_strong (lastP, nowP))
+        {
+            OVT_LOG ("calling pitchShifter->process: ratio=" + juce::String(ratio, 6)
+                                      + " formantRatio=" + juce::String(userFormantRatio, 6)
+                                      + " f0_in=" + juce::String(f0_in, 6));
         }
     }
 
@@ -2086,6 +2176,17 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const int numSamples = buffer.getNumSamples();
         const int numChannels = juce::jmax (1, getMainBusNumOutputChannels());
         const float harmonyBlend = (harmonyBlendParam ? harmonyBlendParam->load() : 0.0f);
+
+        // Push the user-configurable Harmony Attack (per-voice fade-in) into the
+        // engine. Only update when the value actually changes so the Harmony Debug
+        // window's manual envelope override is preserved between changes.
+        static float cachedHarmonyAttack = -1.0f;
+        const float harmonyAttackMs = (harmonyAttackParam ? harmonyAttackParam->load() : 35.0f);
+        if (harmonyEngine != nullptr && std::fabs (harmonyAttackMs - cachedHarmonyAttack) > 0.5f)
+        {
+            cachedHarmonyAttack = harmonyAttackMs;
+            harmonyEngine->setEnvelopeTimes (harmonyAttackMs, 80.0f);
+        }
 
         int currentKey = keyIntParam != nullptr ? keyIntParam->get() : static_cast<int> (std::round (keyParam->load() * 11.0f));
         int currentScaleIdx = scaleChoiceParam != nullptr ? scaleChoiceParam->getIndex() : static_cast<int>(scaleParam->load());
@@ -2174,11 +2275,25 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 if (tmp.getNumChannels() != numChannels || tmp.getNumSamples() != numSamples)
                     tmp.setSize (numChannels, numSamples, false, true, false);
 
-                float ratioH = juce::jmax(0.25f, juce::jmin(4.0f, targetHz / safe_f0));
+                // When Follow Lead is OFF, use the scale-locked reference
+                // frequency (no vibrato) as the denominator so ratioH is
+                // constant and the pitch shifter produces a flat output.
+                // Using f0_out directly leaks a small amount of vibrato
+                // because the YIN detector has ~1-block latency, making
+                // f0_in/f0_out slightly non-constant.
+                const bool flActive = (harmonyFollowLeadParam != nullptr)
+                    ? harmonyFollowLeadParam->load() > 0.5f : true;
+                float ratioDenom = safe_f0;
+                if (! flActive && scaleQuantizer != nullptr && safe_f0 > 0.0f)
+                {
+                    const float refF0 = scaleQuantizer->quantize (safe_f0);
+                    if (refF0 > 0.0f) ratioDenom = refF0;
+                }
+                float ratioH = juce::jmax(0.25f, juce::jmin(4.0f, targetHz / ratioDenom));
                 if (v < static_cast<int>(shiftedVoicePitchShifters.size()) && shiftedVoicePitchShifters[v] != nullptr)
-                    shiftedVoicePitchShifters[v]->process (synthWorkBuffer, tmp, ratioH, 1.0f, safe_f0);
+                    shiftedVoicePitchShifters[v]->process (synthWorkBuffer, tmp, ratioH, harmonyFormantRatio, safe_f0);
                 else
-                    pitchShifter->process (synthWorkBuffer, tmp, ratioH, 1.0f, safe_f0);
+                    pitchShifter->process (synthWorkBuffer, tmp, ratioH, harmonyFormantRatio, safe_f0);
 
                 // Log unexpected voice drop during active singing (f0_out > 0 but voice inactive)
                 if (f0_out > 0.0f && !activeShiftedVoice && v < clampedShiftedCount)
@@ -2382,7 +2497,8 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 currentScaleIdx,
                 harmonyBlend,
                 harmonyTone,
-                harmonyToneColor
+                harmonyToneColor,
+                (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f)
             );
 
             const float blendFactor = 1.0f - harmonyBlend;
@@ -2442,22 +2558,15 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 // stays at 1.0 so the harmony is unaffected.
                 const float gateGain = (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f)
                     ? noiseGate.getCurrentGain() : 1.0f;
+                // Smooth the raw gate gain to prevent clicks when the
+                // Noise Gate opens/closes abruptly.
+                harmonyGateGain.setTargetValue (gateGain);
 
                 // 2026-07-23 SIMD optimisation of the harmony->main mix loop.
-                // The per-sample `getNextValue()` and the scalar multiply/add
-                // are now batched: the master gain ramp is pre-computed once
-                // per block into a contiguous array, then juce::FloatVectorOperations
-                // does the (harmony * gain) SIMD add into the main output. For
-                // 2 channels * 256 samples / block * 172 blocks/sec = 88,064
-                // per-sample iterations/sec, the function-call overhead alone
-                // is ~0.2 ms/sec, which is enough to push the 5.8 ms deadline
-                // at 256 samples on slow laptops. The SIMD path saves ~1.5x
-                // and the linear pre-compute adds another ~1.5x (same idea as
-                // the per-voice mix above).
                 const int Nmix = numS;
                 juce::HeapBlock<float> mixGainRamp ((size_t) Nmix);
                 for (int i = 0; i < Nmix; ++i)
-                    mixGainRamp[i] = hGainFinal * harmonyEnableGain.getNextValue() * gateGain;
+                    mixGainRamp[i] = hGainFinal * harmonyEnableGain.getNextValue() * harmonyGateGain.getNextValue();
                 juce::FloatVectorOperations::addWithMultiply (outL, harmonyBuffer.getReadPointer (0), mixGainRamp.getData(), Nmix);
                 if (outR != nullptr)
                 {
@@ -3567,7 +3676,6 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
     if (xmlState != nullptr && xmlState->hasTagName (parameters.state.getType()))
     {
         parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
-        waveformDisplayType = xmlState->getIntAttribute ("waveformDisplayType", 1);
         advancedExpandedState = xmlState->getBoolAttribute ("advancedExpanded", false);
         // Restore A/B slot MorphStates from compact flat attributes.
         for (int slot = 0; slot < 2; ++slot)
@@ -3605,7 +3713,7 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.reverbEnable       = slotXml->getBoolAttribute ("reverbEnable", false);
             ms.correctionMode     = slotXml->getBoolAttribute ("correctionMode", false);
             ms.noiseGateEnable    = slotXml->getBoolAttribute ("noiseGateEnable", false);
-            ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.667);
+            ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.375);
             ms.upwardCompEnable   = slotXml->getBoolAttribute ("upwardCompEnable", false);
             ms.upwardCompAmount   = (float) slotXml->getDoubleAttribute ("upwardCompAmount", 0.5);
             // Restore the pitch curve (absent in pre-curve states -> empty curve).
