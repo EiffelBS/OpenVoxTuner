@@ -1466,12 +1466,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         processorRef.getParameters(), "voice_type", voiceTypeBox);
     addAndMakeVisible (voiceTypeBox);
 
-    voiceTypeLabel.setText ("Voice Type", juce::dontSendNotification);
+    voiceTypeLabel.setText (ovt::tr (ovt::Keys::kVoiceTypeLabel), juce::dontSendNotification);
     voiceTypeLabel.setJustificationType (juce::Justification::left);
     voiceTypeLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
     voiceTypeLabel.setFont (ovt::fontLegendHint());
-    voiceTypeLabel.setTooltip ("Constrain pitch detection to a vocal register. Universal (default) covers the full voice range.");
+    voiceTypeLabel.setTooltip (ovt::tr (ovt::Keys::kTooltipVoiceType));
     addAndMakeVisible (voiceTypeLabel);
+
+    // Register the label so refreshLabels() updates it on language switch.
+    translatableLabels.push_back ({ &voiceTypeLabel, ovt::Keys::kVoiceTypeLabel });
 
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
 
@@ -3945,6 +3948,23 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
             harmonyTypeBox.setSelectedItemIndex (juce::jmin (currentHarmony, 19), juce::dontSendNotification);
     }
 
+    // Update Voice Type combo box items (6). Labels already include the note
+    // range suffix (e.g. "Bass (E2-E4)") so the user sees the range directly
+    // in the menu without needing a tooltip.
+    {
+        const char* voiceTypeKeys[] = {
+            ovt::Keys::kVoiceTypeUniversal, ovt::Keys::kVoiceTypeBass,
+            ovt::Keys::kVoiceTypeBaritone, ovt::Keys::kVoiceTypeTenor,
+            ovt::Keys::kVoiceTypeAlto, ovt::Keys::kVoiceTypeSoprano
+        };
+        const int currentVoiceType = voiceTypeBox.getSelectedItemIndex();
+        voiceTypeBox.clear (juce::dontSendNotification);
+        for (int i = 0; i < 6; ++i)
+            voiceTypeBox.addItem (ovt::tr (voiceTypeKeys[i]), i + 1);
+        if (currentVoiceType >= 0)
+            voiceTypeBox.setSelectedItemIndex (juce::jmin (currentVoiceType, 5), juce::dontSendNotification);
+    }
+
     // Update "Use Voice" toggle button text
     useVoiceButton.setButtonText (ovt::tr (ovt::Keys::kLabelUseVoice));
 
@@ -3964,6 +3984,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
 
     // Refresh all translatable tooltips
     advancedButton.setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
+    voiceTypeBox.setTooltip (ovt::tr (ovt::Keys::kTooltipVoiceType));
+    voiceTypeLabel.setTooltip (ovt::tr (ovt::Keys::kTooltipVoiceType));
     harmonyFollowLeadButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyFollow));
     harmonyGainMatchButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyGainMatch));
     updateButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCheckUpdates));

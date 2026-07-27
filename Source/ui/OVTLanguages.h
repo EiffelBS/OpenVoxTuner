@@ -208,6 +208,20 @@ namespace ovt
         static const char* kHarmonyUnison2         = "harmony.unison2";
         static const char* kHarmonyUnisonOctaves4  = "harmony.unison_octaves4";
 
+        // Voice Type keys (vocal register selector for the pitch detector)
+        // The display label combines the voice type and the note range in Hz/MIDI.
+        // Examples: "Bass (E2-E4)", "Tenor (C3-C5)".
+        static const char* kVoiceTypeUniversal   = "voice_type.universal";
+        static const char* kVoiceTypeBass        = "voice_type.bass";
+        static const char* kVoiceTypeBaritone    = "voice_type.baritone";
+        static const char* kVoiceTypeTenor       = "voice_type.tenor";
+        static const char* kVoiceTypeAlto        = "voice_type.alto";
+        static const char* kVoiceTypeSoprano     = "voice_type.soprano";
+        // Sub-ranges for the formatted label "Type (min-max)"
+        static const char* kVoiceTypeLabel       = "label.voice_type";
+        static const char* kVoiceTypeRangeFormat = "voice_type.range_format"; // "Bass (%s-%s)"
+        static const char* kTooltipVoiceType     = "tooltip.voice_type";
+
         // Tooltip keys
         static const char* kTooltipZoomIn      = "tooltip.zoom_in";
         static const char* kTooltipZoomOut     = "tooltip.zoom_out";
@@ -525,6 +539,15 @@ namespace ovt
             { kHarmonyDrone,           "Drone" },
             { kHarmonyUnison2,         "Unison (2 voices)" },
             { kHarmonyUnisonOctaves4,  "Unison + Octaves (4 voices)" },
+            { kVoiceTypeUniversal,    "Universal" },
+            { kVoiceTypeBass,         "Bass (E2-E4)" },
+            { kVoiceTypeBaritone,     "Baritone (A2-A4)" },
+            { kVoiceTypeTenor,        "Tenor (C3-C5)" },
+            { kVoiceTypeAlto,         "Alto (F3-F5)" },
+            { kVoiceTypeSoprano,      "Soprano (C4-C6)" },
+            { kVoiceTypeLabel,        "Voice Type" },
+            { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
+            { kTooltipVoiceType,      "Constrain pitch detection to a vocal register. Universal (default) covers the full voice range. Bass / Baritone / Tenor / Alto / Soprano narrow the search range to reduce octave errors and CPU usage." },
             { kTooltipZoomIn,      "Zoom In (narrower range)" },
             { kTooltipZoomOut,     "Zoom Out (wider range)" },
             { kTooltipScrollUp,    "Scroll Up (higher pitches)" },
@@ -819,6 +842,15 @@ namespace ovt
             { kHarmonyDrone,           "Drone" },
             { kHarmonyUnison2,         "Unisson (2 voix)" },
             { kHarmonyUnisonOctaves4,  "Unisson + Octaves (4 voix)" },
+            { kVoiceTypeUniversal,    "Universel" },
+            { kVoiceTypeBass,         "Basse (E2-E4)" },
+            { kVoiceTypeBaritone,     "Baryton (La2-La4)" },
+            { kVoiceTypeTenor,        "Tenor (Do3-Do5)" },
+            { kVoiceTypeAlto,         "Alto (Fa3-Fa5)" },
+            { kVoiceTypeSoprano,      "Soprano (Do4-Do6)" },
+            { kVoiceTypeLabel,        "Type de voix" },
+            { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
+            { kTooltipVoiceType,      "Restreint la detection de pitch a un registre vocal. Universel (defaut) couvre toute la voix. Basse / Baryton / Tenor / Alto / Soprano reduisent la plage pour limiter les erreurs d'octave et la charge CPU." },
             { kTooltipZoomIn,      "Zoom avant (plage etroite)" },
             { kTooltipZoomOut,     "Zoom arriere (plage large)" },
             { kTooltipScrollUp,    "Defiler vers le haut (aigus)" },
@@ -1113,6 +1145,15 @@ namespace ovt
             { kHarmonyDrone,           "Drone" },
             { kHarmonyUnison2,         "Unisono (2 Stimmen)" },
             { kHarmonyUnisonOctaves4,  "Unisono + Oktaven (4 Stimmen)" },
+            { kVoiceTypeUniversal,    "Universal" },
+            { kVoiceTypeBass,         "Bass (E2-E4)" },
+            { kVoiceTypeBaritone,     "Bariton (A2-A4)" },
+            { kVoiceTypeTenor,        "Tenor (C3-C5)" },
+            { kVoiceTypeAlto,         "Alt (F3-F5)" },
+            { kVoiceTypeSoprano,      "Sopran (C4-C6)" },
+            { kVoiceTypeLabel,        "Stimmtyp" },
+            { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
+            { kTooltipVoiceType,      "Beschraenkt die Tonhohenerkennung auf ein Stimmregister. Universal (Standard) deckt den gesamten Stimmumfang ab. Bass / Bariton / Tenor / Alt / Sopran engen den Suchbereich ein, um Oktavfehler und CPU-Last zu reduzieren." },
             { kTooltipZoomIn,      "Hineinzoomen (schmaeler Bereich)" },
             { kTooltipZoomOut,     "Herauszoomen (breiterer Bereich)" },
             { kTooltipScrollUp,    "Nach oben scrollen (hoehere Toene)" },
@@ -1407,6 +1448,15 @@ namespace ovt
             { kHarmonyDrone,           "Drone" },
             { kHarmonyUnison2,         "Unisono (2 voces)" },
             { kHarmonyUnisonOctaves4,  "Unisono + Octavas (4 voces)" },
+            { kVoiceTypeUniversal,    "Universal" },
+            { kVoiceTypeBass,         "Bajo (E2-E4)" },
+            { kVoiceTypeBaritone,     "Baritono (A2-A4)" },
+            { kVoiceTypeTenor,        "Tenor (C3-C5)" },
+            { kVoiceTypeAlto,         "Alto (F3-F5)" },
+            { kVoiceTypeSoprano,      "Soprano (C4-C6)" },
+            { kVoiceTypeLabel,        "Tipo de voz" },
+            { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
+            { kTooltipVoiceType,      "Restringe la deteccion de tono a un registro vocal. Universal (por defecto) cubre todo el rango vocal. Bajo / Baritono / Tenor / Alto / Soprano reducen el rango de busqueda para minimizar errores de octava y el uso de CPU." },
             { kTooltipZoomIn,      "Acercar (rango estrecho)" },
             { kTooltipZoomOut,     "Alejar (rango amplio)" },
             { kTooltipScrollUp,    "Desplazar arriba (agudos)" },
@@ -1701,6 +1751,15 @@ namespace ovt
             { kHarmonyDrone,           "ドローン" },
             { kHarmonyUnison2,         "ユニゾン (2声)" },
             { kHarmonyUnisonOctaves4,  "ユニゾン+オクターブ (4声)" },
+            { kVoiceTypeUniversal,    "ユニバーサル" },
+            { kVoiceTypeBass,         "バス (E2-E4)" },
+            { kVoiceTypeBaritone,     "バリトン (A2-A4)" },
+            { kVoiceTypeTenor,        "テノール (C3-C5)" },
+            { kVoiceTypeAlto,         "アルト (F3-F5)" },
+            { kVoiceTypeSoprano,      "ソプラノ (C4-C6)" },
+            { kVoiceTypeLabel,        "声種" },
+            { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
+            { kTooltipVoiceType,      "ピッチ検出を声域に制限します。ユニバーサル(既定)は全音域をカバーします。バス/バリトン/テノール/アルト/ソプラノを選ぶと、オクターブエラーとCPU負荷を削減できます。" },
             { kTooltipZoomIn,      "ズームイン" },
             { kTooltipZoomOut,     "ズームアウト" },
             { kTooltipScrollUp,    "上にスクロール" },
@@ -1995,6 +2054,15 @@ namespace ovt
             { kHarmonyDrone,           "持续音" },
             { kHarmonyUnison2,         "齐唱（2 声部）" },
             { kHarmonyUnisonOctaves4,  "齐唱+八度（4 声部）" },
+            { kVoiceTypeUniversal,    "通用" },
+            { kVoiceTypeBass,         "低音 (E2-E4)" },
+            { kVoiceTypeBaritone,     "男中音 (A2-A4)" },
+            { kVoiceTypeTenor,        "男高音 (C3-C5)" },
+            { kVoiceTypeAlto,         "女低音 (F3-F5)" },
+            { kVoiceTypeSoprano,      "女高音 (C4-C6)" },
+            { kVoiceTypeLabel,        "声乐类型" },
+            { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
+            { kTooltipVoiceType,      "将音高检测限制在特定声域。通用(默认)覆盖整个声域范围。选择低音/男中音/男高音/女低音/女高音可缩小搜索范围，降低八度错误和 CPU 占用。" },
             { kTooltipZoomIn,      "放大（范围更窄）" },
             { kTooltipZoomOut,     "缩小（范围更宽）" },
             { kTooltipScrollUp,    "上滚（更高音高）" },
