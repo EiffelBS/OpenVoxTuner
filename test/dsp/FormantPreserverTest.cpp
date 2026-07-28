@@ -170,6 +170,101 @@ public:
                     "P0 and Current should differ at ratio 2.0 "
                     "(rmsRatio=" + juce::String (rmsRatio, 6) + ")");
         }
+
+        beginTest ("Mode.Allpass : aucune discontinuite au saut de ratio (pop/click fix)");
+        {
+            // Vefifie le fix #X : les coefficients lisses utilisent leurs
+            // propres z1/z2. Le saut de ratio doit etre lisse sans pop.
+            FormantPreserver fp;
+            fp.prepare (44100.0, 256);
+            fp.setEnabled (true);
+            fp.setMode (ovtdsp::FormantPreserver::Mode::Allpass);
+            fp.setStrategy (ovtdsp::FormantPreserver::Strategy::Current);
+
+            juce::AudioBuffer<float> buf (1, 256);
+            auto initSignal = [&] (float phase0)
+            {
+                for (int i = 0; i < 256; ++i)
+                    buf.setSample (0, i,
+                                   std::sin (2.0f * juce::MathConstants<float>::pi
+                                             * 220.0f * (phase0 + i) / 44100.0f));
+            };
+
+            // Bloc 1 : ratio 1.0
+            initSignal (0.0f);
+            fp.process (buf, 1.0f);
+            float lastSamp = buf.getSample (0, 255);
+
+            // Bloc 2 : SAUT vers ratio 2.0
+            initSignal (256.0f);
+            fp.process (buf, 2.0f);
+            int bigJumps = 0;
+            float prev = lastSamp;
+            for (int i = 0; i < 256; ++i)
+            {
+                const float s = buf.getSample (0, i);
+                expect (std::isfinite (s), "Allpass: NaN sur saut de ratio");
+                if (std::abs (s - prev) > 0.5f) bigJumps++;
+                prev = s;
+            }
+            expect (bigJumps <= 3,
+                    "Allpass : trop de sauts > 0.5 au saut de ratio "
+                    "(attendu <= 3, obtenu " + juce::String (bigJumps) + ")");
+
+            // Bloc 3 : retour a ratio 1.0 (vibrato simulate)
+            initSignal (512.0f);
+            fp.process (buf, 1.0f);
+            prev = buf.getSample (0, 252);
+            for (int i = 253; i < 256; ++i)
+                prev = buf.getSample (0, i);
+            float prevRatio1 = prev;
+            initSignal (768.0f);
+            fp.process (buf, 1.0f);
+            for (int i = 0; i < 256; ++i)
+            {
+                const float s = buf.getSample (0, i);
+                expect (std::isfinite (s), "Allpass: NaN retour ratio 1.0");
+            }
+
+            // Bloc 4+: variations rapides (ratio entre 1.0 et 2.0 alterné)
+            float prevBig = buf.getSample (0, 252);
+            for (int blk = 0; blk < 10; ++blk)
+            {
+                initSignal (1024.0f + blk * 256.0f);
+                float altRatio = (blk % 2 == 0) ? 1.5f : 0.8f;
+                fp.process (buf, altRatio);
+                for (int i = 0; i < 256; ++i)
+                {
+                    const float s = buf.getSample (0, i);
+                    if (std::abs (s - prevBig) > 0.5f) bigJumps++;
+                    prevBig = s;
+                }
+            }
+            expect (bigJumps <= 50,
+                    "Allpass variations rapides : trop de pop ("
+                    + juce::String (bigJumps) + ", attendu <= 50)");
+        }
+
+        beginTest ("Reset : aucun artefact apres reinitialisation");
+        {
+            FormantPreserver fp;
+            fp.prepare (44100.0, 256);
+            fp.setEnabled (true);
+            fp.setMode (ovtdsp::FormantPreserver::Mode::Allpass);
+
+            juce::AudioBuffer<float> buf (1, 256);
+            for (int i = 0; i < 256; ++i)
+                buf.setSample (0, i, std::sin (2.0f * juce::MathConstants<float>::pi * 220.0f * i / 44100.0f));
+
+            fp.process (buf, 1.5f);
+            // Reset, puis un autre bloc de process
+            fp.reset();
+            for (int i = 0; i < 256; ++i)
+                buf.setSample (0, i, std::sin (2.0f * juce::MathConstants<float>::pi * 220.0f * i / 44100.0f));
+            fp.process (buf, 1.5f);
+            for (int i = 0; i < 256; ++i)
+                expect (std::isfinite (buf.getSample (0, i)), "Allpass post-reset: NaN");
+        }
     }
 };
 

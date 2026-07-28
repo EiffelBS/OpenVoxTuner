@@ -54,7 +54,7 @@ namespace ovtdsp
         bool noiseGateEnable = false;
         float noiseGateThreshold = 0.375f; // normalized: -50dB in -80..0 range
         bool upwardCompEnable = false;
-        float upwardCompAmount = 0.5f; // 0..1 upward compression amount
+        float upwardCompAmount = 0.25f; // 0..1 upward compression amount
         bool correctionMode = false; // false = Modern
 
         // PitchCurve
@@ -96,7 +96,7 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("key"))                      s.key = (int) std::round (p->getValue() * 11.0f);
         if (auto* p = params.getParameter ("scale"))                    s.scale = (int) std::round (p->getValue() * 13.0f);
         if (auto* p = params.getParameter ("harmony_type"))             s.harmonyType = (int) std::round (p->getValue() * 21.0f);
-        if (auto* p = params.getParameter ("harmony_tone"))             s.harmonyTone = (int) std::round (p->getValue() * 5.0f);
+        if (auto* p = params.getParameter ("harmony_tone"))             s.harmonyTone = (int) std::round (p->getValue() * 1.0f);
         if (auto* p = params.getParameter ("harmony_shifted_voices"))   s.harmonyShiftedVoices = (int) std::round (p->getValue() * 3.0f) + 1;
         if (auto* p = params.getParameter ("latency_mode"))             s.latencyMode = (int) std::round (p->getValue() * 3.0f);
         if (auto* p = params.getParameter ("editor_measures"))          s.editorMeasures = (int) std::round (p->getValue() * 31.0f) + 1;
@@ -203,7 +203,7 @@ namespace ovtdsp
         setParam ("key",                    lerpOrStep ((float) source.key / 11.0f, (float) target.key / 11.0f, t));
         setParam ("scale",                  lerpOrStep ((float) source.scale / 13.0f, (float) target.scale / 13.0f, t));
         setParam ("harmony_type",           lerpOrStep ((float) source.harmonyType / 21.0f, (float) target.harmonyType / 21.0f, t));
-        setParam ("harmony_tone",           lerpOrStep ((float) source.harmonyTone / 5.0f, (float) target.harmonyTone / 5.0f, t));
+        setParam ("harmony_tone",           lerpOrStep ((float) source.harmonyTone / 1.0f, (float) target.harmonyTone / 1.0f, t));
         setParam ("harmony_shifted_voices", lerpOrStep ((float) (source.harmonyShiftedVoices - 1) / 3.0f, (float) (target.harmonyShiftedVoices - 1) / 3.0f, t));
         setParam ("latency_mode",           lerpOrStep ((float) source.latencyMode / 3.0f, (float) target.latencyMode / 3.0f, t));
         setParam ("editor_measures",        lerpOrStep ((float) (source.editorMeasures - 1) / 31.0f, (float) (target.editorMeasures - 1) / 31.0f, t));

@@ -27,7 +27,12 @@ namespace ovtdsp
             ChannelState s;
             // Initialize all 4 formants as passthrough
             for (int f = 0; f < 4; ++f)
+            {
                 updateBiquadCoefficients (s.formants[f], maxCutoffHz, 0.707f, 0.0f);
+                // Smooth coefficients start as passthrough
+                s.smooth[f].b0 = 1.0f; s.smooth[f].b1 = 0.0f; s.smooth[f].b2 = 0.0f;
+                s.smooth[f].a1 = 0.0f; s.smooth[f].a2 = 0.0f;
+            }
             channels.add (s);
         }
     }
@@ -38,12 +43,13 @@ namespace ovtdsp
         {
             for (int f = 0; f < 4; ++f)
             {
+                // Reset target filter states
                 s.formants[f].z1 = 0.0f;
                 s.formants[f].z2 = 0.0f;
-                // Reinitialise aussi les coefficients lisses a l'etat
-                // transparent (passthrough) pour eviter un saut au reset.
+                // Reset smoothed filter states AND coefficients to passthrough
                 s.smooth[f].b0 = 1.0f; s.smooth[f].b1 = 0.0f; s.smooth[f].b2 = 0.0f;
                 s.smooth[f].a1 = 0.0f; s.smooth[f].a2 = 0.0f;
+                s.smooth[f].z1 = 0.0f; s.smooth[f].z2 = 0.0f;
             }
         }
     }
@@ -125,7 +131,7 @@ namespace ovtdsp
         // seul pas par bloc, mais applique a chaque echantillon du bloc pour
         // rester independant de la taille de buffer). Cela empeche toute
         // discontinuite a la sortie quand le ratio de pitch change
-        // brutalement (demarrage d'une note chantee).
+        // brutalement (demarrage d'une note chanter).
         for (int f = 0; f < 4; ++f)
         {
             s.smooth[f].b0 += biquadSmoothAlpha * (s.formants[f].b0 - s.smooth[f].b0);
@@ -136,34 +142,35 @@ namespace ovtdsp
         }
 
         // Process through all 4 formants in series, using the SMOOTHED
-        // coefficients (not the raw per-block targets) to avoid clicks.
+        // coefficients AND THEIR OWN(delay states s.smooth[f].z1/z2) to
+        // avoid clicks caused by coefficient/state mismatch.
         for (int i = 0; i < numSamples; ++i)
         {
             float x = data[i];
-            
+
             // F1
-            float y = s.smooth[0].b0 * x + s.formants[0].z1;
-            s.formants[0].z1 = s.smooth[0].b1 * x - s.smooth[0].a1 * y + s.formants[0].z2;
-            s.formants[0].z2 = s.smooth[0].b2 * x - s.smooth[0].a2 * y;
+            float y = s.smooth[0].b0 * x + s.smooth[0].z1;
+            s.smooth[0].z1 = s.smooth[0].b1 * x - s.smooth[0].a1 * y + s.smooth[0].z2;
+            s.smooth[0].z2 = s.smooth[0].b2 * x - s.smooth[0].a2 * y;
             x = y;
 
             // F2
-            y = s.smooth[1].b0 * x + s.formants[1].z1;
-            s.formants[1].z1 = s.smooth[1].b1 * x - s.smooth[1].a1 * y + s.formants[1].z2;
-            s.formants[1].z2 = s.smooth[1].b2 * x - s.smooth[1].a2 * y;
+            y = s.smooth[1].b0 * x + s.smooth[1].z1;
+            s.smooth[1].z1 = s.smooth[1].b1 * x - s.smooth[1].a1 * y + s.smooth[1].z2;
+            s.smooth[1].z2 = s.smooth[1].b2 * x - s.smooth[1].a2 * y;
             x = y;
 
             // F3
-            y = s.smooth[2].b0 * x + s.formants[2].z1;
-            s.formants[2].z1 = s.smooth[2].b1 * x - s.smooth[2].a1 * y + s.formants[2].z2;
-            s.formants[2].z2 = s.smooth[2].b2 * x - s.smooth[2].a2 * y;
+            y = s.smooth[2].b0 * x + s.smooth[2].z1;
+            s.smooth[2].z1 = s.smooth[2].b1 * x - s.smooth[2].a1 * y + s.smooth[2].z2;
+            s.smooth[2].z2 = s.smooth[2].b2 * x - s.smooth[2].a2 * y;
             x = y;
 
             // F4
-            y = s.smooth[3].b0 * x + s.formants[3].z1;
-            s.formants[3].z1 = s.smooth[3].b1 * x - s.smooth[3].a1 * y + s.formants[3].z2;
-            s.formants[3].z2 = s.smooth[3].b2 * x - s.smooth[3].a2 * y;
-            
+            y = s.smooth[3].b0 * x + s.smooth[3].z1;
+            s.smooth[3].z1 = s.smooth[3].b1 * x - s.smooth[3].a1 * y + s.smooth[3].z2;
+            s.smooth[3].z2 = s.smooth[3].b2 * x - s.smooth[3].a2 * y;
+
             data[i] = y;
         }
     }
@@ -180,25 +187,29 @@ namespace ovtdsp
         // Note : c'est une approximation, mais elle preserve
         // deja bien mieux le timbre qu'un PSOLA pur.
         const float r = juce::jlimit (0.25f, 4.0f, ratio);
-        
+
         // Compensation ratio. P0 strategy uses full 1/r compensation (moves
         // formants all the way back to their natural place); Current uses the
         // partial 1/sqrt(r) compromise (Moulines & Charpentier).
         const float compensationRatio = (strategy == Strategy::P0)
                                             ? (1.0f / r)
                                             : (1.0f / std::sqrt (r));
-        
+
         // Ajout du decalage de formants manuel
         const float shiftRatio = std::pow (2.0f, shiftSemitones / 12.0f);
 
         const int numChannels = juce::jmin (2, buffer.getNumChannels());
-        
+
         // Ensure we have enough channel states
         while (channels.size() < numChannels)
         {
             ChannelState s;
             for (int f = 0; f < 4; ++f)
+            {
                 updateBiquadCoefficients (s.formants[f], maxCutoffHz, 0.707f, 0.0f);
+                s.smooth[f].z1 = 0.0f;
+                s.smooth[f].z2 = 0.0f;
+            }
             channels.add (s);
         }
 

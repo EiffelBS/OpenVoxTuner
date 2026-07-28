@@ -480,7 +480,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           "harmony_shifted_voices", "Shifted Voices", 1, 4, 4),
                       std::make_unique<juce::AudioParameterChoice> (
                           "harmony_tone", "Harmony Tone",
-                          juce::StringArray { "Choir", "Bright", "Synth Lead", "Strings", "Guitar", "Vocoder-like" }, 0),
+                          juce::StringArray { "Choir", "Organ" }, 0),
                       std::make_unique<juce::AudioParameterFloat> (
                           "harmony_tone_color", "Harmony Tone Color",
                           juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f),
@@ -543,7 +543,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             "upward_comp_enable", "Upward Comp Enable", false)
                       , std::make_unique<juce::AudioParameterFloat> (
                             "upward_comp_amount", "Upward Comp Amount",
-                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f)
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.25f)
                       , std::make_unique<juce::AudioParameterFloat> (
                             "reverb_mix", "Reverb Mix",
                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
@@ -3876,7 +3876,7 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.noiseGateEnable    = slotXml->getBoolAttribute ("noiseGateEnable", false);
             ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.375);
             ms.upwardCompEnable   = slotXml->getBoolAttribute ("upwardCompEnable", false);
-            ms.upwardCompAmount   = (float) slotXml->getDoubleAttribute ("upwardCompAmount", 0.5);
+            ms.upwardCompAmount   = (float) slotXml->getDoubleAttribute ("upwardCompAmount", 0.25);
             // Restore the pitch curve (absent in pre-curve states -> empty curve).
             auto* curveXml = slotXml->getChildByName ("PITCH_CURVE");
             if (curveXml != nullptr)

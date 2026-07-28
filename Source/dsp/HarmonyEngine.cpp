@@ -363,7 +363,7 @@ namespace ovtdsp
 
                 switch (toneMode)
                 {
-                    case 0: // Choir
+                    case 0: // Choir: dual-detuned sine + 2nd harmonic
                     {
                         const double slowDetune = 0.006 + 0.008 * color;
                         const double b1 = std::sin (p * (1.0 - slowDetune));
@@ -372,42 +372,18 @@ namespace ovtdsp
                         break;
                     }
 
-                    case 1: // Bright
-                        s = (0.78 - 0.10 * color) * base
-                          + (0.17 + 0.10 * color) * h2
-                          + (0.05 + 0.06 * color) * h3;
-                        break;
-
-                    case 2: // Synth Lead
-                    {
-                        const double lead = 0.72 * base + 0.20 * h2 + 0.08 * h3;
-                        const double sat = std::tanh ((1.2 + 1.0 * color) * lead);
-                        s = sat;
-                        break;
-                    }
-
-                    case 3: // Strings
-                        s = (0.66 - 0.08 * color) * base
-                          + (0.19 + 0.06 * color) * h2
-                          + (0.10 + 0.05 * color) * h3
-                          + (0.05 + 0.04 * color) * h4;
-                        break;
-
-                    case 4: // Guitar
-                    {
-                        const double cyclePos = p / twoPi; // 0..1 in cycle
-                        const double pickEnv = std::exp (-(3.2 + 2.5 * color) * cyclePos);
-                        const double body = 0.70 * base + 0.20 * h2 + 0.10 * h3;
-                        s = body * (0.68 + 0.32 * pickEnv);
-                        break;
-                    }
-
-                    case 5: // Vocoder-like
+                    case 1: // Organ: carrier modulated by a slowly-moving formant
                     default:
                     {
-                        const double formant = std::sin (p * (2.8 + 2.4 * color));
+                        if (slowPhase.size() <= static_cast<size_t>(v))
+                            slowPhase.resize (std::max (static_cast<size_t>(v) + 1, slowPhase.size() + 8),
+                                              v * 0.7 * juce::MathConstants<double>::pi);
+                        const double fRate = 2.8 + 2.4 * color;
+                        const double formant = std::sin (p * fRate + slowPhase[v]);
                         const double carrier = 0.70 * base + 0.30 * h2;
                         s = carrier * (0.55 + 0.45 * formant);
+                        slowPhase[v] += phaseInc * 0.0015;
+                        if (slowPhase[v] > twoPi) slowPhase[v] -= twoPi;
                         break;
                     }
                 }

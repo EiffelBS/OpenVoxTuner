@@ -19,6 +19,7 @@
 // Modes:
 //   - Legacy: single peaking EQ at 500Hz (original behavior)
 //   - MultiFormant: 4 formant peaks (F1-F4) with configurable Q/gain
+//   - Allpass: F1-F4 allpass-cascade formant shifting (P3)
 
 #pragma once
 
@@ -129,11 +130,10 @@ namespace ovtdsp
         struct ChannelState
         {
             // Un biquad par formant (max 4).
-            // `formants` stocke les coefficients CIBLES (recalculees a chaque
-            // bloc selon le ratio). `smooth` stocke les coefficients REELS
-            // appliques au signal : ils sont lisses vers les cibles block par
-            // block afin d'eviter toute discontinuite (pop) quand le ratio
-            // change brutalement au demarrage d'une note.
+            // `formants` stocke les coefficients CIBLES (recalculees chaque
+            // bloc selon le ratio). `smooth` stocke les coefficients
+            // APPLIQUES au signal avec leurs propres états de retard (fixe
+            // les pops/clics causés par l'incompatibilité coefficient/état).
             struct BiquadState
             {
                 float a1 = 0.0f, a2 = 0.0f;
@@ -144,9 +144,10 @@ namespace ovtdsp
             {
                 float a1 = 0.0f, a2 = 0.0f;
                 float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+                float z1 = 0.0f, z2 = 0.0f; // delay states OWNED by smoothed coefficients
             };
-            BiquadState  formants[4];   // cibles (recalcul par bloc)
-            BiquadSmooth smooth[4];     // coefficients appliques (lisses)
+            BiquadState  formants[4];   // coefficients cibles (recalcule par bloc)
+            BiquadSmooth smooth[4];     // coefficients + états appliqués au signal
         };
         juce::Array<ChannelState> channels;
 

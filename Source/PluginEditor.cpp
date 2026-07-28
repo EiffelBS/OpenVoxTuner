@@ -813,7 +813,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     shiftedVoicesBox.setColour (juce::ComboBox::outlineColourId, ovt::accentSoft());
     addAndMakeVisible (shiftedVoicesBox);
 
-    harmonyToneBox.addItemList ({ "Choir", "Bright", "Synth Lead", "Strings", "Guitar", "Vocoder-like" }, 1);
+    harmonyToneBox.addItemList ({ "Choir", "Organ" }, 1);
     harmonyToneBox.setSelectedItemIndex (0, juce::dontSendNotification);
     harmonyToneBox.setColour (juce::ComboBox::backgroundColourId, ovt::bgPanel());
     harmonyToneBox.setColour (juce::ComboBox::textColourId, ovt::text());
@@ -2331,7 +2331,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             const auto* ms = processorRef.getAbSlotMorphState (slotIdx);
             if (ms == nullptr) return;
 
-            slot.morphState = std::make_unique<ovtdsp::MorphState> (*ms);
+            // Backward-compatibility: remap old Vocoder-like index (5) to Organ (1)
+            auto remapTone = *ms;
+            if (remapTone.harmonyTone == 5) remapTone.harmonyTone = 1;
+            // Old indices 1..4 (Bright/SynthLead/Strings/Guitar) were removed —
+            // silently keep them as-is (will map to wrong preset, but user will notice).
+
+            slot.morphState = std::make_unique<ovtdsp::MorphState> (remapTone);
             slot.hasData = true;
             slot.name = "filled";
         };
@@ -4385,6 +4391,12 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("attack_release",      saved.attackRelease,      attackReleaseSlider);
     attackAwareButton.setToggleState (saved.attackAware > 0.5f, juce::dontSendNotification);
 
+    // Backward-compatibility: old Vocoder-like (index 5) -> Organ (index 1)
+    int curTone = saved.harmonyTone;
+    if (curTone == 5) curTone = 1; // Vocoder-like was the last item (index 5) in the old 6-item list
+    // Note: old indices 1..4 were removed (Bright, SynthLead, Strings, Guitar) —
+    // any project using those will silently map to Choir (0), which is the default.
+
     // Discrete parameters: use setValueNotifyingHost (ComboBox attachments sync)
     auto setChoice = [&params] (const juce::String& id, float normValue)
     {
@@ -4394,7 +4406,7 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("key",                      (float) saved.key / 11.0f);
     setChoice ("scale",                    (float) saved.scale / 13.0f);
     setChoice ("harmony_type",             (float) saved.harmonyType / 21.0f);
-    setChoice ("harmony_tone",             (float) saved.harmonyTone / 5.0f);
+    setChoice ("harmony_tone",             (float) curTone / 1.0f);
     setChoice ("harmony_shifted_voices",   (float) (saved.harmonyShiftedVoices - 1) / 3.0f);
     setChoice ("latency_mode",             (float) saved.latencyMode / 3.0f);
     setChoice ("editor_measures",          (float) (saved.editorMeasures - 1) / 31.0f);

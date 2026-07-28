@@ -173,6 +173,9 @@ namespace ovtdsp
         // When the Noise Gate is enabled, the per-voice attack is clamped to this
         // short time so harmony voices track the gate envelope (no late swell).
         float gateFollowMs = 12.0f;
+        // Slow phase accumulator per voice (used by the "Organ" tone to slowly
+        // drift the formant across blocks, adding subtle movement to the carrier).
+        std::vector<double> slowPhase;
 
     public:
         // Control voice gating (note on/off). When turned on, volume is used as
