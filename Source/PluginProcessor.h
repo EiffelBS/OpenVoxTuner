@@ -28,6 +28,7 @@
 #include "dsp/KeyBridge.h"
 #include "dsp/SidechainBusLayout.h"
 #include "dsp/FormantPreserver.h"
+#include "dsp/LpcFormantPreserver.h"
 
 /**
  * Main class of the audio processor.
@@ -391,6 +392,7 @@ private:
     std::atomic<float>* formantParam = nullptr; // Formant shift (-12 to 12)    
     std::atomic<float>* formantEnableParam = nullptr; // Formant On/Off
     std::atomic<float>* formantModeParam = nullptr; // Formant mode: 0=Legacy, 1=MultiFormant
+    std::atomic<float>* formantStrategyParam = nullptr; // Formant strategy: 0=Current,1=P0,2=P1,3=P2
     std::atomic<float>* keyParam     = nullptr; // Tonic index (0-11)
     std::atomic<float>* scaleParam   = nullptr; // Mode index (0-5, 5=custom)
     juce::AudioParameterChoice* scaleChoiceParam = nullptr; // Direct accessor for getIndex()
@@ -467,6 +469,10 @@ private:
     ovtdsp::NoiseGate                           noiseGate;
     ovtdsp::FormantPreserver                    formantPreserver;
     ovtdsp::FormantPreserver                    formantPreserverHarmony;
+    // LPC cross-synthesis formant preservation (P1 = C0, P2 = C1Hybrid).
+    // One instance for the lead voice (the per-harmony array is declared
+    // further below, after maxShiftedVoices, which it is sized by).
+    ovtdsp::LpcFormantPreserver                 lpcFormantPreserverLead;
     ovtdsp::UpwardCompressor                    upwardComp;
 
     std::unique_ptr<ovtdsp::RetargetEnvelope>  retargetEnvelope;
@@ -620,6 +626,8 @@ private:
     std::atomic<float> harmonyOutputLevel { 0.0f };
     juce::AudioBuffer<float> harmonyBuffer; // stereo buffer for mixing
     juce::AudioBuffer<float> synthWorkBuffer; // preallocated synth harmony render buffer
+    juce::AudioBuffer<float> leadReferenceBuffer; // pre-shift snapshot for LPC formant preservation
+    juce::AudioBuffer<float> harmonyWarpBuffer;   // scratch for per-voice P0 formant pre-warp
     // last mixed harmony buffer saved to perform a crossfade on stop
     juce::AudioBuffer<float> lastMixedHarmonyBuffer;
     bool wasHarmonyActiveLastBlock { false };
@@ -636,6 +644,9 @@ private:
     std::vector<std::unique_ptr<ovtdsp::PitchShifter>> shiftedVoicePitchShifters;
     static constexpr int maxShiftedVoices = 4;
     std::array<juce::LinearSmoothedValue<float>, maxShiftedVoices> shiftedVoiceGains;
+    // LPC cross-synthesis formant preservation (P1 = C0, P2 = C1Hybrid):
+    // one instance per harmony voice (lead instance declared above).
+    std::array<ovtdsp::LpcFormantPreserver, maxShiftedVoices> lpcFormantPreserverHarmony;
     // MIDI out state (per-channel last note sent, channels 1..16 mapped to index 0..15)
     int lastSentMidiNote[16] = { -1 };
 

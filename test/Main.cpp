@@ -10,6 +10,7 @@
 #include "dsp/ScaleQuantizerTest.cpp"
 #include "dsp/RetargetEnvelopeTest.cpp"
 #include "dsp/FormantPreserverTest.cpp"
+#include "dsp/LpcFormantPreserverTest.cpp"
 #include "dsp/PitchCurveTest.cpp"
 #include "dsp/VibratoTest.cpp"
 #include "dsp/KeyDetectorTest.cpp"

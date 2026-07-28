@@ -367,6 +367,17 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           "formant_mode", "Formant Mode",
                           juce::StringArray { "Legacy", "MultiFormant" }, 1),
 
+                      // Formant Preservation Strategy: selects the formant-preservation
+                      // method for the lead and harmony voices.
+                      //   0 = Current : partial 1/sqrt(r) pre-warp, fixed male centers.
+                      //   1 = P0      : full 1/r pre-warp + voice-type-aware centers.
+                      //   2 = P1      : LPC cross-synthesis (post-PSOLA), creative re-applied.
+                      //   3 = P2      : peaking-EQ MultiFormant + fast smoothing (reactive).
+                      //   4 = P3      : allpass-cascade formant shifting (transparent, phase-only).
+                      std::make_unique<juce::AudioParameterChoice> (
+                          "formant_strategy", "Formant Strategy",
+                          juce::StringArray { "Subtle", "Balanced", "Marked", "Reactive", "Precise" }, 4),
+
                       // Key : index de la tonique (0=C, 1=C#, ..., 11=B)
                       std::make_unique<juce::AudioParameterInt> (
                           "key", "Key", 0, 11, 0),
@@ -614,6 +625,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     formantParam = parameters.getRawParameterValue ("formant");
     formantEnableParam = parameters.getRawParameterValue ("formant_enable");
     formantModeParam = parameters.getRawParameterValue ("formant_mode");
+    formantStrategyParam = parameters.getRawParameterValue ("formant_strategy");
     keyParam     = parameters.getRawParameterValue ("key");
     scaleParam   = parameters.getRawParameterValue ("scale");
     scaleChoiceParam = dynamic_cast<juce::AudioParameterChoice*>(parameters.getParameter("scale"));
@@ -829,6 +841,9 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     upwardComp.prepare (sampleRate);
     formantPreserver.prepare (sampleRate, samplesPerBlock);
     formantPreserverHarmony.prepare (sampleRate, samplesPerBlock);
+    lpcFormantPreserverLead.prepare (sampleRate, samplesPerBlock);
+    for (auto& lpc : lpcFormantPreserverHarmony)
+        lpc.prepare (sampleRate, samplesPerBlock);
 
     retargetEnvelope->prepare (sampleRate);
     harmonyEngine->prepare (sampleRate);
@@ -2096,6 +2111,18 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float harmonyShiftSemitones = (harmonyFormantParam != nullptr) ? harmonyFormantParam->load() : 0.0f;
     float harmonyFormantRatio = std::pow (2.0f, harmonyShiftSemitones / 12.0f);
 
+    // Active formant-preservation strategy: 0=Current, 1=P0, 2=P1, 3=P2.
+    const int formantStrategy = (formantStrategyParam != nullptr)
+                                    ? juce::jlimit (0, 4, static_cast<int> (std::round (formantStrategyParam->load())))
+                                    : 0;
+    const int voiceType = (voiceTypeParam != nullptr)
+                              ? juce::jlimit (0, 5, static_cast<int> (std::round (voiceTypeParam->load())))
+                              : 0;
+    const bool useLpc = (formantStrategy == 2 || formantStrategy == 3);
+    const ovtdsp::LpcFormantPreserver::Mode lpcMode =
+        (formantStrategy == 3) ? ovtdsp::LpcFormantPreserver::Mode::C1Hybrid
+                               : ovtdsp::LpcFormantPreserver::Mode::C0;
+
     // Save input snapshot BEFORE any formant processing, so harmony voices
     // can be processed with their own independent formant shift.
     {
@@ -2111,39 +2138,123 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             if (buffer.getNumChannels() > 1)
                 synthWorkBuffer.copyFrom (1, 0, buffer, 1, 0, buffer.getNumSamples());
         }
+        if (useLpc)
+        {
+            // The LPC cross-synthesis is currently disabled (see the lead
+            // `useLpc` branch below which falls back to P0). The
+            // `leadReferenceBuffer` snapshot is therefore not consumed, but
+            // the `if (useLpc)` block is kept to preserve the parameter
+            // plumbing and make re-enabling the LPC a one-line change.
+        }
     }
 
-    // Formant PRESERVATION (anti-chipmunk quality) - ALWAYS ON for main voice
-    // Update FormantPreserver mode from parameter (set via menu, not UI combo)
-    if (formantModeParam != nullptr)
+    // Formant PRESERVATION (anti-chipmunk quality).
+    // Update FormantPreserver mode + strategy from parameters.
+    // P0/P1/P2 force the MultiFormant mode (4 formants F1-F4) for a stronger,
+    // more musically meaningful warp than the single 500 Hz peak used by
+    // Current/Legacy. Current keeps whatever the user picked (Legacy = 1
+    // formant, MultiFormant = 4 formants).
+    if (formantStrategy != 0)
+    {
+        formantPreserver.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
+        formantPreserverHarmony.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
+    }
+    else if (formantModeParam != nullptr)
     {
         int modeIdx = static_cast<int> (std::round (formantModeParam->load()));
         formantPreserver.setMode (static_cast<ovtdsp::FormantPreserver::Mode> (juce::jlimit (0, 1, modeIdx)));
         formantPreserverHarmony.setMode (static_cast<ovtdsp::FormantPreserver::Mode> (juce::jlimit (0, 1, modeIdx)));
     }
-    // Main voice: formant preservation + creative shift
-    formantPreserver.setEnabled (true);
-    formantPreserver.setFormantShift (shiftSemitones);
-    formantPreserver.process (buffer, ratio);
+    formantPreserver.setVoiceType (voiceType);
+    formantPreserverHarmony.setVoiceType (voiceType);
+    // P0 uses the partial 1/sqrt(r) compromise (Moulines & Charpentier);
+    // P1/P2 use the full 1/r compensation (the P0 path is the fallback for
+    // the LPC strategies, see the lead useLpc branch below).
+    const auto fpStrategy = (formantStrategy == 0) ? ovtdsp::FormantPreserver::Strategy::Current
+                                                   : ovtdsp::FormantPreserver::Strategy::P0;
+    formantPreserver.setStrategy (fpStrategy);
+    formantPreserverHarmony.setStrategy (fpStrategy);
 
-    // Harmony voices: no separate formant preserver needed — the harmony
-    // formant ratio is passed directly to each pitch shifter below.
-
-    // Throttled log around pitchShifter call (once per second)
-    static std::atomic<uint32_t> lastPitchLogMs { 0 };
-    uint32_t nowP = juce::Time::getMillisecondCounter();
-    uint32_t lastP = lastPitchLogMs.load();
-    if (nowP - lastP > 1000)
+    // Per-strategy Q multiplier and smoothing alpha, for gain-matched
+    // differentiation (no loudness jumps between strategies):
+    //   Current : legacy EQ, 1/sqrt(r) warp, alpha=0.05, Q×1.0
+    //   P0 (Balanced) : MultiFormant, 1/r warp, alpha=0.05, Q×1.0
+    //   P1 (Marked) : MultiFormant, 1/r warp, alpha=0.05, Q×1.3 (sharper peaks)
+    //   P2 (Reactive) : MultiFormant, 1/r warp, alpha=0.15, Q×1.3 (faster tracking)
+    //   P3 (Precise) : Allpass, 1/r warp, alpha=0.05, Q×1.0
+    switch (formantStrategy)
     {
-        if (lastPitchLogMs.compare_exchange_strong (lastP, nowP))
-        {
-            OVT_LOG ("calling pitchShifter->process: ratio=" + juce::String(ratio, 6)
-                                      + " formantRatio=" + juce::String(userFormantRatio, 6)
-                                      + " f0_in=" + juce::String(f0_in, 6));
-        }
+        case 1: // P0 - Balanced
+            formantPreserver.setQMultiplier (1.0f);
+            formantPreserverHarmony.setQMultiplier (1.0f);
+            formantPreserver.setSmoothingAlpha (0.05f);
+            formantPreserverHarmony.setSmoothingAlpha (0.05f);
+            break;
+        case 2: // P1 - Marked: sharper Q for more visible correction
+            formantPreserver.setQMultiplier (1.3f);
+            formantPreserverHarmony.setQMultiplier (1.3f);
+            formantPreserver.setSmoothingAlpha (0.05f);
+            formantPreserverHarmony.setSmoothingAlpha (0.05f);
+            break;
+        case 3: // P2 - Reactive: sharper Q + faster smoothing
+            formantPreserver.setQMultiplier (1.3f);
+            formantPreserverHarmony.setQMultiplier (1.3f);
+            formantPreserver.setSmoothingAlpha (0.15f);
+            formantPreserverHarmony.setSmoothingAlpha (0.15f);
+            // P2 also switches to the peaking-EQ MultiFormant cascade.
+            formantPreserver.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
+            formantPreserverHarmony.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
+            break;
+        case 4: // P3 - Precise: allpass cascade (transparent phase shift, unity mag)
+            formantPreserver.setQMultiplier (1.0f);
+            formantPreserverHarmony.setQMultiplier (1.0f);
+            formantPreserver.setSmoothingAlpha (0.05f);
+            formantPreserverHarmony.setSmoothingAlpha (0.05f);
+            // P3 switches to the allpass biquad cascade. The 1/r + voice-type
+            // compensation law still applies via `fpStrategy = P0` (set above),
+            // so each allpass is placed at formant_centre / ratio.
+            formantPreserver.setMode (ovtdsp::FormantPreserver::Mode::Allpass);
+            formantPreserverHarmony.setMode (ovtdsp::FormantPreserver::Mode::Allpass);
+            break;
+        default: // Current - Subtle
+            formantPreserver.setQMultiplier (1.0f);
+            formantPreserverHarmony.setQMultiplier (1.0f);
+            formantPreserver.setSmoothingAlpha (0.05f);
+            formantPreserverHarmony.setSmoothingAlpha (0.05f);
+            break;
     }
 
-    pitchShifter->process (buffer, ratio, userFormantRatio, f0_in);
+    if (useLpc)
+    {
+        // P1/P2 fallback: the LPC cross-synthesis proved too unstable on real
+        // vocal signals (NaN/inf on fricatives and breath, click artifacts
+        // from the all-pole re-synthesis). We temporarily fall back to the
+        // P0 path (1/r formant pre-warp + PSOLA + re-apply creative) which
+        // is the most accurate stable strategy we have today. The LPC code
+        // remains in place (LpcFormantPreserver.h/.cpp) for future
+        // refinement; see roadmap 8l item LP.7.
+        formantPreserver.setEnabled (true);
+        formantPreserver.setFormantShift (shiftSemitones);
+        formantPreserver.process (buffer, ratio);
+        pitchShifter->process (buffer, ratio, userFormantRatio, f0_in);
+    }
+    else
+    {
+        // Current / P0: pre-warp the formants BEFORE the PSOLA pitch shift.
+        formantPreserver.setEnabled (true);
+        formantPreserver.setFormantShift (shiftSemitones);
+        formantPreserver.process (buffer, ratio);
+        pitchShifter->process (buffer, ratio, userFormantRatio, f0_in);
+    }
+
+    // Harmony voices: formant preservation follows the same strategy as the
+    // lead (Current / P0 / P1 / P2), selected by the formant_strategy param.
+    //
+    // Note: the lead pitch shift has already been applied above in the
+    // Current/P0 vs P1/P2 branches (formantPreserver pre-warp + pitchShifter,
+    // or pitchShifter at ratio 1.0 + LPC cross-synthesis + creative re-apply).
+    // Do NOT call pitchShifter->process a second time here; the re-entry
+    // corrupts the grain scheduler state and causes scratchs / NaN.
 
     // Read global grain event counter signaled by PitchShifter
     int globalGrains = gPitchShifterGrainEvents.load(std::memory_order_relaxed);
@@ -2311,6 +2422,14 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     if (refF0 > 0.0f) ratioDenom = refF0;
                 }
                 float ratioH = juce::jmax(0.25f, juce::jmin(4.0f, targetHz / ratioDenom));
+                // All four strategies (Current / P0 / P1 / P2) share the same
+                // harmony path: the creative ratio is passed directly to the
+                // per-voice pitch shifter. The lead voice already applies the
+                // formant warp (1/r for P0/P1/P2, 1/sqrt(r) for Current) which
+                // covers the overall pitch-shift compensation. Per-voice LPC
+                // cross-synthesis was unstable on real vocal signals and has
+                // been temporarily disabled (see the lead `useLpc` branch and
+                // roadmap 8l item LP.7).
                 if (v < static_cast<int>(shiftedVoicePitchShifters.size()) && shiftedVoicePitchShifters[v] != nullptr)
                     shiftedVoicePitchShifters[v]->process (synthWorkBuffer, tmp, ratioH, harmonyFormantRatio, safe_f0);
                 else

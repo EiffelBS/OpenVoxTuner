@@ -73,6 +73,11 @@ public:
     juce::Label   voiceTypeLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> voiceTypeAttachment;
 
+    // === Formant Strategy === (combo box selecting Current / P0 / P1 / P2)
+    juce::ComboBox formantStrategyBox;
+    juce::Label   formantStrategyLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> formantStrategyAttachment;
+
     // === PitchCurveEditor::Listener ===
     void pitchCurveChanged() override;
 

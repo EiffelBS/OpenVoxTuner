@@ -181,6 +181,8 @@ target_sources(OpenVoxTuner PRIVATE
     Source/dsp/RetargetEnvelope.h
     Source/dsp/FormantPreserver.cpp
     Source/dsp/FormantPreserver.h
+    Source/dsp/LpcFormantPreserver.cpp
+    Source/dsp/LpcFormantPreserver.h
     Source/dsp/PitchCurve.cpp
     Source/dsp/PitchCurve.h
     Source/dsp/IEffect.h
@@ -367,6 +369,7 @@ target_sources(OpenVoxTunerTests PRIVATE
     Source/dsp/ScaleQuantizer.cpp
     Source/dsp/RetargetEnvelope.cpp
     Source/dsp/FormantPreserver.cpp
+    Source/dsp/LpcFormantPreserver.cpp
     Source/dsp/PitchCurve.cpp
     Source/dsp/PitchShifter.cpp
     Source/dsp/HarmonyEngine.cpp

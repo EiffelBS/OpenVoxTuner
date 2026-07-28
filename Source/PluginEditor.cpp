@@ -769,7 +769,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyBlendSlider.setPopupDisplayEnabled (true, false, this);
     harmonyBlendSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
     harmonyBlendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipBlend));
-    harmonyAttackSlider.setTooltip ("Harmony Attack: per-voice fade-in duration. Smoother, more progressive harmony onsets. When the Noise Gate is on, the attack follows the gate.");
+    harmonyAttackSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyAttack));
 
     // Harmony Attack knob: per-voice fade-in duration (ms). Placed under Blend.
     setupKnob (harmonyAttackSlider, nullptr, "");
@@ -778,7 +778,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyAttackSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     harmonyAttackSlider.setPopupDisplayEnabled (true, false, this);
     harmonyAttackSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " ms"; };
-    harmonyAttackSlider.setTooltip ("Harmony Attack: per-voice fade-in duration. Smoother, more progressive harmony onsets. When the Noise Gate is on, the attack follows the gate.");
 
     setupKnob (harmonyFormantSlider, nullptr, "");
     harmonyFormantSlider.setRange (-5.0, 5.0, 0.1);
@@ -786,7 +785,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyFormantSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     harmonyFormantSlider.setPopupDisplayEnabled (true, false, this);
     harmonyFormantSlider.textFromValueFunction = [] (double v) { return juce::String (v, 1) + " st"; };
-    harmonyFormantSlider.setTooltip ("Formant shift for harmony voices (semitones)");
+    harmonyFormantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyFormant));
 
     // Title labels above the Harmony knobs (no value display, just names).
     auto setupTitleLabel = [this] (juce::Label& l, const juce::String& name) {
@@ -1475,6 +1474,37 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Register the label so refreshLabels() updates it on language switch.
     translatableLabels.push_back ({ &voiceTypeLabel, ovt::Keys::kVoiceTypeLabel });
+
+    // === Formant Strategy combo (Advanced area, row 3) ===
+    // Selects the formant-preservation method. Each strategy has a distinct
+    // character; the tooltip below summarises them in plain language.
+    formantStrategyBox.addItemList ({
+        ovt::tr (ovt::Keys::kFormantStrategySubtle),
+        ovt::tr (ovt::Keys::kFormantStrategyBalanced),
+        ovt::tr (ovt::Keys::kFormantStrategyMarked),
+        ovt::tr (ovt::Keys::kFormantStrategyReactive),
+        ovt::tr (ovt::Keys::kFormantStrategyPrecise) }, 1);
+    formantStrategyBox.setSelectedItemIndex (4, juce::dontSendNotification);  // Precise is default
+    formantStrategyBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
+    formantStrategyBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
+    formantStrategyBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
+    formantStrategyBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
+    formantStrategyBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
+    formantStrategyBox.setColour (juce::PopupMenu::textColourId, juce::Colour (0xffcccccc));
+    formantStrategyBox.setTooltip (ovt::tr (ovt::Keys::kTooltipFormantStrategy));
+    formantStrategyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        processorRef.getParameters(), "formant_strategy", formantStrategyBox);
+    addAndMakeVisible (formantStrategyBox);
+
+    formantStrategyLabel.setText (ovt::tr (ovt::Keys::kLabelFormantStrategy), juce::dontSendNotification);
+    formantStrategyLabel.setJustificationType (juce::Justification::left);
+    formantStrategyLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
+    formantStrategyLabel.setFont (ovt::fontLegendHint());
+    formantStrategyLabel.setTooltip (ovt::tr (ovt::Keys::kLabelFormantStrategy));
+    addAndMakeVisible (formantStrategyLabel);
+
+    // Register for live language switch.
+    translatableLabels.push_back ({ &formantStrategyLabel, ovt::Keys::kLabelFormantStrategy });
 
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
 
@@ -2673,7 +2703,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // WIDENS when the "Advanced" banner is expanded to reveal the correction
     // knobs (Flex / Humanize / Vibrato / Attack-Aware) on the right.
     const int knobBlockWidth   = 220;  // Speed + Amount (prominent big knobs)
-    const int advancedWidth    = 140;  // revealed correction knobs when expanded (~24% narrower than 184)
+    const int advancedWidth    = 160;  // revealed correction knobs when expanded
     const int effectBlockWidth = 200;
     const int scaleBlockWidth  = 236;  // narrowed to fit the Root combo (see Block 1)
     const int blockSpacing     = 10;
@@ -2751,8 +2781,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // popup while dragging), so the "Advanced" zone stays small.
     const int advLabelH = 13;
     const int advGapX   = 8;    // gap between the two columns
-    const int advGapY   = 6;    // gap between the two rows
+    const int advGapY   = 6;    // gap between the rows
     const int knobMax   = 52;   // cap so advanced knobs stay smaller than Speed/Amount
+    const int advInsetR = 5;    // pixels to shift advanced content away from main block
 
     auto placeKnob = [&] (juce::Slider& s, juce::Label& l, juce::Rectangle<int> cell)
     {
@@ -2772,8 +2803,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // (2 small knobs centered), row 2 = Voice Type combo box (full width).
         // This matches the proposal in docs/voice-type-feasibility-report.md.
 
-        // Row 1: Vibrato + Humanize (2 columns). Each cell is half width.
-        const int advRow1H = (int)((advancedArea.getHeight() - advGapY) * 0.62f);
+        // Shift all content 5px right to create breathing room from the main block.
+        advancedArea.removeFromLeft (advInsetR);
+
+        // Row 1: Vibrato + Humanize (2 columns).
+        const int advRow1H = (int)((advancedArea.getHeight() - 2 * advGapY) * 0.42f);
         auto row1Area = advancedArea.removeFromTop (advRow1H);
         advancedArea.removeFromTop (advGapY);
 
@@ -2791,10 +2825,20 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // out so the two visible knobs (Vibrato, Humanize) take the
         // full advanced area in a 1x2 column.
 
-        // Row 2: Voice Type label + combo. Full advancedArea width.
-        auto row2Area = advancedArea;
-        voiceTypeLabel.setBounds (row2Area.removeFromTop (advLabelH));
-        voiceTypeBox.setBounds (row2Area.removeFromTop (22));
+        // Row 2: Voice Type label + combo. Narrower combos centered in the
+        // advanced area so they stay away from the main (Speed/Amount) block.
+        const int comboW  = 130;   // narrower than full area width (180)
+        const int comboL  = (int)((advancedArea.getWidth() - comboW) / 2); // centered
+        advancedArea.removeFromLeft (comboL);
+        voiceTypeLabel.setBounds (advancedArea.removeFromTop (advLabelH));
+        voiceTypeBox.setBounds (advancedArea.removeFromTop (22).withWidth (comboW));
+        // Adjust remaining area width to keep row 3 aligned.
+        advancedArea.removeFromLeft (advancedArea.getWidth() - comboW - comboL);
+        advancedArea.removeFromTop (advGapY);
+
+        // Row 3: Formant Strategy label + combo.
+        formantStrategyLabel.setBounds (advancedArea.removeFromTop (advLabelH));
+        formantStrategyBox.setBounds (advancedArea.removeFromTop (22).withWidth (comboW));
     }
     else
     {
@@ -2810,6 +2854,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // Voice Type is hidden when Advanced is collapsed
         voiceTypeBox.setBounds (0, 0, 0, 0);
         voiceTypeLabel.setBounds (0, 0, 0, 0);
+        // Formant Strategy is hidden when Advanced is collapsed
+        formantStrategyBox.setBounds (0, 0, 0, 0);
+        formantStrategyLabel.setBounds (0, 0, 0, 0);
     }
 
     // --- Block 4 : Effects — 2 rows (Gate + Reverb on top, Formant below) ---
@@ -3986,6 +4033,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     advancedButton.setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
     voiceTypeBox.setTooltip (ovt::tr (ovt::Keys::kTooltipVoiceType));
     voiceTypeLabel.setTooltip (ovt::tr (ovt::Keys::kTooltipVoiceType));
+    formantStrategyBox.setTooltip (ovt::tr (ovt::Keys::kTooltipFormantStrategy));
+    formantStrategyLabel.setTooltip (ovt::tr (ovt::Keys::kLabelFormantStrategy));
     harmonyFollowLeadButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyFollow));
     harmonyGainMatchButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyGainMatch));
     updateButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCheckUpdates));
@@ -4014,7 +4063,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     amountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipAmount));
     harmonyGainSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipVolume));
     harmonyBlendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipBlend));
-    harmonyAttackSlider.setTooltip ("Harmony Attack: per-voice fade-in duration. Smoother, more progressive harmony onsets. When the Noise Gate is on, the attack follows the gate.");
+    harmonyAttackSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyAttack));
+    harmonyFormantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyFormant));
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
     buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
     buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));
@@ -5144,5 +5194,8 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
 
     repaint();
 }
+
+
+
 
 

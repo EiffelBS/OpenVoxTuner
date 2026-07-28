@@ -116,7 +116,62 @@ public:
                     "Trop de discontinuites (clics) au saut de ratio MultiFormant : "
                     + juce::String (maxJumpCount) + " echantillons (attendu <= 3)");
         }
+
+        beginTest ("P0 strategy (1/r + voice-type) differs from Current (1/sqrt(r))");
+        {
+            FormantPreserver fpC, fpP;
+            fpC.prepare (44100.0, 512);
+            fpP.prepare (44100.0, 512);
+            fpC.setEnabled (true);
+            fpP.setEnabled (true);
+            fpP.setStrategy (ovtdsp::FormantPreserver::Strategy::P0);
+            fpP.setVoiceType (5); // Soprano
+            fpC.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
+            fpP.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
+
+            // Identical noise for both strategies. Amplitude 0.5 is safe —
+            // the peaking-EQ cascade (4 × Q≤3.25, gain=6 dB) at ratio 2.0
+            // produces bounded output without NaN when the biquad states
+            // are fresh (no warm-up).
+            srand (42);
+            juce::AudioBuffer<float> bufC (1, 512);
+            for (int i = 0; i < 512; ++i)
+                bufC.setSample (0, i, (2.0f * (float)rand() / (float)RAND_MAX - 1.0f) * 0.5f);
+
+            srand (42);
+            juce::AudioBuffer<float> bufP (1, 512);
+            for (int i = 0; i < 512; ++i)
+                bufP.setSample (0, i, (2.0f * (float)rand() / (float)RAND_MAX - 1.0f) * 0.5f);
+
+            fpC.process (bufC, 2.0f);
+            fpP.process (bufP, 2.0f);
+
+            float rmsC = 0.0f, rmsP = 0.0f;
+            bool okC = true, okP = true;
+            for (int i = 0; i < 512; ++i)
+            {
+                const float c = bufC.getSample (0, i);
+                const float p = bufP.getSample (0, i);
+                if (!std::isfinite (c)) okC = false;
+                if (!std::isfinite (p)) okP = false;
+                rmsC += c * c;
+                rmsP += p * p;
+            }
+            expect (okC, "Current output has NaN/inf");
+            expect (okP, "P0 output has NaN/inf");
+            rmsC = std::sqrt (rmsC / 512.0f);
+            rmsP = std::sqrt (rmsP / 512.0f);
+            expect (rmsC > 0.01f, "Current output too small");
+            expect (rmsP > 0.01f, "P0 output too small");
+            // The two compensation laws (1/sqrt(r) vs 1/r) plus different
+            // formant centers must yield measurably different RMS.
+            float rmsRatio = (rmsC > rmsP) ? (rmsP / rmsC) : (rmsC / rmsP);
+            expect (rmsRatio < 0.9995f,
+                    "P0 and Current should differ at ratio 2.0 "
+                    "(rmsRatio=" + juce::String (rmsRatio, 6) + ")");
+        }
     }
 };
 
 static FormantPreserverTest formantPreserverTest;
+

@@ -381,6 +381,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\PitchShifterOutputRmsTest.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\PitchShifterClickTest.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\HarmonyGainMatchTest.cpp" />
+    <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\HarmonyAttackTest.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\PitchCurveTest.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\KeyBridgeTest.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\SidechainBusLayoutTest.cpp" />
@@ -392,6 +393,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\ScaleQuantizer.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\RetargetEnvelope.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\FormantPreserver.cpp" />
+    <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\LpcFormantPreserver.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\PitchCurve.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\PitchShifter.cpp" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\HarmonyEngine.cpp" />

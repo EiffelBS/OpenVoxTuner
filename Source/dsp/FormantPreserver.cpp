@@ -84,17 +84,38 @@ namespace ovtdsp
         s.a2 = (1.0f - alpha / A) / a0;
     }
 
+    void FormantPreserver::updateAllpassCoefficients (ChannelState::BiquadState& s, float freqHz, float q)
+    {
+        // Allpass biquad (RBJ cookbook). |H(z)| = 1 everywhere; the phase
+        // response wraps around `freqHz`, which physically shifts the
+        // formant without colouring the spectral envelope. This is the
+        // building block of the P3 (allpass cascade) strategy.
+        const float clampedFreq = juce::jlimit (20.0f, maxCutoffHz, freqHz);
+        const float w0 = 2.0f * juce::MathConstants<float>::pi * clampedFreq / static_cast<float> (sampleRate);
+        const float cosw0 = std::cos (w0);
+        const float alpha = std::sin (w0) / (2.0f * juce::jmax (0.1f, q));
+
+        const float a0 = 1.0f + alpha;
+        s.b0 = (1.0f - alpha) / a0;
+        s.b1 = (-2.0f * cosw0) / a0;
+        s.b2 = 1.0f;
+        s.a1 = (-2.0f * cosw0) / a0;
+        s.a2 = (1.0f - alpha) / a0;
+    }
+
     void FormantPreserver::updateAllFormants (ChannelState& s, float compensationRatio, float shiftRatio)
     {
         for (int f = 0; f < 4; ++f)
         {
             // Compensation: formants move opposite to pitch shift
             // If pitch goes up (ratio > 1), formants need to go down before PSOLA
-            // The compensationRatio = 1/sqrt(ratio) moves them partially
+            // The compensationRatio moves them partially (Current) or fully (P0)
             // shiftRatio applies user formant shift on top
-            float targetFreq = formantConfigs[f].freqHz * compensationRatio * shiftRatio;
+            float targetFreq = getFormantFreqHz (f) * compensationRatio * shiftRatio;
             targetFreq = juce::jlimit (20.0f, maxCutoffHz, targetFreq);
-            updateBiquadCoefficients (s.formants[f], targetFreq, formantConfigs[f].q, formantConfigs[f].gainDb);
+            updateBiquadCoefficients (s.formants[f], targetFreq,
+                                      formantConfigs[f].q * qMultiplier,
+                                      formantConfigs[f].gainDb);
         }
     }
 
@@ -160,10 +181,12 @@ namespace ovtdsp
         // deja bien mieux le timbre qu'un PSOLA pur.
         const float r = juce::jlimit (0.25f, 4.0f, ratio);
         
-        // Compensation ratio: inverse sqrt gives partial compensation
-        // Full compensation would be 1/r, but that overcorrects
-        // sqrt is a good compromise (Moulines & Charpentier)
-        const float compensationRatio = 1.0f / std::sqrt (r);
+        // Compensation ratio. P0 strategy uses full 1/r compensation (moves
+        // formants all the way back to their natural place); Current uses the
+        // partial 1/sqrt(r) compromise (Moulines & Charpentier).
+        const float compensationRatio = (strategy == Strategy::P0)
+                                            ? (1.0f / r)
+                                            : (1.0f / std::sqrt (r));
         
         // Ajout du decalage de formants manuel
         const float shiftRatio = std::pow (2.0f, shiftSemitones / 12.0f);
@@ -183,7 +206,7 @@ namespace ovtdsp
         {
             // Legacy mode: single peaking EQ at reference frequency (backward compatible)
             const float cutoff = juce::jlimit (100.0f, maxCutoffHz,
-                                               500.0f * compensationRatio * shiftRatio);
+                                               getFormantFreqHz (0) * compensationRatio * shiftRatio);
             for (int ch = 0; ch < numChannels; ++ch)
             {
                 // Use first formant slot for legacy
@@ -192,14 +215,33 @@ namespace ovtdsp
                                 channels.getReference(ch));
             }
         }
-        else
+        else if (mode == Mode::MultiFormant)
         {
-            // MultiFormant mode: F1-F4
+            // MultiFormant mode: F1-F4 peaking-EQ cascade
             for (int ch = 0; ch < numChannels; ++ch)
             {
                 updateAllFormants (channels.getReference(ch), compensationRatio, shiftRatio);
                 processChannel (buffer.getWritePointer (ch), buffer.getNumSamples(),
                                 channels.getReference(ch));
+            }
+        }
+        else
+        {
+            // Allpass mode (P3): F1-F4 allpass biquad cascade. Magnitude
+            // is unity at every frequency; the phase response shifts the
+            // formants without colouring the spectral envelope. More
+            // transparent than the peaking-EQ cascade used in MultiFormant.
+            for (int ch = 0; ch < numChannels; ++ch)
+            {
+                auto& sch = channels.getReference(ch);
+                for (int f = 0; f < 4; ++f)
+                {
+                    float targetFreq = juce::jlimit (20.0f, maxCutoffHz,
+                                                      getFormantFreqHz (f) * compensationRatio * shiftRatio);
+                    updateAllpassCoefficients (sch.formants[f], targetFreq,
+                                              formantConfigs[f].q * qMultiplier);
+                }
+                processChannel (buffer.getWritePointer (ch), buffer.getNumSamples(), sch);
             }
         }
     }

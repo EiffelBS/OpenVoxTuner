@@ -321,6 +321,8 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\RetargetEnvelope.h" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\FormantPreserver.cpp" />
     <ClInclude Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\FormantPreserver.h" />
+    <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\LpcFormantPreserver.cpp" />
+    <ClInclude Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\LpcFormantPreserver.h" />
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\PitchCurve.cpp" />
     <ClInclude Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\PitchCurve.h" />
     <ClInclude Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\IEffect.h" />

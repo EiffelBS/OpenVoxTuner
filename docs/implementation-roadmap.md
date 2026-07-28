@@ -341,6 +341,26 @@ Following the deprecation of FlexTune and Attack-Aware, the advanced area in the
 - [x] **LAY.1 (UI: advanced area reorganization, 2026-07-24)** — `Source/PluginEditor.cpp`. The `resized()` method's advanced area layout code was changed from a 2x2 grid (`rowA`, `rowB`, `colW`, `rowH`) to a 1x2 column (`rowH` only, no `colW`). Vibrato and Humanize are placed top-to-bottom, centered horizontally in the available space.
 - [x] **LAY.2 (Build verification, 2026-07-24)** — VST3 + Standalone + tests all build successfully. Unit-test suite: **138 OK / 0 KO**. The visual change will be validated by the user in the VST3 GUI.
 
+### 8l. LPC formant preservation (analysis-driven, 2026-07-27)
+
+A deep analysis of formant-preservation methods (`docs/formant-preservation-analysis-report.md`) concluded that the current dual mechanism (FormantPreserver `1/√r` pre-warp with fixed male-default centers + PitchShifter `formantRatio` grain speed) only *approximates* formant decoupling. A quantitative numpy benchmark (`test/formant_preservation_benchmark.py`) shows LPC cross-synthesis preserves formants **~2.5×–5× better** (log-spectral distortion) than the current approach at large transposition ratios, across male/female/child voices. This section tracks the prioritized improvements (P0=immediate, P1=LPC module, P2=robustness).
+
+#### P0 — immediate, low risk / high impact
+- [x] **LP.1 (DSP: voice-type-aware formant centers, G1/G6)** — Replace the fixed `FormantPreserver::formantConfigs = [500,1500,2500,3500]` with a set selected by estimated `F0` (or an explicit male/female/child parameter). Eliminates the "formants applied beside the real ones" gap. **Implemented**: `FormantPreserver::voiceTypeTable[6][4]` + `setVoiceType()`; P0 strategy uses the table.
+- [x] **LP.2 (DSP: full 1/r compensation, G2)** — In `FormantPreserver.cpp::updateAllFormants`, change `compensationRatio = 1/√(r)` to `1/r` applied to the *real* voice-type formants. Immediate quality gain, no new DSP. **Implemented**: `strategy == P0` selects `1/r`.
+
+#### P1 — medium term, major quality jump
+- [x] **LP.3 (DSP: LPC cross-synthesis module, C0)** — New `ovtdsp::LpcFormantPreserver`: per-frame LPC analysis (order 18, autocorrelation + Levinson-Durbin), whiten the transposed signal (`e = A_shifted(z)·x`, note the PLUS sign), re-synthesize through the reference envelope (`1/A_orig(z)`). Per-frame residual-gain normalization + bandwidth expansion for stability. Applied post-PSOLA; creative formant shift re-applied afterwards.
+- [x] **LP.4 (DSP: temporal LPC coefficient interpolation, C1)** — Average neighbouring `aₖ` (or exponential interpolation) before re-synthesis; benchmark shows C1 ≤ C0 at large upshifts. **Implemented** as the P2 `C1Hybrid` mode (`c1Alpha = 0.5`).
+- [x] **LP.5 (Logic: disambiguate FormantPreserver vs formantRatio, G5)** — Document and rewire `PluginProcessor.cpp` so only one preservation chain is active per mode, avoiding double compensation. **Implemented**: `formant_strategy` selector (Current/P0/P1/P2) routes a single chain for lead + harmonies; in P1/P2 the PSOLA `formantRatio` is neutralized to 1.0.
+
+#### P2 — long term, robustness
+- [x] **LP.6 (DSP: pre-emphasis + adaptive LPC order)** — Reduce the ~4 dB residual formant-band distortion and noise sensitivity. **Implemented**: pre-emphasis in `C1Hybrid` mode. LPC order is fixed (18) rather than adaptive — good enough for the current scope.
+- [ ] **LP.7 (Tests: MUSHRA harness + CI formant-distortion metric)** — Operationalize the §8 listening protocol; re-run the benchmark on real extracted vocals in CI. (Pending: requires listening panel + real-vocal corpus.)
+- [x] **LP.8 (DSP: hybrid fallback)** — Use LPC when signal is stable/voiced; fall back to voice-type-aware filter bank under strong noise / unvoiced speech. **Implemented**: `C1Hybrid` hybrid passthrough on silent / unstable frames (RMS floor + gain-limit).
+
+**Success metrics (vs current):** ≥2.5× reduction of formant LSD at r=2.0 (target ≤4 dB global, ≤5 dB formant-band); MUSHRA naturalness ≥+20 pts vs current; LPC module CPU <2× the biquad bank in native C++.
+
 ### 8k. Curve editor: Fix scroll-on-loop-wrap bug (2026-07-24)
 
 In the Standalone's curve editor, the user observed that with autoscroll = OFF and Loop Playhead = ON, the playhead line would "jump" at every loop boundary. The fix bypasses the seek detection when `isLooping = true`, so the view stays where the user put it during loop playback.

@@ -40,6 +40,9 @@
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\HarmonyGainMatchTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\HarmonyAttackTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\test\dsp\PitchCurveTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -71,6 +74,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\FormantPreserver.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\LpcFormantPreserver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\User\Documents\trae_projects\OpenVoxTuner\Source\dsp\PitchCurve.cpp">

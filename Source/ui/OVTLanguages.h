@@ -222,6 +222,15 @@ namespace ovt
         static const char* kVoiceTypeRangeFormat = "voice_type.range_format"; // "Bass (%s-%s)"
         static const char* kTooltipVoiceType     = "tooltip.voice_type";
 
+        // Formant Strategy keys
+        static const char* kLabelFormantStrategy   = "label.formant_strategy";
+        static const char* kTooltipFormantStrategy  = "tooltip.formant_strategy";
+        static const char* kFormantStrategySubtle   = "formant_strategy.subtle";
+        static const char* kFormantStrategyBalanced = "formant_strategy.balanced";
+        static const char* kFormantStrategyMarked   = "formant_strategy.marked";
+        static const char* kFormantStrategyReactive = "formant_strategy.reactive";
+        static const char* kFormantStrategyPrecise  = "formant_strategy.precise";
+
         // Tooltip keys
         static const char* kTooltipZoomIn      = "tooltip.zoom_in";
         static const char* kTooltipZoomOut     = "tooltip.zoom_out";
@@ -239,6 +248,8 @@ namespace ovt
         static const char* kTooltipHarmonyEn   = "tooltip.harmony_enable";
         static const char* kTooltipHarmonyFollow = "tooltip.harmony_follow";
         static const char* kTooltipHarmonyGainMatch = "tooltip.harmony_gain_match";
+        static const char* kTooltipHarmonyAttack = "tooltip.harmony_attack";
+        static const char* kTooltipHarmonyFormant = "tooltip.harmony_formant";
         static const char* kTooltipReverbEn    = "tooltip.reverb_enable";
         static const char* kTooltipFormant     = "tooltip.formant_enable";
         static const char* kTooltipFlexTune    = "tooltip.flex_tune";
@@ -548,6 +559,13 @@ namespace ovt
             { kVoiceTypeLabel,        "Voice Type" },
             { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
             { kTooltipVoiceType,      "Constrain pitch detection to a vocal register. Universal (default) covers the full voice range. Bass / Baritone / Tenor / Alto / Soprano narrow the search range to reduce octave errors and CPU usage." },
+            { kLabelFormantStrategy,  "Formant Strategy" },
+            { kTooltipFormantStrategy, "Formant preservation method applied to the lead and harmony voices.\n  Subtle   - Light pre-warp. Minimal change, very natural.\n  Balanced - Full correction with voice-type-aware centers.\n  Marked   - Sharper EQ peaks. More obvious correction.\n  Reactive - Faster tracking of vibrato and pitch nuances.\n  Precise  - Phase-only shift (allpass). Most transparent, no spectral coloring." },
+            { kFormantStrategySubtle,   "Subtle" },
+            { kFormantStrategyBalanced, "Balanced" },
+            { kFormantStrategyMarked,   "Marked" },
+            { kFormantStrategyReactive, "Reactive" },
+            { kFormantStrategyPrecise,  "Precise" },
             { kTooltipZoomIn,      "Zoom In (narrower range)" },
             { kTooltipZoomOut,     "Zoom Out (wider range)" },
             { kTooltipScrollUp,    "Scroll Up (higher pitches)" },
@@ -564,6 +582,8 @@ namespace ovt
             { kTooltipHarmonyEn,      "Enable/disable harmony generation." },
             { kTooltipHarmonyFollow,  "When on (default), the harmony voices follow the lead correction character (vibrato preservation, humanize, flex, attack-aware) so they move together with the lead instead of staying locked to the scale grid. When off, harmonies stay snapped to the scale (classic look)." },
             { kTooltipHarmonyGainMatch, "When on (default), the harmony mix is scaled by 1/sqrt(1+N) (N = number of active harmony voices) so the total output RMS is roughly equal to the dry input RMS. Compensates for the additive volume boost on Unison / Unison+Octaves. The dry signal is untouched." },
+            { kTooltipHarmonyAttack,  "Harmony Attack: per-voice fade-in duration. Smoother, more progressive harmony onsets. When the Noise Gate is on, the attack follows the gate." },
+            { kTooltipHarmonyFormant, "Formant shift for harmony voices (semitones)" },
             { kTooltipReverbEn,       "Enable/disable reverb effect." },
             { kTooltipFormant,        "Enable/disable formant shifting." },
             { kTooltipFlexTune,       "Deadband in cents: input pitch within this range is left uncorrected." },
@@ -851,6 +871,13 @@ namespace ovt
             { kVoiceTypeLabel,        "Type de voix" },
             { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
             { kTooltipVoiceType,      "Restreint la detection de pitch a un registre vocal. Universel (defaut) couvre toute la voix. Basse / Baryton / Tenor / Alto / Soprano reduisent la plage pour limiter les erreurs d'octave et la charge CPU." },
+            { kLabelFormantStrategy,  "Strategie Formant" },
+            { kTooltipFormantStrategy, "Methode de preservation des formants appliquee a la voix lead et aux harmonies.\n  Subtle   - Pre-warp leger. Changement minimal, tres naturel.\n  Balanced - Correction complete avec centres adaptes au type de voix.\n  Marked   - EQ plus marquee. Correction plus audible.\n  Reactive - Suivi plus rapide du vibrato et des nuances de hauteur.\n  Precise  - Decalage par phase uniquement (allpass). Plus transparent, aucune coloration spectrale." },
+            { kFormantStrategySubtle,   "Subtil" },
+            { kFormantStrategyBalanced, "Equilibre" },
+            { kFormantStrategyMarked,   "Marque" },
+            { kFormantStrategyReactive, "Reactif" },
+            { kFormantStrategyPrecise,  "Precis" },
             { kTooltipZoomIn,      "Zoom avant (plage etroite)" },
             { kTooltipZoomOut,     "Zoom arriere (plage large)" },
             { kTooltipScrollUp,    "Defiler vers le haut (aigus)" },
@@ -867,6 +894,8 @@ namespace ovt
             { kTooltipHarmonyEn,      "Activer/desactiver la generation d'harmonie." },
             { kTooltipHarmonyFollow,  "Quand elle est active (defaut), les voix d'harmonie suivent le caractere de correction de la voix principale (preservation du vibrato, humanisation, flex, attack-aware) et se deplacent avec elle au lieu de rester bloquees sur la grille de gamme. Quand elle est inactive, les harmonies restent accrochees a la gamme (aspect classique)." },
             { kTooltipHarmonyGainMatch, "Quand elle est active (defaut), le mix d'harmonie est reduit par 1/sqrt(1+N) (N = nombre de voix d'harmonie actives) pour que le RMS total en sortie soit proche du RMS de l'entree seche. Compense le boost de volume additif sur Unison / Unison+Octaves. Le signal sec n'est pas touche." },
+            { kTooltipHarmonyAttack,  "Attaque d'harmonie : duree de fondu en entree par voix. Attaques d'harmonie plus douces et progressives. Quand la Noise Gate est active, l'attaque suit le gate." },
+            { kTooltipHarmonyFormant, "Decalage de formant pour les voix d'harmonie (demi-tons)" },
             { kTooltipReverbEn,       "Activer/desactiver l'effet de reverberation." },
             { kTooltipFormant,        "Activer/desactiger le deplacement de formant." },
             { kTooltipFlexTune,       "Deadband en cents : les entrees dans cette plage ne sont pas corrigees." },
@@ -1154,6 +1183,13 @@ namespace ovt
             { kVoiceTypeLabel,        "Stimmtyp" },
             { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
             { kTooltipVoiceType,      "Beschraenkt die Tonhohenerkennung auf ein Stimmregister. Universal (Standard) deckt den gesamten Stimmumfang ab. Bass / Bariton / Tenor / Alt / Sopran engen den Suchbereich ein, um Oktavfehler und CPU-Last zu reduzieren." },
+            { kLabelFormantStrategy,  "Formant-Strategie" },
+            { kTooltipFormantStrategy, "Formanterhaltungsmethode fuer Lead- und Harmoniestimmen.\n  Subtle   - Leichter Pre-warp. Minimale Aenderung, sehr naturgetreu.\n  Balanced - Vollstaendige Korrektur mit stimmtypbezogenen Zentren.\n  Marked   - Schaerfere EQ-Peaks. Korrektur hörbarer.\n  Reactive - Schnelleres Tracking von Vibrato und Tonnuancen.\n  Precise  - Phasenverschiebung (Allpass). Am transparentesten, keine Spektraalfaerbung." },
+            { kFormantStrategySubtle,   "Subtil" },
+            { kFormantStrategyBalanced, "Ausgeglichen" },
+            { kFormantStrategyMarked,   "Markant" },
+            { kFormantStrategyReactive, "Reaktiv" },
+            { kFormantStrategyPrecise,  "Praezise" },
             { kTooltipZoomIn,      "Hineinzoomen (schmaeler Bereich)" },
             { kTooltipZoomOut,     "Herauszoomen (breiterer Bereich)" },
             { kTooltipScrollUp,    "Nach oben scrollen (hoehere Toene)" },
@@ -1172,6 +1208,8 @@ namespace ovt
             { kTooltipHarmonyEn,      "Harmonieerzeugung aktivieren/deaktivieren." },
             { kTooltipHarmonyFollow,  "Wenn aktiv (Standard), folgen die Harmoniestimmen dem Korrekturcharakter der Leitstimme (Vibrato-Erhaltung, Humanisierung, Flex, Attack-Aware) und bewegen sich mit ihr, statt an der Tonleitergitter festzukleben. Wenn inaktiv, bleiben die Harmonien an die Tonleiter gerastet (klassisches Aussehen)." },
             { kTooltipHarmonyGainMatch, "Wenn aktiv (Standard), wird der Harmoniemix mit 1/sqrt(1+N) skaliert (N = Anzahl aktiver Harmoniestimmen), so dass der Gesamt-Ausgangs-RMS ungefahr dem RMS des trockenen Eingangssignals entspricht. Kompensiert den additiven Lautstarkeboost bei Unison / Unison+Octaves. Das trockene Signal wird nicht verandert." },
+            { kTooltipHarmonyAttack,  "Harmonie-Attack: Einblendedauer pro Stimme. Sanfter, progressiverer Harmonieeinsatz. Wenn die Noise Gate aktiv ist, folgt der Attack dem Gate." },
+            { kTooltipHarmonyFormant, "Formantverschiebung fuer Harmoniestimmen (Halbtoene)" },
             { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
             { kTooltipFormant,        "Formantenverschiebung aktivieren/deaktivieren." },
             { kTooltipFlexTune,       "Deadband in Cents: Eingaenge in diesem Bereich werden nicht korrigiert." },
@@ -1457,6 +1495,13 @@ namespace ovt
             { kVoiceTypeLabel,        "Tipo de voz" },
             { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
             { kTooltipVoiceType,      "Restringe la deteccion de tono a un registro vocal. Universal (por defecto) cubre todo el rango vocal. Bajo / Baritono / Tenor / Alto / Soprano reducen el rango de busqueda para minimizar errores de octava y el uso de CPU." },
+            { kLabelFormantStrategy,  "Estrategia Formante" },
+            { kTooltipFormantStrategy, "Metodo de preservacion de formantes aplicado a la voz principal y las armonias.\n  Subtle   - Pre-warp ligero. Cambio minimo, muy natural.\n  Balanced - Correccion completa con centros adaptados al tipo de voz.\n  Marked   - EQ mas marcado. Correccion mas audible.\n  Reactive - Seguimiento mas rapido del vibrato y los matices de tono.\n  Precise  - Desplazamiento por fase (allpass). Mas transparente, sin coloracion espectral." },
+            { kFormantStrategySubtle,   "Sutil" },
+            { kFormantStrategyBalanced, "Equilibrado" },
+            { kFormantStrategyMarked,   "Marcado" },
+            { kFormantStrategyReactive, "Reactivo" },
+            { kFormantStrategyPrecise,  "Preciso" },
             { kTooltipZoomIn,      "Acercar (rango estrecho)" },
             { kTooltipZoomOut,     "Alejar (rango amplio)" },
             { kTooltipScrollUp,    "Desplazar arriba (agudos)" },
@@ -1475,6 +1520,8 @@ namespace ovt
             { kTooltipHarmonyEn,      "Activar/desactivar generacion de armonia." },
             { kTooltipHarmonyFollow,  "Cuando esta activo (por defecto), las voces de armonia siguen el caracter de correccion de la voz principal (preservacion de vibrato, humanizacion, flex, attack-aware) y se mueven con ella en lugar de quedarse fijas a la rejilla de escala. Cuando esta inactivo, las armonias permanecen ajustadas a la escala (aspecto clasico)." },
             { kTooltipHarmonyGainMatch, "Cuando esta activo (por defecto), la mezcla de armonia se escala por 1/sqrt(1+N) (N = numero de voces de armonia activas) para que el RMS total de salida sea aproximadamente igual al RMS de la entrada seca. Compensa el aumento aditivo de volumen en Unison / Unison+Octavas. La senal seca no se toca." },
+            { kTooltipHarmonyAttack,  "Ataque de armonia: duracion de fundido de entrada por voz. Ataques de armonia mas suaves y progresivos. Cuando la Noise Gate esta activa, el ataque sigue el gate." },
+            { kTooltipHarmonyFormant, "Desplazamiento de formante para voces de armonia (semitonos)" },
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberacion." },
             { kTooltipFormant,        "Activar/desactivar desplazamiento de formante." },
             { kTooltipFlexTune,       "Deadband en cents: las entradas en este rango no se corrigen." },
@@ -1760,6 +1807,13 @@ namespace ovt
             { kVoiceTypeLabel,        "声種" },
             { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
             { kTooltipVoiceType,      "ピッチ検出を声域に制限します。ユニバーサル(既定)は全音域をカバーします。バス/バリトン/テノール/アルト/ソプラノを選ぶと、オクターブエラーとCPU負荷を削減できます。" },
+            { kLabelFormantStrategy,  "フォルマント戦略" },
+            { kTooltipFormantStrategy, "リードボイスとハーモニーに適用するフォルマント保持方式。\n  Subtle   - 軽いプリワープ。最小限の変更、非常に自然。\n  Balanced - 声型に応じた完全な補正。\n  Marked   - より鋭いEQ。より目立つ効果。\n  Reactive - ビブラートや音程のニュアンスをより速く追従。\n  Precise  - 位相シフト(オールパス)。最も透明、スペクトル着色なし。" },
+            { kFormantStrategySubtle,   "微か" },
+            { kFormantStrategyBalanced, "均衡" },
+            { kFormantStrategyMarked,   "明確" },
+            { kFormantStrategyReactive, "反応的" },
+            { kFormantStrategyPrecise,  "精密" },
             { kTooltipZoomIn,      "ズームイン" },
             { kTooltipZoomOut,     "ズームアウト" },
             { kTooltipScrollUp,    "上にスクロール" },
@@ -1778,6 +1832,8 @@ namespace ovt
             { kTooltipHarmonyEn,      "ハーモニー生成の有効/無効。" },
             { kTooltipHarmonyFollow,  "オン（デフォルト）のとき、ハーモニーボイスはリードの補正特性（ビブラート保持、ヒューマナイズ、フレックス、アタック対応）に追従し、スケールグリッドに固定されずリードと共に動きます。オフのときはハーモニーはスケールにスナップしたままです（クラシックな見た目）。" },
             { kTooltipHarmonyGainMatch, "オン（デフォルト）のとき、ハーモニーミックスは 1/sqrt(1+N) でスケールされます（N = アクティブなハーモニーボイスの数）。これにより、出力全体の RMS が生入力の RMS とほぼ等しくなります。Unison / Unison+Octaves での加算的な音量ブーストを補正します。ドライ信号には影響しません。" },
+            { kTooltipHarmonyAttack,  "ハーモニーアタック：ボイスごとのフェードイン持続時間。より滑らかで段階的なハーモニーの立ち上がり。ノイズゲートがオンのとき、アタックはゲートに追従します。" },
+            { kTooltipHarmonyFormant, "ハーモニーボイスのフォルマントシフト（半音）" },
             { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
             { kTooltipFormant,        "フォルマントシフトの有効/無効。" },
             { kTooltipFlexTune,       "デッドバンド(セント): この範囲内のピッチは補正されません。" },
@@ -2063,6 +2119,13 @@ namespace ovt
             { kVoiceTypeLabel,        "声乐类型" },
             { kVoiceTypeRangeFormat,  "%s (%s-%s)" },
             { kTooltipVoiceType,      "将音高检测限制在特定声域。通用(默认)覆盖整个声域范围。选择低音/男中音/男高音/女低音/女高音可缩小搜索范围，降低八度错误和 CPU 占用。" },
+            { kLabelFormantStrategy,  "共振峰策略" },
+            { kTooltipFormantStrategy, "应用于主唱声部和和声的共振峰保持方式。\n  Subtle   - 轻度预变形。变化最小，非常自然。\n  Balanced - 针对声型的完整校正。\n  Marked   - 更强的EQ。更明显的校正效果。\n  Reactive - 更快追踪颤音和音高细微变化。\n  Precise  - 相位移位(全通滤波器)。最透明，无频谱着色。" },
+            { kFormantStrategySubtle,   "微妙" },
+            { kFormantStrategyBalanced, "均衡" },
+            { kFormantStrategyMarked,   "明显" },
+            { kFormantStrategyReactive, "灵敏" },
+            { kFormantStrategyPrecise,  "精准" },
             { kTooltipZoomIn,      "放大（范围更窄）" },
             { kTooltipZoomOut,     "缩小（范围更宽）" },
             { kTooltipScrollUp,    "上滚（更高音高）" },
@@ -2081,6 +2144,8 @@ namespace ovt
             { kTooltipHarmonyEn,      "启用/禁用和声生成。" },
             { kTooltipHarmonyFollow,  "开启时（默认），和声声部跟随主唱的校正特性（颤音保留、人性化、灵活、起音感知），从而与主唱一起移动，而不是锁定到音阶网格。关闭时，和声保持吸附到音阶（经典外观）。" },
             { kTooltipHarmonyGainMatch, "开启时（默认），和声混音按 1/sqrt(1+N) 缩放（N = 活动和声声部的数量），使总输出 RMS 接近干声输入 RMS。补偿 Unison / Unison+Octaves 上的加性音量提升。干信号不受影响。" },
+            { kTooltipHarmonyAttack,  "和声起音：每个声部的淡入持续时间。更柔和、渐进的和声起始。噪声门开启时，起音跟随门控。" },
+            { kTooltipHarmonyFormant, "和声声部的共振峰偏移（半音）" },
             { kTooltipReverbEn,       "启用/禁用混响效果。" },
             { kTooltipFormant,        "启用/禁用共振峰偏移。" },
             { kTooltipFlexTune,       "死区（音分）：此范围内的输入音高保持不校正。" },
