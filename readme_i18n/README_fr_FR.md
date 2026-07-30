@@ -109,7 +109,7 @@
 - Éditeur graphique de courbe de hauteur avec glisser, aimantation gamme/grille, copier/coller, annuler/rétablir
 - Visualisation de hauteur en temps réel avec tracés entrée/sortie/harmonie
 - Clavier de piano avec surlignage automatique des notes
-- Superposition de la waveform (affichage Line ou Mirror)
+- Superposition de la waveform (affichage Line, Mirror ou Spectral)
 - Export en image PNG (résolution 2x)
 
 ### Intégration ARA2
@@ -129,11 +129,10 @@
 
 - Sortie de note MIDI (générée à partir de la hauteur détectée)
 - Cible MIDI (MIDI entrant contrôle la hauteur de correction)
-- Préréglages du plugin avec galerie à cartes
+- Préréglages de courbe avec galerie à cartes
 - Annuler/rétablir global (tous les paramètres automatisables)
 - Thème Sombre/Clair
 - Traitement stéréo, pitch shifting PSOLA à faible latence
-- Mesureur d'utilisation CPU
 - Mode standalone avec transport interne à 120 BPM
 
 ## Pourquoi OpenVoxTuner ?

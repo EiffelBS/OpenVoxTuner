@@ -109,7 +109,7 @@
 - Grafischer Tonhöhenkurven-Editor mit Punkt-Ziehen, Snap an Skala/Raster, Kopieren/Einfügen, Rückgängig/Wiederherstellen
 - Echtzeit-Tonhöhen-Visualisierung mit Ein-/Ausgabe- und Harmonie-Spuren
 - Klaviertastatur mit automatischer Notenhervorhebung
-- Waveform-Überlagerung (Line- oder Mirror-Anzeige)
+- Waveform-Überlagerung (Line, Mirror oder Spectral)
 - Export als PNG (2x-Auflösung)
 
 ### ARA2-Integration
@@ -129,11 +129,10 @@
 
 - MIDI-Notenausgabe (aus erkannter Tonhöhe generiert)
 - MIDI-Ziel (eingehendes MIDI steuert die Korrektur-Tonhöhe)
-- Plugin-Presets mit Karten-basierter Galerie-Ansicht
+- Kurven-Presets mit Karten-basierter Galerie-Ansicht
 - Globaler Rückgängig/Wiederherstellen (alle automatisierbaren Parameter)
 - Dunkles/Helles Theme
 - Stereo-Verarbeitung, PSOLA-Pitch-Shifting mit niedriger Latenz
-- CPU-Auslastungsanzeige
 - Standalone-Modus mit internem 120-BPM-Transport
 
 ## Warum OpenVoxTuner?

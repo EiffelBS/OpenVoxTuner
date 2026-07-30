@@ -125,7 +125,7 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 - Graphical pitch curve editor with point drag, snap to scale/grid, copy/paste, undo/redo
 - Real-time pitch visualization with input/output/harmony traces
 - Piano keyboard with automatic note highlighting
-- Waveform overlay (Line or Mirror display)
+- Waveform overlay (Line, Mirror, or Spectral display)
 - Export as PNG (2x resolution)
 
 ### ARA2 Integration
@@ -145,11 +145,10 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 
 - MIDI note output (generated from detected pitch)
 - MIDI target (incoming MIDI controls correction pitch)
-- Plugin presets with card-based gallery UI
+- Curve presets with card-based gallery UI
 - Global undo/redo (all automatable parameters)
 - Dark/Light theme
 - Stereo processing, low-latency PSOLA pitch shifting
-- CPU usage meter
 - Standalone mode with internal 120 BPM transport
 
 ## Why OpenVoxTuner?

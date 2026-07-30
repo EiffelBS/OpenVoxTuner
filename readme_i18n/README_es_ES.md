@@ -109,7 +109,7 @@
 - Editor gráfico de curva de tono con arrastrar puntos, snap a escala/rejilla, copiar/pegar, deshacer/rehacer
 - Visualización de tono en tiempo real con trazas de entrada/salida/armonía
 - Teclado de piano con resaltado automático de notas
-- Superposición de waveform (visualización Line o Mirror)
+- Superposición de waveform (visualización Line, Mirror o Spectral)
 - Exportar como PNG (resolución 2x)
 
 ### Integración ARA2
@@ -129,11 +129,10 @@
 
 - Salida de nota MIDI (generada a partir del tono detectado)
 - Destino MIDI (MIDI entrante controla el tono de corrección)
-- Presets de plugin con interfaz de galería por tarjetas
+- Presets de curva con interfaz de galería por tarjetas
 - Deshacer/rehacer global (todos los parámetros automatizables)
 - Tema oscuro/claro
 - Procesamiento estéreo, pitch shifting PSOLA de baja latencia
-- Indicador de uso de CPU
 - Modo standalone con transporte interno a 120 BPM
 
 ## ¿Por qué OpenVoxTuner?
