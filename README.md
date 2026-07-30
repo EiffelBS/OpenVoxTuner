@@ -22,7 +22,9 @@
   <a href="#features">Features</a> &bull;
   <a href="#screenshots">Screenshots</a> &bull;
   <a href="#licensing">License</a> &bull;
-  <a href="#build">Build</a>
+  <a href="#build">Build</a> &bull;
+  <a href="https://openvoxtuner.eiffelbs.ovh">Website</a> &bull;
+  <a href="https://ovtdocs.eiffelbs.ovh">Docs</a>
 </p>
 
 <p align="center">
@@ -38,6 +40,10 @@
 <p align="center">
   <img src="assets/screenshots/main_screen.png" width="80%" alt="OpenVoxTuner main window">
 </p>
+
+<details>
+<summary><strong>More screenshots...</strong></summary>
+
 <p align="center">
   <img src="assets/screenshots/curve_editor.png" width="45%" alt="Curve Editor">
   <img src="assets/screenshots/curve_pianoroll.png" width="45%" alt="Piano Roll View">
@@ -45,6 +51,8 @@
 <p align="center">
   <img src="assets/screenshots/harmony_types.png" width="80%" alt="Harmony types">
 </p>
+
+</details>
 
 ## Download
 
@@ -384,6 +392,8 @@ Detailed build guides:
 
 ## Documentation
 
+- [Website](https://openvoxtuner.eiffelbs.ovh) — landing page with features overview and download links
+- [Online Docs](https://ovtdocs.eiffelbs.ovh) — full documentation (MkDocs Material)
 - [docs/architecture.md](docs/architecture.md) — software architecture overview
 - [docs/default-parameters.md](docs/default-parameters.md) — all plugin parameters reference
 - [docs/implementation-roadmap.md](docs/implementation-roadmap.md) — feature roadmap
