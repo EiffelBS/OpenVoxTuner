@@ -38,16 +38,16 @@
 
 ## Inhaltsverzeichnis
 
-- [Screenshots](#screenshots)
-- [Funktionen](#funktionen)
-- [Warum OpenVoxTuner?](#warum-openvoxtuner)
-- [Repository-Struktur](#repository-struktur)
-- [Lizenz](#lizenz)
-- [Projekt unterstützen](#projekt-unterstützen)
-- [Entwickler-Lizenz](#entwickler-lizenz)
-- [Mitwirken](#mitwirken)
-- [Build](#build)
-- [Dokumentation](#dokumentation)
+[Screenshots](#screenshots) &bull;
+[Funktionen](#funktionen) &bull;
+[Warum OpenVoxTuner?](#warum-openvoxtuner) &bull;
+[Repository-Struktur](#repository-struktur) &bull;
+[Lizenz](#lizenz) &bull;
+[Projekt unterstützen](#projekt-unterstützen) &bull;
+[Entwickler-Lizenz](#entwickler-lizenz) &bull;
+[Mitwirken](#mitwirken) &bull;
+[Build](#build) &bull;
+[Dokumentation](#dokumentation)
 
 ---
 

@@ -38,16 +38,16 @@
 
 ## Table des matières
 
-- [Captures](#captures)
-- [Fonctionnalités](#fonctionnalités)
-- [Pourquoi OpenVoxTuner ?](#pourquoi-openvoxtuner-)
-- [Structure du dépôt](#structure-du-dépôt)
-- [Licence](#licence)
-- [Soutenir le projet](#soutenir-le-projet)
-- [Licence développeur](#licence-développeur)
-- [Contribuer](#contribuer)
-- [Build](#build)
-- [Documentation](#documentation)
+[Captures](#captures) &bull;
+[Fonctionnalités](#fonctionnalités) &bull;
+[Pourquoi OpenVoxTuner ?](#pourquoi-openvoxtuner-) &bull;
+[Structure du dépôt](#structure-du-dépôt) &bull;
+[Licence](#licence) &bull;
+[Soutenir le projet](#soutenir-le-projet) &bull;
+[Licence développeur](#licence-développeur) &bull;
+[Contribuer](#contribuer) &bull;
+[Build](#build) &bull;
+[Documentation](#documentation)
 
 ---
 

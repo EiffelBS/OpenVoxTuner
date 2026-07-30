@@ -71,18 +71,17 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 
 ## Table of Contents
 
-- [Download](#download)
-
-- [Screenshots](#screenshots)
-- [Features](#features)
-- [Why OpenVoxTuner?](#why-openvoxtuner)
-- [Repository Structure](#repository-structure)
-- [Licensing](#licensing)
-- [Support the Project](#support-the-project)
-- [Developer License](#developer-license)
-- [Contributing](#contributing)
-- [Build](#build)
-- [Documentation](#documentation)
+[Download](#download) &bull;
+[Screenshots](#screenshots) &bull;
+[Features](#features) &bull;
+[Why OpenVoxTuner?](#why-openvoxtuner) &bull;
+[Repository Structure](#repository-structure) &bull;
+[Licensing](#licensing) &bull;
+[Support the Project](#support-the-project) &bull;
+[Developer License](#developer-license) &bull;
+[Contributing](#contributing) &bull;
+[Build](#build) &bull;
+[Documentation](#documentation)
 
 ---
 
