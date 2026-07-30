@@ -51,16 +51,15 @@
 
 ## 截图
 
-<!-- 占位图片（项目所有者已授权使用虚拟图片，2026-07-12）。
-     等真实截图准备好后，请将 placehold.co 的 URL 替换为 docs/screenshots/ 中的实际截图，例如
-     <img src="docs/screenshots/main-view.png" width="80%" alt="OpenVoxTuner 主窗口"> -->
-
 <p align="center">
-  <img src="https://placehold.co/960x540/15151f/e0e0e0?text=OpenVoxTuner+Main+View" width="80%" alt="OpenVoxTuner 主窗口 — 占位图">
+  <img src="../assets/screenshots/main_screen.png" width="80%" alt="OpenVoxTuner 主窗口">
 </p>
 <p align="center">
-  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Live+Visualizer" width="45%" alt="实时可视化 — 占位图">
-  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Curve+Editor" width="45%" alt="曲线编辑器 — 占位图">
+  <img src="../assets/screenshots/curve_editor.png" width="45%" alt="曲线编辑器">
+  <img src="../assets/screenshots/curve_pianoroll.png" width="45%" alt="钢琴卷帘视图">
+</p>
+<p align="center">
+  <img src="../assets/screenshots/harmony_types.png" width="80%" alt="和声类型">
 </p>
 
 ## 功能

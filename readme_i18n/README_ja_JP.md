@@ -51,17 +51,15 @@
 
 ## スクリーンショット
 
-<!-- プレースホルダー画像（プロジェクト所有者がダミー画像を許可、2026-07-12）。
-     用意でき次第、placehold.co の URL を docs/screenshots/ の実際のスクリーンショットに差し替えてください。
-     例：
-     <img src="docs/screenshots/main-view.png" width="80%" alt="OpenVoxTuner メインウィンドウ"> -->
-
 <p align="center">
-  <img src="https://placehold.co/960x540/15151f/e0e0e0?text=OpenVoxTuner+Main+View" width="80%" alt="OpenVoxTuner メインウィンドウ — プレースホルダー">
+  <img src="../assets/screenshots/main_screen.png" width="80%" alt="OpenVoxTuner メインウィンドウ">
 </p>
 <p align="center">
-  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Live+Visualizer" width="45%" alt="ライブビジュアライザー — プレースホルダー">
-  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Curve+Editor" width="45%" alt="カーブエディター — プレースホルダー">
+  <img src="../assets/screenshots/curve_editor.png" width="45%" alt="カーブエディター">
+  <img src="../assets/screenshots/curve_pianoroll.png" width="45%" alt="ピアノロールビュー">
+</p>
+<p align="center">
+  <img src="../assets/screenshots/harmony_types.png" width="80%" alt="ハーモニータイプ">
 </p>
 
 ## 機能

@@ -35,17 +35,15 @@
 
 ## Screenshots
 
-<!-- Placeholder images (project owner authorized dummy images, 2026-07-12).
-     Replace the placehold.co URLs with real screenshots in docs/screenshots/
-     once available, e.g.
-     <img src="docs/screenshots/main-view.png" width="80%" alt="OpenVoxTuner main window"> -->
-
 <p align="center">
-  <img src="https://placehold.co/960x540/15151f/e0e0e0?text=OpenVoxTuner+Main+View" width="80%" alt="OpenVoxTuner main window — placeholder">
+  <img src="assets/screenshots/main_screen.png" width="80%" alt="OpenVoxTuner main window">
 </p>
 <p align="center">
-  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Live+Visualizer" width="45%" alt="Live Visualizer — placeholder">
-  <img src="https://placehold.co/640x360/15151f/e0e0e0?text=Curve+Editor" width="45%" alt="Curve Editor — placeholder">
+  <img src="assets/screenshots/curve_editor.png" width="45%" alt="Curve Editor">
+  <img src="assets/screenshots/curve_pianoroll.png" width="45%" alt="Piano Roll View">
+</p>
+<p align="center">
+  <img src="assets/screenshots/harmony_types.png" width="80%" alt="Harmony types">
 </p>
 
 ## Download
