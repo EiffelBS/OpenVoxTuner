@@ -74,89 +74,68 @@
 
 ### Corrección de tono
 
-- **Modo auto** — cuantización a escala con selección de tonalidad y escala (Mayor, Menor, Pentatónica, Cromática, Personalizada)
+- **Modo automático** — cuantización a escala con 14 tipos de escala (Mayor, Menor, Pentatónica, Blues, Dórico, Frigio, Lidio, Mixolidio, Locrio, Cromática, Personalizada...)
 - **Modo gráfico** — dibuja tu propia curva de tono (editor estilo Melodyne con snap, rejilla, copiar/pegar, deshacer/rehacer)
-- **Control de velocidad** — envolvente de redirección para una corrección natural o robótica
-- **Control de cantidad** — mezcla entre la señal corregida y la seca
+- **Modo de corrección** — personaje Moderno (ajuste estricto) o Transparente (suave)
+- **Speed & Amount** — envolvente de reorientación y mezcla seco/húmedo para una respuesta natural o robótica
+- **FlexTune** — control de banda muerta para permitir la variación natural de tono (0–100 cents)
+- **Humanize** — añade una variación aleatoria sutil para un sonido más natural (0–50 cents)
+- **Vibrato Preserve** — conserva el vibrato natural del cantante a través de la corrección (0–100 %)
+- **Attack-Aware** — suaviza la corrección al inicio de las notas para ataques naturales
+- **Tipo de voz** — limita el rango de detección de tono (Universal, Bajo, Barítono, Tenor, Alto, Soprano)
+- **Modo de latencia** — Direct Monitoring, Low Latency, Quality, Safe
+
+### Detección de tonalidad
+
+- **Auto** — detección de tonalidad en tiempo real desde la entrada de audio (perfiles de Krumhansl-Schmuckler)
+- **OpenVoxKey** — puente complementario vía IPC de memoria compartida
+- **Sidechain** — analiza el acompañamiento a través de un bus sidechain dedicado
 
 ### Efectos
 
-- **Desplazamiento de formante** — preservación/transposición independiente de formantes (-12 a +12 semitonos)
-- **Reverb** — efecto de reverberación integrado con nivel de mezcla ajustable
-- **Noise Gate** — puerta de ruido de entrada con umbral ajustable (-80 a 0 dB), aplicada antes de la detección de tono para resultados más limpios
-
-### Comparación y morphing A/B
-
-- **Slots A/B** — guarda y recupera dos estados completos del plugin (A y B)
-- **Control de morph** — interpola continuamente entre los estados A y B
-- **Autoguardado** — el slot actual se guarda automáticamente al cambiar
-- Todos los parámetros hacen morph suavemente (lerp continuo para diales, conmutación al 50 % para toggles)
-- Estado A/B persistente entre sesiones
+- **Procesamiento de formantes** — 3 modos (Legacy, MultiFormant, Allpass) con múltiples estrategias de preservación (cross-síntesis LPC disponible)
+- **Reverb** — reverberación integrada con mezcla ajustable
+- **Noise Gate** — gate de entrada con control de umbral (-80 a 0 dB)
+- **Compresor ascendente** — eleva los pasajes silenciosos antes de la detección de tono
 
 ### Motor de armonía
 
-- **Modo Use Voice** — desplaza tu voz en vivo a notas de armonía (1–4 voces desplazadas con paneo estéreo)
-- **Modo Synth** — tonos de armonía sintetizados (Choir, Bright, Synth Lead, Strings, Guitar, tipo Vocoder) con color ajustable
-- **Presets de tipo de armonía** — 3.ª/5.ª por debajo/encima, Vocal Stack, Power Chord, Parallel 3rd, Drone
-- **Volumen y mezcla** para nivel de armonía y wet/dry independientes
-- Traza de armonía superpuesta en el editor de curva
+- **Modo Use Voice** — desplaza tu voz en vivo a 1–4 voces de armonía con paneo estéreo
+- **Modo Synth** — tonos de armonía sintetizados (Choir, Organ) con color tonal ajustable
+- **22 tipos de armonía** — intervalos (3.ª/4.ª/5.ª/octava por debajo/encima), Vocal Stack, Power Chord, Drone, Unísono...
+- **Controles de armonía** — Gain Match (balance RMS automático), Follow Lead, Attack por voz, Harmony Formant Shift (-5 a +5 semitonos)
+- Superposición de traza de armonía en el editor de curva
 
-### Detección de tono
+### Editor de curva y visualizador
 
-- **YIN** — autoc correlación en el dominio del tiempo (rápido, bajo CPU, el único detector usado)
-- SWIPE' y PYIN fueron evaluados y eliminados (se mantiene solo YIN por velocidad y estabilidad)
+- Editor gráfico de curva de tono con arrastrar puntos, snap a escala/rejilla, copiar/pegar, deshacer/rehacer
+- Visualización de tono en tiempo real con trazas de entrada/salida/armonía
+- Teclado de piano con resaltado automático de notas
+- Superposición de waveform (visualización Line o Mirror)
+- Exportar como PNG (resolución 2x)
 
 ### Integración ARA2
 
-- Soporte completo de ARA2 (Audio Random Access) — integración transparente con la línea de tiempo del DAW
+- Soporte completo de ARA2 — integración transparente con la línea de tiempo del DAW
 - Extracción automática de tonalidad/escala desde el contexto musical ARA
-- Regla de compás sensible a la métrica (3/4, 4/4, 6/8, 12/8)
-- Autodesplazamiento siguiendo el playhead del DAW durante la reproducción
+- Regla de compás sensible a la métrica con auto-scroll
 - Soporte multi-firma (cambio de métrica a mitad de proyecto)
 
-### Editor de curva
+### Comparación A/B y morphing
 
-- Editor gráfico de curva de tono con arrastrar, añadir, eliminar puntos
-- Snap to Scale, Snap to Grid
-- Selector de compases (1, 2, 4, 8, 16, 32)
-- Copiar/pegar y deshacer/rehacer
-- Superposición de traza de armonía
-- Línea de cursor horizontal con nombre de nota y lectura en Hz
-- Líneas de referencia de notas de escala (igual que el visualizador en vivo)
-- Overlay de waveform (Line o Mirror, sincronizado con el visualizador en vivo)
-- Conmutador de autodesplazamiento (funciona en todos los modos)
-
-### Visualizador en vivo
-
-- Visualización de tono en tiempo real con trazas de entrada/salida/armonía
-- Teclado de piano con resaltado automático de notas
-- Línea de cursor horizontal con nombre de nota y lectura en Hz
-- Overlay de waveform (Line o Mirror)
-- Bloque de leyenda con estadísticas (en tono %, cents medios)
-- Exportar como imagen PNG (resolución 2x)
-
-### Overlay de waveform
-
-- Waveform capturada desde la entrada en todos los modos (plugin, standalone, ARA)
-- Dos tipos de visualización seleccionables en el menú:
-  - **Line** — contorno simple de waveform (40 % de opacidad)
-  - **Mirror** — barras simétricas alrededor del centro (por defecto)
-- El tipo de visualización se aplica uniformemente al visualizador en vivo y al editor de curva
-- Preferencia persistente entre sesiones
-
-### Sistema de temas
-
-- Temas Oscuro y Claro con paleta de colores unificada
-- Cambio automático de tema con refresco completo de la UI
-- Colores coherentes en menús emergentes (menú hamburguesa, presets, combos)
-- Tooltips corregidos con render rectangular limpio
+- **Slots A/B** — guarda y recupera dos estados completos del plugin
+- **Control de morph** — interpola continuamente entre A y B (todos los parámetros se suavizan)
+- El estado persiste entre sesiones
 
 ### Adicional
 
 - Salida de nota MIDI (generada a partir del tono detectado)
-- Procesamiento estéreo
-- Pitch shifting PSOLA de baja latencia
-- Conmutador Bypass (modo standalone)
+- Destino MIDI (MIDI entrante controla el tono de corrección)
+- Presets de plugin con interfaz de galería por tarjetas
+- Deshacer/rehacer global (todos los parámetros automatizables)
+- Tema oscuro/claro
+- Procesamiento estéreo, pitch shifting PSOLA de baja latencia
+- Indicador de uso de CPU
 - Modo standalone con transporte interno a 120 BPM
 
 ## ¿Por qué OpenVoxTuner?

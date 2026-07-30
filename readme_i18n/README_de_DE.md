@@ -72,91 +72,70 @@
 
 ## Funktionen
 
-### Pitchkorrektur
+### Tonhöhenkorrektur
 
-- **Auto-Modus** — Tonhöhen-Quantisierung mit Tonart- und Skalenauswahl (Dur, Moll, Pentatonisch, Chromatisch, Benutzerdefiniert)
-- **Grafischer Modus** — zeichnen Sie Ihre eigene Pitchkurve (Melodyne-ähnlicher Editor mit Snap, Raster, Kopieren/Einfügen, Rückgängig/Wiederholen)
-- **Geschwindigkeitsregler** — Rückführungs-Hüllkurve für natürliches oder robotisches Korrekturverhalten
-- **Amount-Regler** — Mischung zwischen korrigiertem und trockenem Signal
+- **Auto-Modus** — Skalen-Quantisierung mit 14 Skalenarten (Dur, Moll, Pentatonisch, Blues, Dorisch, Phrygisch, Lydisch, Mixolydisch, Lokrisch, Chromatisch, Benutzerdefiniert...)
+- **Grafischer Modus** — zeichnen Sie Ihre eigene Tonhöhenkurve (Melodyne-artiger Editor mit Snap, Raster, Kopieren/Einfügen, Rückgängig/Wiederherstellen)
+- **Korrekturmodus** — Modern (streng) oder Transparent (sanft)er Charakter
+- **Speed & Amount** — Rückführungs-Hüllkurve und Trochen/Nass-Mischung für natürliches oder robotisches Ansprechverhalten
+- **FlexTune** — Totband-Steuerung zum Durchlassen natürlicher Tonhöhenvariation (0–100 Cent)
+- **Humanize** — fügt subtile zufällige Variation für natürlicheren Klang hinzu (0–50 Cent)
+- **Vibrato Preserve** — bewahrt das natürliche Vibrato des Sängers durch die Korrektur hindurch (0–100 %)
+- **Attack-Aware** — mildert die Korrektur am Notenbeginn für natürliche Einsätze an
+- **Stimmtyp** — begrenzt den Bereich der Tonhöhen-Erkennung (Universal, Bass, Bariton, Tenor, Alt, Sopran)
+- **Latenzmodus** — Direct Monitoring, Low Latency, Quality, Safe
+
+### Tonart-Erkennung
+
+- **Auto** — Echtzeit-Tonarterkennung aus der Audioeingabe (Krumhansl-Schmuckler-Profile)
+- **OpenVoxKey** — Begleit-Überbrückung über Shared-Memory-IPC
+- **Sidechain** — Analyse des Begleitthroughs über eine dedizierte Sidechain-Bus
 
 ### Effekte
 
-- **Formant-Shift** — unabhängige Formanterhaltung/-transposition (-12 bis +12 Halbtonschritte)
-- **Reverb** — integrierter Reverb-Effekt mit einstellbarem Mix-Pegel
-- **Noise Gate** — Eingangs-Noise-Gate mit Schwellenwert (-80 bis 0 dB), vor der Pitch-Erkennung angewendet für sauberere Ergebnisse
-
-### A/B-Vergleich & Morphing
-
-- **A/B-Slots** — speichern und abrufen von zwei vollständigen Plugin-Zuständen (A und B)
-- **Morph-Regler** — kontinuierliche Interpolation zwischen A- und B-Zustand
-- **Auto-Save** — aktueller Slot wird automatisch beim Wechsel gespeichert
-- Alle Parameter morphen weich (kontinuierliches Lerp für Regler, Umschaltung bei 50 % für Toggles)
-- A/B-Zustand bleibt über Sessions erhalten
+- **Formant-Verarbeitung** — 3 Modi (Legacy, MultiFormant, Allpass) mit mehreren Erhaltungsstrategien (LPC-Cross-Synthese verfügbar)
+- **Hall** — integrierter Hall mit einstellbarem Mix
+- **Noise Gate** — Eingangs-Gate mit Schwellenwertregelung (-80 bis 0 dB)
+- **Upward Compressor** — hebt leise Passagen vor der Tonhöhen-Erkennung an
 
 ### Harmonie-Engine
 
-- **Use-Voice-Modus** — verschiebt Ihren Live-Gesang in Harmonienoten (1–4 verschobene Stimmen mit Stereo-Panning)
-- **Synth-Modus** — synthetisierte Harmonietöne (Choir, Bright, Synth Lead, Strings, Guitar, vocoderartig) mit einstellbarer Klangfarbe
-- **Harmonie-Typ-Presets** — Terz/Quinte unter/über, Vocal Stack, Power Chord, Parallel 3rd, Drone
-- **Volume- & Mix-Regler** für unabhängiges Harmonie-Level und Wet/Dry-Mix
-- Harmonie-Spurüberlagerung im Curve-Editor
+- **Use Voice-Modus** — verschiebt Ihren Live-Gesang in 1–4 Harmoniestimmen mit Stereo-Panorama
+- **Synth-Modus** — synthetisierte Harmonietöne (Choir, Organ) mit einstellbarer Klangfarbe
+- **22 Harmonie-Typen** — Intervalle (Terz/Quarte/Quinte/Oktave unter/über), Vocal Stack, Power Chord, Drone, Unison...
+- **Harmonie-Regler** — Gain Match (automatische RMS-Anpassung), Follow Lead, pro Stimme Attack, Harmony Formant Shift (-5 bis +5 Halbtonschritte)
+- Harmonie-Spurüberlagerung im Kurven-Editor
 
-### Pitch-Erkennung
+### Kurven-Editor & Visualisierer
 
-- **YIN** — Autokorrelation im Zeitbereich (schnell, geringe CPU, einzig verwendeter Detektor)
-- SWIPE' und PYIN wurden evaluiert und entfernt (nur YIN aus Geschwindigkeits- und Stabilitätsgründen beibehalten)
+- Grafischer Tonhöhenkurven-Editor mit Punkt-Ziehen, Snap an Skala/Raster, Kopieren/Einfügen, Rückgängig/Wiederherstellen
+- Echtzeit-Tonhöhen-Visualisierung mit Ein-/Ausgabe- und Harmonie-Spuren
+- Klaviertastatur mit automatischer Notenhervorhebung
+- Waveform-Überlagerung (Line- oder Mirror-Anzeige)
+- Export als PNG (2x-Auflösung)
 
 ### ARA2-Integration
 
-- Voller ARA2-Support (Audio Random Access) — nahtlose DAW-Timeline-Integration
-- Automatische Tonart-/Skalenextraktion aus dem ARA-Musikkontext
-- Takt-Raster mit Taktart-Erkennung (3/4, 4/4, 6/8, 12/8)
-- Auto-Scroll folgt dem DAW-Playhead während der Wiedergabe
-- Multi-Signatur-Support (Taktartwechsel mitten im Projekt)
+- Vollständiger ARA2-Support — nahtlose DAW-Timeline-Integration
+- Automatische Tonart-/Skalen-Extraktion aus dem ARA-Musikkontext
+- Taktart-sensitiver Taktstrich-Lineal mit Auto-Scroll
+- Multi-Taktart-Support (Taktartwechsel mitten im Projekt)
 
-### Curve-Editor
+### A/B-Vergleich & Morphing
 
-- Grafischer Pitchkurven-Editor mit Punkt ziehen, hinzufügen, löschen
-- Snap to Scale, Snap to Grid
-- Taktauswahl (1, 2, 4, 8, 16, 32)
-- Kopieren/Einfügen und Rückgängig/Wiederholen
-- Harmonie-Spurüberlagerung
-- Horizontale Cursor-Linie mit Notenname und Hz-Anzeige
-- Skalen-Referenzlinien (wie im Live-Visualizer)
-- Waveform-Overlay (Line oder Mirror, synchron mit Live-Visualizer)
-- Auto-Scroll-Umschalter (funktioniert in allen Modi)
-
-### Live-Visualizer
-
-- Echtzeit-Pitch-Visualisierung mit Eingabe-/Ausgabe-/Harmonie-Spuren
-- Klaviertastatur mit automatischer Notenhervorhebung
-- Horizontale Cursor-Linie mit Notenname und Hz-Anzeige
-- Waveform-Overlay (Line oder Mirror)
-- Legendenblock mit Statistiken (in-tune %, durchschnittliche Cent)
-- Export als PNG-Bild (2x-Auflösung)
-
-### Waveform-Overlay
-
-- Aus der Eingabe in allen Modi erfasste Audio-Waveform (Plugin, Standalone, ARA)
-- Zwei im Menü wählbare Anzeigetypen:
-  - **Line** — einfache Waveform-Kontur (40 % Deckkraft)
-  - **Mirror** — gespiegelte Balken symmetrisch um die Mitte (Standard)
-- Anzeigetyp gilt einheitlich für Live-Visualizer und Curve-Editor
-- Präferenz bleibt über Sessions erhalten
-
-### Theme-System
-
-- Dunkle und helle Themen mit einheitlicher Farbpalette
-- Automatische Theme-Umschaltung mit vollständigem UI-Refresh
-- Konsistente Popup-Menüfarben (Hamburger-Menü, Presets, Combos)
-- Korrigierte Tooltips mit sauberem rechteckigem Rendering
+- **A/B-Slots** — speichern und abrufen von zwei vollständigen Plugin-Zuständen
+- **Morph-Regler** — kontinuierliche Interpolation zwischen A und B (alle Parameter weich überblendet)
+- Zustand bleibt über Sessions erhalten
 
 ### Sonstiges
 
-- MIDI-Notenausgabe (aus erkannter Pitch generiert)
-- Stereo-Verarbeitung
-- PSOLA-Pitch-Shifting mit geringer Latenz
-- Bypass-Umschalter (Standalone-Modus)
+- MIDI-Notenausgabe (aus erkannter Tonhöhe generiert)
+- MIDI-Ziel (eingehendes MIDI steuert die Korrektur-Tonhöhe)
+- Plugin-Presets mit Karten-basierter Galerie-Ansicht
+- Globaler Rückgängig/Wiederherstellen (alle automatisierbaren Parameter)
+- Dunkles/Helles Theme
+- Stereo-Verarbeitung, PSOLA-Pitch-Shifting mit niedriger Latenz
+- CPU-Auslastungsanzeige
 - Standalone-Modus mit internem 120-BPM-Transport
 
 ## Warum OpenVoxTuner?

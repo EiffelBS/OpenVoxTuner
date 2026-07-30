@@ -74,89 +74,68 @@
 
 ### Correction de hauteur
 
-- **Mode auto** — quantification sur la gamme avec sélection de la tonalité et de la gamme (Majeur, Mineur, Pentatonique, Chromatique, Personnalisé)
+- **Mode auto** — quantification sur 14 types de gamme (Majeur, Mineur, Pentatonique, Blues, Dorian, Phrygien, Lydien, Mixolydien, Locrien, Chromatique, Personnalisé...)
 - **Mode graphique** — dessinez votre propre courbe de hauteur (éditeur style Melodyne avec aimantation, grille, copier/coller, annuler/rétablir)
-- **Contrôle de la vitesse** — enveloppe de rattrapage pour une correction naturelle ou robotique
-- **Contrôle du montant** — mélange entre le signal corrigé et le signal sec
+- **Mode de correction** — Modern (serré) ou Transparent (doux)
+- **Vitesse & montant** — enveloppe de rattrapage + mélange sec/humide pour une réponse naturelle ou robotique
+- **FlexTune** — zone morte pour laisser passer les variations naturelles (0-100 cents)
+- **Humanize** — ajout de variations aléatoires subtiles pour un son plus naturel (0-50 cents)
+- **Préservation du vibrato** — conserve le vibrato naturel du chanteur à travers la correction (0-100%)
+- **Attack-Aware** — adoucit la correction aux prises de note pour des attaques naturelles
+- **Type de voix** — contraint la plage de détection (Universel, Basse, Baryton, Ténor, Alto, Soprano)
+- **Mode de latence** — Monitoring direct, Basse latence, Qualité, Sécurité
+
+### Détection de tonalité
+
+- **Auto** — détection en temps réel depuis l'entrée audio (profils Krumhansl-Schmuckler)
+- **OpenVoxKey** — pont compagnon via mémoire partagée IPC
+- **Sidechain** — analyse de l'accompagnement via un bus sidechain dédié
 
 ### Effets
 
-- **Décalage de formant** — préservation/transposition indépendante des formants (-12 à +12 demi-tons)
-- **Réverbération** — effet de réverbération intégré avec niveau de mix réglable
-- **Gate de bruit** — gate sur l'entrée avec seuil réglable (-80 à 0 dB), appliqué avant la détection de hauteur pour des résultats plus propres
-
-### Comparaison & morphing A/B
-
-- **Emplacements A/B** — sauvegarde et rappel de deux états complets du plugin (A et B)
-- **Curseur de morphing** — interpolation continue entre les états A et B
-- **Sauvegarde auto** — l'emplacement courant est automatiquement sauvegardé au changement
-- Tous les paramètres se morphent en douceur (lerp continu pour les curseurs, bascule à 50 % pour les commutateurs)
-- État A/B persisté entre les sessions
+- **Traitement de formants** — 3 modes (Legacy, MultiFormant, Allpass) avec plusieurs stratégies de préservation ( LPC cross-synthesis disponible)
+- **Réverbération** — réverb intégrée avec mix réglable
+- **Gate de bruit** — gate d'entrée avec seuil (-80 à 0 dB)
+- **Compresseur ascendant** — relève les passages calmes avant la détection de hauteur
 
 ### Moteur d'harmonie
 
-- **Mode Use Voice** — transpose votre voix live en notes d'harmonie (1 à 4 voix décalées avec pan stéréo)
-- **Mode Synth** — tonalités d'harmonie synthétisées (Choir, Bright, Synth Lead, Strings, Guitar, type Vocoder) avec couleur réglable
-- **Préréglages de type d'harmonie** — 3e/5e en dessous/au-dessus, Vocal Stack, Power Chord, Parallel 3rd, Drone
-- **Volume & mix** pour un niveau d'harmonie et un wet/dry indépendants
+- **Mode Use Voice** — transpose votre voix live en 1 à 4 voix d'harmonie avec pan stéréo
+- **Mode Synth** — tonalités d'harmonie synthétisées (Choir, Organ) avec couleur réglable
+- **22 types d'harmonie** — intervalles (3e/4e/5e/ octave en dessous/au-dessus), Vocal Stack, Power Chord, Drone, Unison...
+- **Contrôles d'harmonie** — Gain Match (équilibrage RMS auto), Follow Lead, Attack par voix, Formant Shift (-5 à +5 st)
 - Tracé de l'harmonie superposé dans l'éditeur de courbe
 
-### Détection de hauteur
+### Éditeur de courbe & visualiseur
 
-- **YIN** — autocorrélation dans le domaine temporel (rapide, faible CPU, le seul détecteur utilisé)
-- SWIPE' et PYIN ont été évalués puis supprimés (YIN conservé uniquement pour la vitesse et la stabilité)
+- Éditeur graphique de courbe de hauteur avec glisser, aimantation gamme/grille, copier/coller, annuler/rétablir
+- Visualisation de hauteur en temps réel avec tracés entrée/sortie/harmonie
+- Clavier de piano avec surlignage automatique des notes
+- Superposition de la waveform (affichage Line ou Mirror)
+- Export en image PNG (résolution 2x)
 
 ### Intégration ARA2
 
-- Support complet d'ARA2 (Audio Random Access) — intégration transparente à la timeline du DAW
+- Support complet d'ARA2 — intégration transparente à la timeline du DAW
 - Extraction automatique de la tonalité/gamme depuis le contexte musical ARA
-- Règle de mesure sensible à la signature (3/4, 4/4, 6/8, 12/8)
-- Défilement automatique suivant le playhead du DAW pendant la lecture
+- Règle de mesure sensible à la signature avec défilement auto
 - Support multi-signatures (changement de signature en cours de projet)
 
-### Éditeur de courbe
+### Comparaison & morphing A/B
 
-- Éditeur graphique de courbe de hauteur avec glisser, ajouter, supprimer des points
-- Aimantation à la gamme, aimantation à la grille
-- Sélecteur de mesures (1, 2, 4, 8, 16, 32)
-- Copier/coller et annuler/rétablir
-- Superposition du tracé d'harmonie
-- Ligne de curseur horizontale avec nom de note et lecture en Hz
-- Lignes de référence des notes de gamme (comme le visualiseur live)
-- Superposition de la waveform (Line ou Mirror, synchronisée avec le visualiseur live)
-- Bascule de défilement auto (fonctionne dans tous les modes)
-
-### Visualiseur live
-
-- Visualisation de hauteur en temps réel avec tracés entrée/sortie/harmonie
-- Clavier de piano avec surlignage automatique des notes
-- Ligne de curseur horizontale avec nom de note et lecture en Hz
-- Superposition de la waveform (types Line ou Mirror)
-- Bloc de légende avec statistiques (en juste %, cents moyens)
-- Export en image PNG (résolution 2x)
-
-### Superposition de waveform
-
-- Waveform capturée depuis l'entrée dans tous les modes (plugin, standalone, ARA)
-- Deux types d'affichage sélectionnables dans le menu :
-  - **Line** — contour simple de la waveform (40 % d'opacité)
-  - **Mirror** — barres symétriques autour du centre (par défaut)
-- Le type d'affichage s'applique uniformément au visualiseur live et à l'éditeur de courbe
-- Préférence persistée entre les sessions
-
-### Système de thèmes
-
-- Thèmes Sombre et Clair avec palette de couleurs unifiée
-- Bascule automatique des thèmes avec rafraîchissement complet de l'UI
-- Couleurs cohérentes des menus contextuels (menu hamburger, préréglages, combos)
-- Tooltips corrigés avec rendu rectangulaire propre
+- **Emplacements A/B** — sauvegarde et rappel de deux états complets du plugin
+- **Curseur de morphing** — interpolation continue entre A et B (tous paramètres lisses)
+- État persisté entre les sessions
 
 ### Divers
 
 - Sortie de note MIDI (générée à partir de la hauteur détectée)
-- Traitement stéréo
-- Pitch shifting PSOLA à faible latence
-- Bascule Bypass (mode standalone)
+- Cible MIDI (MIDI entrant contrôle la hauteur de correction)
+- Préréglages du plugin avec galerie à cartes
+- Annuler/rétablir global (tous les paramètres automatisables)
+- Thème Sombre/Clair
+- Traitement stéréo, pitch shifting PSOLA à faible latence
+- Mesureur d'utilisation CPU
 - Mode standalone avec transport interne à 120 BPM
 
 ## Pourquoi OpenVoxTuner ?

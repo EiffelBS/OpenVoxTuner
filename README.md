@@ -90,88 +90,68 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 
 ### Pitch Correction
 
-- **Auto mode** — scale quantization with key and scale selection (Major, Minor, Pentatonic, Chromatic, Custom)
+- **Auto mode** — scale quantization with 14 scale types (Major, Minor, Pentatonic, Blues, Dorian, Phrygian, Lydian, Mixolydian, Locrian, Chromatic, Custom...)
 - **Graphic mode** — draw your own pitch curve (Melodyne-style editor with snap, grid, copy/paste, undo/redo)
-- **Speed control** — retarget envelope for natural or robotic correction response
-- **Amount control** — blend between corrected and dry signal
+- **Correction Mode** — Modern (tight) or Transparent (gentle) character
+- **Speed & Amount** — retarget envelope + dry/wet blend for natural or robotic response
+- **FlexTune** — deadband control to let natural pitch variation through (0-100 cents)
+- **Humanize** — add subtle random variation for a more natural sound (0-50 cents)
+- **Vibrato Preserve** — retain the singer's natural vibrato through correction (0-100%)
+- **Attack-Aware** — eases correction at note onsets for natural attacks
+- **Voice Type** — constrains pitch detection range (Universal, Bass, Baritone, Tenor, Alto, Soprano)
+- **Latency Mode** — Direct Monitoring, Low Latency, Quality, Safe
+
+### Key Detection
+
+- **Auto** — real-time key detection from audio input (Krumhansl-Schmuckler profiles)
+- **OpenVoxKey** — companion bridge via shared memory IPC
+- **Sidechain** — analyze accompaniment through dedicated sidechain bus
+
 ### Effects
 
-- **Formant shift** — independent formant preservation/transposition (-12 to +12 semitones)
-- **Reverb** — built-in reverb effect with adjustable mix level
-- **Noise Gate** — input noise gate with threshold control (-80 to 0 dB), applied before pitch detection for cleaner results
-
-### A/B Comparison & Morphing
-
-- **A/B slots** — save and recall two complete plugin states (A and B)
-- **Morph slider** — continuously interpolate between A and B states
-- **Auto-save** — current slot is automatically saved when switching
-- All parameters morph smoothly (continuous lerp for sliders, step at 50% for toggles)
-- A/B state persisted across sessions
+- **Formant Processing** — 3 modes (Legacy, MultiFormant, Allpass) with multiple preservation strategies (LPC cross-synthesis available)
+- **Reverb** — built-in reverb with adjustable mix
+- **Noise Gate** — input gate with threshold control (-80 to 0 dB)
+- **Upward Compressor** — lifts quiet passages before pitch detection
 
 ### Harmony Engine
 
-- **Use Voice mode** — pitch-shifts your live vocal into harmony notes (1-4 shifted voices with stereo panning)
-- **Synth mode** — synthesized harmony tones (Choir, Bright, Synth Lead, Strings, Guitar, Vocoder-like) with adjustable tone color
-- **Harmony type presets** — 3rd/5th below/above, Vocal Stack, Power Chord, Parallel 3rd, Drone
-- **Volume & Blend** knobs for independent harmony level and wet/dry mix
+- **Use Voice mode** — pitch-shifts your live vocal into 1-4 harmony voices with stereo panning
+- **Synth mode** — synthesized harmony tones (Choir, Organ) with adjustable tone color
+- **22 harmony types** — intervals (3rd/4th/5th/octave below/above), Vocal Stack, Power Chord, Drone, Unison...
+- **Harmony controls** — Gain Match (auto RMS balancing), Follow Lead, per-voice Attack, Harmony Formant Shift (-5 to +5 st)
 - Harmony traces overlay in the curve editor
 
-### Pitch Detection
+### Curve Editor & Visualizer
 
-- **YIN** — time-domain autocorrelation (fast, low CPU, the only detector used)
-- SWIPE' and PYIN were evaluated and removed (kept YIN only for speed and stability)
+- Graphical pitch curve editor with point drag, snap to scale/grid, copy/paste, undo/redo
+- Real-time pitch visualization with input/output/harmony traces
+- Piano keyboard with automatic note highlighting
+- Waveform overlay (Line or Mirror display)
+- Export as PNG (2x resolution)
 
 ### ARA2 Integration
 
-- Full ARA2 support (Audio Random Access) — seamless DAW timeline integration
+- Full ARA2 support — seamless DAW timeline integration
 - Automatic key/scale extraction from ARA musical context
-- Time signature-aware measures ruler (3/4, 4/4, 6/8, 12/8)
-- Auto-scroll following the DAW playhead during playback
+- Time signature-aware measures ruler with auto-scroll
 - Multi-signature support (time signature changes mid-project)
 
-### Curve Editor
+### A/B Comparison & Morphing
 
-- Graphical pitch curve editor with point drag, add, delete
-- Snap to scale, snap to grid
-- Measures selector (1, 2, 4, 8, 16, 32)
-- Copy/paste and undo/redo
-- Harmony trace overlay visualization
-- Horizontal cursor line with note name and Hz readout
-- Scale note reference lines (same as live visualizer)
-- Waveform overlay (Line or Mirror display, synced with live visualizer)
-- Auto-scroll toggle (works in all modes)
-
-### Live Visualizer
-
-- Real-time pitch visualization with input/output/harmony traces
-- Piano keyboard with automatic note highlighting
-- Horizontal cursor line with note name and Hz readout
-- Waveform overlay (Line or Mirror display types)
-- Legend block with statistics (in-tune %, average cents)
-- Export as PNG image (2x resolution)
-
-### Waveform Overlay
-
-- Audio waveform captured from input in all modes (plugin, standalone, ARA)
-- Two display types selectable from the menu:
-  - **Line** — simple waveform outline (40% opacity)
-  - **Mirror** — mirrored bars symmetric around center (default)
-- Display type applies uniformly to both live visualizer and curve editor
-- Preference persisted across sessions
-
-### Theme System
-
-- Dark and Light themes with unified color palette
-- Automatic theme switching with full UI refresh
-- Consistent popup menu colors (hamburger menu, presets, combos)
-- Fixed tooltips with clean rectangular rendering
+- **A/B slots** — save and recall two complete plugin states
+- **Morph slider** — continuously interpolate between A and B (all parameters smooth)
+- State persisted across sessions
 
 ### Additional
 
 - MIDI note output (generated from detected pitch)
-- Stereo processing
-- Low-latency PSOLA pitch shifting
-- Bypass toggle (standalone mode)
+- MIDI target (incoming MIDI controls correction pitch)
+- Plugin presets with card-based gallery UI
+- Global undo/redo (all automatable parameters)
+- Dark/Light theme
+- Stereo processing, low-latency PSOLA pitch shifting
+- CPU usage meter
 - Standalone mode with internal 120 BPM transport
 
 ## Why OpenVoxTuner?
