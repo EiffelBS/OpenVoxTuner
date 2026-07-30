@@ -22,7 +22,9 @@
   <a href="#funcionalidades">Funcionalidades</a> &bull;
   <a href="#capturas">Capturas</a> &bull;
   <a href="#licencia">Licencia</a> &bull;
-  <a href="#build">Build</a>
+  <a href="#build">Build</a> &bull;
+  <a href="https://openvoxtuner.eiffelbs.ovh" target="_blank">Sitio web</a> &bull;
+  <a href="https://ovtdocs.eiffelbs.ovh" target="_blank">Docs</a>
 </p>
 
 <p align="center">
@@ -54,6 +56,10 @@
 <p align="center">
   <img src="../assets/screenshots/main_screen.png" width="80%" alt="Ventana principal de OpenVoxTuner">
 </p>
+
+<details>
+<summary><strong>Más capturas...</strong></summary>
+
 <p align="center">
   <img src="../assets/screenshots/curve_editor.png" width="45%" alt="Editor de curva">
   <img src="../assets/screenshots/curve_pianoroll.png" width="45%" alt="Vista Piano Roll">
@@ -61,6 +67,8 @@
 <p align="center">
   <img src="../assets/screenshots/harmony_types.png" width="80%" alt="Tipos de armonía">
 </p>
+
+</details>
 
 ## Funcionalidades
 
@@ -281,7 +289,7 @@ Una licencia comercial está disponible para desarrolladores o empresas que quie
 - Funciones personalizadas y consultoría DSP opcionales
 - Licencia perpetua para la versión comprada (actualizaciones según nivel)
 
-**Contacto:** abre una issue en GitHub o escribe a [license@openvoxtuner.com](mailto:license@openvoxtuner.com).
+**Contacto:** abre una issue en GitHub.
 
 ## Contribuir
 
@@ -367,6 +375,8 @@ Guías de build detalladas:
 
 ## Documentación
 
+- [Sitio web](https://openvoxtuner.eiffelbs.ovh) — página de inicio con descripción de funciones y enlaces de descarga
+- [Docs en línea](https://ovtdocs.eiffelbs.ovh) — documentación completa (MkDocs Material)
 - [docs/architecture.md](../docs/architecture.md) — visión general de la arquitectura del software
 - [docs/default-parameters.md](../docs/default-parameters.md) — referencia de todos los parámetros del plugin
 - [docs/implementation-roadmap.md](../docs/implementation-roadmap.md) — hoja de ruta de funcionalidades

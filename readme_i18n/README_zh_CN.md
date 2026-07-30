@@ -22,7 +22,9 @@
   <a href="#功能">功能</a> &bull;
   <a href="#截图">截图</a> &bull;
   <a href="#许可证">许可证</a> &bull;
-  <a href="#构建">构建</a>
+  <a href="#构建">构建</a> &bull;
+  <a href="https://openvoxtuner.eiffelbs.ovh" target="_blank">网站</a> &bull;
+  <a href="https://ovtdocs.eiffelbs.ovh" target="_blank">文档</a>
 </p>
 
 <p align="center">
@@ -54,6 +56,10 @@
 <p align="center">
   <img src="../assets/screenshots/main_screen.png" width="80%" alt="OpenVoxTuner 主窗口">
 </p>
+
+<details>
+<summary><strong>更多截图...</strong></summary>
+
 <p align="center">
   <img src="../assets/screenshots/curve_editor.png" width="45%" alt="曲线编辑器">
   <img src="../assets/screenshots/curve_pianoroll.png" width="45%" alt="钢琴卷帘视图">
@@ -61,6 +67,8 @@
 <p align="center">
   <img src="../assets/screenshots/harmony_types.png" width="80%" alt="和声类型">
 </p>
+
+</details>
 
 ## 功能
 
@@ -281,7 +289,7 @@ OpenVoxTuner 对所有人免费。如果 OpenVoxTuner 为你节省了时间或�
 - 可选的定制功能与 DSP 咨询
 - 所购版本的永久许可证（更新依层级而定）
 
-**联系方式：** 在 GitHub 上开 Issue 或发邮件至 [license@openvoxtuner.com](mailto:license@openvoxtuner.com)。
+**联系方式：** 在 GitHub 上开 Issue。
 
 ## 贡献
 
@@ -367,6 +375,8 @@ brew install cmake ninja
 
 ## 文档
 
+- [网站](https://openvoxtuner.eiffelbs.ovh) — 功能概览和下载链接的着陆页
+- [在线文档](https://ovtdocs.eiffelbs.ovh) — 完整文档 (MkDocs Material)
 - [docs/architecture.md](../docs/architecture.md) — 软件架构概述
 - [docs/default-parameters.md](../docs/default-parameters.md) — 所有插件参数参考
 - [docs/implementation-roadmap.md](../docs/implementation-roadmap.md) — 功能路线图

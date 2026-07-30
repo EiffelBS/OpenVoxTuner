@@ -22,7 +22,9 @@
   <a href="#機能">機能</a> &bull;
   <a href="#スクリーンショット">スクリーンショット</a> &bull;
   <a href="#ライセンス">ライセンス</a> &bull;
-  <a href="#ビルド">ビルド</a>
+  <a href="#ビルド">ビルド</a> &bull;
+  <a href="https://openvoxtuner.eiffelbs.ovh" target="_blank">ウェブサイト</a> &bull;
+  <a href="https://ovtdocs.eiffelbs.ovh" target="_blank">ドキュメント</a>
 </p>
 
 <p align="center">
@@ -54,6 +56,10 @@
 <p align="center">
   <img src="../assets/screenshots/main_screen.png" width="80%" alt="OpenVoxTuner メインウィンドウ">
 </p>
+
+<details>
+<summary><strong>その他のスクリーンショット...</strong></summary>
+
 <p align="center">
   <img src="../assets/screenshots/curve_editor.png" width="45%" alt="カーブエディター">
   <img src="../assets/screenshots/curve_pianoroll.png" width="45%" alt="ピアノロールビュー">
@@ -61,6 +67,8 @@
 <p align="center">
   <img src="../assets/screenshots/harmony_types.png" width="80%" alt="ハーモニータイプ">
 </p>
+
+</details>
 
 ## 機能
 
@@ -281,7 +289,7 @@ OpenVoxTuner はすべての人に無料です。OpenVoxTuner があなたの時
 - オプションのカスタム機能と DSP コンサルティング
 - 購入したバージョンの永久ライセンス（ティアに応じたアップデート）
 
-**連絡先：** GitHub で Issue を開くか、[license@openvoxtuner.com](mailto:license@openvoxtuner.com) まで。
+**連絡先：** GitHub で Issue を開いてください。
 
 ## コントリビュート
 
@@ -367,6 +375,8 @@ macOS の `.pkg` インストーラーをビルド。公式リリースは **VST
 
 ## ドキュメント
 
+- [ウェブサイト](https://openvoxtuner.eiffelbs.ovh) — 機能概要とダウンロードリンクのランディングページ
+- [オンラインドキュメント](https://ovtdocs.eiffelbs.ovh) — 完全なドキュメント (MkDocs Material)
 - [docs/architecture.md](../docs/architecture.md) — ソフトウェアアーキテクチャの概要
 - [docs/default-parameters.md](../docs/default-parameters.md) — すべてのプラグインパラメーターのリファレンス
 - [docs/implementation-roadmap.md](../docs/implementation-roadmap.md) — 機能ロードマップ

@@ -23,8 +23,8 @@
   <a href="#screenshots">Screenshots</a> &bull;
   <a href="#licensing">License</a> &bull;
   <a href="#build">Build</a> &bull;
-  <a href="https://openvoxtuner.eiffelbs.ovh">Website</a> &bull;
-  <a href="https://ovtdocs.eiffelbs.ovh">Docs</a>
+  <a href="https://openvoxtuner.eiffelbs.ovh" target="_blank">Website</a> &bull;
+  <a href="https://ovtdocs.eiffelbs.ovh" target="_blank">Docs</a>
 </p>
 
 <p align="center">
@@ -304,7 +304,7 @@ A commercial license is available for developers or companies who want to integr
 - Optional custom features and DSP consulting
 - Perpetual license for the version purchased (updates subject to tier)
 
-**Contact:** open an issue on GitHub or email [license@openvoxtuner.com](mailto:license@openvoxtuner.com).
+**Contact:** open an issue on GitHub.
 
 ## Contributing
 
