@@ -78,10 +78,8 @@
 - **Grafischer Modus** — zeichnen Sie Ihre eigene Tonhöhenkurve (Melodyne-artiger Editor mit Snap, Raster, Kopieren/Einfügen, Rückgängig/Wiederherstellen)
 - **Korrekturmodus** — Modern (streng) oder Transparent (sanft)er Charakter
 - **Speed & Amount** — Rückführungs-Hüllkurve und Trochen/Nass-Mischung für natürliches oder robotisches Ansprechverhalten
-- **FlexTune** — Totband-Steuerung zum Durchlassen natürlicher Tonhöhenvariation (0–100 Cent)
 - **Humanize** — fügt subtile zufällige Variation für natürlicheren Klang hinzu (0–50 Cent)
 - **Vibrato Preserve** — bewahrt das natürliche Vibrato des Sängers durch die Korrektur hindurch (0–100 %)
-- **Attack-Aware** — mildert die Korrektur am Notenbeginn für natürliche Einsätze an
 - **Stimmtyp** — begrenzt den Bereich der Tonhöhen-Erkennung (Universal, Bass, Bariton, Tenor, Alt, Sopran)
 - **Latenzmodus** — Direct Monitoring, Low Latency, Quality, Safe
 

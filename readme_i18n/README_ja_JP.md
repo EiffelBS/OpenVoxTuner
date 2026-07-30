@@ -78,10 +78,8 @@
 - **グラフィックモード** — 独自のピッチカーブを描画（Melodyne 風エディター：スナップ、グリッド、コピー/ペースト、Undo/Redo）
 - **補正モード** — Modern（タイト）または Transparent（ソフト）なキャラクター
 - **Speed & Amount** — 戻りエンベロープとドライ/ウェットミックスにより、自然またはロボット的なレスポンスを実現
-- **FlexTune** — デッドバンド制御で自然なピッチ変動を通す（0〜100 セント）
 - **Humanize** — 微かなランダムな変動を加え、より自然なサウンドに（0〜50 セント）
 - **Vibrato Preserve** — 補正を通して歌手の自然なビブラートを保持（0〜100 %）
-- **Attack-Aware** — ノートのアタック部分で補正を緩め、自然なアタックを実現
 - **声質タイプ** — ピッチ検出の範囲を制限（Universal、Bass、Baritone、Tenor、Alto、Soprano）
 - **レイテンシーモード** — Direct Monitoring、Low Latency、Quality、Safe
 

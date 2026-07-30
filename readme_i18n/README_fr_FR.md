@@ -78,10 +78,8 @@
 - **Mode graphique** — dessinez votre propre courbe de hauteur (éditeur style Melodyne avec aimantation, grille, copier/coller, annuler/rétablir)
 - **Mode de correction** — Modern (serré) ou Transparent (doux)
 - **Vitesse & montant** — enveloppe de rattrapage + mélange sec/humide pour une réponse naturelle ou robotique
-- **FlexTune** — zone morte pour laisser passer les variations naturelles (0-100 cents)
 - **Humanize** — ajout de variations aléatoires subtiles pour un son plus naturel (0-50 cents)
 - **Préservation du vibrato** — conserve le vibrato naturel du chanteur à travers la correction (0-100%)
-- **Attack-Aware** — adoucit la correction aux prises de note pour des attaques naturelles
 - **Type de voix** — contraint la plage de détection (Universel, Basse, Baryton, Ténor, Alto, Soprano)
 - **Mode de latence** — Monitoring direct, Basse latence, Qualité, Sécurité
 

@@ -94,10 +94,8 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 - **Graphic mode** — draw your own pitch curve (Melodyne-style editor with snap, grid, copy/paste, undo/redo)
 - **Correction Mode** — Modern (tight) or Transparent (gentle) character
 - **Speed & Amount** — retarget envelope + dry/wet blend for natural or robotic response
-- **FlexTune** — deadband control to let natural pitch variation through (0-100 cents)
 - **Humanize** — add subtle random variation for a more natural sound (0-50 cents)
 - **Vibrato Preserve** — retain the singer's natural vibrato through correction (0-100%)
-- **Attack-Aware** — eases correction at note onsets for natural attacks
 - **Voice Type** — constrains pitch detection range (Universal, Bass, Baritone, Tenor, Alto, Soprano)
 - **Latency Mode** — Direct Monitoring, Low Latency, Quality, Safe
 

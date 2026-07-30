@@ -78,10 +78,8 @@
 - **Modo gráfico** — dibuja tu propia curva de tono (editor estilo Melodyne con snap, rejilla, copiar/pegar, deshacer/rehacer)
 - **Modo de corrección** — personaje Moderno (ajuste estricto) o Transparente (suave)
 - **Speed & Amount** — envolvente de reorientación y mezcla seco/húmedo para una respuesta natural o robótica
-- **FlexTune** — control de banda muerta para permitir la variación natural de tono (0–100 cents)
 - **Humanize** — añade una variación aleatoria sutil para un sonido más natural (0–50 cents)
 - **Vibrato Preserve** — conserva el vibrato natural del cantante a través de la corrección (0–100 %)
-- **Attack-Aware** — suaviza la corrección al inicio de las notas para ataques naturales
 - **Tipo de voz** — limita el rango de detección de tono (Universal, Bajo, Barítono, Tenor, Alto, Soprano)
 - **Modo de latencia** — Direct Monitoring, Low Latency, Quality, Safe
 
