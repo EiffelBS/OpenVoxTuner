@@ -1,0 +1,113 @@
+site_name: OpenVoxTuner Documentation
+site_url: https://ovtdocs.eiffelbs.ovh/
+site_description: Real-time pitch correction & harmony generation for vocals. VST3 / AU / Standalone — Open Source AGPLv3.
+site_author: EiffelBS
+copyright: © 2026 EiffelBS. Licensed under AGPLv3.
+
+docs_dir: docs
+site_dir: site-docs
+
+theme:
+  name: material
+  language: fr
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.share
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+
+nav:
+  - Accueil: index.md
+  - Installation: installation.md
+  - Guide utilisateur:
+    - Démarrage rapide: user-guide/quickstart.md
+    - Modes de correction: user-guide/correction-modes.md
+    - Éditeur de courbe: user-guide/curve-editor.md
+    - Génération d'harmonies: user-guide/harmony.md
+    - Paramètres par défaut: default-parameters.md
+  - Architecture:
+    - Vue d'ensemble: architecture.md
+    - Pipeline DSP: architecture/dsp-pipeline.md
+    - Interface utilisateur: architecture/ui.md
+  - Développement:
+    - Build guide: build-guide.md
+    - macOS AU & Installer: MACOS_AU_AND_INSTALLER_GUIDE.md
+    - Tests: testing.md
+    - Contributing: contributing.md
+  - Référence:
+    - API DSP: reference/dsp-api.md
+    - ARA2: reference/ara2.md
+    - Presets: reference/presets.md
+  - Changelog: changelog.md
+  - Licence: license.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - search:
+      lang: fr
+  - git-revision-date-localized:
+      type: date
+      timezone: Europe/Paris
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/EiffelBS/OpenVoxTuner
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/openvoxtuner
+  generator: false
+  version:
+    provider: mike
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mermaid.js

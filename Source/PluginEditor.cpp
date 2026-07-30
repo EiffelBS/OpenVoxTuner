@@ -1,5 +1,8 @@
-// PluginEditor.cpp
-// Implementation of the OpenVoxTuner plugin GUI editor.
+﻿// PluginEditor.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -175,7 +178,7 @@ public:
     /// truncating any translation, including the long ones (FR: "Editeur de
     /// courbe", DE: "Kurveneditor", ES: "Editor de curva", JP/CN full-width).
     /// The layout must call this and allocate at least that many pixels
-    /// horizontally — the Live/Curve tabs are critical navigation, so
+    /// horizontally â€” the Live/Curve tabs are critical navigation, so
     /// widening the pill is always preferable to shrinking the label font.
     static int getPreferredWidth (float height)
     {
@@ -224,7 +227,7 @@ public:
         // are noticeably larger, as befits a primary navigation element.
         // The pill is allocated enough width (see getPreferredWidth() and
         // the layout at the call site) so that even the longest translation
-        // of "Curve Editor" fits without truncation — Live/Curve Editor
+        // of "Curve Editor" fits without truncation â€” Live/Curve Editor
         // are critical navigation, so widening the pill beats shrinking
         // the label.
         const float fontH = juce::jmax (9.0f, area.getHeight() * 0.50f);
@@ -736,7 +739,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyGainMatchButton.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyGainMatch));
     addAndMakeVisible (harmonyGainMatchButton);
 
-    // Harmony type combo — index 3 = "3rd Below + Above" (default)
+    // Harmony type combo â€” index 3 = "3rd Below + Above" (default)
     harmonyTypeBox.addItemList (juce::StringArray {
         "None",
         "3rd Below", "3rd Above", "3rd Below + Above",
@@ -753,7 +756,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyTypeBox.setColour (juce::ComboBox::outlineColourId, ovt::accentSoft());
     addAndMakeVisible (harmonyTypeBox);
 
-    // Harmony knobs (Volume, Blend) — use same rotary knob style as main knobs
+    // Harmony knobs (Volume, Blend) â€” use same rotary knob style as main knobs
     setupKnob (harmonyGainSlider, nullptr, "");
     harmonyGainSlider.setRange (0.0, 1.0, 0.01);
     harmonyGainSlider.setValue (1.0);
@@ -885,7 +888,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     keySourceLabel.addMouseListener (this, false);
     translatableLabels.push_back ({ &keySourceLabel, ovt::Keys::kLabelKeyDetect    });
 
-    // Companion group (A/B/C/D) — shown only when the source is OpenVoxKey.
+    // Companion group (A/B/C/D) â€” shown only when the source is OpenVoxKey.
     setupCombo (companionGroupBox, companionGroupLabel, "Group",
                 juce::StringArray { "A", "B", "C", "D" }, 0);
     translatableLabels.push_back ({ &companionGroupLabel, ovt::Keys::kLabelCompanionGroup    });
@@ -1148,7 +1151,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     });
     });
 
-            // Formant Mode and Pitch Detection are hidden for now — may be
+            // Formant Mode and Pitch Detection are hidden for now â€” may be
             // re-enabled later when additional modes become available.
 
             // MIDI Learn (standalone only)
@@ -1572,7 +1575,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // "Return to start" (rewind): a left-pointing triangle plus a vertical bar,
     // the classic DAW skip-to-beginning glyph.
     static const char* svgRewind = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="5" x2="6" y2="19"/><polygon points="19 5 9 12 19 19"/></svg>)";
-    // Curve Editor "Options": hamburger (3 horizontal bars) — clearly distinct
+    // Curve Editor "Options": hamburger (3 horizontal bars) â€” clearly distinct
     // from the plugin's own gear (menuButton) and icon-only (no text label).
     static const char* svgHamburger = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>)";
 
@@ -2029,7 +2032,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     noiseGateThresholdLabel.setColour (juce::Label::textColourId, ovt::text());
     noiseGateThresholdLabel.setJustificationType (juce::Justification::centred);
     noiseGateThresholdLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
-    noiseGateThresholdLabel.setVisible (false); // Hidden — same style as Formant/Reverb (no label)
+    noiseGateThresholdLabel.setVisible (false); // Hidden â€” same style as Formant/Reverb (no label)
 
     // Upward Compressor controls (input effect, before tuning).
     // Same visual style as the other effect knobs: power toggle on top, a single
@@ -2125,7 +2128,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     modeSwitch = std::make_unique<CorrectionModeSwitch> (correctionModeButton);
     addAndMakeVisible (*modeSwitch);
 
-    // Attack-Aware correction toggle button — power-icon style like Gate / Reverb / Formant.
+    // Attack-Aware correction toggle button â€” power-icon style like Gate / Reverb / Formant.
     // 2026-07-24 (Deprecation): Attack-Aware button setup is disabled.
     // attackAwareButton.setButtonText (ovt::tr(ovt::Keys::kLabelAttackBtn));
     // attackAwareButton.setName ("PowerButton");
@@ -2163,7 +2166,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // refreshLabels() (which now also disables those two sub-toggles based on
     // the Harmony state). This guarantees the sub-toggles are greyed out the
     // instant Harmony is turned off, and stays consistent with preset load /
-    // automation / language switch — all paths already call refreshLabels().
+    // automation / language switch â€” all paths already call refreshLabels().
     harmonyEnableButton.onStateChange = [this] {
         refreshLabels();
     };
@@ -2181,15 +2184,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // Switch to Custom mode silently: push the new scale value
             // through the AudioParameterChoice (NOT just the raw atomic
             // pointer), because the audio callback's syncParameters()
-            // reads the AudioParameterChoice (line 2261 — `scaleChoiceParam
+            // reads the AudioParameterChoice (line 2261 â€” `scaleChoiceParam
             // ->getIndex()`) when rebuilding the scale intervals. Storing
             // into the atomic alone leaves scaleChoiceParam pointing at the
             // previous preset, so on the next block syncParameters() pushes
             // the previous preset's intervals back into the quantizer and
-            // the piano keyboard — and the toggle we just applied is
+            // the piano keyboard â€” and the toggle we just applied is
             // visually invisible (the user-reported bug on 2026-07-17:
             // "je clique sur la touche D => rien ne se passe (touche dans
-            // la gamme précédente C Natural Minor)").
+            // la gamme prÃ©cÃ©dente C Natural Minor)").
             //
             // setValueNotifyingHost fires valueChanged, which the
             // ComboBoxAttachment listens to in order to update the combo
@@ -2253,7 +2256,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     };
     // Ruler-click seek: forward the requested playhead time to the transport.
     // In "Follow host" mode (VST3/AU, not ARA, not looping) the DAW owns the
-    // timeline, so a ruler click cannot move the DAW playhead — seeking there
+    // timeline, so a ruler click cannot move the DAW playhead â€” seeking there
     // would only create a permanent offset that desyncs from the DAW loop.
     // We ignore the seek in that mode (the playhead snaps back to the DAW on
     // the next block). In Loop Playhead (Measures) / Standalone / ARA the seek
@@ -2334,7 +2337,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // Backward-compatibility: remap old Vocoder-like index (5) to Organ (1)
             auto remapTone = *ms;
             if (remapTone.harmonyTone == 5) remapTone.harmonyTone = 1;
-            // Old indices 1..4 (Bright/SynthLead/Strings/Guitar) were removed —
+            // Old indices 1..4 (Bright/SynthLead/Strings/Guitar) were removed â€”
             // silently keep them as-is (will map to wrong preset, but user will notice).
 
             slot.morphState = std::make_unique<ovtdsp::MorphState> (remapTone);
@@ -2398,7 +2401,7 @@ OpenVoxTunerAudioProcessorEditor::~OpenVoxTunerAudioProcessorEditor()
     // when addAndMakeVisible() was called: JUCE walks the parent's
     // lookAndFeel weak-ref down to each new child. Those weak-refs
     // remain in the child even if we setLookAndFeel(nullptr) on the
-    // parent alone — each Component owns its own LookAndFeel pointer.
+    // parent alone â€” each Component owns its own LookAndFeel pointer.
     // We therefore must clear them recursively, in the REVERSE order
     // of the visual hierarchy (most-deeply-nested children first), so
     // that by the time customLookAndFeel's destructor runs (after the
@@ -2409,7 +2412,7 @@ OpenVoxTunerAudioProcessorEditor::~OpenVoxTunerAudioProcessorEditor()
     // -------------------------------------------------------------------
 
     // Drop the LookAndFeel on the deepest children first (Slider, Label,
-    // Button, ComboBox, custom widgets…). This is done via a recursive
+    // Button, ComboBox, custom widgetsâ€¦). This is done via a recursive
     // lambda so any future component added to the editor is covered
     // without needing to update this list.
     // juce::Component exposes its children via the `getChildren()` range
@@ -2503,7 +2506,7 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     ga.draw (g);
     x += juce::GlyphArrangement::getStringWidth (titleFont, "Tuner");
 
-    // Version string (debug builds only — hides the version number in release).
+    // Version string (debug builds only â€” hides the version number in release).
 #if defined (JUCE_DEBUG)
     g.setColour (ovt::textDim());
     g.setFont (ovt::fontVersion());
@@ -2646,7 +2649,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // Width is computed from the translated labels so the longest
         // translation of "Curve Editor" (FR "Editeur de courbe",
         // DE "Kurveneditor", ES "Editor de curva", JP/CN full-width)
-        // never gets truncated — the Live/Curve tabs are critical
+        // never gets truncated â€” the Live/Curve tabs are critical
         // navigation, so we widen the pill rather than shrink the font.
         const int switchW = TabSwitch::getPreferredWidth (static_cast<float> (switchH));
         auto switchRect = toolsArea.removeFromLeft (switchW);
@@ -2865,7 +2868,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         formantStrategyLabel.setBounds (0, 0, 0, 0);
     }
 
-    // --- Block 4 : Effects — 2 rows (Gate + Reverb on top, Formant below) ---
+    // --- Block 4 : Effects â€” 2 rows (Gate + Reverb on top, Formant below) ---
     // The effect knobs use a FIXED, modest size (they are secondary controls, not
     // the primary Speed / Amount knobs) so they no longer stretch to fill the row
     // height. The value is shown in the popup display while dragging (no textbox).
@@ -3009,7 +3012,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     auto topRow = b1.removeFromTop(44); // Key + Scale row (20 label + 24 combobox)
 
-    // Left: Key (Root) — only ever shows up to 2 chars (e.g. "C", "C#"), so keep it narrow.
+    // Left: Key (Root) â€” only ever shows up to 2 chars (e.g. "C", "C#"), so keep it narrow.
     auto bKey = topRow.removeFromLeft(56);
     keyLabel.setBounds(bKey.removeFromTop(20));
     keyBox.setBounds(bKey);
@@ -3024,7 +3027,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     b1.removeFromTop(6); // spacer
 
-    // Keyboard (mini-piano) — placed right after Key / Scale (they are related).
+    // Keyboard (mini-piano) â€” placed right after Key / Scale (they are related).
     scaleKeyboard.setBounds(b1.removeFromTop(55).withSizeKeepingCentre(180, 55));
 
     b1.removeFromTop(6); // spacer
@@ -3182,7 +3185,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
 
     // Keep the Harmony sub-toggles (Follow Lead / Gain Match / Use Voice) in
     // sync with the Harmony switch even when Harmony changes WITHOUT a direct
-    // click — e.g. preset load or DAW automation. The ButtonAttachment updates
+    // click â€” e.g. preset load or DAW automation. The ButtonAttachment updates
     // the Harmony button with dontSendNotification, so onStateChange does not
     // fire in those cases. When the Harmony enable state changes, re-run
     // refreshLabels() (which disables those sub-toggles based on the Harmony
@@ -3230,7 +3233,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     bool isCurveEditorMode = (tabIndex == 1);
     
     // (clearHarmonyTraces is now done in the tab-change detection block
-    // below — doing it on every tick would wipe the buffer the draw
+    // below â€” doing it on every tick would wipe the buffer the draw
     // routine needs to render the harmony blue lines.)
     
     optionsButton.setVisible (isCurveEditorMode);
@@ -3322,7 +3325,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         // processor header).  When the host is paused, the extrapolation
         // returns the frozen PPQ, so the playhead does not drift.
         curveEditor->setPlayheadTime(processorRef.getInterpolatedTransportTime(), processorRef.getIsPlaying(), processorRef.isPlayheadLooping());
-        // Propagate time signature (Feature 1) — read from processor
+        // Propagate time signature (Feature 1) â€” read from processor
         int num = processorRef.getCurrentTimeSigNumerator();
         int den = processorRef.getCurrentTimeSigDenominator();
         curveEditor->setTimeSignature (num, den);
@@ -3374,7 +3377,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
             curveEditor->setCurve (processorRef.getPitchCurve());
             processorRef.getPendingCurveRestore().store (false);
             syncEditButtons();
-            resetMorph(); // state changed — invalidate any active morph
+            resetMorph(); // state changed â€” invalidate any active morph
         }
         // Also sync on every timer tick for safety (e.g. model changes via capture/clear)
         syncEditButtons();
@@ -3396,7 +3399,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         {
             // Detect DAW transport jump (loop wrap, seek) for the harmony
             // traces too. The red input trace is already cleared in
-            // refreshVisualizer() the same way — without this, the blue
+            // refreshVisualizer() the same way â€” without this, the blue
             // lines from the previous loop iteration remain visible after
             // the playhead wraps back to 0, because they still fall inside
             // the curve editor's timeVisible window.
@@ -3556,7 +3559,7 @@ void OpenVoxTunerAudioProcessorEditor::resetMorph()
 
 void OpenVoxTunerAudioProcessorEditor::onMorphSliderChanged (float value)
 {
-    // Ignore morph application during slot switching — the caller manages state.
+    // Ignore morph application during slot switching â€” the caller manages state.
     if (switchingSlot)
     {
         lastMorphValue = value;
@@ -4339,7 +4342,7 @@ void OpenVoxTunerAudioProcessorEditor::deleteCustomPresetFile (const juce::File&
  */
 void OpenVoxTunerAudioProcessorEditor::saveSlot (ABState& slot, int slotIndex)
 {
-    // Use a safe curve reference — pitchCurve may be null during init.
+    // Use a safe curve reference â€” pitchCurve may be null during init.
     const ovtdsp::PitchCurve emptyCurve;
     const auto& curve = processorRef.hasPitchCurve() ? processorRef.getPitchCurve() : emptyCurve;
 
@@ -4394,7 +4397,7 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     // Backward-compatibility: old Vocoder-like (index 5) -> Organ (index 1)
     int curTone = saved.harmonyTone;
     if (curTone == 5) curTone = 1; // Vocoder-like was the last item (index 5) in the old 6-item list
-    // Note: old indices 1..4 were removed (Bright, SynthLead, Strings, Guitar) —
+    // Note: old indices 1..4 were removed (Bright, SynthLead, Strings, Guitar) â€”
     // any project using those will silently map to Choir (0), which is the default.
 
     // Discrete parameters: use setValueNotifyingHost (ComboBox attachments sync)
@@ -5206,6 +5209,9 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
 
     repaint();
 }
+
+
+
 
 
 

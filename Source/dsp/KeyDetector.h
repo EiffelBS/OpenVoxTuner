@@ -1,15 +1,8 @@
-// KeyDetector.h
-// Automatic musical key / scale detection from a stream of detected pitches.
-//
-// It accumulates a 12-bin pitch-class profile (with exponential decay so it
-// acts as a sliding window), then scores every candidate (key x mode) against
-// the Krumhansl-Schmuckler tonal hierarchies using Pearson-like correlation.
-// The best candidate (above a confidence threshold and stable over several
-// blocks) is returned as (key, minor?, confidence).
-//
-// This is intentionally lightweight: it only distinguishes Major vs Natural
-// Minor (the two modes an autotuner needs most). The caller maps the result to
-// the plugin's Scale enum (Major or Natural Minor).
+﻿// KeyDetector.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -143,3 +136,6 @@ namespace ovtdsp
         }
     };
 }
+
+
+

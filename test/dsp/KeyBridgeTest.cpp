@@ -1,5 +1,9 @@
+﻿#pragma once
 // KeyBridgeTest.cpp
-// Unit tests for ovtdsp::KeyBridge (companion -> main key sharing).
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/KeyBridge.h"
@@ -91,3 +95,5 @@ public:
 };
 
 static KeyBridgeTest keyBridgeTest;
+
+

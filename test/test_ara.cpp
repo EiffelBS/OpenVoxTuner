@@ -1,3 +1,9 @@
+﻿#pragma once
+// test_ara.cpp
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 #include <JuceHeader.h>
 #include <ARA_Library/PlugIn/ARAPlug.h>
 
@@ -13,3 +19,5 @@ void testARA(juce::ARAMusicalContext* musicalContext) {
         }
     }
 }
+
+

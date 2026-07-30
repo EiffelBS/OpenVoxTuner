@@ -1,36 +1,8 @@
-// AttackAwareEnv.h
-// Attack-aware correction helper for the autotune pipeline.
-//
-// Problem: a classic autotuner snaps the pitch on every block, including the
-// very first milliseconds of a note (the attack transient). That "robotic"
-// pitch-lock on the attack is one of the things that makes cheap autotune
-// sound artificial. FlexTune (pitch-distance deadband) and Humanize (random
-// wobble) already exist as two orthogonal axes; this is a THIRD one: temporal.
-//
-// Solution: detect onsets from the input level envelope and, on each onset,
-// drop a correction-gain envelope to 0, then ramp it back to 1 over a
-// user-set release time. The gain is multiplied into the correction amount,
-// so the natural attack is left untouched and the note is pulled to pitch
-// only after the transient has passed.
-//
-// 2026-07-23 update (low-release fix)
-// ================================
-// The original release ramp was LINEAR
-//     attackGain += blockDur / releaseSec
-// which at a 10 ms release and a 5.8 ms block (256 samples / 44.1 kHz)
-// produces `rampPerBlock = 0.58`, i.e. a discontinuous jump from 0 to
-// 0.58 in ONE block. The OLA chain cannot absorb such a step cleanly:
-// the user perceives a "scratch" at every note onset, which the user
-// reports is worst at the LOWEST release-time setting. The fix is to
-// switch to an EXPONENTIAL (IIR) ramp with the same time constant
-//     alpha = 1 - exp(-blockDur / releaseSec)
-// so the curve is smooth in C0 (no step at the start of the ramp),
-// and the time to reach 1 - 1/e ~ 63% is `releaseSec` SECONDS, not
-// `(releaseSec / blockDur)` blocks. The transition is now identical
-// in shape to the RetargetEnvelope's ratio ramp, so the two helpers
-// don't fight each other. The minimum release time is also bumped
-// to 5 ms (was 1 ms) to keep alpha in a numerically safe range and
-// to avoid the ramp collapsing to a single sample.
+﻿// AttackAwareEnv.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -88,7 +60,7 @@ namespace ovtdsp
             // The slowEnv > kMinLevel guard avoids a false onset on the very first
             // block after reset/start, when slowEnv is still ~0.
             //
-            // 2026-07-23 (Fix AX — "silence instead of scratch" bug): the
+            // 2026-07-23 (Fix AX â€” "silence instead of scratch" bug): the
             // original check also fired on EVERY rising block during a
             // sustained attack (e.g. a singer's note attack is 5-15 blocks
             // of continuously rising level). With the IIR ramp, each
@@ -167,8 +139,11 @@ namespace ovtdsp
         // and silence the output. 0.9 means we require at least 90% of the
         // ramp to have completed before the next onset can fire; with a
         // 60 ms release and 5.8 ms block, that's ~150 ms of "cooldown"
-        // after the helper fires — well-matched to the perceived length
+        // after the helper fires â€” well-matched to the perceived length
         // of a vocal note attack.
         static constexpr float kReadyThreshold = 0.9f;
     };
 }
+
+
+

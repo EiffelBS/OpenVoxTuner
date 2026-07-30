@@ -1,26 +1,8 @@
-// PitchShifter.h
-// Module de transposition de pitch par PSOLA (Phase 4).
-//
-// Algorithme :
-//   1) Detection de la frequence fondamentale courante (via PitchDetector).
-//   2) Detection des "pitch marks" : position des periodes fondamentales dans
-//      le signal (typiquement les pics positifs du signal fenetre).
-//   3) Analyse : on stocke les pitch marks et les grains Hann centres dessus.
-//   4) Synthese : on replace les pitch marks a des positions correspondant a
-//      la frequence cible (f_target = f_source * ratio), et on additionne
-//      les grains en overlap-add.
-//
-// References :
-//   - Moulines & Charpentier, "Pitch-synchronous waveform processing
-//     techniques for text-to-speech synthesis using diphones",
-//     Speech Communication, 1990.
-//   - "DAFX" (Zolzer), chapter 6 : Pitch-shifting and time-stretching.
-//
-// Ameliorations par rapport a la v1 MVP :
-//   - Vrai PSOLA : pas de flanger, preservation des transitoires.
-//   - Compensation de formants optionnelle (preserve le timbre).
-//   - Gestion douce des passages a/pitch nul.
-//   - Attack envelope on voice onset to prevent clicks
+﻿// PitchShifter.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -34,8 +16,8 @@ namespace ovtdsp
     class PitchDetector; // forward decl
 
     /**
-     * PitchShifter basé sur l'algorithme PSOLA (Pitch Synchronous Overlap-Add).
-     * Ancienne implémentation maison de Phase 4.
+     * PitchShifter basÃ© sur l'algorithme PSOLA (Pitch Synchronous Overlap-Add).
+     * Ancienne implÃ©mentation maison de Phase 4.
      */
     class PitchShifter
     {
@@ -79,7 +61,7 @@ namespace ovtdsp
 
         bool isAttackEnvelopeEnabled() const noexcept { return attackEnvelopeEnabled; }
 
-        // 2026-07-23: external attack-gain driver (Fix AW — see
+        // 2026-07-23: external attack-gain driver (Fix AW â€” see
         // PluginProcessor.cpp for the call site). When set, the value is
         // used as the BLOCK-LEVEL target for `attackGain`, with a
         // block-aware one-pole smoother (TC = externalAttackTauSeconds,
@@ -178,7 +160,7 @@ namespace ovtdsp
         // attack time on most instruments) within a few blocks, and slow
         // enough to remain a lowpass filter for the 5Hz vibrato (|H(5Hz)|
         // = 0.62, so the smoothedF0 follows the vibrato at 62% of its
-        // amplitude — sufficient because the YIN pitch detector already
+        // amplitude â€” sufficient because the YIN pitch detector already
         // does its own smoothing, and the VibratoPreserver does the
         // vibrato preservation on the targetRatio, not on smoothedF0).
         float smoothedF0 = 0.0f;
@@ -221,9 +203,9 @@ namespace ovtdsp
         float externalAttackTauSeconds = 0.015f;
 
         // Hysteresis + debounce pour la detection d'onset (evite les clics
-        // repetes quand le pitch frémit autour du seuil voiced/unvoiced au
+        // repetes quand le pitch frÃ©mit autour du seuil voiced/unvoiced au
         // demarrage d'une note). Seuil montee/descente differents et N
-        // echantillons consécutifs requis avant de valider un changement.
+        // echantillons consÃ©cutifs requis avant de valider un changement.
         static constexpr float kVoiceOnThreshold  = 45.0f;  // montee
         static constexpr float kVoiceOffThreshold = 35.0f;  // descente
         static constexpr int   kVoiceDebounceSamples = 256; // ~6 ms @44.1k
@@ -274,3 +256,5 @@ namespace ovtdsp
 }
 
 extern std::atomic<int> gPitchShifterGrainEvents;
+
+

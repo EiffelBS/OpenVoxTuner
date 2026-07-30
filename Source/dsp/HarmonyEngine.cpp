@@ -1,3 +1,8 @@
+﻿// HarmonyEngine.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 #include "HarmonyEngine.h"
 #include <cmath>
 #include <vector>
@@ -443,3 +448,6 @@ namespace ovtdsp
     }
 
 } // namespace ovtdsp
+
+
+

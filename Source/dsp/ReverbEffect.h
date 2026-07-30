@@ -1,7 +1,8 @@
+﻿// ReverbEffect.h
 // ReverbEffect.h
-// Reverb effect implementation using juce::Reverb.
-// A simple, musical reverb with a single wet/dry mix control.
-// Designed for vocal monitoring comfort in standalone mode.
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -42,3 +43,5 @@ namespace ovtdsp
         float masterCoeff = 0.0f;
     };
 }
+
+

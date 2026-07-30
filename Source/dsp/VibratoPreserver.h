@@ -1,16 +1,8 @@
-// VibratoPreserver.h
-// Vibrato-preservation helper for the autotune correction pipeline.
-//
-// Problem: a standard autotuner snaps the *instantaneous* detected pitch
-// (f0_in) to the nearest scale note every analysis block. Because vibrato is a
-// fast pitch modulation around a center, that per-block snapping flattens the
-// modulation and the vibrato disappears.
-//
-// Solution: maintain a smoothed *center* pitch (a one-pole low-pass of f0_in
-// that removes the vibrato LFO), compute the correction ratio against that
-// center, then re-apply it to the instantaneous pitch. The blend amount lets
-// the user dial between full instantaneous correction (0%, classic behaviour)
-// and full vibrato preservation (100%).
+﻿// VibratoPreserver.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -72,3 +64,6 @@ namespace ovtdsp
         float center = 0.0f;
     };
 }
+
+
+

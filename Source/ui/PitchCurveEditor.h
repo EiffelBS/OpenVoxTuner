@@ -1,15 +1,8 @@
-// PitchCurveEditor.h
-// Composant interactif d'edition de pitch curve (mode "graphic" du plugin).
-//
-// Fonctionnalites :
-//   - Affiche une grille de notes horizontale (C3, C4, C5)
-//   - Affiche les points de la courbe et la courbe interpolee
-//   - Drag des points avec la souris (mise a jour du pitch)
-//   - Double-clic pour ajouter un point
-//   - Clic droit (ou Alt+clic) pour supprimer un point
-//   - Snapping optionnel a la gamme
-//   - Bouton "Live" : capture du pitch courant comme nouveau point
-//   - Bouton preset : menu deroulant (default, spoken, lyric, rap, robot)
+﻿// PitchCurveEditor.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -427,8 +420,8 @@ namespace ui
         // Undo/Redo buttons (positioned by parent)
         // Hex escapes produce raw UTF-8 bytes (>127) which juce::String(const char*)
         // rejects in Debug; wrap in CharPointer_UTF8 so JUCE decodes them correctly.
-        juce::TextButton undoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb6") };  // Undo arrow symbol ↶
-        juce::TextButton redoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb7") };  // Redo arrow symbol ↷
+        juce::TextButton undoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb6") };  // Undo arrow symbol â†¶
+        juce::TextButton redoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb7") };  // Redo arrow symbol â†·
 
         // Piano Roll mode toggle (second editing metaphor for the same curve).
         juce::TextButton pianoRollButton { "Piano Roll" };
@@ -436,3 +429,6 @@ namespace ui
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PitchCurveEditor)
     };
 }
+
+
+

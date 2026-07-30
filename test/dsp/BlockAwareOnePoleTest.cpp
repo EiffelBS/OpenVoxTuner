@@ -1,12 +1,9 @@
+﻿#pragma once
 // BlockAwareOnePoleTest.cpp
-// Unit tests for ovtdsp::BlockAwareOnePole (buffer-size independent smoother).
-//
-// These tests are CRITICAL: they prove that the smoother's effective time
-// constant is the same in seconds regardless of the buffer size. This is
-// the property that the old "y = y*0.95 + x*0.05" smoothing did NOT have
-// (alpha=0.05 per block at 128 samples gave TC=58 ms, at 256 samples
-// gave TC=116 ms), and that property is what eliminated the FlexTune /
-// Humanize dropouts in Studio One with 128/256-sample buffers.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/BlockAwareOnePole.h"
@@ -172,3 +169,5 @@ public:
 };
 
 static BlockAwareOnePoleTest blockAwareOnePoleTest;
+
+

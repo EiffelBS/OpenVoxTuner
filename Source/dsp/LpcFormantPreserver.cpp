@@ -1,5 +1,8 @@
-// LpcFormantPreserver.cpp
-// LPC cross-synthesis formant preservation (see LpcFormantPreserver.h).
+﻿// LpcFormantPreserver.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "LpcFormantPreserver.h"
 #include <cmath>
@@ -296,3 +299,6 @@ namespace ovtdsp
                             mode);
     }
 }
+
+
+

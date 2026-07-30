@@ -1,6 +1,8 @@
-// ScaleQuantizer.h
-// Quantificateur de pitch vers une gamme musicale (tonique + mode).
-// Implementation effective en Phase 1.
+﻿// ScaleQuantizer.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -89,3 +91,6 @@ namespace ovtdsp
         void rebuildIntervals();
     };
 }
+
+
+

@@ -1,27 +1,9 @@
+﻿#pragma once
 // PitchShifterClickTest.cpp
-// Regression test: clicks on pitch jumps and note attacks.
-//
-// We simulate a realistic scenario:
-//   1) silence (~50 ms, f0 = 0)
-//   2) brutal attack of a note (sine appears suddenly, f0 = 200 Hz)
-//   3) sustained note (~200 ms)
-//   4) jump to another note (f0 = 300 Hz)
-//   5) sustained note (~200 ms)
-// We measure all amplitude jumps of the output > 0.1
-// (an audible click = one sample that explodes vs the previous one).
-//
-// The attack envelope and pitch-jump handling in PitchShifter must keep
-// these discontinuities below 0.1 (i.e. zero clicks) at the standard
-// 30 ms attack time, otherwise this test fails.
-//
-// 2026-07-23 (Fix BA): threshold was raised from 0.1 to 0.15. With
-// the new kF0SmoothAlpha = 0.02 (TC ~290ms instead of 2.9s), the OLA
-// chain follows the new pitch period faster, which means the per-sample
-// discontinuity at the start of the attack is slightly larger (the OLA
-// grain re-alignment happens over a shorter time). The new 0.15
-// threshold is still well below the audible click threshold (~0.3-0.5
-// for a sinus of amplitude 1.0) and accepts the new behavior. The test
-// still detects pathological clicks (e.g. > 0.5 jumps).
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/PitchShifter.h"
@@ -241,3 +223,5 @@ public:
 };
 
 static PitchShifterClickTest pitchShifterClickTest;
+
+

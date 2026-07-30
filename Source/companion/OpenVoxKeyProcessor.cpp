@@ -1,5 +1,8 @@
-// OpenVoxKeyProcessor.cpp
-// See OpenVoxKeyProcessor.h for the design overview.
+﻿// OpenVoxKeyProcessor.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "OpenVoxKeyProcessor.h"
 #include "OpenVoxKeyEditor.h"
@@ -235,3 +238,6 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new OpenVoxKeyProcessor();
 }
+
+
+

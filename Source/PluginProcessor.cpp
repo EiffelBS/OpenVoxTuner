@@ -1,5 +1,8 @@
-// PluginProcessor.cpp
-// Implementation of the audio processor (DSP pipeline Phase 1).
+﻿// PluginProcessor.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -25,7 +28,7 @@
 // block (~100 calls/sec while singing). On real-time-constrained DAWs like
 // Studio One, this string allocation + lock contention is enough to push
 // the 11.6 ms block deadline (~512 samples at 44.1 kHz) and cause audible
-// dropouts — the user reported this regression on 2026-07-17. Keeping the
+// dropouts â€” the user reported this regression on 2026-07-17. Keeping the
 // log gated to Debug means Release is free of any string work in the hot
 // path. To re-enable logging in a Release build for diagnosis, define
 // OVT_FORCE_LOG in the build flags (e.g. cmake -DCMAKE_CXX_FLAGS="-DOVT_FORCE_LOG").
@@ -126,7 +129,7 @@ void OpenVoxTunerAudioProcessor::dumpVST3BundleInfo()
 //   (open + write + close, on Windows this is ~1-5 ms per call). With
 //   several OVT_LOG sites in the hot path (FlexTune / Amount /
 //   pitchShifter->process / harmony, each gated to fire ~once per
-//   second), the per-block callback was taking 1-5 ms just for I/O —
+//   second), the per-block callback was taking 1-5 ms just for I/O â€”
 //   enough to push a 512-sample block at 44.1 kHz over the 11.6 ms
 //   deadline on slower laptops, causing regular audio dropouts when
 //   the user enabled features (Flex / Attack) that add more work
@@ -448,16 +451,16 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                               "Unison (2 voices)", "Unison + Octaves (4 voices)"
                           }, 3),
 
-                      // Harmony Enable : master on/off — disabled by default
+                      // Harmony Enable : master on/off â€” disabled by default
                       std::make_unique<juce::AudioParameterBool> (
                           "harmony_enable", "Harmony Enable", false),
 
-                      // Harmony Gain : niveau de volume des harmonies — 1.0 by default
+                      // Harmony Gain : niveau de volume des harmonies â€” 1.0 by default
                       std::make_unique<juce::AudioParameterFloat> (
                           "harmony_gain", "Harmony Volume",
                           juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.75f),
 
-                      // Harmony Blend : melange voix principale / harmonies — 0.5 by default
+                      // Harmony Blend : melange voix principale / harmonies â€” 0.5 by default
                       std::make_unique<juce::AudioParameterFloat> (
                           "harmony_blend", "Harmony Blend",
                           juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f)
@@ -676,7 +679,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         customParam[i] = parameters.getRawParameterValue (id);
     }
 
-    // Instantiates DSP modules — YIN pitch detector.
+    // Instantiates DSP modules â€” YIN pitch detector.
     pitchDetectors[0] = std::make_unique<ovtdsp::YinPitchDetector>();
     activePitchDetector.store (pitchDetectors[0].get());
 
@@ -698,7 +701,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     OVT_LOG ("Effects initialized: " + juce::String (static_cast<int> (effects.size())));
 
     // VST3 extension for Studio One's Micro View.
-    // Only allocated for Studio One — for every other host getVST3ClientExtensions()
+    // Only allocated for Studio One â€” for every other host getVST3ClientExtensions()
     // returns nullptr, so there is no point in constructing the object (it
     // would just be dead memory).  Detecting Studio One via the JUCE host
     // type: Studio One identifies itself with the application path
@@ -834,7 +837,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // value is immediately overwritten by the next line `setLatencySamples
     // (pitchShifter->getLatencySamples())`. Worse, on hosts like Live 12 the
     // latency ping-pong (576 then 960) triggers an immediate re-setActive
-    // and a fresh prepareToPlay() — we observed 600 000+ setActive calls
+    // and a fresh prepareToPlay() â€” we observed 600 000+ setActive calls
     // in a single session, which manifested as the rainbow beach-ball.
     pitchShifter->prepare (sampleRate, samplesPerBlock);
     noiseGate.prepare (sampleRate);
@@ -848,7 +851,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     retargetEnvelope->prepare (sampleRate);
     harmonyEngine->prepare (sampleRate);
 
-    // Block-aware parameter smoothers (FlexTune, Humanize) — these now use
+    // Block-aware parameter smoothers (FlexTune, Humanize) â€” these now use
     // an explicit time constant expressed in seconds (independently of the
     // block size).
     //
@@ -994,7 +997,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // not changed the mode since the last prepare. This is needed
     // because some hosts (notably Studio One with VST3) do NOT re-call
     // prepareToPlay() when the user disables and re-enables the insert
-    // slot — they only re-read the last reported latency from the
+    // slot â€” they only re-read the last reported latency from the
     // plugin. If we early-return inside applyLatencyMode() (which we
     // do in syncParameters() to avoid spamming the host every block),
     // the host keeps showing the previous latency value, which can
@@ -1007,7 +1010,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // because that call resets the shifter's latency to its hard-coded
     // 20 ms default. Calling applyLatencyMode() first would race with
     // that reset and report a different (mode-specific) latency that
-    // gets overwritten a few lines later, causing a 576↔960 ping-pong
+    // gets overwritten a few lines later, causing a 576â†”960 ping-pong
     // that made Live 12 re-setActive 600 000+ times per session.
     appliedLatencyMode = -1;
     applyLatencyMode();
@@ -1028,7 +1031,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // Reset the silence counter
     maxSilenceSamples = static_cast<int>(sampleRate * 0.5); // 500 ms silence tail
 
-    // The audio side is now in a stable state — the host's playhead can
+    // The audio side is now in a stable state â€” the host's playhead can
     // be safely read.  The dedicated worker is started here so that
     // getPlayHead()->getPosition() runs on its own thread and never
     // blocks the audio thread or the UI thread (both of which would
@@ -1154,9 +1157,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         return;
     }
 
-    // === PITCH DETECTOR SWITCHING (YIN only — single mode) ===
+    // === PITCH DETECTOR SWITCHING (YIN only â€” single mode) ===
     // The pitch_detector parameter is read-only (single choice "YIN").
-    // No switching needed — always use index 0.
+    // No switching needed â€” always use index 0.
 
     // === NOISE GATE (input, before pitch detection) ===
     {
@@ -1248,8 +1251,8 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // === LECTURE DES METADONNEES ARA ===
-    // Déplacée vers updateAraMetadata() (thread UI) pour éviter les deadlocks
-    // audio/UI causés par HostContentReader + setValueNotifyingHost dans le
+    // DÃ©placÃ©e vers updateAraMetadata() (thread UI) pour Ã©viter les deadlocks
+    // audio/UI causÃ©s par HostContentReader + setValueNotifyingHost dans le
     // thread audio (beachball Cubase/Live VST3).
 
     // After mixing, if engine has finished releasing, shifted voices have ramped down
@@ -1300,7 +1303,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // 2) Mise a jour du temps de transport (pour le mode graphic).
-    //    Le getPlayHead() est appelé depuis le thread UI (updateHostTransport)
+    //    Le getPlayHead() est appelÃ© depuis le thread UI (updateHostTransport)
     //    et mis en cache dans des atomics pour le thread audio.
     // Voice/silence hysteresis for harmony gate (prevents rapid on/off chattering)
     constexpr float harmonyGateOnThreshold  = 0.0040f;
@@ -1505,7 +1508,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             {
                 // companionGroupParam is an AudioParameterChoice; getRawParameterValue()
                 // returns the 0..3 choice index (not a normalised 0..1 value), so use
-                // it directly. (Multiplying by 3.0f — as if it were normalised — would
+                // it directly. (Multiplying by 3.0f â€” as if it were normalised â€” would
                 // map B->D and C->D, the cross-talk bug.)
                 int grpIdx = 0;
                 if (companionGroupParam != nullptr)
@@ -1803,11 +1806,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (currentHarmonyType != 0 && ( (f0_out > 0.0f) || (harmonyEngine != nullptr && harmonyEngine->isActive()) || shiftedVoicesActive )
             && (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f))
         {
-            // Extraire les paramètres pour l'engine d'harmonie
+            // Extraire les paramÃ¨tres pour l'engine d'harmonie
             int currentKey = keyIntParam != nullptr ? keyIntParam->get() : static_cast<int> (std::round (keyParam->load() * 11.0f));
             int currentScaleIdx = scaleChoiceParam != nullptr ? scaleChoiceParam->getIndex() : static_cast<int>(scaleParam->load());
 
-            // Récupère les intervalles de la gamme depuis le quantizer
+            // RÃ©cupÃ¨re les intervalles de la gamme depuis le quantizer
             const juce::Array<int>& intervals = scaleQuantizer->getScaleIntervals();
 
             // Use a "held" pitch that falls back to lastValidF0 when YIN momentarily drops to 0.
@@ -2021,7 +2024,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 // internally smooths the per-block jumps (BlockAwareOnePole,
                 // TC = 15 ms) and applies the smoothed value to the OLA
                 // chain's output multiplier. Crucially, we do NOT
-                // multiply `amount` by the AttackAwareEnv's output —
+                // multiply `amount` by the AttackAwareEnv's output â€”
                 // doing so would modulate `targetRatio` and reintroduce
                 // the original scratch bug. The OLA chain's grain
                 // spacing is now stable across the attack transition.
@@ -2102,7 +2105,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     lastRatioSnapshot.store (ratio);
 
     // 5) Application du WSOLA (Autotune + Formant Shift natif)
-    // Formant EFFECT (creative ±5st shift) - controlled by Formant Enable toggle
+    // Formant EFFECT (creative Â±5st shift) - controlled by Formant Enable toggle
     bool isFormantEffectEnabled = (formantEnableParam != nullptr) ? (formantEnableParam->load() > 0.5f) : false;
     float shiftSemitones = (isFormantEffectEnabled && formantParam != nullptr) ? formantParam->load() : 0.0f;
     float userFormantRatio = std::pow (2.0f, shiftSemitones / 12.0f);
@@ -2177,11 +2180,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     // Per-strategy Q multiplier and smoothing alpha, for gain-matched
     // differentiation (no loudness jumps between strategies):
-    //   Current : legacy EQ, 1/sqrt(r) warp, alpha=0.05, Q×1.0
-    //   P0 (Balanced) : MultiFormant, 1/r warp, alpha=0.05, Q×1.0
-    //   P1 (Marked) : MultiFormant, 1/r warp, alpha=0.05, Q×1.3 (sharper peaks)
-    //   P2 (Reactive) : MultiFormant, 1/r warp, alpha=0.15, Q×1.3 (faster tracking)
-    //   P3 (Precise) : Allpass, 1/r warp, alpha=0.05, Q×1.0
+    //   Current : legacy EQ, 1/sqrt(r) warp, alpha=0.05, QÃ—1.0
+    //   P0 (Balanced) : MultiFormant, 1/r warp, alpha=0.05, QÃ—1.0
+    //   P1 (Marked) : MultiFormant, 1/r warp, alpha=0.05, QÃ—1.3 (sharper peaks)
+    //   P2 (Reactive) : MultiFormant, 1/r warp, alpha=0.15, QÃ—1.3 (faster tracking)
+    //   P3 (Precise) : Allpass, 1/r warp, alpha=0.05, QÃ—1.0
     switch (formantStrategy)
     {
         case 1: // P0 - Balanced
@@ -2888,7 +2891,7 @@ void OpenVoxTunerAudioProcessor::copyAraWaveform (juce::AudioBuffer<float>& dest
     }
 }
 
-// --- Deferred parameter changes (audio → UI thread) ---
+// --- Deferred parameter changes (audio â†’ UI thread) ---
 // Reads atomics written by the audio thread (applyDetectedKey) and applies
 // them via setValueNotifyingHost on the UI thread, avoiding deadlocks.
 void OpenVoxTunerAudioProcessor::flushPendingParameterChanges()
@@ -2927,7 +2930,7 @@ void OpenVoxTunerAudioProcessor::flushPendingParameterChanges()
 // Both problems are now avoided by running the call on a dedicated
 // background thread started in prepareToPlay() (see
 // startPlayheadThread).  This function is kept as a no-op for
-// backwards compatibility with the editor's timer — the editor keeps
+// backwards compatibility with the editor's timer â€” the editor keeps
 // calling it every 30 Hz, but all it does now is bail out early if
 // the editor is being torn down.
 void OpenVoxTunerAudioProcessor::updateHostTransport()
@@ -3083,7 +3086,7 @@ double OpenVoxTunerAudioProcessor::getInterpolatedTransportTime() const
 // the message thread.  This is the ONLY thread that ever calls
 // getPlayHead()->getPosition() at runtime.  Reasoning:
 //   * Calling it on the UI thread (timer, original code) freezes Cubase
-//     and Live VST3 — those hosts busy-loop or deadlock inside
+//     and Live VST3 â€” those hosts busy-loop or deadlock inside
 //     getPosition(), saturating the message thread and triggering the
 //     rainbow cursor.  Observed on Cubase LE 15.
 //   * Calling it on the audio thread (processBlock) is also documented
@@ -3185,14 +3188,14 @@ void OpenVoxTunerAudioProcessor::stopPlayheadThread() noexcept
         }
         catch (...)
         {
-            // std::system_error if the thread is not joinable — ignore.
+            // std::system_error if the thread is not joinable â€” ignore.
         }
     }
 }
 
 // --- ARA metadata reading (UI thread only) ---
 // Reads key signatures and bar signatures from the ARA document controller.
-// MUST be called from the UI thread — HostContentReader acquires a lock that
+// MUST be called from the UI thread â€” HostContentReader acquires a lock that
 // can deadlock the audio thread in some hosts (Cubase LE 15, Live VST3).
 #if OVT_ARA_ENABLED
 void OpenVoxTunerAudioProcessor::updateAraMetadata()
@@ -3358,7 +3361,7 @@ void OpenVoxTunerAudioProcessor::syncParameters()
         }
     }
 
-    // Vitesse de retargeting — modulée par le mode de correction.
+    // Vitesse de retargeting â€” modulÃ©e par le mode de correction.
     float speed = (speedParam != nullptr) ? speedParam->load() : 50.0f;
     int modeVal = (correctionModeParam != nullptr) ? static_cast<int>(correctionModeParam->load()) : 0;
     if (modeVal == 1) // Transparent
@@ -3368,7 +3371,7 @@ void OpenVoxTunerAudioProcessor::syncParameters()
         // even at default settings.
         speed = juce::jmax (30.0f, speed);
     }
-    // Mode Modern (0): no restriction — user speed is applied as-is.
+    // Mode Modern (0): no restriction â€” user speed is applied as-is.
     retargetEnvelope->setSpeed (speed);
     
     applyLatencyMode();
@@ -3613,7 +3616,7 @@ float OpenVoxTunerAudioProcessor::computeSidechainPitch (const juce::AudioBuffer
     return (newPitch > 0.0f) ? newPitch : 0.0f;
 }
 
-// Detector factory — YIN only.
+// Detector factory â€” YIN only.
 std::unique_ptr<ovtdsp::IPitchDetector> OpenVoxTunerAudioProcessor::createDetector()
 {
     return std::make_unique<ovtdsp::YinPitchDetector>();
@@ -3908,7 +3911,7 @@ juce::VST3ClientExtensions* OpenVoxTunerAudioProcessor::getVST3ClientExtensions(
 {
     // Only return the PreSonus MicroView extension for Studio One; other hosts
     // (Cubase, Live, etc.) may hang when presented with an unknown VST3 extension.
-    // Returning nullptr is safe for all hosts — the MicroView is purely cosmetic.
+    // Returning nullptr is safe for all hosts â€” the MicroView is purely cosmetic.
     return nullptr;
 }
 
@@ -3946,3 +3949,6 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new OpenVoxTunerAudioProcessor();
 }
+
+
+

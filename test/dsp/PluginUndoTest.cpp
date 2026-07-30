@@ -1,17 +1,9 @@
+﻿#pragma once
 // PluginUndoTest.cpp
-// Regression test (2026-07-17) for the global plugin Undo/Redo (Option 1).
-// Validates the snapshot/restore + transaction mechanics used by
-// OpenVoxTunerAudioProcessor::pushUndoAction / PluginStateUndoAction:
-//   - copyState() captures the full parameter ValueTree,
-//   - an UndoableAction restoring a "before" state on undo and an "after"
-//     state on redo round-trips parameter values exactly,
-//   - identical before/after snapshots are skipped (no empty transaction),
-//   - a sequence of changes builds an undo history that replays in order.
-//
-// The action is exercised against a plain juce::ValueTree (the exact
-// before/after round-trip the production APVTS-backed action performs);
-// the APVTS copyState()/replaceState() integration itself is covered by the
-// "one change is undoable" sub-test below.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_data_structures/juce_data_structures.h>
 
@@ -153,3 +145,4 @@ public:
 };
 
 static PluginUndoTest pluginUndoTest;
+

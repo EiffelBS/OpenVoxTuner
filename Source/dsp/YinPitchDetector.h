@@ -1,10 +1,8 @@
-// YinPitchDetector.h
-// Pitch detection using the YIN algorithm (de Cheveigne & Kawahara, 2002).
-// Implements the IPitchDetector interface.
-//
-// This is the original algorithm from PitchDetector, refactored into
-// the IPitchDetector hierarchy. The original PitchDetector.h/.cpp files
-// are preserved unchanged for reference (see docs/pitch-detection-rollback-guide.md).
+﻿// YinPitchDetector.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -83,3 +81,5 @@ private:
 };
 
 } // namespace ovtdsp
+
+

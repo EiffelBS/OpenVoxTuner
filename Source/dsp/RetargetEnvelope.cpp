@@ -1,5 +1,8 @@
-// RetargetEnvelope.cpp
-// Implementation du filtre de retargeting IIR 1er ordre.
+﻿// RetargetEnvelope.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "RetargetEnvelope.h"
 #include <cmath>
@@ -70,3 +73,6 @@ namespace ovtdsp
         return currentValue;
     }
 }
+
+
+

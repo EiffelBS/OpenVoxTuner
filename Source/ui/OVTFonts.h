@@ -1,7 +1,8 @@
-// OVTFonts.h
-// Centralized font definitions for OpenVoxTuner.
-// All fonts in the plugin MUST be created through these helpers
-// to guarantee consistent typeface and prevent random bold/plain switching.
+﻿// OVTFonts.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -88,3 +89,6 @@ namespace ovt
     inline juce::Font fontCurveHelp()   { return createFont (11.0f, false); }
     inline juce::Font fontMeasuresLabel(){ return createFont (11.0f, true); }
 }
+
+
+

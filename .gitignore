@@ -87,7 +87,11 @@ test/*.pdb
 build/
 build-mac/
 build-mac-*/
+build-test/
+build-tests/
 dist/
+site/
+site-docs/
 
 /build/
 
@@ -98,18 +102,14 @@ dist/
 
 # --- Test output artifacts ---
 test/test_output.txt
+test/__pycache__/
+test/formant_benchmark_results.json
 
 # --- Stale / duplicate source files ---
-Source/HarmonyEngine.cpp
+# (ancienne version a la racine Source/, maintenant a Source/dsp/ et trackee)
 
 # --- Temporary diagnostic documents (not for production) ---
 debug-*.md
-DIAGNOSTIC_PITCHSHIFTER_BUFFER.md
-SUMMARY_FILES_CREATED.md
-BUILD_GUIDE.md
-DEBUG_GUIDE.md
-docs/correctif-pannes-autotune-2026-06-24.md
-docs/diagnostic-pannes-autotune-2026-06-24.md
 
 docs/changelogs/
 docs/internal/

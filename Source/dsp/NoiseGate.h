@@ -1,4 +1,8 @@
-#pragma once
+﻿// NoiseGate.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <cmath>
 
@@ -95,3 +99,6 @@ namespace ovtdsp
         double sampleRate = 44100.0;
     };
 }
+
+
+

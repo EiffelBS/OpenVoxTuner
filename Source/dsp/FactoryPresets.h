@@ -1,9 +1,8 @@
-// FactoryPresets.h
-// Single source of truth for the built-in (factory) pitch-curve presets.
-// Replaces the hardcoded menu items in OpenVoxTunerAudioProcessorEditor so
-// both the curve preset menu and the browsable Preset Gallery iterate
-// the same list. Each entry carries display metadata (category, description)
-// used by the gallery thumbnails.
+﻿// FactoryPresets.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -24,3 +23,6 @@ namespace ovtdsp
     /** Returns the ordered list of factory presets (never empty). */
     const std::vector<FactoryPresetInfo>& getFactoryPresets();
 }
+
+
+

@@ -1,6 +1,9 @@
+﻿#pragma once
 // SidechainBusLayoutTest.cpp
-// Unit tests for ovtdsp::isSidechainLayoutValid() used to validate the optional
-// Sidechain input bus layout in OpenVoxTunerAudioProcessor::isBusesLayoutSupported.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/SidechainBusLayout.h"
@@ -54,3 +57,5 @@ public:
 };
 
 static SidechainBusLayoutTest sidechainBusLayoutTest;
+
+

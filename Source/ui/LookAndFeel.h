@@ -1,4 +1,8 @@
-// LookAndFeel.h
+﻿// LookAndFeel.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -49,3 +53,6 @@ namespace ui
                                const juce::Slider::SliderStyle style, juce::Slider& slider) override;
     };
 }
+
+
+

@@ -1,7 +1,8 @@
-// SidechainBusLayout.h
-// Shared helper for validating the optional Sidechain input bus layout.
-// Kept header-only and dependency-light so it can be unit-tested without
-// linking the full audio plug-in.
+﻿// SidechainBusLayout.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -26,3 +27,6 @@ namespace ovtdsp
         return true;
     }
 }
+
+
+

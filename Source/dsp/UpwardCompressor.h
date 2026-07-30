@@ -1,4 +1,8 @@
-#pragma once
+﻿// UpwardCompressor.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <cmath>
 
@@ -44,7 +48,7 @@ namespace ovtdsp
         // level. Quiet passages (below the pivot) get boosted; loud passages
         // (at/above the pivot) stay at unity. The 2 s TC ensures the pivot
         // doesn't track individual words or notes, only the overall level.
-        const double pivotTau = 2.0; // 2 seconds — very slow
+        const double pivotTau = 2.0; // 2 seconds â€” very slow
         pivotCoeff = 1.0f - std::exp (-1.0 / (pivotTau * sr));
         reset();
     }
@@ -172,3 +176,6 @@ namespace ovtdsp
         double sampleRate = 44100.0;
     };
 }
+
+
+

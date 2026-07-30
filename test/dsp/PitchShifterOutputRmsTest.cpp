@@ -1,8 +1,9 @@
+﻿#pragma once
 // PitchShifterOutputRmsTest.cpp
-// Regression test (replaces the temporary PitchShifterRmsMeasure diagnostic):
-// the PitchShifter MUST produce a unity-RMS output on a sustained 200 Hz
-// sinus (no DAW-style under-gain). Catches regressions of the OLA gain
-// formula and the kbdColaSum measurement (Fix K, 2026-07-17).
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/PitchShifter.h"
@@ -91,3 +92,5 @@ public:
 };
 
 static PitchShifterOutputRmsTest pitchShifterOutputRmsTest;
+
+

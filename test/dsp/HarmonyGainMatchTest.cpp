@@ -1,11 +1,9 @@
+﻿#pragma once
 // HarmonyGainMatchTest.cpp
-// Regression test (2026-07-17) pour le gain match des harmonies :
-// verifie que getHarmonyVoiceCount() retourne les bons nombres de
-// voix pour les HarmonyType denses (Unison2, UnisonOctaves4, etc.)
-// et que la formule 1/sqrt(1+N) appliquee au mix d'harmonie
-// reduit effectivement le volume en sortie par rapport au mix
-// non-compense (pour eviter que la regression revienne sous la
-// forme d'un "unison trop fort" deja signale par l'utilisateur).
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/HarmonyEngine.h"
@@ -86,3 +84,5 @@ public:
 };
 
 static HarmonyGainMatchTest harmonyGainMatchTest;
+
+

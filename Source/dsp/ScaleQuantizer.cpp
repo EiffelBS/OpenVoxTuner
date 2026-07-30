@@ -1,8 +1,8 @@
-// ScaleQuantizer.cpp
-// Implementation reelle du quantificateur.
-// Prend une frequence d'entree, la convertit en demi-tons (relatifs a A4),
-// trouve le demi-ton le plus proche appartenant a la gamme, puis retourne la
-// frequence correspondante.
+﻿// ScaleQuantizer.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "ScaleQuantizer.h"
 #include <vector>
@@ -183,3 +183,6 @@ namespace ovtdsp
         juce::ignoreUnused (frac);
     }
 }
+
+
+

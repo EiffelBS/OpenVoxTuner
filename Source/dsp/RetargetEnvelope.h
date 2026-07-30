@@ -1,21 +1,8 @@
-// RetargetEnvelope.h
-// Enveloppe de retargeting du pitch (style Antares Auto-Tune "Speed").
-//
-// Principe :
-//   Speed definit un temps de reponse en millisecondes : c'est la duree
-//   que met le ratio "applique" pour converger de 0 a ~63% de sa valeur
-//   finale (constante de temps tau).
-//
-// Implementation : un filtre IIR passe-bas du 1er ordre sur le ratio :
-//     y[n] = y[n-1] + (x[n] - y[n-1]) * alpha
-// avec :
-//     alpha = 1 - exp(-dt / tau)
-//     dt = 1 / sampleRate
-//     tau = speedMs / 1000
-//
-// Plus Speed est petit (0 ms), plus la correction est instantanee
-// (effet "robotique" type T-Pain). Plus Speed est grand (200 ms),
-// plus la correction est douce et naturelle.
+﻿// RetargetEnvelope.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -62,3 +49,6 @@ namespace ovtdsp
         void recomputeAlpha();
     };
 }
+
+
+

@@ -1,5 +1,8 @@
-// FactoryPresets.cpp
-// Built-in (factory) pitch-curve preset registry. See FactoryPresets.h.
+﻿// FactoryPresets.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "FactoryPresets.h"
 
@@ -24,3 +27,6 @@ namespace ovtdsp
         return list;
     }
 }
+
+
+

@@ -1,5 +1,8 @@
-// PitchCurveEditor.cpp
-// Implementation de l'editeur de pitch curve.
+﻿// PitchCurveEditor.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "PitchCurveEditor.h"
 #include "OVTFonts.h"
@@ -26,7 +29,7 @@ namespace ui
 
     PitchCurveEditor::PitchCurveEditor()
     {
-        // Do NOT load the "default" preset here — the parent editor will
+        // Do NOT load the "default" preset here â€” the parent editor will
         // call setCurve() from the processor's pitchCurve on the first
         // timer tick (pendingCurveRestore flag). Loading "default" here
         // would flash the default preset before the real curve is synced.
@@ -1781,3 +1784,6 @@ namespace ui
         return false;
     }
 }
+
+
+

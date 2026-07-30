@@ -1,4 +1,7 @@
-#pragma once
+﻿// IPitchShifter.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -6,8 +9,8 @@ namespace ovtdsp
 {
     /**
      * Interface abstraite pour les moteurs de Pitch Shifting.
-     * Permet d'interchanger RubberBand, SoundTouch ou une implémentation PSOLA
-     * de manière transparente pour le reste du pipeline.
+     * Permet d'interchanger RubberBand, SoundTouch ou une implÃ©mentation PSOLA
+     * de maniÃ¨re transparente pour le reste du pipeline.
      */
     class IPitchShifter
     {
@@ -38,3 +41,6 @@ namespace ovtdsp
         virtual int getLatencySamples() const = 0;
     };
 }
+
+
+

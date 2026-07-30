@@ -1,25 +1,8 @@
-// LpcFormantPreserver.h
-// LPC cross-synthesis formant preservation (Phase: P1/P2 of the formant study).
-//
-// This module performs a true source/filter decoupling by LPC cross-synthesis
-// (Almeida & Tribolet style), applied AFTER the PSOLA pitch shifter:
-//
-//   1) Analyse the post-shift (transposed) signal  -> LPC a_shifted.
-//   2) Whiten it:  e[n] = A_shifted(z) * x[n]
-//                  (excitation / source, at the NEW pitch). NOTE the PLUS sign.
-//   3) Re-synthesize through the ORIGINAL envelope:  y[n] = (1/A_orig(z)) * e[n]
-//                  (formants moved back to their natural place).
-//
-// The reference (pre-shift) signal supplies a_orig; the post-shift signal
-// supplies a_shifted. The result keeps the shifted pitch but the original
-// formants, which is exactly what the pre-warp biquad bank can only approximate.
-//
-// Modes:
-//   C0       = P1: plain cross-synthesis (fixed order, no pre-emphasis).
-//   C1Hybrid = P2: adds pre-emphasis, temporal LPC coefficient interpolation
-//              (C1, reduces distortion at large upshifts), and a hybrid fallback
-//              that bypasses LPC on unvoiced / near-silent / unstable frames
-//              (falls back to the already pitch-shifted output).
+﻿// LpcFormantPreserver.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -114,3 +97,6 @@ namespace ovtdsp
                              ChannelState& s, Mode mode);
     };
 }
+
+
+

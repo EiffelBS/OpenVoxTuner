@@ -1,20 +1,8 @@
-// PitchShifter.cpp
-// PSOLA-based pitch shifter with phase-locked overlap-add, sub-sample pitch marks,
-// adaptive grain sizing, and improved windowing.
-//
-// References:
-//   - Moulines & Charpentier, "Pitch-synchronous waveform processing techniques
-//     for text-to-speech synthesis using diphones", Speech Communication, 1990.
-//   - DAFX (Zolzer), Ch. 6: Pitch-shifting and time-stretching.
-//   - Roebel & Rodet, "Efficient spectral envelope estimation and its application
-//     to pitch shifting and time stretching", ICMC 2005.
-//
-// Key improvements over basic PSOLA:
-//   1. Sub-sample pitch mark detection via parabolic interpolation of cross-correlation
-//   2. Phase-locked synthesis: output pitch marks placed at exact phase-aligned positions
-//   3. Adaptive grain length: scales with pitch period (2-3 cycles per grain)
-//   4. Kaiser-Bessel derived window for better spectral properties
-//   5. Proper overlap-add with constant overlap-add (COLA) compliance
+﻿// PitchShifter.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "PitchShifter.h"
 #include <cmath>
@@ -215,7 +203,7 @@ namespace ovtdsp
     // KBD (Kaiser-Bessel derived) window with lookup table.
     //
     // The window is precomputed once for beta=6 (the only value used in
-    // practice — see the prepare() function) at 2049 phase points across
+    // practice â€” see the prepare() function) at 2049 phase points across
     // [0, 1]. The per-sample cost drops from ~10 I0 iterations + 1 sqrt
     // to a single linear-interpolated table lookup. For 3 active grains
     // per sample at 44.1 kHz, this saves ~20-30 ms/sec of CPU (1-3% of
@@ -574,7 +562,7 @@ namespace ovtdsp
                 // 150 ms / 20 ms "ramp down then ramp up" behaviour on note
                 // onsets and pitch jumps. When an external helper (e.g.
                 // ovtdsp::AttackAwareEnv) is driving the correction amount,
-                // we don't want the internal envelope to ALSO run — that
+                // we don't want the internal envelope to ALSO run â€” that
                 // double-attenuation is what the user reports as a
                 // "scratchy attack" at low Amount. Skip the arming, but
                 // still do the OLA chain reset (outPhase = 1.0,
@@ -593,7 +581,7 @@ namespace ovtdsp
                     // masks the OLA re-organisation that follows a continuous
                     // pitch jump (200 -> 300 Hz): the old 200 Hz grains die
                     // and the new 300 Hz grains start, causing local OLA sum
-                    // fluctuations of up to ±0.4 around the steady-state value
+                    // fluctuations of up to Â±0.4 around the steady-state value
                     // during ~20-50 ms. By keeping attackGain < 0.5 during
                     // that window, the audible delta stays below 0.1.
                     slowAttackSamplesRemaining = static_cast<int> (sampleRate * 0.150);
@@ -602,7 +590,7 @@ namespace ovtdsp
 
                 // Clamp outPhase to 1.0 to prevent a burst of grains at the
                 // onset. After a silence of N ms, the !isVoiced branch above
-                // accumulated outPhase by N * 100 / sampleRate — easily 5+
+                // accumulated outPhase by N * 100 / sampleRate â€” easily 5+
                 // for a 50 ms gap. Without this clamp, the next sample would
                 // create (floor(outPhase) + 1) grains in rapid succession, all
                 // reading the same content. With a per-grain gain of 0.4 and
@@ -629,7 +617,7 @@ namespace ovtdsp
                 // after the onset (when the OLA re-organises around the
                 // mis-aligned grain). Resetting to 0 forces the
                 // "(idealCenter - lastGrainCenter) > 50 ms" branch, which
-                // searches a pitch mark locally around idealCenter — always
+                // searches a pitch mark locally around idealCenter â€” always
                 // correct since the new signal is now stable.
                 lastGrainCenter = 0.0;
             }
@@ -965,3 +953,5 @@ namespace ovtdsp
     }
 
 } // namespace ovtdsp
+
+

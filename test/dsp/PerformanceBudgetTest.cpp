@@ -1,41 +1,9 @@
+﻿#pragma once
 // PerformanceBudgetTest.cpp
-// CPU budget regression test for the OpenVoxTuner DSP pipeline (component-
-// level, not the full plugin). The test instantiates the components that
-// run on the audio thread's hot path (PitchShifter, FormantPreserver,
-// HarmonyEngine, RetargetEnvelope) and measures their combined
-// per-block wall-clock cost at low buffer sizes.
-//
-// Why this test exists
-// =====================
-// The user reported audio dropouts with the FlexTune and Attack features
-// at 128 / 256 sample buffers in Studio One. The dropouts disappeared
-// when the DAW's Dropout Protection was raised to Medium (or higher) or
-// when the buffer was raised to 512 / 1024 samples. This is a CLASSIC
-// signature of a CPU-budget issue: at 128 samples / 44.1 kHz, the audio
-// callback has only 2.9 ms to complete. Any wasted work in the hot path
-// (per-block string allocations, buffer-size dependent smoothers, O(n)
-// loops that could be SIMD) tips the deadline on slower machines.
-//
-// The fix (see changelog-2026-07-23.md) introduces several optimisations:
-//   - BlockAwareOnePole for parameter smoothing (Fix AI/AJ/AK)
-//   - Coordination between AttackAwareEnv and the internal envelope
-//     (Fix AL, eliminates double-attenuation at note onsets)
-//   - SIMD optimisation of the harmony buffer mix loop
-//   - Exponential (IIR) AttackAwareEnv ramp
-//
-// This test is a REGRESSION test for the budget: it measures the wall-
-// clock time of a representative audio block (sustained sinus, all
-// features enabled, 4 harmony voices, low buffer sizes) and verifies it
-// completes well within the audio deadline. We allow up to 50% of the
-// deadline to leave headroom for other plugins in the chain and for
-// the DAW's own callback overhead.
-//
-// IMPORTANT: this test is best-effort, not a hard contract. CI machines
-// and developer machines have different CPU speeds, so the absolute
-// numbers vary. What we verify is that the test is MEASURABLY below
-// the deadline on the developer's machine — if a future refactor
-// introduces a slowdown, the test will catch it on the same machine
-// and the developer will be alerted.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <chrono>
@@ -172,3 +140,5 @@ public:
 };
 
 static PerformanceBudgetTest performanceBudgetTest;
+
+

@@ -1,4 +1,8 @@
-// LookAndFeel.cpp
+﻿// LookAndFeel.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 #include "LookAndFeel.h"
 #include "OVTFonts.h"
 #include "OVTTheme.h"
@@ -418,3 +422,6 @@ namespace ui
                         thumbWidth, thumbWidth);
     }
 }
+
+
+

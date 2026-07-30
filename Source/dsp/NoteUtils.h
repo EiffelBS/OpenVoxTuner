@@ -1,9 +1,8 @@
-// NoteUtils.h
-// Utilitaires de conversion Hz <-> note musicale (nom + octave + cents).
-// Convention MIDI standard : A4 = 69 = 440 Hz.
-//   - 1 demi-ton = 100 cents
-//   - 1 octave    = 12 demi-tons
-// Octave "scientifique" : l'octave commence a C (C4 = MIDI 60, A4 = MIDI 69).
+﻿// NoteUtils.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -140,3 +139,6 @@ namespace ovtdsp
         return info;
     }
 }
+
+
+

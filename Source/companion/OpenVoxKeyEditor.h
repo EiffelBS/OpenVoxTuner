@@ -1,8 +1,8 @@
-// OpenVoxKeyEditor.h
-// Minimal editor for the OpenVoxKey companion plug-in: a group selector (A/B/C/D)
-// and a live display of the detected key/scale. Polled from the processor on a
-// timer (the detection runs in the audio thread and the result is published to
-// the KeyBridge, but we also expose it directly for the on-screen readout).
+﻿// OpenVoxKeyEditor.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -225,3 +225,6 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenVoxKeyEditor)
 };
+
+
+

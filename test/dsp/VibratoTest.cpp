@@ -1,5 +1,9 @@
+﻿#pragma once
 // VibratoTest.cpp
-// Unit tests for ovtdsp::VibratoPreserver (vibrato preservation helper).
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <cmath>
@@ -132,3 +136,5 @@ public:
 };
 
 static VibratoPreserverTest vibratoPreserverTest;
+
+

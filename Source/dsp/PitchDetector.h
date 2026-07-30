@@ -1,10 +1,8 @@
-// PitchDetector.h
-// Module de detection de pitch (frequence fondamentale) par algorithme YIN.
-// Implementation reelle (Phase 1).
-//
-// References :
-//   de Cheveigne & Kawahara, "YIN, a fundamental frequency estimator for speech
-//   and music", J. Acoust. Soc. Am. 111 (4), avril 2002.
+﻿// PitchDetector.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -72,3 +70,6 @@ namespace ovtdsp
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PitchDetector)
     };
 }
+
+
+

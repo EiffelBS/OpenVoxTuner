@@ -1,5 +1,9 @@
+﻿#pragma once
 // PitchDetectorTest.cpp
-// Tests unitaires du detecteur de pitch YIN.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <cmath>
@@ -115,3 +119,6 @@ public:
 };
 
 static PitchDetectorTest pitchDetectorTest;
+
+
+

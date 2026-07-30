@@ -1,7 +1,8 @@
-// PluginEditor.h
-// GUI Editor of the OpenVoxTuner plugin.
-// Display: title bar, mode switcher, pitch visualizer, pitch curve editor
-// (graphic mode), and row of knobs.
+﻿// PluginEditor.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -61,7 +62,7 @@ public:
     void mouseDown (const juce::MouseEvent& event) override;
     bool keyPressed (const juce::KeyPress& key) override;
 
-    // === Global plugin Undo/Redo (Option 1) — gesture listeners ===
+    // === Global plugin Undo/Redo (Option 1) â€” gesture listeners ===
     void sliderValueChanged (juce::Slider*) override;
     void sliderDragStarted (juce::Slider*) override;
     void sliderDragEnded (juce::Slider*) override;
@@ -93,7 +94,7 @@ private:
     // TabbedComponent, etc.) that hold a LookAndFeel pointer set via
     // setLookAndFeel(&customLookAndFeel). C++ destroys members in REVERSE order
     // of declaration, so placing customLookAndFeel at the top of the private
-    // section guarantees it is the LAST member destroyed — after every
+    // section guarantees it is the LAST member destroyed â€” after every
     // component that may still reference it has been torn down. Otherwise, on
     // editor destruction (Standalone quit, VST3 unload, debug-mode close), the
     // LookAndFeel is deleted while components still hold a pointer/weak-ref
@@ -396,7 +397,7 @@ private:
     // Tracks the last Harmony enable state seen by the timer so we can
     // re-run refreshLabels() (which disables the Follow Lead / Gain Match /
     // Use Voice sub-toggles) when Harmony changes via preset load or DAW
-    // automation — paths that bypass the button's onStateChange callback.
+    // automation â€” paths that bypass the button's onStateChange callback.
     bool lastHarmonyEnabled = true;
 
     // === Global plugin Undo/Redo (Option 1) ===
@@ -568,3 +569,6 @@ public:
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenVoxTunerAudioProcessorEditor)
 };
+
+
+

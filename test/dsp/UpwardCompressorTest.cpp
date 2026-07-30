@@ -1,5 +1,9 @@
+﻿#pragma once
 // UpwardCompressorTest.cpp
-// Verifies that the upward compressor actually boosts quiet passages.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/UpwardCompressor.h"
@@ -37,7 +41,7 @@ public:
                 comp.process (buf);
             }
 
-            // Now feed a quiet signal (-30 dBFS ≈ 0.0316)
+            // Now feed a quiet signal (-30 dBFS â‰ˆ 0.0316)
             const float quietLevel = 0.0316f;
             for (int s = 0; s < blockSize; ++s)
                 buf.setSample (0, s, quietLevel);
@@ -177,3 +181,5 @@ public:
 };
 
 static UpwardCompressorTest upwardCompressorTest;
+
+

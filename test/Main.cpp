@@ -1,6 +1,9 @@
+﻿#pragma once
 // Main.cpp
-// Point d'entree de l'application de tests unitaires.
-// Utilise le framework UnitTest de JUCE.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -19,6 +22,17 @@
 #include "dsp/SpeedFloorTest.cpp"
 #include "dsp/FormantPreserverModulationTest.cpp"
 #include "dsp/BlockAwareOnePoleTest.cpp"
+#include "dsp/PerformanceBudgetTest.cpp"
+#include "dsp/PitchShifterOutputTest.cpp"
+#include "dsp/PitchShifterOutputRmsTest.cpp"
+#include "dsp/PitchShifterClickTest.cpp"
+#include "dsp/HarmonyGainMatchTest.cpp"
+#include "dsp/HarmonyAttackTest.cpp"
+#include "dsp/PluginUndoTest.cpp"
+#include "dsp/PluginPresetTest.cpp"
+#include "dsp/UpwardCompressorTest.cpp"
+#include "ui/PitchCurveEditorTest.cpp"
+#include "ui/ScaleKeyboardComponentTest.cpp"
 #include "ScaleSnapPipelineTest.cpp"
 
 int main (int argc, char* argv[])
@@ -52,3 +66,5 @@ int main (int argc, char* argv[])
 
     return numFailed == 0 ? 0 : 1;
 }
+
+

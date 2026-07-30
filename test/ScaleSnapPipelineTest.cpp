@@ -1,17 +1,9 @@
+﻿#pragma once
 // ScaleSnapPipelineTest.cpp
-// Reproduces the OpenVoxTuner scale logic that drives SnapToScale in the
-// Curve Editor, using the REAL ScaleQuantizer plus plain parameter state
-// (the headless test environment does not link the GUI / APVTS modules).
-// The combo<->parameter binding itself is exercised by JUCE's
-// ComboBoxParameterAttachment (which uses comboBoxChanged, not onChange),
-// and is verified separately by reading the JUCE source.
-//
-// Logic replicated from PluginProcessor.cpp / PluginEditor.cpp:
-//   - scaleBox.onChange  : writes the 12 customN flags from a temp quantizer
-//                          for the selected NAMED scale.
-//   - syncParameters     : reads the scale param index, builds the quantizer
-//                          (Custom mode uses the customN flags).
-//   - onUserInteraction  : toolbar scale-keyboard click switches to Custom.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "../Source/dsp/ScaleQuantizer.h"
 
@@ -132,3 +124,5 @@ public:
 };
 
 static ScaleSnapPipelineTest scaleSnapPipelineTest;
+
+

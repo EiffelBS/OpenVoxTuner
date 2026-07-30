@@ -1,17 +1,9 @@
+﻿#pragma once
 // PluginPresetTest.cpp
-// Regression test (2026-07-17) for Plugin Presets (separate from the Curve
-// Editor's Curve Presets). Validates:
-//   - a Plugin Preset captures parameters.state only and never the pitch curve
-//     (the curve lives outside parameters.state),
-//   - the factory "Default" preset equals the plugin's factory-default state,
-//   - a factory override preset changes only the documented parameters,
-//   - a custom preset round-trips through the <OVT_PLUGIN_PRESET> XML shape
-//     and restores its parameter values exactly,
-//   - applying a preset preserves the user/session preferences (UI language,
-//     UI theme, morph position, Live/Curve mode).
-//
-// The APVTS layout is mirrored with a "OpenVoxTuner" root holding <PARAM
-// id=.. value=..> children, matching AudioProcessorValueTreeState::copyState().
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_data_structures/juce_data_structures.h>
 
@@ -208,3 +200,5 @@ public:
 };
 
 static PluginPresetTest pluginPresetTest;
+
+

@@ -1,5 +1,9 @@
+﻿#pragma once
 // LpcFormantPreserverTest.cpp
-// Unit tests for the LPC cross-synthesis formant preserver (P1 = C0, P2 = C1Hybrid).
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/LpcFormantPreserver.h"
@@ -225,3 +229,5 @@ private:
 };
 
 static LpcFormantPreserverTest lpcFormantPreserverTest;
+
+

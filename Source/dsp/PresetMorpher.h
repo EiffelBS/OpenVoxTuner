@@ -1,9 +1,8 @@
-// PresetMorpher.h
-// Interpolation engine for morphing between two plugin states.
-// Captures snapshots of all interpolable parameters and lerps/steps them when
-// the morph slider moves. The pitch curve is NOT crossfaded: the displayed
-// curve snaps to the nearest slot's curve, so the morph only blends parameters
-// (speed, amount, formant, ...) and never resamples / adds curve points.
+﻿// PresetMorpher.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -221,3 +220,6 @@ namespace ovtdsp
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));
     }
 }
+
+
+

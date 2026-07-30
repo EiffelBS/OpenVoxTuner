@@ -1,23 +1,8 @@
-// KeyBridge.h
-// Bridge letting a "companion" key-detection plug-in (OpenVoxKey) publish the
-// detected key/scale so the main OpenVoxTuner instance can read it.
-//
-// CRITICAL: OpenVoxKey and OpenVoxTuner are *separate* VST3 binaries. A plain
-// in-process singleton does NOT work between them — each binary gets its own
-// static instance, so the companion's publish() would never reach the main
-// plug-in's read(). To share state across the two modules we back the bridge
-// with a named, OS-level memory-mapped file (pagefile-backed, session-local).
-// Every module that maps the same name sees the same physical pages, so a
-// publish() from OpenVoxKey.vst3 is observable by OpenVoxTuner.vst3 (and by any
-// other OpenVoxTuner instance in the same session, including across processes).
-//
-// Instances are paired by a user-supplied group string (A..D by default), so
-// several independent (companion -> main) pairs can coexist.
-//
-// The companion writes via publish(); the main plug-in reads via read().
-// On non-Windows platforms the in-process singleton is kept as a fallback
-// (the companion feature is primarily Windows / Studio One; cross-binary
-// sharing for other platforms would use the same memory-mapped approach).
+﻿// KeyBridge.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -116,7 +101,7 @@ namespace ovtdsp
             KeyBridgeSlot* slot = &region_->slots[idx];
             // Always record the group string so reads can verify the slot belongs
             // to this group. We overwrite unconditionally (including stale data
-            // left by a previous session in the shared memory) — skipping the
+            // left by a previous session in the shared memory) â€” skipping the
             // write when non-empty would let a stale/different group in the slot
             // silently mask a fresh publish.
             const juce::String g = group.substring (0, kKeyBridgeNameLen - 1);
@@ -199,3 +184,6 @@ namespace ovtdsp
     #endif
     };
 }
+
+
+

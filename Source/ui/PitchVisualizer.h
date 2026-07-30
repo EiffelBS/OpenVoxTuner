@@ -1,7 +1,8 @@
-// PitchVisualizer.h
-// Composant GUI : visualisation en temps reel des courbes de pitch.
-// Affiche la pitch curve d'entree, la pitch curve corrigee, la note
-// actuellement chantee, l'offset en cents, et les notes de la gamme.
+﻿// PitchVisualizer.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -176,7 +177,7 @@ namespace ui
         /** Recalculate tuning statistics (avg, stddev, in-tune %) from centsHistory. */
         void updateStatistics();
 
-        // Animated zoom/scroll (smooth transitions) — used by the toolbar
+        // Animated zoom/scroll (smooth transitions) â€” used by the toolbar
         // buttons. Trackpad gestures apply immediately instead (see mouseWheelMove /
         // mouseMagnify) so they track the fingers 1:1 like the Curve Editor.
         float targetFMin = 50.0f;
@@ -196,7 +197,7 @@ namespace ui
 
         // Auto-center: keeps the output pitch vertically centered.
         bool  autoCenter = false;
-        float smoothedOutputHz = 5.61f; // log(440 Hz) — initial seed
+        float smoothedOutputHz = 5.61f; // log(440 Hz) â€” initial seed
 
         // Setup helper for SVG icon buttons.
         void setupIconBtn (juce::DrawableButton& btn, const char* svgXml,
@@ -211,3 +212,6 @@ namespace ui
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PitchVisualizer)
     };
 }
+
+
+

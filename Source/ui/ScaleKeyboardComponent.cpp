@@ -1,4 +1,8 @@
-// ScaleKeyboardComponent.cpp
+﻿// ScaleKeyboardComponent.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 #include "ScaleKeyboardComponent.h"
 
 namespace ui
@@ -27,7 +31,7 @@ namespace ui
         // our listener runs the `activeInScale` sync + `onUserInteraction`
         // dispatch. The juce::ButtonAttachment is created by the caller
         // AFTER the button constructor, so it gets appended to the
-        // listener list AFTER us — but ButtonAttachment::buttonClicked
+        // listener list AFTER us â€” but ButtonAttachment::buttonClicked
         // does NOT depend on us, it just pushes the new toggle value
         // to the AudioParameterBool. The order in which we run vs the
         // ButtonAttachment is therefore irrelevant: by the time
@@ -171,4 +175,7 @@ namespace ui
         }
     }
 }
+
+
+
 

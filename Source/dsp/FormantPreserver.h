@@ -1,25 +1,8 @@
-// FormantPreserver.h
-// Module de compensation de formants (Phase 4).
-//
-// Principe : quand on transpose un signal par PSOLA, les formants (resonances
-// du conduit vocal) sont decales avec le pitch, ce qui donne un effet
-// "chipmunk" (tete qui devient plus fine quand on monte).
-//
-// La technique classique (Moulines & Charpentier 1990) consiste a :
-//   1) Filtrer le signal par un passe-bas dont la frequence de coupure est
-//      proportionnelle au pitch (en log). Cela deplace les formants
-//      artificiellement dans le sens inverse.
-//   2) Appliquer ensuite le PSOLA.
-//   3) Resampler pour ajuster la duree si necessaire.
-//
-// Implementation simplifiee : un filtre IIR passe-bas du 2nd ordre dont
-// la frequence de coupure suit le ratio de transposition. Le filtre est
-// tres leger (1-2 coeffs mis a jour par bloc).
-//
-// Modes:
-//   - Legacy: single peaking EQ at 500Hz (original behavior)
-//   - MultiFormant: 4 formant peaks (F1-F4) with configurable Q/gain
-//   - Allpass: F1-F4 allpass-cascade formant shifting (P3)
+﻿// FormantPreserver.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -132,8 +115,8 @@ namespace ovtdsp
             // Un biquad par formant (max 4).
             // `formants` stocke les coefficients CIBLES (recalculees chaque
             // bloc selon le ratio). `smooth` stocke les coefficients
-            // APPLIQUES au signal avec leurs propres états de retard (fixe
-            // les pops/clics causés par l'incompatibilité coefficient/état).
+            // APPLIQUES au signal avec leurs propres Ã©tats de retard (fixe
+            // les pops/clics causÃ©s par l'incompatibilitÃ© coefficient/Ã©tat).
             struct BiquadState
             {
                 float a1 = 0.0f, a2 = 0.0f;
@@ -147,7 +130,7 @@ namespace ovtdsp
                 float z1 = 0.0f, z2 = 0.0f; // delay states OWNED by smoothed coefficients
             };
             BiquadState  formants[4];   // coefficients cibles (recalcule par bloc)
-            BiquadSmooth smooth[4];     // coefficients + états appliqués au signal
+            BiquadSmooth smooth[4];     // coefficients + Ã©tats appliquÃ©s au signal
         };
         juce::Array<ChannelState> channels;
 
@@ -213,3 +196,6 @@ namespace ovtdsp
         void processChannel (float* data, int numSamples, ChannelState& s);
     };
 }
+
+
+

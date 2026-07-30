@@ -1,5 +1,9 @@
+﻿#pragma once
 // FormantPreserverTest.cpp
-// Tests unitaires du compensateur de formants.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/FormantPreserver.h"
@@ -103,9 +107,9 @@ public:
                     expect (std::isfinite (s), "NaN apres saut de ratio");
                     // Un vrai clic audible = un saut instantane > 0.5 d'amplitude
                     // (sur un signal unitaire). Le lissage des coefficients
-                    // biquad empêche les sauts repetes : on tolère au plus 3
+                    // biquad empÃªche les sauts repetes : on tolÃ¨re au plus 3
                     // echantillons de saut (le tout premier sample du changement
-                    // de coeff, inévitable car le filtre a une memoire), contre
+                    // de coeff, inÃ©vitable car le filtre a une memoire), contre
                     // des dizaines sans lissage.
                     const float jump = std::abs (s - prev);
                     if (jump > 0.5f) maxJumpCount++;
@@ -129,8 +133,8 @@ public:
             fpC.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
             fpP.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
 
-            // Identical noise for both strategies. Amplitude 0.5 is safe —
-            // the peaking-EQ cascade (4 × Q≤3.25, gain=6 dB) at ratio 2.0
+            // Identical noise for both strategies. Amplitude 0.5 is safe â€”
+            // the peaking-EQ cascade (4 Ã— Qâ‰¤3.25, gain=6 dB) at ratio 2.0
             // produces bounded output without NaN when the biquad states
             // are fresh (no warm-up).
             srand (42);
@@ -226,7 +230,7 @@ public:
                 expect (std::isfinite (s), "Allpass: NaN retour ratio 1.0");
             }
 
-            // Bloc 4+: variations rapides (ratio entre 1.0 et 2.0 alterné)
+            // Bloc 4+: variations rapides (ratio entre 1.0 et 2.0 alternÃ©)
             float prevBig = buf.getSample (0, 252);
             for (int blk = 0; blk < 10; ++blk)
             {
@@ -269,4 +273,7 @@ public:
 };
 
 static FormantPreserverTest formantPreserverTest;
+
+
+
 

@@ -1,7 +1,8 @@
-// YinPitchDetector.cpp
-// YIN pitch detection algorithm implementation.
-// Ported from PitchDetector.cpp with the same logic; only the
-// class name and inheritance changed.
+﻿// YinPitchDetector.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "YinPitchDetector.h"
 
@@ -224,3 +225,5 @@ float YinPitchDetector::computeYin (const float*, int)
 }
 
 } // namespace ovtdsp
+
+

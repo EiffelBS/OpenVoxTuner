@@ -337,34 +337,15 @@ target_link_libraries(OpenVoxKey PRIVATE
 )
 
 # === Cible pour les tests unitaires (GTest-like console app) ===
+# Main.cpp includes all test files via #include, so we only compile Main.cpp
 juce_add_console_app(OpenVoxTunerTests
     PRODUCT_NAME "OpenVoxTunerTests"
     VERSION 0.1.0)
 
 target_sources(OpenVoxTunerTests PRIVATE
     test/Main.cpp
-    test/dsp/BlockAwareOnePoleTest.cpp
-    test/dsp/PerformanceBudgetTest.cpp
-    test/dsp/SpeedFloorTest.cpp
-    test/dsp/FormantPreserverModulationTest.cpp
-    test/dsp/PitchDetectorTest.cpp
-    test/dsp/ScaleQuantizerTest.cpp
-    test/dsp/RetargetEnvelopeTest.cpp
-    test/dsp/FormantPreserverTest.cpp
-    test/dsp/PitchShifterOutputTest.cpp
-    test/dsp/PitchShifterOutputRmsTest.cpp
-    test/dsp/PitchShifterClickTest.cpp
-    test/dsp/HarmonyGainMatchTest.cpp
-    test/dsp/HarmonyAttackTest.cpp
-    test/dsp/PitchCurveTest.cpp
-    test/dsp/KeyBridgeTest.cpp
-    test/dsp/SidechainBusLayoutTest.cpp
-    test/dsp/PluginUndoTest.cpp
-    test/dsp/PluginPresetTest.cpp
-    test/ui/PitchCurveEditorTest.cpp
-    test/ui/ScaleKeyboardComponentTest.cpp
 
-    # On lie les sources DSP a tester
+    # DSP sources to test (linked so tests can access internals)
     Source/dsp/PitchDetector.cpp
     Source/dsp/ScaleQuantizer.cpp
     Source/dsp/RetargetEnvelope.cpp

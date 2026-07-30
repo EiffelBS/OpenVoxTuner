@@ -1,46 +1,8 @@
-// BlockAwareOnePole.h
-// Buffer-size-independent one-pole IIR smoother for the audio callback.
-//
-// Purpose
-// =======
-// Several audio parameters need to be smoothed every audio block (FlexTune
-// multiplier, Humanize random walk, etc.). The naive form
-//
-//     y = y * 0.95f + x * 0.05f;            // WRONG at small buffers
-//
-// is buffer-size dependent: the time constant tau = 1/alpha samples is
-// multiplied by the buffer length, so the same alpha behaves TWICE as fast
-// at 128 samples (2.9 ms @ 44.1 kHz) as it does at 256 samples (5.8 ms).
-// This makes the smoothed parameter audibly inconsistent across buffer
-// sizes and is a documented cause of glitches when the user switches from
-// a 512-sample buffer (e.g. while monitoring) to a 128-sample buffer
-// (e.g. for low-latency tracking) without re-tuning the plugin.
-//
-// This class applies a single IIR step per BLOCK, but with an alpha
-// equivalent to N successive per-sample steps. With tau in seconds and
-// blockDur = numSamples / sampleRate in seconds, the formula is:
-//
-//     alpha_block = 1 - exp(-blockDur / tau)
-//
-// which gives an effective time constant tau that is INDEPENDENT of the
-// block size (just like RetargetEnvelope::processBlock).
-//
-// Skip-when-disabled
-// ==================
-// When the input x is equal to the current value (e.g. FlexTune is off
-// and the multiplier is 1.0, or Humanize is at 0 cents), this helper
-// still updates the state to avoid latent error if x changes later.
-// However, callers can also short-circuit by checking their own
-// enable flag and skipping processBlock() entirely to save a few cycles
-// on every audio block.
-//
-// Performance
-// ===========
-// One processBlock() call is one transcendental (std::exp) plus one
-// multiply + add. The exp is required because alpha must depend on the
-// actual block duration. We could cache it, but the duration changes
-// at every block on hosts that re-negotiate buffer size, so caching is
-// not worth the complexity here.
+﻿// BlockAwareOnePole.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -162,3 +124,6 @@ namespace ovtdsp
         float  currentAlpha = 1.0f;
     };
 }
+
+
+

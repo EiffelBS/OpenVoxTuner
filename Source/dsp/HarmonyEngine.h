@@ -1,11 +1,8 @@
-// HarmonyEngine.h
-// Module d'harmonie vocale polyphonique.
-// Calcule les frequences d'harmonie basnees sur la gamme courante.
-//
-// Algorithme :
-//   1) Identifier la position (degre) de la note quantifiee dans la gamme
-//   2) Avancer/arreter de X degres (intervals) dans la gamme pour chaque voix
-//   3- Retourner les frequences correspondantes
+﻿// HarmonyEngine.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -191,3 +188,6 @@ namespace ovtdsp
         bool isActive() const;
     };
 }
+
+
+

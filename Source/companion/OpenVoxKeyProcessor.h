@@ -1,14 +1,8 @@
-// OpenVoxKeyProcessor.h
-// Companion key-detection plug-in ("OpenVoxKey").
-//
-// Placed on an accompaniment (or any harmonic) track, it analyses the audio,
-// estimates the musical key/scale with ovtdsp::KeyDetector (Krumhansl-Schmuckler)
-// and publishes the result to the process-wide ovtdsp::KeyBridge keyed by a group
-// letter (A/B/C/D). The main OpenVoxTuner instance, with Key/Scale Detection
-// = "OpenVoxKey" and the matching group, reads that value and applies it.
-//
-// The plug-in is a transparent effect: it passes the audio through unchanged so
-// the accompaniment keeps playing.
+﻿// OpenVoxKeyProcessor.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -99,3 +93,6 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenVoxKeyProcessor)
 };
+
+
+

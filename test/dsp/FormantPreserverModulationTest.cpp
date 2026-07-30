@@ -1,25 +1,9 @@
+﻿#pragma once
 // FormantPreserverModulationTest.cpp
-// Regression test for the "Flex>0 + Speed=0 5Hz warble" bug.
-//
-// 2026-07-23 (Fix AZ): the FormantPreserver's biquad coefficient smoother
-// was at TC = 1/(0.002 * 172) = 2.9 seconds at 256 samples / 44.1 kHz
-// (i.e. 0.002 alpha per block). This was far too slow for the typical
-// 5Hz vibrato modulation: the smoother acted as a 5Hz bandpass on its
-// own compensation ratio (1/sqrt(targetRatio)) and produced an audible
-// "warble" of formant frequencies that the user reports as a "scratch"
-// with Flex>0 + Speed=0.
-//
-// The fix raises biquadSmoothAlpha from 0.002 to 0.05 (~115ms TC). At
-// 115ms the smoother is fast enough to track the typical 5Hz vibrato
-// (|H(5Hz)| ~ 0.42) without lagging too far behind the pitch
-// modulation, but still smooths out per-block YIN jitter and OLA
-// retarget steps.
-//
-// This test verifies that:
-//   1) At the new biquadSmoothAlpha = 0.05, a 5Hz sinusoidal
-//      modulation of the input pitch produces a smooth (not warbling)
-//      output spectrum.
-//   2) The output does not contain audible 5Hz envelope modulation.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/FormantPreserver.h"
@@ -169,3 +153,5 @@ public:
 };
 
 static FormantPreserverModulationTest formantPreserverModulationTest;
+
+

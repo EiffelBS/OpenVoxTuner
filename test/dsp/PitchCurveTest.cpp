@@ -1,6 +1,9 @@
+﻿#pragma once
 // PitchCurveTest.cpp
-// Tests unitaires de la courbe de pitch, en particulier snapToIntervals()
-// qui pilote le "snap-to-scale" de l'editeur de courbe.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/PitchCurve.h"
@@ -80,3 +83,5 @@ public:
 };
 
 static PitchCurveTest pitchCurveTest;
+
+

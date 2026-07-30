@@ -1,7 +1,8 @@
-// PluginProcessor.h
-// Audio processor for the OpenVoxTuner plugin.
-// Contains audio logic: DSP pipeline (pitch detection, quantization, shifting).
-// The GUI is managed in PluginEditor.
+﻿// PluginProcessor.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -203,7 +204,7 @@ public:
     void setWaveformCaptureEnabled (bool enabled) { waveformCaptureEnabled.store (enabled); }
     bool isWaveformCaptureEnabled() const { return waveformCaptureEnabled.load(); }
 
-    // --- Deferred parameter changes (audio → UI thread) ---
+    // --- Deferred parameter changes (audio â†’ UI thread) ---
     // Called from the UI thread (editor timerCallback) to apply key/scale
     // changes that were detected on the audio thread.  Using
     // setValueNotifyingHost() from the audio thread can deadlock certain
@@ -212,7 +213,7 @@ public:
     void flushPendingParameterChanges();
 
     // Read host transport (playhead position, playing state, time signature).
-    // MUST be called from the UI thread only — getPlayHead()->getPosition()
+    // MUST be called from the UI thread only â€” getPlayHead()->getPosition()
     // can deadlock Cubase and Live VST3 when called from the audio thread.
     void updateHostTransport();
 
@@ -220,7 +221,7 @@ public:
     // hostIsPlaying / time-signature atomics.  Safe to call from any
     // thread provided the caller has already verified that getPlayHead()
     // is reachable (auReady, !editorShuttingDown, !isStandalone).  All
-    // exceptions are swallowed — on macOS a torn-down AU can raise an
+    // exceptions are swallowed â€” on macOS a torn-down AU can raise an
     // Objective-C++ exception that we never want to propagate out of
     // an audio callback.
     void readAndCachePlayHeadInfo (juce::AudioPlayHead& playHead) noexcept;
@@ -255,12 +256,12 @@ public:
     // UI thread is unsafe on AU: JuceAU::ScopedPlayHead dereferences an
     // internal pointer (to the JuceAU instance) that can be invalidated
     // at any time by the host (device change, sample-rate change,
-    // project reload, …).  The resulting SIGSEGV is a Mach exception
+    // project reload, â€¦).  The resulting SIGSEGV is a Mach exception
     // and CANNOT be caught by try/catch.  We therefore gate every call
     // to getPlayHead() on `auReady`, which is true only between a
     // prepareToPlay() and the next releaseResources() (and false again
     // on destruction).  For AU we additionally skip the call entirely
-    // — see updateHostTransport().
+    // â€” see updateHostTransport().
     void notifyAuReady() noexcept
     {
         auReady.store (true, std::memory_order_release);
@@ -635,7 +636,7 @@ private:
     // enable button ramps this (instead of hard-cutting the mix) so enabling/
     // disabling harmony produces no click.
     juce::LinearSmoothedValue<float> harmonyEnableGain { 0.0f };
-    // Smoothed gate gain for harmony voices — prevents clicks when the
+    // Smoothed gate gain for harmony voices â€” prevents clicks when the
     // Noise Gate opens/closes (the raw gateGain jumps instantly).
     juce::LinearSmoothedValue<float> harmonyGateGain { 0.0f };
     // Temporary buffers to hold pitch-shifted voices (preallocated)
@@ -797,3 +798,6 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenVoxTunerAudioProcessor)   
 };
+
+
+

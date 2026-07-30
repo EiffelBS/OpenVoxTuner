@@ -1,6 +1,8 @@
-// PitchCurve.h
-// Pitch curve editable : liste de points (time, pitch en Hz) avec interpolation.
-// Mode "graphic" du plugin : l'utilisateur definit la hauteur desiree au fil du temps.
+﻿// PitchCurve.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -144,3 +146,6 @@ namespace ovtdsp
         void sortPoints();
     };
 }
+
+
+

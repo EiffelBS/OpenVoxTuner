@@ -1,5 +1,9 @@
+﻿#pragma once
 // RetargetEnvelopeTest.cpp
-// Tests unitaires du filtre de retargeting (Speed).
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/RetargetEnvelope.h"
@@ -65,3 +69,5 @@ public:
 };
 
 static RetargetEnvelopeTest retargetEnvelopeTest;
+
+

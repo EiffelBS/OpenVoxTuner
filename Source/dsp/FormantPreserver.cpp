@@ -1,5 +1,8 @@
-// FormantPreserver.cpp
-// Implementation du deplaceur de formants multi-formants.
+﻿// FormantPreserver.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "FormantPreserver.h"
 #include <cmath>
@@ -257,3 +260,6 @@ namespace ovtdsp
         }
     }
 }
+
+
+

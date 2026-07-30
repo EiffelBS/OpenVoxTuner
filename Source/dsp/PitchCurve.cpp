@@ -1,5 +1,8 @@
-// PitchCurve.cpp
-// Implementation de la pitch curve.
+﻿// PitchCurve.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "PitchCurve.h"
 #include "ScaleQuantizer.h" // pour l'enum ovtdsp::Scale et les types lies a la gamme
@@ -318,3 +321,6 @@ namespace ovtdsp
         }
     }
 }
+
+
+

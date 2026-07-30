@@ -1,34 +1,9 @@
+﻿#pragma once
 // SpeedFloorTest.cpp
-// Regression test for the "Speed=0 + Flex>0" scratch bug.
-//
-// 2026-07-23 (Fix AY + Fix AZ): the per-block jitter in `targetRatio`
-// (from flexTuneSmoother, humanizeSmoother, vibrato preservation and YIN
-// pitch detection steps) reached the OLA chain unchanged when the
-// RetargetEnvelope was transparent (Speed=0) or too slow to smooth the
-// jitter. The user perceived this as a "scratch" most audible with
-// Flex > 0 cents and Speed = 0, and more pronounced in Modern mode than
-// Transparent mode (because Modern preserves the full vibrato amplitude).
-//
-// Fix AY: added a 50ms BlockAwareOnePole (the "speed floor") AFTER the
-// RetargetEnvelope.
-//
-// Fix AZ: raised the TC from 50ms to 80ms. At 50ms the 5Hz vibrato was
-// only reduced by 53% (|H(5Hz)| = 0.53), still leaving ~0.14% residual
-// modulation in the targetRatio that the OLA chain could not fully
-// absorb. At 80ms the 5Hz vibrato is reduced by 70% (|H(5Hz)| = 0.30),
-// bringing the residual modulation below the OLA grain spacing
-// sensitivity threshold (~0.5 sample misalignment). The compounded
-// retargeting time is approximately `max(Speed, 80ms) + 80ms / 2`, still
-// allowing Speed=10ms to be perceptibly faster than Speed=100ms.
-//
-// These tests verify that:
-//   1) The speed floor significantly reduces step-to-step jitter in
-//      the `ratio` signal (modelled as random walks or YIN-like
-//      step changes every ~10 blocks).
-//   2) The speed floor is buffer-size independent.
-//   3) The speed floor respects the user's Speed knob (Speed=10ms
-//      is perceptibly faster than Speed=100ms).
-//   4) The speed floor doesn't drift with constant input.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/BlockAwareOnePole.h"
@@ -265,3 +240,5 @@ public:
 };
 
 static SpeedFloorTest speedFloorTest;
+
+

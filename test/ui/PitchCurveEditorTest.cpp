@@ -1,12 +1,9 @@
+﻿#pragma once
 // PitchCurveEditorTest.cpp
-// Tests unitaires des interactions souris de l'editeur de courbe :
-//   - snapTimeToGrid  : quantification temporelle du clic sur la regle
-//                       (grille de projet, 1/2 beat = noire).
-//   - clampScrollOffset : bornage du decalage de scroll horizontal (>= 0).
-//
-// Ces deux methodes sont statiques/inline dans PitchCurveEditor.h, donc
-// testables sans lier l'unite de compilation de l'editeur (pas de GUI a
-// instancier). Elles ne dependent que de <cmath>.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <cmath>
 
@@ -78,3 +75,5 @@ public:
 };
 
 static PitchCurveEditorInteractionTest pitchCurveEditorInteractionTest;
+
+

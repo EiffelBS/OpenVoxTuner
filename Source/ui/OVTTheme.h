@@ -1,7 +1,8 @@
-// OVTTheme.h
-// Centralized theme system for OpenVoxTuner.
-// Supports dark and light themes. All UI components should query
-// colours through this header instead of using hardcoded values.
+﻿// OVTTheme.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -192,7 +193,7 @@ namespace ovt
     enum class WaveformDisplayType
     {
         Line    = 0,   // Simple waveform line (outline only)
-        Mirror  = 1,   // Mirrored bars (symmetric around center) — default
+        Mirror  = 1,   // Mirrored bars (symmetric around center) â€” default
         Spectral = 2   // FFT magnitude spectrum rising from the bottom (EQ-like)
     };
 
@@ -334,3 +335,6 @@ namespace ovt
         }
     }
 }
+
+
+

@@ -1,7 +1,8 @@
-// IEffect.h
-// Abstract interface for audio effects (reverb, delay, chorus, etc.).
-// Each effect can be enabled/disabled independently and exposes a wet mix
-// parameter. Effects are applied in order after the main DSP pipeline.
+﻿// IEffect.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -40,3 +41,5 @@ namespace ovtdsp
         virtual void process (juce::AudioBuffer<float>& buffer, bool enabled, float wetMix) = 0;
     };
 }
+
+

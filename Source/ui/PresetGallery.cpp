@@ -1,6 +1,8 @@
-// PresetGallery.cpp
-// Browsable grid of factory + custom pitch-curve presets with curve
-// thumbnails and metadata. See PresetGallery.h.
+﻿// PresetGallery.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "PresetGallery.h"
 #include "../dsp/PitchCurve.h"
@@ -333,3 +335,5 @@ void PresetGallery::resized()
     viewport.setBounds (getLocalBounds().reduced (8));
     layoutContent();
 }
+
+

@@ -1,6 +1,6 @@
 # OpenVoxTuner - Implementation Roadmap
 
-> Last updated: 2026-07-27 16:40 CEST
+> Last updated: 2026-07-30 22:10 CEST
 
 ## Legend
 
@@ -456,3 +456,22 @@ User-ranked wishlist (audio + UI). **Implementation order (decided 2026-07-14):*
 - [x] Export visualizer as image/screenshot
 - [x] Multi-language UI support
 - [ ] Accessibility improvements (keyboard navigation, screen reader)
+
+## 10. Landing Page / Website
+
+### Responsive & Polish
+- [x] Showcase section: responsive layout (text/image stacked on mobile, side-by-side on desktop), subtle glow effect (reduced blur, animated opacity crossfade), progress dots/counter hidden on mobile (2026-07-30)
+- [x] Showcase section: full redesign — glow removed, full-size centered screenshots at same position, scroll-driven GSAP scrub fade/slide transitions between slides, text visible below each screenshot, dots/counter always visible (2026-07-30)
+- [x] Features section: replaced ARA2 card with Key Detection (OpenVoxKey + Sidechain), added MIDI OUT card (2026-07-30)
+- [x] Stats section: replaced Tone Colors / Semitones Shift with Languages (6) / Effects Included (4) (2026-07-30)
+- [x] Support section: new component with Ko-fi, Patreon, GitHub Sponsors, and GitHub contribution links + scroll fade-in animations (2026-07-30)
+- [x] Hero section: animated waveform SVG lines in background (5 layered sine-wave paths with CSS translateX/scaleY animations) (2026-07-30)
+- [ ] Showcase section: touch swipe support for mobile slide navigation
+- [ ] Testimonials / social proof section
+- [ ] Dark/light theme toggle for the website
+
+### Internationalization (i18n)
+- [x] Landing page i18n translation files: en.json, fr.json, de.json, es.json, ja.json, zh.json in `site/src/i18n/` (2026-07-30)
+- [x] Landing page language switcher component (2026-07-30)
+- [x] Astro i18n integration for page routing — locale pages for fr, de, es, ja, zh (2026-07-30)
+- [x] Landing page components accept `t` translation prop for i18n (Hero, Features, Showcase, Download, Support) (2026-07-30)

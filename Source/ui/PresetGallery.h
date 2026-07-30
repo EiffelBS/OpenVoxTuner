@@ -1,7 +1,8 @@
-// PresetGallery.h
-// Browsable grid of factory + custom pitch-curve presets with curve
-// thumbnails and metadata (category / description). Opened from the
-// Curve Editor "Options" menu and the toolbar gallery button.
+﻿// PresetGallery.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -81,3 +82,5 @@ private:
     DeleteCustomFn  onDeleteCustom;
     GetCustomFilesFn getCustomFiles;
 };
+
+

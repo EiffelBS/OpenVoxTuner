@@ -1,5 +1,8 @@
+﻿// ReverbEffect.cpp
 // ReverbEffect.cpp
-// Implementation of a simple reverb effect using JUCE's built-in reverb.
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "ReverbEffect.h"
 
@@ -127,3 +130,5 @@ namespace ovtdsp
             reverb.setParameters (params);
     }
 }
+
+

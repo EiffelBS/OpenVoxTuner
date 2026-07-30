@@ -1,10 +1,8 @@
-// PianoKeyboard.h
-// Composant GUI : un clavier de piano vertical affiche sur la gauche
-// du curve editor. Permet a l'utilisateur d'identifier les notes
-// affichees sur la grille de la pitch curve.
-//
-// Le piano va de bas en haut (notes graves en bas, aigues en haut),
-// avec les touches blanches + noires dessinees correctement.
+﻿// PianoKeyboard.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #pragma once
 
@@ -84,3 +82,6 @@ namespace ui
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PianoKeyboard)
     };
 }
+
+
+

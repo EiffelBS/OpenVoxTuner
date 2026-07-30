@@ -1,10 +1,8 @@
-// PianoKeyboard.cpp
-// Implementation du clavier de piano vertical.
-//
-// Convention : axe Y vertical, notes graves en BAS, notes aigues en HAUT.
-// - Touches blanches : C, D, E, F, G, A, B (largeur 100% de la largeur).
-// - Touches noires  : C#, D#, F#, G#, A# (largeur 60%, hauteur 60%).
-// Les touches de la gamme courante sont mises en surbrillance.
+﻿// PianoKeyboard.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "PianoKeyboard.h"
 #include "OVTFonts.h"
@@ -307,3 +305,6 @@ namespace ui
 
     void PianoKeyboard::resized() {}
 }
+
+
+

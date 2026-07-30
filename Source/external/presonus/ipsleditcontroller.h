@@ -1,13 +1,8 @@
-//************************************************************************************************
-//
-// PreSonus Plug-In Extensions
-// Written and placed in the PUBLIC DOMAIN by PreSonus Software Ltd.
-//
-// Filename    : ipsleditcontroller.h
-// Created by  : PreSonus Software Ltd., 02/2017, last updated 10/2017
-// Description : Plug-in Edit Controller Extension Interface
-//
-//************************************************************************************************
+﻿// ipsleditcontroller.h
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 /*
 	DISCLAIMER:
 	PreSonus Plug-In Extensions are host-specific extensions of existing proprietary technologies,
@@ -112,3 +107,6 @@ DECLARE_CLASS_IID (ISlaveControllerHandler, 0xd93894bd, 0x67454c29, 0x977ae2f5, 
 #include "pluginterfaces/base/falignpop.h"
 
 #endif // _ipsleditcontroller_h
+
+
+

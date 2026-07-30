@@ -1,10 +1,9 @@
+﻿#pragma once
 // PitchShifterOutputTest.cpp
-// Non-regression : le PitchShifter doit produire un signal NON nul
-// en sortie quand on lui fournit un sinus vocal soutenu (f0 constant).
-//
-// Ce test aurait attrape immediatement le bug de la correction B
-// (gain de grain divise par la somme COLA BRUTE ~3850 au lieu de la
-// valeur par-point ~1.88 -> gain ~2000x trop faible -> silence total).
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/PitchShifter.h"
@@ -72,3 +71,5 @@ public:
 };
 
 static PitchShifterOutputTest pitchShifterOutputTest;
+
+

@@ -1,10 +1,8 @@
-// PitchDetector.cpp
-// Implementation YIN complete.
-// Algorithme en 4 etapes :
-//   1) Difference function    d(tau) = sum (x[j] - x[j+tau])^2
-//   2) Cumulative mean normalized difference d'(tau)
-//   3) Recherche du premier minimum sous le seuil
-//   4) Interpolation parabolique pour la precision sub-sample
+﻿// PitchDetector.cpp
+// OpenVoxTuner DSP module
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include "PitchDetector.h"
 
@@ -16,7 +14,7 @@ namespace ovtdsp
     void PitchDetector::prepare (double sr, int blockSize)
     {
         sampleRate = sr;
-        // Limite basse 30 Hz pour couvrir les notes très graves comme F#1 (~46 Hz). 
+        // Limite basse 30 Hz pour couvrir les notes trÃ¨s graves comme F#1 (~46 Hz). 
         freqMinHz = 30.0f;
         freqMaxHz = 1000.0f;
 
@@ -270,3 +268,6 @@ namespace ovtdsp
         return 0.0f;
     }
 }
+
+
+

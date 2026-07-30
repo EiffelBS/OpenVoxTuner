@@ -1,33 +1,9 @@
+﻿#pragma once
 // ScaleKeyboardComponentTest.cpp
-// Regression test (2026-07-17) : apres un clic utilisateur reel sur une
-// touche du ScaleKeyboardComponent, l'etat visuel (paintButton utilise
-// `activeInScale || getToggleState()`) doit refleter le nouvel etat du
-// toggle, ET le `AudioParameterBool` (custom_i) connecte via
-// `ButtonAttachment` doit etre ecrit avec la nouvelle valeur.
-//
-// Notes de couverture :
-// 1) Premier fix (Fix L) override mouseDown + setToggleState manuel :
-//    le test passait car il appelait directement les setters, mais en
-//    runtime le `ButtonAttachment` n'etait pas informe du changement
-//    (sa callback est branchee sur onClick / stateChanged, declenche
-//    par clicked() et non par mouseDown). La touche D restait donc
-//    visuellement active malgre le clic OFF.
-// 2) Fix R (2026-07-17) : deplacer la logique dans clicked() au lieu
-//    de mouseDown(). Le test ci-dessous utilise `triggerClick()`
-//    (la methode publique de Button qui simule un mouseDown + mouseUp
-//    + clicked). `Button::clicked()` est `protected` dans cette
-//    version de JUCE (et `sendClickMessage` est `private`), donc on
-//    ne peut pas les appeler directement depuis un test.
-// 3) Fix X (2026-07-17) : on n'override plus `clicked()` du tout. A
-//    la place, on enregistre un `Button::Listener` interne dans le
-//    constructeur qui fire `onUserInteraction` + sync `activeInScale`
-//    quand le base class `Button::clicked()` (lui-meme fire par
-//    `triggerClick`) appelle `sendClickMessage` sur tous les
-//    listeners. Le `ButtonAttachment` est aussi un `Button::Listener`
-//    et fait son travail de pousser vers `custom_i` dans la meme
-//    passe. C'est le seul moyen propre d'avoir a la fois le sync
-//    visuel ET la persistance du parametre sans toucher au membre
-//    private `sendClickMessage` de JUCE.
+// Unit test
+// Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
+
+
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/ui/ScaleKeyboardComponent.h"
@@ -251,3 +227,5 @@ public:
 };
 
 static ScaleKeyboardComponentTest scaleKeyboardComponentTest;
+
+
