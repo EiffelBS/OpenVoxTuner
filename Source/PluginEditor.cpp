@@ -1,4 +1,4 @@
-﻿// PluginEditor.cpp
+// PluginEditor.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -1122,13 +1122,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 if (downloadsDir.isDirectory())
                     defaultDir = downloadsDir;
 
+                juce::Component::SafePointer<ui::PitchVisualizer> pitchVizSafe (pitchViz);
+                juce::Component::SafePointer<ui::PitchCurveEditor> curveEditorSafe (curveEditor.get());
                 auto chooserPtr = std::make_shared<juce::FileChooser>(
                     ovt::tr(ovt::Keys::kDlgExportPng),
                     defaultDir,
                     "*.png");
                 chooserPtr->launchAsync (
                     juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
-                    [chooserPtr, isCurveEditor, pitchViz, curveEditor = curveEditor.get()] (const juce::FileChooser& fc) {
+                    [chooserPtr, isCurveEditor, pitchVizSafe, curveEditorSafe] (const juce::FileChooser& fc) {
                         auto file = fc.getResult();
                         if (file != juce::File{})
                         {
@@ -1136,10 +1138,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 file = file.withFileExtension (".png");
 
                             bool ok = false;
-                            if (isCurveEditor && curveEditor != nullptr)
-                                ok = curveEditor->exportAsImage (file);
-                            else if (pitchViz != nullptr)
-                                ok = pitchViz->exportAsImage (file);
+                            if (isCurveEditor && curveEditorSafe != nullptr)
+                                ok = curveEditorSafe->exportAsImage (file);
+                            else if (pitchVizSafe != nullptr)
+                                ok = pitchVizSafe->exportAsImage (file);
 
                             if (ok)
                                 juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::InfoIcon,
@@ -1859,11 +1861,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     addAndMakeVisible (debugWindowButton);
     debugWindowButton.onClick = [this]() {
         // Create a simple modeless window if not already
-        static juce::Component::SafePointer<juce::DocumentWindow> dbgWindow;
-        if (dbgWindow != nullptr)
+        if (debugWindow != nullptr)
         {
-            dbgWindow->setVisible (true);
-            dbgWindow->toFront (true);
+            debugWindow->setVisible (true);
+            debugWindow->toFront (true);
             return;
         }
 
@@ -1876,7 +1877,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             void closeButtonPressed() override
             {
                 setVisible (false);
-                delete this;   // SafePointer will null out automatically.
             }
         };
 
@@ -1977,7 +1977,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         w->setResizable (true, false);
         w->centreWithSize (400, 320);
         w->setVisible (true);
-        dbgWindow = w;
+        debugWindow.reset (w);
     };
    #else
     debugWindowButton.setVisible (false);
@@ -2391,6 +2391,22 @@ OpenVoxTunerAudioProcessorEditor::~OpenVoxTunerAudioProcessorEditor()
     processorRef.notifyEditorShuttingDown();
 
     stopTimer();
+
+    // These are independent top-level Desktop components. Hide and destroy
+    // them before the editor's child components and LookAndFeel are torn down.
+    midiImportFileChooser.reset();
+    if (debugWindow != nullptr)
+    {
+        debugWindow->setVisible (false);
+        debugWindow->setContentOwned (nullptr, true);
+        debugWindow.reset();
+    }
+    if (galleryWindow != nullptr)
+    {
+        galleryWindow->setVisible (false);
+        galleryWindow->setContentOwned (nullptr, true);
+        galleryWindow.reset();
+    }
 
     // -------------------------------------------------------------------
     // Clear LookAndFeel references BEFORE the customLookAndFeel member is
@@ -3391,11 +3407,14 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         if (rawHarmonyEnable != nullptr)
             harmonyOn = (rawHarmonyEnable->load() > 0.5f);
 
-        // Show harmony lines only if engine enabled and there's audible harmony output
-        const float harmonyLevel = processorRef.getHarmonyOutputLevel();
         juce::Array<float> freqsToSend;
-        // Use a slightly higher threshold to avoid traces from near-silent residuals
-        if (harmonyOn && harmonyLevel > 0.01f)
+        processorRef.copyHarmonyFrequencies (freqsToSend);
+
+        if (! harmonyOn)
+            freqsToSend.clear();
+
+        const juce::Array<float> liveFreqs = freqsToSend;
+        if (freqsToSend.size() > 0)
         {
             // Detect DAW transport jump (loop wrap, seek) for the harmony
             // traces too. The red input trace is already cleared in
@@ -3409,27 +3428,21 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
                 curveEditor->clearHarmonyTraces();
             lastHarmonyTransportTime = nowLoop;
 
-            freqsToSend = processorRef.getHarmonyFrequencies();
-            pitchVisualizer->setHarmonyFrequencies(freqsToSend);
-
-            // Also feed the Curve Editor so its "Show Harmonies Trace" menu
-            // option has something to display (it was being updated on the
-            // PitchVisualizer only, leaving the curve editor's buffer empty).
-            if (curveEditor != nullptr && curveEditor->getShowHarmoniesTrace())
-            {
-                // Sort frequencies by pitch so each voice tracks the same
-                // musical line across calls (prevents crossing blue lines
-                // when the notes array changes size between blocks).
-                juce::Array<float> sortedFreqs = freqsToSend;
-                sortedFreqs.sort();
-                const double hostTime = processorRef.getInterpolatedTransportTime();
-                curveEditor->addHarmonySamples (hostTime, sortedFreqs);
-            }
         }
-        else
+
+        // Keep the Live visualizer on the real snapshot.
+        pitchVisualizer->setHarmonyFrequencies (liveFreqs);
+
+        // Use exactly the same timeline as the red input trace in
+        // refreshVisualizer(). getInterpolatedTransportTime() may use the
+        // host's un-offset PPQ, while getLoopTransportTime() uses the curve
+        // editor's actual wrapped/offset timeline. Mixing those clocks is the
+        // source of the diagonal blue segments after reset, looping or seek.
+        if (curveEditor != nullptr && curveEditor->getShowHarmoniesTrace())
         {
-            // send empty snapshot to advance history (so visual stops)
-            pitchVisualizer->setHarmonyFrequencies(juce::Array<float>());
+            juce::Array<float> sortedFreqs = freqsToSend;
+            sortedFreqs.sort();
+            curveEditor->addHarmonySamples (processorRef.getLoopTransportTime(), sortedFreqs);
         }
 
 
@@ -3492,7 +3505,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
     {
         // Use the processor's ScaleQuantizer directly for authoritative intervals.
         // This avoids duplicating the scale table and prevents mismatches.
-        const auto& intervals = processorRef.getScaleIntervals();
+        juce::Array<int> intervals;
+        processorRef.copyScaleIntervals (intervals);
         pitchVisualizer->setScaleIntervals (intervals);
         curveEditor->setScaleIntervals (intervals);
         scaleKeyboard.setActiveScaleIntervals (intervals);
@@ -3534,6 +3548,221 @@ void OpenVoxTunerAudioProcessorEditor::toggleHelpOverlay()
     repaint();
 }
 
+// =============================================================================
+// MIDI Import (drag-and-drop + menu)
+// =============================================================================
+
+bool OpenVoxTunerAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    for (const auto& f : files)
+        if (f.toLowerCase().endsWith (".mid") || f.toLowerCase().endsWith (".midi"))
+            return true;
+    return false;
+}
+
+void OpenVoxTunerAudioProcessorEditor::filesDropped (const juce::StringArray& files, int /*x*/, int /*y*/)
+{
+    juce::File midiFile;
+    for (const auto& f : files)
+    {
+        juce::File candidate (f);
+        if (candidate.existsAsFile()
+            && (f.toLowerCase().endsWith (".mid") || f.toLowerCase().endsWith (".midi")))
+        {
+            midiFile = candidate;
+            break;
+        }
+    }
+
+    if (! midiFile.existsAsFile())
+        return;
+
+    handleMidiFileImport (midiFile);
+}
+
+void OpenVoxTunerAudioProcessorEditor::handleMidiFileImport (const juce::File& midiFile)
+{
+    // Ensure we are on the Curve Editor tab
+    if (tabbedComponent.getCurrentTabIndex() != 1)
+    {
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::AlertWindow::WarningIcon,
+            ovt::tr (ovt::Keys::kMidiDialogTitle),
+            ovt::tr (ovt::Keys::kMidiErrorWrongTab));
+        return;
+    }
+
+    // Analyze the file
+    auto info = ovtdsp::MidiImporter::analyzeFile (midiFile);
+
+    if (! info.isValid)
+    {
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::AlertWindow::WarningIcon,
+            ovt::tr (ovt::Keys::kMidiDialogTitle),
+            info.errorMessage);
+        return;
+    }
+
+    // Single non-percussion channel: import directly with "highest note" strategy
+    if (info.channels.size() == 1)
+    {
+        auto curve = ovtdsp::MidiImporter::importFrom (
+            midiFile,
+            ovtdsp::MidiExtractStrategy::HighestNote,
+            info.channels.getFirst().channel);
+
+        applyMidiImport (curve, midiFile.getFileName());
+        return;
+    }
+
+    // Multiple channels: show selection dialog
+    showMidiChannelDialog (midiFile, info);
+}
+
+void OpenVoxTunerAudioProcessorEditor::applyMidiImport (
+    const ovtdsp::PitchCurve& newCurve,
+    const juce::String& sourceName)
+{
+    if (curveEditor == nullptr)
+        return;
+
+    if (newCurve.getNumPoints() < 2)
+    {
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::AlertWindow::WarningIcon,
+            ovt::tr (ovt::Keys::kMidiDialogTitle),
+            ovt::tr (ovt::Keys::kMidiErrorTooFew));
+        return;
+    }
+
+    curveEditor->importMidiCurve (newCurve);
+}
+
+// =============================================================================
+// MIDI Import: Multi-channel selection dialog
+// =============================================================================
+
+class MidiChannelSelectorComponent : public juce::Component
+{
+public:
+    MidiChannelSelectorComponent (
+        const ovtdsp::MidiImportInfo& info,
+        std::function<void (ovtdsp::MidiExtractStrategy, int)> onConfirm)
+        : importInfo (info), confirmCallback (std::move (onConfirm))
+    {
+        setSize (420, 260);
+
+        // Strategy combo
+        strategyCombo.addItem (ovt::tr (ovt::Keys::kMidiStrategyHighest), 1);
+        strategyCombo.addItem (ovt::tr (ovt::Keys::kMidiStrategyLowest),  2);
+        strategyCombo.addItem (ovt::tr (ovt::Keys::kMidiStrategyLoudest), 3);
+        strategyCombo.addItem (ovt::tr (ovt::Keys::kMidiStrategyChannel), 4);
+        strategyCombo.setSelectedId (1, juce::dontSendNotification);
+        strategyCombo.onChange = [this] { updateChannelVisibility(); };
+        addAndMakeVisible (strategyCombo);
+
+        // Channel combo (populated from info)
+        for (const auto& ch : info.channels)
+        {
+            channelCombo.addItem (
+                "Channel " + juce::String (ch.channel)
+                + " (" + juce::String (ch.numNotes) + " notes, "
+                + ovtdsp::noteInOctaveName (ovtdsp::midiToNoteInOctave (ch.minNote))
+                + juce::String (ovtdsp::midiToOctave (ch.minNote)) + " - "
+                + ovtdsp::noteInOctaveName (ovtdsp::midiToNoteInOctave (ch.maxNote))
+                + juce::String (ovtdsp::midiToOctave (ch.maxNote)) + ")",
+                ch.channel);
+        }
+        if (info.channels.size() > 0)
+            channelCombo.setSelectedId (info.channels.getFirst().channel,
+                                        juce::dontSendNotification);
+        addAndMakeVisible (channelCombo);
+
+        updateChannelVisibility();
+
+        // Buttons
+        importButton.setButtonText (ovt::tr (ovt::Keys::kMidiBtnImport));
+        importButton.onClick = [this] { onImportClicked(); };
+        addAndMakeVisible (importButton);
+
+        cancelButton.setButtonText (ovt::tr (ovt::Keys::kMenuCancel));
+        cancelButton.onClick = [this] {
+            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+                dw->exitModalState (0);
+        };
+        addAndMakeVisible (cancelButton);
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (juce::Colour (0xff2d2d2d));
+        g.setColour (juce::Colours::white.withAlpha (0.8f));
+        g.setFont (14.0f);
+        g.drawText (ovt::tr (ovt::Keys::kMidiStrategy),
+                    16, 24, 80, 24, juce::Justification::centredLeft);
+        g.drawText (ovt::tr (ovt::Keys::kMidiChannel),
+                    16, 64, 80, 24, juce::Justification::centredLeft);
+    }
+
+    void resized() override
+    {
+        strategyCombo.setBounds (100, 24, 300, 24);
+        channelCombo.setBounds (100, 64, 300, 24);
+        cancelButton.setBounds (230, 210, 80, 30);
+        importButton.setBounds (320, 210, 80, 30);
+    }
+
+private:
+    void updateChannelVisibility()
+    {
+        bool showChannel = (strategyCombo.getSelectedId() == 4);
+        channelCombo.setVisible (showChannel);
+    }
+
+    void onImportClicked()
+    {
+        auto strategy = static_cast<ovtdsp::MidiExtractStrategy> (
+            strategyCombo.getSelectedId() - 1);
+        int channel = channelCombo.getSelectedId();
+        confirmCallback (strategy, channel);
+
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+            dw->exitModalState (1);
+    }
+
+    ovtdsp::MidiImportInfo importInfo;
+    std::function<void (ovtdsp::MidiExtractStrategy, int)> confirmCallback;
+    juce::ComboBox strategyCombo, channelCombo;
+    juce::TextButton importButton, cancelButton;
+};
+
+void OpenVoxTunerAudioProcessorEditor::showMidiChannelDialog (
+    const juce::File& midiFile,
+    const ovtdsp::MidiImportInfo& info)
+{
+    juce::DialogWindow::LaunchOptions opts;
+    opts.dialogTitle = ovt::tr (ovt::Keys::kMidiDialogTitle)
+                     + ": " + midiFile.getFileName();
+
+    auto* selectorComp = new MidiChannelSelectorComponent (
+        info,
+        [editorSafe = juce::Component::SafePointer<OpenVoxTunerAudioProcessorEditor> (this), midiFile]
+        (ovtdsp::MidiExtractStrategy s, int ch)
+        {
+            if (editorSafe != nullptr)
+            {
+                auto curve = ovtdsp::MidiImporter::importFrom (midiFile, s, ch);
+                editorSafe->applyMidiImport (curve, midiFile.getFileName());
+            }
+        });
+    selectorComp->setSize (420, 260);
+    opts.content.set (selectorComp, true);
+    opts.useNativeTitleBar = true;
+    opts.escapeKeyTriggersCloseButton = true;
+    opts.resizable = false;
+    opts.launchAsync();
+}
 // === Preset Morphing ===
 
 void OpenVoxTunerAudioProcessorEditor::resetMorph()
@@ -5005,6 +5234,27 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
     // Curve Presets: opens the preset manager as a submenu.
     menu.addSubMenu (ovt::tr (ovt::Keys::kMenuCurvePresets), buildPresetsMenu(), true);
 
+    menu.addSeparator();
+
+    // Import MIDI: open a file chooser for .mid files and generate a pitch curve.
+    menu.addItem (ovt::tr (ovt::Keys::kMenuImportMidi), true, false, [this] {
+        midiImportFileChooser = std::make_unique<juce::FileChooser> (
+            ovt::tr (ovt::Keys::kMidiDialogTitle),
+            juce::File(),
+            "*.mid;*.midi");
+
+        juce::Component::SafePointer<OpenVoxTunerAudioProcessorEditor> editorSafe (this);
+        midiImportFileChooser->launchAsync (
+            juce::FileBrowserComponent::openMode
+                | juce::FileBrowserComponent::canSelectFiles,
+            [editorSafe] (const juce::FileChooser& fc)
+            {
+                auto file = fc.getResult();
+                if (editorSafe != nullptr && file.existsAsFile())
+                    editorSafe->handleMidiFileImport (file);
+            });
+    });
+
     applyMenuLookAndFeel (menu, customLookAndFeel);
     menu.showMenuAsync (juce::PopupMenu::Options()
                             .withTargetComponent (&optionsButton)
@@ -5017,7 +5267,6 @@ void OpenVoxTunerAudioProcessorEditor::showPresetGallery()
     if (curveEditor == nullptr)
         return;
 
-    static juce::Component::SafePointer<juce::DocumentWindow> galleryWindow;
     if (galleryWindow != nullptr)
     {
         galleryWindow->setVisible (true);
@@ -5067,7 +5316,7 @@ void OpenVoxTunerAudioProcessorEditor::showPresetGallery()
     w->setVisible (true);
     w->toFront (true);
 
-    galleryWindow = w;
+    galleryWindow.reset (w);
 }
 
 void OpenVoxTunerAudioProcessorEditor::syncTransportButtons()

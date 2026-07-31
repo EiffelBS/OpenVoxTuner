@@ -1,4 +1,4 @@
-﻿// HarmonyEngine.cpp
+// HarmonyEngine.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -136,34 +136,32 @@ namespace ovtdsp
             }
         }
 
-        // For each required degree offset, compute target frequency
+        // Anchor the ordered scale at the detected base note.  scaleIntervals
+        // is rotated by the key (for A natural minor it is A,B,C,D,E,F,G),
+        // so subtracting/adding an octave from the raw chromatic interval is
+        // not sufficient when a degree crosses the end of that rotated list.
+        // In particular, B2 - 2 degrees must be G2, not G1.
+        const int firstChroma = scaleIntervals[0];
+        int bestProgression = scaleIntervals[bestDegree] - firstChroma;
+        if (bestProgression < 0)
+            bestProgression += 12;
+        const int scaleTonicMidi = bestMidi - bestProgression;
+
+        // For each required degree offset, compute target frequency.
         for (int i = 0; i < degreeOffsets.size(); ++i)
         {
             int targetDegree = bestDegree + degreeOffsets[i];
 
-            // compute octave shift and wrapped index
+            // Compute octave shift and wrapped index using mathematical floor
+            // division, so negative degrees remain in the preceding scale
+            // octave rather than being forced an octave too low.
             int wrappedIndex = ((targetDegree % scaleSize) + scaleSize) % scaleSize;
             int octaveShift = (targetDegree - wrappedIndex) / scaleSize;
 
-            int chroma = scaleIntervals[wrappedIndex];
-            int candidateMidi = baseOctave * 12 + chroma + octaveShift * 12;
-            // Prefer candidates above/below the base depending on degree offset sign
-            if (degreeOffsets[i] > 0)
-            {
-                // ensure we pick a candidate at or above the base (prefer above)
-                while (candidateMidi < baseMidi - 1) candidateMidi += 12;
-            }
-            else if (degreeOffsets[i] < 0)
-            {
-                // ensure we pick a candidate at or below the base (prefer below)
-                while (candidateMidi > baseMidi + 1) candidateMidi -= 12;
-            }
-            else
-            {
-                // adjust to be near bestMidi
-                while (candidateMidi - bestMidi > 6) candidateMidi -= 12;
-                while (bestMidi - candidateMidi > 6) candidateMidi += 12;
-            }
+            int progression = scaleIntervals[wrappedIndex] - firstChroma;
+            if (progression < 0)
+                progression += 12;
+            const int candidateMidi = scaleTonicMidi + progression + octaveShift * 12;
 
             float semisFromA4 = static_cast<float>(candidateMidi - 69);
             float freq = semitonesToHz (semisFromA4);

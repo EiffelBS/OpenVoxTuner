@@ -1,6 +1,6 @@
 # OpenVoxTuner - Implementation Roadmap
 
-> Last updated: 2026-07-30 22:10 CEST
+> Last updated: 2026-07-31 11:30 CEST
 
 ## Legend
 
@@ -154,6 +154,21 @@
   - The loop length is shared by the playhead display AND the graphic pitch-curve sampling (replaces the hardcoded `fmod(currentTime, 16.0)` at PluginProcessor.cpp:1080), so playhead and curve loop on the same window. `transportTime` stays monotonic; a derived wrapped time (`getLoopTransportTime()`) is used for display/trace/sampling.
   - New parameter `editor_playhead_loop` (default = false / Follow). Effective mode derived in `isPlayheadLooping()` (ARA→follow, standalone→loop, plugin→param).
   - Edge case handled: at the loop wrap boundary with auto-scroll ON, the `L -> 0` jump is treated as normal advance (not a seek) to avoid a recadrage flicker each loop.
+
+### 5b. Curve Editor: MIDI Import (Drag-and-Drop) — Implemented 2026-07-31
+
+- [x] **MidiImporter DSP module** (`MidiImporter.h/.cpp`): analyze .mid files (`analyzeFile`) and convert to PitchCurve (`importFrom`) with configurable strategy (highest/lowest/loudest note, specific channel)
+- [x] **FileDragAndDropTarget** on PluginEditor: accepts .mid/.midi files dragged from OS file explorer onto plugin window
+- [x] **Hamburger menu item**: "Import MIDI..." in Curve Editor options, launches juce::FileChooser filtered on *.mid/*.midi
+- [x] **Multi-channel selection dialog**: popup when MIDI file contains multiple active non-percussion channels (strategy + channel picker)
+- [x] **Polyphonic reduction**: chords reduced to monophonic curve using configurable strategy (highest=lead, lowest=bass, loudest=velocity)
+- [x] **Undo support**: import registered as CurveEditAction (Ctrl+Z reversible)
+- [x] **Step mode auto-enable**: step mode forced ON after MIDI import (discrete notes)
+- [x] **View auto-fit**: measures and scroll adjusted to fit imported curve duration
+- [x] **Channel 10 exclusion**: percussion channel automatically excluded from import
+- [x] **i18n**: all dialog/menu strings translated (EN/FR/DE/ES/JA/ZH)
+- [ ] **Validation**: monophonic, polyphonic, multi-channel, invalid files, DnD + menu, undo, edge cases
+- Plan document: `docs/implementation-plan-midi-import-drag-and-drop.md`
 
 ## 6. Scale Keyboard Component
 

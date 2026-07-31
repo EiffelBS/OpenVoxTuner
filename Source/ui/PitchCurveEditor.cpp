@@ -1,4 +1,4 @@
-﻿// PitchCurveEditor.cpp
+// PitchCurveEditor.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -351,10 +351,20 @@ namespace ui
 
                 juce::Path hp;
                 bool started = false;
+                double previousTime = 0.0;
+                bool hasPreviousTime = false;
                 for (int i = 0; i < times.size(); ++i)
                 {
                     double t = times[i];
                     float pHz = pitches[i];
+                    // Break only on a transport rewind. Missing timer samples
+                    // are handled by the UI-side hold in PluginEditor, just
+                    // like the red input trace, so a sustained note remains a
+                    // continuous line.
+                    if (hasPreviousTime && t < previousTime)
+                        started = false;
+                    previousTime = t;
+                    hasPreviousTime = true;
                     if (pHz <= 0.0f) { started = false; continue; }
                     float x = static_cast<float> (timeToX (t));
                     float y = pitchToY (pHz);
@@ -1305,6 +1315,36 @@ namespace ui
         notifyChanged();
     }
 
+    void PitchCurveEditor::importMidiCurve (const ovtdsp::PitchCurve& newCurve)
+    {
+        if (newCurve.getNumPoints() < 2)
+            return;
+
+        // Register undo state before modifying
+        CurveEditAction* action = new CurveEditAction (this);
+
+        curve = newCurve;
+
+        // MIDI notes are discrete: force step mode
+        curve.setStepMode (true);
+
+        // Reset editing options for clean post-import state
+        curve.setSnapEnabled (true);
+        curve.setSnapToGridEnabled (true);
+        snapEnabled = true;
+        snapToGridEnabled = true;
+
+        // Record the "after" state for undo
+        action->setAfter();
+        registerUndoableAction (action);
+
+        // NOTE: the user's "Measures" setting is intentionally NOT modified
+        // on import (the number of visible measures stays as configured).
+
+        repaint();
+        notifyChanged();
+    }
+
     void PitchCurveEditor::resetEditState()
     {
         snapEnabled = true;
@@ -1577,18 +1617,6 @@ namespace ui
 
     void PitchCurveEditor::setPlayheadTime (double time, bool /*isHostPlaying*/, bool isLooping)
     {
-        // === Detect playing transitions for trace cleanup ===
-        const bool playing = (time != playheadTime); // transport is advancing
-        if (playing && ! wasPlayingLastFrame)
-        {
-            for (int v = 0; v < maxHarmonyVoices; ++v)
-            {
-                harmonyTimes.getReference(v).clear();
-                harmonyPitches.getReference(v).clear();
-            }
-        }
-        wasPlayingLastFrame = playing;
-
         // A manual seek (Reset Playhead / DAW scrub) produces a large discontinuity
         // in the transport position, whereas normal playback only advances by a few
         // hundredths of a beat per frame. We use this to tell the two apart.

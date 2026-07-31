@@ -1,4 +1,4 @@
-﻿// KeyBridge.h
+// KeyBridge.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -8,6 +8,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
@@ -21,22 +22,20 @@ namespace ovtdsp
     static constexpr int kKeyBridgeNameLen  = 16;
     static const wchar_t* kKeyBridgeSharedName = L"Local\\OpenVoxTunerKeyBridge";
 
-    // POD layout placed inside the single OS-shared memory region. The
-    // atomically-updated fields use juce::Atomic so a write from one module is
-    // observed by another (lock-free int/double on x64). The region itself is
-    // never *constructed* in C++ (we reinterpret the mapped bytes); the atomics
-    // simply wrap the existing memory locations.
+    // POD layout placed inside the OS-shared memory region. The mapped bytes
+    // contain no C++ objects; Windows interlocked operations below provide the
+    // required cross-process synchronization.
     struct KeyBridgeSlot
     {
         char                group[kKeyBridgeNameLen]; // zero-terminated group, "" if unused
-        juce::Atomic<int>   key;        // 0..11 (C..B)
-        juce::Atomic<int>   scale;      // ovtdsp::Scale index
-        juce::Atomic<double> timestamp; // last publish time (seconds)
+        std::int32_t        key;        // 0..11 (C..B)
+        std::int32_t        scale;      // ovtdsp::Scale index
+        std::int64_t        timestamp; // milliseconds since epoch
     };
 
     struct KeyBridgeRegion
     {
-        juce::Atomic<int> initFlag;                 // 0 = uninitialised, 1 = initialised
+        std::int32_t initFlag;                       // 0 = uninitialised, 1 = initialised
         KeyBridgeSlot     slots[kKeyBridgeMaxSlots];
     };
 
@@ -55,9 +54,9 @@ namespace ovtdsp
             KeyBridgeSlot* slot = getOrCreateSlot (group);
             if (slot == nullptr)
                 return;
-            slot->key.set (key);
-            slot->scale.set (scale);
-            slot->timestamp.set (static_cast<double> (juce::Time::getCurrentTime().toMilliseconds()) / 1000.0);
+            writeInt (slot->key, key);
+            writeInt (slot->scale, scale);
+            writeInt64 (slot->timestamp, juce::Time::getCurrentTime().toMilliseconds());
         }
 
         /** Main plug-in: read the latest published values. Returns false if the
@@ -67,15 +66,53 @@ namespace ovtdsp
             const KeyBridgeSlot* slot = findSlot (group);
             if (slot == nullptr)
                 return false;
-            outKey       = slot->key.get();
-            outScale     = slot->scale.get();
-            outTimestamp = slot->timestamp.get();
+            outKey       = readInt (slot->key);
+            outScale     = readInt (slot->scale);
+            outTimestamp = static_cast<double> (readInt64 (slot->timestamp)) / 1000.0;
             return true;
         }
 
     private:
         KeyBridge()  { attachSharedMemory(); }
         ~KeyBridge() { detachSharedMemory(); }
+
+        static void writeInt (std::int32_t& target, std::int32_t value) noexcept
+        {
+        #if JUCE_WINDOWS
+            InterlockedExchange (reinterpret_cast<volatile LONG*> (&target), static_cast<LONG> (value));
+        #else
+            target = value;
+        #endif
+        }
+
+        static std::int32_t readInt (const std::int32_t& target) noexcept
+        {
+        #if JUCE_WINDOWS
+            return static_cast<std::int32_t> (InterlockedCompareExchange (
+                reinterpret_cast<volatile LONG*> (const_cast<std::int32_t*> (&target)), 0, 0));
+        #else
+            return target;
+        #endif
+        }
+
+        static void writeInt64 (std::int64_t& target, std::int64_t value) noexcept
+        {
+        #if JUCE_WINDOWS
+            InterlockedExchange64 (reinterpret_cast<volatile LONGLONG*> (&target), static_cast<LONGLONG> (value));
+        #else
+            target = value;
+        #endif
+        }
+
+        static std::int64_t readInt64 (const std::int64_t& target) noexcept
+        {
+        #if JUCE_WINDOWS
+            return static_cast<std::int64_t> (InterlockedCompareExchange64 (
+                reinterpret_cast<volatile LONGLONG*> (const_cast<std::int64_t*> (&target)), 0, 0));
+        #else
+            return target;
+        #endif
+        }
 
         // Deterministically map a group string to a fixed slot so the same group
         // always lands in the same shared slot. A..D => 0..3 (reserved); any
@@ -132,27 +169,24 @@ namespace ovtdsp
                                              0, static_cast<DWORD> (size), kKeyBridgeSharedName);
             if (mapHandle_ != nullptr)
             {
+                const bool mappingAlreadyExists = (GetLastError() == ERROR_ALREADY_EXISTS);
                 region_ = static_cast<KeyBridgeRegion*> (MapViewOfFile (mapHandle_, FILE_MAP_ALL_ACCESS, 0, 0, size));
                 if (region_ != nullptr)
                 {
-                    // First opener initialises the region once. Fresh file mappings
-                    // are already zero filled by the OS, but we force a clean init
-                    // so a stale region from a crashed previous session is cleared.
-                    if (region_->initFlag.compareAndSetBool (1, 0))
+                    // Only the creator may clear a fresh mapping. Existing
+                    // clients must never memset the shared region while it is
+                    // being used by another process.
+                    if (! mappingAlreadyExists)
                     {
                         std::memset (region_, 0, sizeof (KeyBridgeRegion));
-                        region_->initFlag.set (1);
+                        writeInt (region_->initFlag, 1);
                     }
                     return;
                 }
                 CloseHandle (mapHandle_);
                 mapHandle_ = nullptr;
             }
-            // Shared memory unavailable (e.g. sandboxed test runner or restricted
-            // environment): fall back to an in-process region. Cross-binary
-            // sharing won't work in that case, but the bridge still behaves
-            // correctly inside a single module. Value-initialise (not memset:
-            // KeyBridgeRegion holds non-trivial members like juce::Atomic).
+            // Shared memory unavailable: fall back to an in-process POD region.
             fallbackRegion_ = KeyBridgeRegion{};
             region_ = &fallbackRegion_;
         #else

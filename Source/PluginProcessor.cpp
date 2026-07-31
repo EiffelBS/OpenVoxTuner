@@ -1,4 +1,4 @@
-﻿// PluginProcessor.cpp
+// PluginProcessor.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -212,6 +212,12 @@ private:
     juce::CriticalSection writeLock;
     std::vector<juce::String> pending;
 };
+
+// juce::Logger is process-global. Keep ownership separate from processor
+// instances so one plugin instance cannot delete another instance's logger.
+static juce::CriticalSection openVoxLoggerLock;
+static BufferedFileLogger* openVoxLogger = nullptr;
+static int openVoxLoggerUsers = 0;
 
 void OpenVoxTunerAudioProcessor::setHarmonyEnvelopeTimes (float attackMs, float releaseMs)
 {
@@ -618,6 +624,12 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     for (int ch = 0; ch < 16; ++ch)
         lastSentMidiNote[ch] = -1;
 
+    for (int i = 0; i < maxHarmonySnapshotVoices; ++i)
+    {
+        harmonyFrequencySnapshot[i].store (0.0f);
+        harmonyFrequencyCleanSnapshot[i].store (0.0f);
+    }
+
     // Initialise le compteur de persistence anti-saut-octave
     octaveJumpRejectionCount = 0;
 
@@ -689,6 +701,12 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     activeDetectorMode = 0;
     scaleQuantizer   = std::make_unique<ovtdsp::ScaleQuantizer>();
     scaleQuantizer->setScale (ovtdsp::Scale::Chromatic); // Ensure chromatic on first launch
+    {
+        const auto& intervals = scaleQuantizer->getScaleIntervals();
+        for (int i = 0; i < intervals.size(); ++i)
+            scaleIntervalSnapshot[static_cast<size_t> (i)].store (intervals[i], std::memory_order_relaxed);
+        scaleIntervalSnapshotSize.store (juce::jmin (12, intervals.size()), std::memory_order_release);
+    }
     pitchShifter     = std::make_unique<ovtdsp::PitchShifter>();
     harmonyEngine    = std::make_unique<ovtdsp::HarmonyEngine>();
 
@@ -719,16 +737,26 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         }
     }
 
-    // Install file logger in Debug AND Release (so we can diagnose drops in the field).
+    // Install one process-global file logger in Debug AND Release. Do not
+    // replace a logger installed by the host or by another JUCE application.
     {
+        const juce::ScopedLock lock (openVoxLoggerLock);
+        if (openVoxLogger == nullptr && juce::Logger::getCurrentLogger() == nullptr)
+        {
         juce::File logDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
                                 .getChildFile ("OpenVoxTuner")
                                 .getChildFile ("logs");
         logDir.createDirectory();
         juce::File logFile = logDir.getChildFile (
             "ovt_" + juce::Time::getCurrentTime().toISO8601(true).replaceCharacter (':', '-') + ".log");
-        juce::Logger::setCurrentLogger (new BufferedFileLogger (logFile));
-        OVT_LOG ("OpenVoxTuner log initialized: " + logFile.getFullPathName());
+            openVoxLogger = new BufferedFileLogger (logFile);
+            juce::Logger::setCurrentLogger (openVoxLogger);
+        }
+        if (openVoxLogger != nullptr)
+        {
+            ++openVoxLoggerUsers;
+            OVT_LOG ("OpenVoxTuner log initialized");
+        }
     }
 
     // Debug logging: print key metadata so we can diagnose host issues (MIDI bus visibility, bypass state)
@@ -783,10 +811,13 @@ OpenVoxTunerAudioProcessor::~OpenVoxTunerAudioProcessor()
     //
     // IMPORTANT: In JUCE 8, Logger::setCurrentLogger() only sets the pointer
     // without deleting the previous logger.  We must delete it manually.
-    if (auto* logger = juce::Logger::getCurrentLogger())
+    const juce::ScopedLock lock (openVoxLoggerLock);
+    if (openVoxLogger != nullptr && openVoxLoggerUsers > 0 && --openVoxLoggerUsers == 0)
     {
-        juce::Logger::setCurrentLogger (nullptr);
-        delete logger;
+        if (juce::Logger::getCurrentLogger() == openVoxLogger)
+            juce::Logger::setCurrentLogger (nullptr);
+        delete openVoxLogger;
+        openVoxLogger = nullptr;
     }
 }
 
@@ -920,6 +951,8 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     const int workCh = juce::jmax (1, getMainBusNumOutputChannels());
     harmonyBuffer.setSize (workCh, samplesPerBlock, false, true, false);
     harmonyBuffer.clear();
+    araWaveformBuffer.setSize (1, samplesPerBlock, false, true, false);
+    araWaveformBuffer.clear();
     // 2026-07-24 (Harmony staggered attack): raise the master enable
     // gain TC from 25ms to 40ms so the harmony bus fades in/out
     // smoother, complementing the per-voice staggered TCs.
@@ -928,8 +961,11 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // 15 ms matches the gate's own attack smoothing.
     harmonyGateGain.reset (sampleRate, 0.015);
     harmonyGateGain.setCurrentAndTargetValue (0.0f);
+    harmonyAttackGain = 0.0f;
     synthWorkBuffer.setSize (workCh, samplesPerBlock, false, true, false);
     synthWorkBuffer.clear();
+    shiftedVoiceGainRamps.setSize (3, samplesPerBlock, false, true, false);
+    shiftedVoiceGainRamps.clear();
     lastMixedHarmonyBuffer.setSize (workCh, samplesPerBlock, false, true, false);
     lastMixedHarmonyBuffer.clear();
     // 2026-07-24 (Harmony staggered attack): each harmony voice
@@ -1074,6 +1110,7 @@ void OpenVoxTunerAudioProcessor::reset()
     for (auto& g : shiftedVoiceGains)
         g.setCurrentAndTargetValue (0.0f);
     harmonyGateGain.setCurrentAndTargetValue (0.0f);
+    harmonyAttackGain = 0.0f;
     for (auto& ps : shiftedVoicePitchShifters)
         if (ps != nullptr)
             ps->reset();
@@ -1086,6 +1123,7 @@ void OpenVoxTunerAudioProcessor::reset()
     lastInputPitch.store (0.0f);
     lastOutputPitch.store (0.0f);
     lastCentsOffset.store (0.0f);
+    lastRawYinPitch.store (0.0f, std::memory_order_relaxed);
     appliedLatencyMode = -1;
 
     for (int i = 0; i < 1; ++i)
@@ -1121,7 +1159,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const auto blockStartTime = juce::Time::getHighResolutionTicks();
     // MIDI out may be produced below if enabled by parameter.
 
-    auto flushPendingMidiNotes = [&midiMessages, this] (const juce::String& reason)
+    auto flushPendingMidiNotes = [&midiMessages, this]
     {
         bool hadAny = false;
         for (int ch = 0; ch < 16; ++ch)
@@ -1143,17 +1181,20 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 midiMessages.addEvent (juce::MidiMessage::allNotesOff (midiChannel), 0);
                 midiMessages.addEvent (juce::MidiMessage::allSoundOff (midiChannel), 0);
             }
-            OVT_LOG ("MIDI flush: " + reason);
         }
     };
 
     // Bypass : on laisse passer l'audio tel quel.
     if (bypassParam != nullptr && bypassParam->load() > 0.5f)
     {
-        flushPendingMidiNotes ("bypass active");
+        flushPendingMidiNotes();
+        harmonyFrequencies.clear();
+        harmonyFrequenciesClean.clear();
+        publishHarmonySnapshots();
         lastInputPitch.store (0.0f);
         lastOutputPitch.store (0.0f);
         lastCentsOffset.store (0.0f);
+        lastRawYinPitch.store (0.0f, std::memory_order_relaxed);
         return;
     }
 
@@ -1181,50 +1222,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (ucEnabled && upwardCompAmountParam != nullptr)
             upwardComp.setAmount (upwardCompAmountParam->load());
 
-        // TEMPORARY DIAGNOSTIC: measure RMS before/after compressor
-        const int numS = buffer.getNumSamples();
-        const int numCh = buffer.getNumChannels();
-        float rmsBefore = 0.0f;
-        if (numS > 0 && numCh > 0)
-        {
-            float sumSq = 0.0f;
-            for (int ch = 0; ch < numCh; ++ch)
-                for (int s = 0; s < numS; ++s)
-                { float v = buffer.getSample (ch, s); sumSq += v * v; }
-            rmsBefore = std::sqrt (sumSq / (float) (numS * numCh));
-        }
-
         upwardComp.process (buffer);
-
-        float rmsAfter = 0.0f;
-        if (numS > 0 && numCh > 0)
-        {
-            float sumSq = 0.0f;
-            for (int ch = 0; ch < numCh; ++ch)
-                for (int s = 0; s < numS; ++s)
-                { float v = buffer.getSample (ch, s); sumSq += v * v; }
-            rmsAfter = std::sqrt (sumSq / (float) (numS * numCh));
-        }
-
-        {
-            static std::atomic<uint32_t> lastCompLogMs { 0 };
-            uint32_t now = juce::Time::getMillisecondCounter();
-            uint32_t last = lastCompLogMs.load();
-            if (now - last > 1000)
-            {
-                if (lastCompLogMs.compare_exchange_strong (last, now))
-                {
-                    float paramVal = (upwardCompAmountParam != nullptr) ? upwardCompAmountParam->load() : -1.0f;
-                    float gainDb = (rmsAfter > 1e-6f && rmsBefore > 1e-6f)
-                                   ? 20.0f * std::log10 (rmsAfter / rmsBefore) : 0.0f;
-                    OVT_LOG ("COMP: enabled=" + juce::String (ucEnabled ? "Y" : "N")
-                           + " amt=" + juce::String (paramVal, 2)
-                           + " rmsIn=" + juce::String (rmsBefore, 4)
-                           + " rmsOut=" + juce::String (rmsAfter, 4)
-                           + " gain=" + juce::String (gainDb, 1) + "dB");
-                }
-            }
-        }
     }
 
     // === WAVEFORM CAPTURE ===
@@ -1239,14 +1237,17 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const int numCh = buffer.getNumChannels();
         if (numSamples > 0 && numCh > 0)
         {
-            const juce::CriticalSection::ScopedLockType sl (araWaveformLock);
-            araWaveformBuffer.setSize (1, numSamples, false, false, true);
-            araWaveformBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
-            for (int ch = 1; ch < numCh; ++ch)
-                araWaveformBuffer.addFrom (0, 0, buffer, ch, 0, numSamples);
-            araWaveformBuffer.applyGain (0, 0, numSamples, 1.0f / (float) numCh);
-            araWaveformSampleRate = currentSampleRate;
-            araWaveformReady = true;
+            if (araWaveformLock.tryEnter())
+            {
+                jassert (numSamples <= araWaveformBuffer.getNumSamples());
+                araWaveformBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
+                for (int ch = 1; ch < numCh; ++ch)
+                    araWaveformBuffer.addFrom (0, 0, buffer, ch, 0, numSamples);
+                araWaveformBuffer.applyGain (0, 0, numSamples, 1.0f / (float) numCh);
+                araWaveformSampleRate = currentSampleRate;
+                araWaveformReady.store (true, std::memory_order_release);
+                araWaveformLock.exit();
+            }
         }
     }
 
@@ -1356,7 +1357,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         buffer.clear();
 
         // Ensure MIDI notes are released when entering sleep mode
-        flushPendingMidiNotes ("sleep mode (silence)");
+            flushPendingMidiNotes();
 
         lastInputPitch.store (0.0f);
         lastOutputPitch.store (0.0f);
@@ -1391,6 +1392,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             }
         }
 
+        harmonyFrequencies.clear();
+        harmonyFrequenciesClean.clear();
+        publishHarmonySnapshots();
+        lastRawYinPitch.store (0.0f, std::memory_order_relaxed);
         return; // CPU chute a ~1%
     }
 
@@ -1866,18 +1871,29 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                 // Store detected harmony frequencies for the GUI (may include Follow Lead shift)
                 harmonyFrequencies.clear();
-                for (int i = 0; i < static_cast<int>(notes.size()); ++i)
+                // During a release, `heldF0` can come from lastValidF0 so the
+                // audio engine can render a smooth tail even though the input
+                // is already silent. Do not expose those release notes to the
+                // UI: otherwise the Curve Editor draws harmony lines while no
+                // signal is present and connects them to later notes.
+                if (f0_out > 0.0f)
                 {
-                    if (notes[i] > 0.0f && harmonyGainParam && harmonyGainParam->load() > 0.001f)
-                        harmonyFrequencies.add(notes[i]);
+                    for (int i = 0; i < static_cast<int>(notes.size()); ++i)
+                    {
+                        if (notes[i] > 0.0f && harmonyGainParam && harmonyGainParam->load() > 0.001f)
+                            harmonyFrequencies.add(notes[i]);
+                    }
                 }
 
                 // Store scale-locked harmony frequencies for MIDI OUT (Follow Lead ignored).
                 harmonyFrequenciesClean.clear();
-                for (int i = 0; i < static_cast<int>(cleanNotes.size()); ++i)
+                if (f0_out > 0.0f)
                 {
-                    if (cleanNotes[i] > 0.0f && harmonyGainParam && harmonyGainParam->load() > 0.001f)
-                        harmonyFrequenciesClean.add(cleanNotes[i]);
+                    for (int i = 0; i < static_cast<int>(cleanNotes.size()); ++i)
+                    {
+                        if (cleanNotes[i] > 0.0f && harmonyGainParam && harmonyGainParam->load() > 0.001f)
+                            harmonyFrequenciesClean.add(cleanNotes[i]);
+                    }
                 }
             }
             else
@@ -2062,6 +2078,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (std::abs(lastRatio - 1.0f) > 0.005f)
             targetRatio = lastRatio;
     }
+    const float previousOutputPitch = lastOutputPitch.load();
     lastOutputPitch.store (f0_out);
 
     // 4) Lissage temporel du ratio via RetargetEnvelope (Speed).
@@ -2574,18 +2591,19 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     // previous "2x getNextValue() + 2x addWithMultiply"
                     // implementation.
                     const int N = numSamples;
-                    juce::HeapBlock<float> smootherRamp ((size_t) N);
+                    jassert (N <= shiftedVoiceGainRamps.getNumSamples());
+                    float* smootherRamp = shiftedVoiceGainRamps.getWritePointer (0);
+                    float* gainRampL = shiftedVoiceGainRamps.getWritePointer (1);
+                    float* gainRampR = shiftedVoiceGainRamps.getWritePointer (2);
                     for (int i = 0; i < N; ++i)
                         smootherRamp[i] = shiftedVoiceGains[(size_t)v].getNextValue();
-                    juce::HeapBlock<float> gainRampL ((size_t) N);
-                    juce::HeapBlock<float> gainRampR ((size_t) N);
                     for (int i = 0; i < N; ++i)
                     {
                         gainRampL[i] = smootherRamp[i] * baseGL;
                         gainRampR[i] = smootherRamp[i] * baseGR;
                     }
-                    juce::FloatVectorOperations::addWithMultiply (dstL, srcL, gainRampL.getData(), N);
-                    juce::FloatVectorOperations::addWithMultiply (dstR, srcR, gainRampR.getData(), N);
+                    juce::FloatVectorOperations::addWithMultiply (dstL, srcL, gainRampL, N);
+                    juce::FloatVectorOperations::addWithMultiply (dstR, srcR, gainRampR, N);
                 }
                 else
                 {
@@ -2594,10 +2612,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     const float baseG = blendFactor * perVoiceLevel;
                     // Mono path: same SIMD optimisation as above. 2026-07-23.
                     const int N = numSamples;
-                    juce::HeapBlock<float> gainRamp ((size_t) N);
+                    jassert (N <= shiftedVoiceGainRamps.getNumSamples());
+                    float* gainRamp = shiftedVoiceGainRamps.getWritePointer (0);
                     for (int i = 0; i < N; ++i)
                         gainRamp[i] = shiftedVoiceGains[(size_t)v].getNextValue() * baseG;
-                    juce::FloatVectorOperations::addWithMultiply (dst, src, gainRamp.getData(), N);
+                    juce::FloatVectorOperations::addWithMultiply (dst, src, gainRamp, N);
                 }
             }
         }
@@ -2703,13 +2722,35 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     ? noiseGate.getCurrentGain() : 1.0f;
                 // Smooth the raw gate gain to prevent clicks when the
                 // Noise Gate opens/closes abruptly.
-                harmonyGateGain.setTargetValue (gateGain);
+                 harmonyGateGain.setTargetValue (gateGain);
 
-                // 2026-07-23 SIMD optimisation of the harmony->main mix loop.
-                const int Nmix = numS;
-                juce::HeapBlock<float> mixGainRamp ((size_t) Nmix);
-                for (int i = 0; i < Nmix; ++i)
-                    mixGainRamp[i] = hGainFinal * harmonyEnableGain.getNextValue() * harmonyGateGain.getNextValue();
+                 // Apply the user attack to the FINAL harmony bus. The
+                 // harmony can come from shifted voice buffers, synthesized
+                 // voices, or both; applying the envelope here makes the
+                 // control effective for every path and prevents the harmony
+                 // from arriving before the tuned lead has settled.
+                 const bool harmonyOnset = (f0_out > 0.0f && previousOutputPitch <= 0.0f);
+                 if (harmonyOnset)
+                     harmonyAttackGain = 0.0f;
+
+                 const float requestedAttackMs = harmonyAttackParam != nullptr
+                     ? harmonyAttackParam->load() : 35.0f;
+                 const float attackMs = juce::jlimit (10.0f, 500.0f, requestedAttackMs);
+                 const float attackCoeff = 1.0f - std::exp (-1000.0f / (attackMs * currentSampleRate));
+                 const float releaseCoeff = 1.0f - std::exp (-1000.0f / (60.0f * currentSampleRate));
+                 const float harmonyAttackTarget = f0_out > 0.0f ? 1.0f : 0.0f;
+
+                 // 2026-07-23 SIMD optimisation of the harmony->main mix loop.
+                 const int Nmix = numS;
+                 juce::HeapBlock<float> mixGainRamp ((size_t) Nmix);
+                 for (int i = 0; i < Nmix; ++i)
+                 {
+                     const float coeff = harmonyAttackTarget > harmonyAttackGain
+                         ? attackCoeff : releaseCoeff;
+                     harmonyAttackGain += (harmonyAttackTarget - harmonyAttackGain) * coeff;
+                     mixGainRamp[i] = hGainFinal * harmonyEnableGain.getNextValue()
+                                    * harmonyGateGain.getNextValue() * harmonyAttackGain;
+                 }
                 juce::FloatVectorOperations::addWithMultiply (outL, harmonyBuffer.getReadPointer (0), mixGainRamp.getData(), Nmix);
                 if (outR != nullptr)
                 {
@@ -2786,21 +2827,6 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (f0_out > 0.0f)
         {
             tunedMidi = freqToMidi(f0_out);
-            // MIDI pitch log: gated to ~1/sec to avoid allocating a juce::String
-            // every audio block (the per-block OVT_LOG was a real-time cost
-            // contributor in DAWs like Studio One when the user had features
-            // like Flex/Attack active that already stress the audio callback
-            // timing).
-            static std::atomic<uint32_t> lastMidiF0LogMs { 0 };
-            const uint32_t nowM = juce::Time::getMillisecondCounter();
-            uint32_t lastM = lastMidiF0LogMs.load();
-            if (nowM - lastM > 1000)
-            {
-                if (lastMidiF0LogMs.compare_exchange_strong (lastM, nowM))
-                {
-                    OVT_LOG ("MIDI: f0_out=" + juce::String(f0_out, 2) + "Hz midi=" + juce::String(tunedMidi));
-                }
-            }
         }
         desired[0] = tunedMidi;
 
@@ -2829,7 +2855,6 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 auto off = juce::MidiMessage::noteOff(midiChannel, lastNote);
                 midiMessages.addEvent(off, 0);
                 lastSentMidiNote[ch] = -1;
-                OVT_LOG ("MIDI: NoteOff ch=" + juce::String(midiChannel) + " note=" + juce::String(lastNote));
             }
             if (want != -1 && want != lastNote)
             {
@@ -2837,14 +2862,13 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 auto on = juce::MidiMessage::noteOn(midiChannel, want, (juce::uint8)vel);
                 midiMessages.addEvent(on, 0);
                 lastSentMidiNote[ch] = want;
-                OVT_LOG ("MIDI: NoteOn  ch=" + juce::String(midiChannel) + " note=" + juce::String(want) + " vel=" + juce::String((int)vel));
             }
         }
     }
     else
     {
         // If MIDI out is disabled while notes were active, send a proper release.
-        flushPendingMidiNotes ("MIDI OUT disabled");
+        flushPendingMidiNotes();
     }
 
     // === POST-PROCESSING EFFECTS ===
@@ -2874,6 +2898,63 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float instantCpu = (availableSec > 0.0) ? (float) juce::jlimit (0.0, 1.0, blockElapsedSec / availableSec) : 0.0f;
     // Exponential moving average to smooth the meter.
     cpuUsage.store (cpuUsage.load() * 0.9f + instantCpu * 0.1f);
+    publishHarmonySnapshots();
+}
+
+void OpenVoxTunerAudioProcessor::publishHarmonySnapshots() noexcept
+{
+    // Publish both arrays as one coherent snapshot. Per-element atomics alone
+    // allow the UI to observe a mixture of two adjacent audio blocks while it
+    // copies the frequencies, which appears as disappearing or diagonal
+    // harmony traces.
+    harmonySnapshotVersion.fetch_add (1, std::memory_order_release); // writer active (odd)
+
+    const int frequencyCount = juce::jmin (harmonyFrequencies.size(), maxHarmonySnapshotVoices);
+    const int cleanCount = juce::jmin (harmonyFrequenciesClean.size(), maxHarmonySnapshotVoices);
+
+    for (int i = 0; i < frequencyCount; ++i)
+        harmonyFrequencySnapshot[i].store (harmonyFrequencies[i], std::memory_order_relaxed);
+    harmonyFrequencySnapshotSize.store (frequencyCount, std::memory_order_release);
+
+    for (int i = 0; i < cleanCount; ++i)
+        harmonyFrequencyCleanSnapshot[i].store (harmonyFrequenciesClean[i], std::memory_order_relaxed);
+    harmonyFrequencyCleanSnapshotSize.store (cleanCount, std::memory_order_release);
+
+    harmonySnapshotVersion.fetch_add (1, std::memory_order_release); // snapshot complete (even)
+}
+
+void OpenVoxTunerAudioProcessor::copyHarmonyFrequencies (juce::Array<float>& destination) const
+{
+    for (int attempt = 0; attempt < 4; ++attempt)
+    {
+        const uint32_t begin = harmonySnapshotVersion.load (std::memory_order_acquire);
+        if ((begin & 1u) != 0u)
+            continue;
+
+        juce::Array<float> snapshot;
+        const int count = juce::jlimit (0, maxHarmonySnapshotVoices,
+                                        harmonyFrequencySnapshotSize.load (std::memory_order_acquire));
+        for (int i = 0; i < count; ++i)
+            snapshot.add (harmonyFrequencySnapshot[i].load (std::memory_order_relaxed));
+
+        const uint32_t end = harmonySnapshotVersion.load (std::memory_order_acquire);
+        if (begin == end && (end & 1u) == 0u)
+        {
+            destination = snapshot;
+            return;
+        }
+    }
+
+    destination.clear();
+}
+
+void OpenVoxTunerAudioProcessor::copyHarmonyFrequenciesClean (juce::Array<float>& destination) const
+{
+    destination.clear();
+    const int count = juce::jlimit (0, maxHarmonySnapshotVoices,
+                                    harmonyFrequencyCleanSnapshotSize.load (std::memory_order_acquire));
+    for (int i = 0; i < count; ++i)
+        destination.add (harmonyFrequencyCleanSnapshot[i].load (std::memory_order_relaxed));
 }
 
 void OpenVoxTunerAudioProcessor::copyAraWaveform (juce::AudioBuffer<float>& dest, double& sr)
@@ -3338,6 +3419,17 @@ void OpenVoxTunerAudioProcessor::syncParameters()
                 customNotes.add (i);
         }
         scaleQuantizer->setCustomIntervals (customNotes);
+    }
+
+    // Publish a lock-free copy for the UI. The UI must never iterate the
+    // ScaleQuantizer's mutable juce::Array while this audio-thread method
+    // can rebuild it with clear()/add().
+    {
+        const auto& intervals = scaleQuantizer->getScaleIntervals();
+        const int count = juce::jmin (12, intervals.size());
+        for (int i = 0; i < count; ++i)
+            scaleIntervalSnapshot[static_cast<size_t> (i)].store (intervals[i], std::memory_order_relaxed);
+        scaleIntervalSnapshotSize.store (count, std::memory_order_release);
     }
 
     // Voice Type: constrain pitch detector search range to reduce octave errors
@@ -3937,11 +4029,14 @@ juce::Array<juce::String> OpenVoxTunerAudioProcessor::getScaleNoteNames
     return result;
 }
 
-// === Public accessor for scale intervals ===
-const juce::Array<int>& OpenVoxTunerAudioProcessor::getScaleIntervals() const
+// === Thread-safe snapshot accessor for scale intervals ===
+void OpenVoxTunerAudioProcessor::copyScaleIntervals (juce::Array<int>& destination) const
 {
-    static const juce::Array<int> empty;
-    return scaleQuantizer != nullptr ? scaleQuantizer->getScaleIntervals() : empty;
+    destination.clear();
+    const int count = juce::jlimit (0, 12,
+                                    scaleIntervalSnapshotSize.load (std::memory_order_acquire));
+    for (int i = 0; i < count; ++i)
+        destination.add (scaleIntervalSnapshot[static_cast<size_t> (i)].load (std::memory_order_relaxed));
 }
 
 // === Creation du plugin (point d'entree JUCE) ===

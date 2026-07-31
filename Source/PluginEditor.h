@@ -1,4 +1,4 @@
-﻿// PluginEditor.h
+// PluginEditor.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -16,6 +16,7 @@
 #include "ui/PitchCurveEditor.h"
 #include "ui/ScaleKeyboardComponent.h"
 #include "dsp/NoteUtils.h"
+#include "dsp/MidiImporter.h"
 #include "ui/LookAndFeel.h"
 #include "dsp/PresetMorpher.h"
 
@@ -42,6 +43,7 @@ public:
 };
 
 class OpenVoxTunerAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                         public juce::FileDragAndDropTarget,
                                          public ui::PitchCurveEditor::Listener,
                                          public juce::Slider::Listener,
                                          public juce::Button::Listener,
@@ -174,6 +176,14 @@ private:
     // === Export image file chooser ===
     std::unique_ptr<juce::FileChooser> exportFileChooser;
 
+    // === MIDI Import (drag-and-drop + menu) ===
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
+    void handleMidiFileImport (const juce::File& midiFile);
+    void applyMidiImport (const ovtdsp::PitchCurve& newCurve, const juce::String& sourceName);
+    void showMidiChannelDialog (const juce::File& midiFile, const ovtdsp::MidiImportInfo& info);
+    std::unique_ptr<juce::FileChooser> midiImportFileChooser;
+
     // Hamburger menu (gear icon button, replaces all top-bar controls).
     juce::DrawableButton menuButton { "Options", juce::DrawableButton::ImageOnButtonBackground };
     // Screen position for right-click triggered wrench menu (0,0 = use menuButton position).
@@ -277,6 +287,11 @@ private:
     std::shared_ptr<OpenVoxTunerUpdateCheckState> updateCheckState;
 
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
+
+    // Auxiliary top-level windows are owned by the editor so they cannot
+    // outlive it and remain registered in juce::Desktop during shutdown.
+    std::unique_ptr<juce::DocumentWindow> debugWindow;
+    std::unique_ptr<juce::DocumentWindow> galleryWindow;
 
     // Scale selection keyboard
     ui::ScaleKeyboardComponent scaleKeyboard;

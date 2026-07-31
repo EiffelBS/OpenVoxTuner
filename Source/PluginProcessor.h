@@ -1,4 +1,4 @@
-﻿// PluginProcessor.h
+// PluginProcessor.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -10,6 +10,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include <array>
 #include <atomic>
+#include <memory>
 #include <thread>
 #include "dsp/IPitchDetector.h"
 #include "dsp/YinPitchDetector.h"
@@ -92,12 +93,13 @@ public:
     float getCurrentInputPitch() const  { return lastInputPitch.load(); }       
     float getCurrentOutputPitch() const { return lastOutputPitch.load(); }      
     float getCurrentCentsOffset() const { return lastCentsOffset.load(); }      
+    float getLastDetectedInputPitch() const { return lastRawYinPitch.load (std::memory_order_relaxed); }
 
     // === Harmony data access for GUI ===
-    const juce::Array<float>& getHarmonyFrequencies() const { return harmonyFrequencies; }
+    void copyHarmonyFrequencies (juce::Array<float>& destination) const;
     // Scale-locked harmony notes (Follow Lead NOT applied). Used for MIDI OUT so
     // pushed MIDI notes stay clean, regardless of the Follow Lead toggle.
-    const juce::Array<float>& getHarmonyFrequenciesClean() const { return harmonyFrequenciesClean; }
+    void copyHarmonyFrequenciesClean (juce::Array<float>& destination) const;
     float getHarmonyOutputLevel() const { return harmonyOutputLevel.load(); }   
 
     // === Scale note names (for the editor) ===
@@ -191,10 +193,10 @@ public:
     /// Live/Curve mode) are preserved afterwards.
     void applyPluginPresetState (const juce::ValueTree& presetState);
 
-    /// Get the current scale intervals from the processor's ScaleQuantizer.
-    /// These are the definitive intervals (key + scale or custom) used for
-    /// pitch quantization, background lines, and piano keyboard highlighting.
-    const juce::Array<int>& getScaleIntervals() const;
+    /// Copy the current scale intervals published by the audio thread.
+    /// The destination is a private UI-thread snapshot and never aliases the
+    /// ScaleQuantizer's mutable Array.
+    void copyScaleIntervals (juce::Array<int>& destination) const;
 
     // VST3 Extension (Micro View, etc.)
     juce::VST3ClientExtensions* getVST3ClientExtensions() override;
@@ -367,7 +369,7 @@ public:
     }
 
     // ARA2 waveform overlay accessors (for the editor).
-    bool isAraWaveformReady() const { return araWaveformReady; }
+    bool isAraWaveformReady() const { return araWaveformReady.load (std::memory_order_acquire); }
     /// Copy the cached waveform into the provided buffer (thread-safe).
     void copyAraWaveform (juce::AudioBuffer<float>& dest, double& sr);
 
@@ -465,6 +467,8 @@ private:
     int activeDetectorMode = 0;
     std::unique_ptr<ovtdsp::IPitchDetector> createDetector();
     std::unique_ptr<ovtdsp::ScaleQuantizer>    scaleQuantizer;
+    std::array<std::atomic<int>, 12> scaleIntervalSnapshot {};
+    std::atomic<int> scaleIntervalSnapshotSize { 0 };
     std::unique_ptr<ovtdsp::PitchShifter>      pitchShifter;
     std::unique_ptr<ovtdsp::HarmonyEngine>     harmonyEngine;
     ovtdsp::NoiseGate                           noiseGate;
@@ -597,7 +601,7 @@ private:
     // === ARA2 Waveform overlay cache ===
     juce::AudioBuffer<float> araWaveformBuffer;
     double araWaveformSampleRate = 44100.0;
-    bool araWaveformReady = false;
+    std::atomic<bool> araWaveformReady { false };
     juce::CriticalSection araWaveformLock;
     std::atomic<bool> waveformCaptureEnabled { true };
 
@@ -625,8 +629,16 @@ private:
     juce::Array<float> lastHarmonyNotes; // keep last notes to allow release rendering
     juce::Array<float> lastHarmonyNotesClean; // scale-locked cache for MIDI OUT release
     std::atomic<float> harmonyOutputLevel { 0.0f };
+    static constexpr int maxHarmonySnapshotVoices = 8;
+    std::array<std::atomic<float>, maxHarmonySnapshotVoices> harmonyFrequencySnapshot;
+    std::array<std::atomic<float>, maxHarmonySnapshotVoices> harmonyFrequencyCleanSnapshot;
+    std::atomic<int> harmonyFrequencySnapshotSize { 0 };
+    std::atomic<int> harmonyFrequencyCleanSnapshotSize { 0 };
+    std::atomic<uint32_t> harmonySnapshotVersion { 0 };
+    void publishHarmonySnapshots() noexcept;
     juce::AudioBuffer<float> harmonyBuffer; // stereo buffer for mixing
     juce::AudioBuffer<float> synthWorkBuffer; // preallocated synth harmony render buffer
+    juce::AudioBuffer<float> shiftedVoiceGainRamps; // reusable gain ramps for shifted-voice mixing
     juce::AudioBuffer<float> leadReferenceBuffer; // pre-shift snapshot for LPC formant preservation
     juce::AudioBuffer<float> harmonyWarpBuffer;   // scratch for per-voice P0 formant pre-warp
     // last mixed harmony buffer saved to perform a crossfade on stop
@@ -639,6 +651,9 @@ private:
     // Smoothed gate gain for harmony voices â€” prevents clicks when the
     // Noise Gate opens/closes (the raw gateGain jumps instantly).
     juce::LinearSmoothedValue<float> harmonyGateGain { 0.0f };
+    // Common musical attack envelope applied to the final harmony bus. This
+    // covers both shifted-voice and synthesized harmony paths.
+    float harmonyAttackGain = 0.0f;
     // Temporary buffers to hold pitch-shifted voices (preallocated)
     std::vector<juce::AudioBuffer<float>> shiftedVoiceBuffers;
     // Dedicated pitch shifters per shifted voice (separate state from main pitchShifter)

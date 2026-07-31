@@ -1,4 +1,4 @@
-﻿// PitchCurveEditor.h
+// PitchCurveEditor.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -104,8 +104,13 @@ namespace ui
         void setStepModeEnabled (bool b);
         bool isStepModeEnabled() const { return curve.isStepMode(); }
 
-        /// Vide la courbe (Reset)
+        /// Vider la courbe (Reset)
         void clearCurve() { curve.clear(); repaint(); notifyChanged(); }
+
+        /** Import a pitch curve from an external source (e.g. MIDI file).
+         *  Records an undo snapshot so the import can be undone with Ctrl+Z.
+         *  Step mode is forced ON (MIDI notes are discrete). */
+        void importMidiCurve (const ovtdsp::PitchCurve& newCurve);
 
         /// Ghost curve overlay for preset morphing (semi-transparent target curve).
         /// The curve is COPIED by value: the ghost must never keep a raw pointer to a
