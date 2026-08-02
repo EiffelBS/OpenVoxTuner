@@ -122,3 +122,19 @@ Option A's blend is small and localized (one expression + comment). If Option B 
 unacceptable, it is easy to restore by keeping the granular formant ratio path and
 removing the per-voice biquad. Both paths can coexist behind the `formant_strategy`
 parameter if desired, but the default should be a single stable path.
+
+## Comparison option (A/B at runtime)
+
+To validate B without losing the current sound, add an APVTS `AudioParameterChoice`
+`harmony_formant_method`:
+
+- `"Granular (current)"` — the existing HC.13 path (per-voice formant-ratio blend,
+  floor 0.5) via the grain read-speed in `PitchShifter`.
+- `"Biquad (per-voice)"` — the new HC.14 per-voice `FormantPreserver` pre-warp.
+
+The voice loop branches once per block on the selected method. This lets the user
+flip between the two while singing (no recompile / reload), which is the cleanest
+way to validate that the biquad path both removes the wobble/pop and keeps the
+formant knob fully working on all types (including Drone / Octave Below / Octave
+Above).
+
