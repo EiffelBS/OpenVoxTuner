@@ -95,6 +95,15 @@ public:
     float getCurrentCentsOffset() const { return lastCentsOffset.load(); }      
     float getLastDetectedInputPitch() const { return lastRawYinPitch.load (std::memory_order_relaxed); }
 
+    // True while "Tuning follows MIDI IN" is enabled AND a MIDI note is being
+    // held to drive the correction target. Used by the GUI to show a badge.
+    bool isMidiTargetActive() const { return midiTargetActive.load(); }
+
+    // Frequency (Hz) of the MIDI note currently driving the correction target
+    // when isMidiTargetActive() is true; 0 otherwise. Used by the Curve Editor
+    // to draw a target line.
+    float getCurrentMidiTargetHz() const { return midiTargetHz.load(); }
+
     // === Harmony data access for GUI ===
     void copyHarmonyFrequencies (juce::Array<float>& destination) const;
     // Scale-locked harmony notes (Follow Lead NOT applied). Used for MIDI OUT so
@@ -340,6 +349,12 @@ public:
         return abSlotHasData[slot] ? (slot == 0 ? &abSlotAMorph : &abSlotBMorph) : nullptr;
     }
     bool hasAbSlotData (int slot) const { return abSlotHasData[slot]; }
+    // Active A/B slot (0 = A, 1 = B), persisted so the editor restarts on the
+    // same slot the user left. Without this, the editor resets to "A" while the
+    // restored main state reflects the last active slot (often B), which makes
+    // slot A appear to contain slot B's content after a restart.
+    void setAbActiveSlot (int s) { abActiveSlot = juce::jlimit (0, 1, s); }
+    int  getAbActiveSlot() const { return abActiveSlot; }
 
     // CPU usage meter (0.0 - 1.0) for the editor header display.
     float getCpuUsage() const { return cpuUsage.load(); }
@@ -512,10 +527,18 @@ private:
     // Positive = input note too high, Negative = too low.
     std::atomic<float> lastCentsOffset { 0.0f };
 
+    // True while a held MIDI note is actively driving the correction target
+    // ("Tuning follows MIDI IN"). Written in processBlock, read by the GUI.
+    std::atomic<bool> midiTargetActive { false };
+
+    // Frequency (Hz) of the MIDI note currently driving the target (see getter).
+    std::atomic<float> midiTargetHz { 0.0f };
+
     // A/B comparison slots (persisted in project state).
     ovtdsp::MorphState abSlotAMorph;
     ovtdsp::MorphState abSlotBMorph;
     bool abSlotHasData[2] = { false, false };
+    int  abActiveSlot = 0;
 
     std::atomic<float> lastValidF0 { 440.0f };
 
@@ -627,6 +650,7 @@ private:
     juce::Array<float> harmonyFrequencies;
     juce::Array<float> harmonyFrequenciesClean; // scale-locked, Follow Lead ignored (MIDI OUT)
     juce::Array<float> lastHarmonyNotes; // keep last notes to allow release rendering
+    int  lastHarmonyNotesType = -1;      // harmony type that produced lastHarmonyNotes (cache validity)
     juce::Array<float> lastHarmonyNotesClean; // scale-locked cache for MIDI OUT release
     std::atomic<float> harmonyOutputLevel { 0.0f };
     static constexpr int maxHarmonySnapshotVoices = 8;
@@ -651,6 +675,38 @@ private:
     // Smoothed gate gain for harmony voices â€” prevents clicks when the
     // Noise Gate opens/closes (the raw gateGain jumps instantly).
     juce::LinearSmoothedValue<float> harmonyGateGain { 0.0f };
+    // Harmony-type transition dip: when the harmony TYPE changes (morph, preset
+    // load), the harmony note set/voice count jump instantly and can click. On a
+    // type change we fade the whole harmony mix in from silence over a short,
+    // SAMPLE-ACCURATE Hann window (applied per-sample in the mix loop), masking
+    // the discontinuity without the block-stepped click a per-block dip causes
+    // at large buffer sizes. `typeDipFadeTotalSamples`/`typeDipFadeRemaining`
+    // drive the fade; `lastHarmonyTypeVal` detects the change.
+    int lastHarmonyTypeVal = -1;       // the harmony type currently being rendered (applied)
+    int pendingHarmonyType = -1;       // the requested new type, applied after the fade-out
+    int typeDipFadeTotalSamples = 0;   // total crossfade length in samples
+    int typeDipFadeRemaining = 0;      // remaining crossfade samples (0 = idle)
+    // True while a harmony-type transition runs. The transition is a DEFERRED
+    // retarget: the old note set keeps rendering (and fades out) instead of
+    // being cut instantly, then the new note set fades in. The whole harmony
+    // bus is dipped (fade out -> hold -> fade in) so neither the old-cut nor
+    // the new onset is audible. No snapshot is used, so there is no per-block
+    // restart discontinuity.
+    bool typeCrossfadeActive = false;
+    juce::AudioBuffer<float> typeCrossfadeOld;
+    // Diagnostic only (OVT_FORCE_LOG): on the block where a harmony-type change
+    // is detected, capture a small window of raw harmony-bus and output samples
+    // plus the peak sample-to-sample jump, so the actual discontinuity (pitch
+    // step, low-frequency pop, phase reset, boundary step) can be inspected.
+    bool  diagTypeChangePending = false;
+    float diagHarmonyPeakJump = 0.0f;
+    float diagOutputPeakJump  = 0.0f;
+    float diagHarmonyWindow[48] = { 0.0f };
+    float diagOutputWindow[48]  = { 0.0f };
+    int   diagWindowLen = 0;
+    bool  diagWindowFilled = false;
+    float diagPrevLastOut = 0.0f;
+    float diagPrevHarmonyLast = 0.0f;
     // Common musical attack envelope applied to the final harmony bus. This
     // covers both shifted-voice and synthesized harmony paths.
     float harmonyAttackGain = 0.0f;
@@ -660,6 +716,21 @@ private:
     std::vector<std::unique_ptr<ovtdsp::PitchShifter>> shiftedVoicePitchShifters;
     static constexpr int maxShiftedVoices = 4;
     std::array<juce::LinearSmoothedValue<float>, maxShiftedVoices> shiftedVoiceGains;
+    // Per-voice ratio glide for the shifted-voice pitch shifters. On a harmony
+    // TYPE change the target note (and thus ratioH) jumps; a fast glide masks
+    // that pitch step so no bus mute (level hole) is needed. It only glides on
+    // LARGE ratio changes (>12% ~ a minor 3rd); vibrato / follow-lead (3-5%)
+    // pass through instantly so the harmony never wobbles. (Re-introduced after
+    // the earlier >3% threshold caused vibrato wobble and was removed.)
+    std::array<ovtdsp::BlockAwareOnePole, maxShiftedVoices> shiftedVoiceRatioSmoothers;
+    std::array<float, maxShiftedVoices> shiftedVoiceSmoothedRatio = { 1.0f, 1.0f, 1.0f, 1.0f };
+    // Smooths the per-voice loudness normalization 4/sqrt(N). On a harmony TYPE
+    // change the active voice count N steps instantly, which would make the
+    // remaining voices' level jump (e.g. 4/sqrt(4)=2.0 -> 4/sqrt(1)=4.0 when the
+    // count drops 4->1), audible as a one-way "pop" / louder attack. Gliding it
+    // over ~40 ms (same TC as the per-voice gain ramps) keeps loudness constant
+    // through the transition. Buffer-size independent (Fix AY convention).
+    ovtdsp::BlockAwareOnePole shiftedVoiceLevelSmoother;
     // LPC cross-synthesis formant preservation (P1 = C0, P2 = C1Hybrid):
     // one instance per harmony voice (lead instance declared above).
     std::array<ovtdsp::LpcFormantPreserver, maxShiftedVoices> lpcFormantPreserverHarmony;

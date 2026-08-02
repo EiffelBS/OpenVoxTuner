@@ -9,7 +9,9 @@ site_dir: site-docs
 
 theme:
   name: material
-  language: fr
+  language: en
+  logo: assets/icon.svg
+  favicon: assets/icon.svg
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -39,29 +41,27 @@ theme:
     - content.tooltips
 
 nav:
-  - Accueil: index.md
+  - Home: index.md
   - Installation: installation.md
-  - Guide utilisateur:
-    - Démarrage rapide: user-guide/quickstart.md
-    - Modes de correction: user-guide/correction-modes.md
-    - Éditeur de courbe: user-guide/curve-editor.md
-    - Génération d'harmonies: user-guide/harmony.md
-    - Paramètres par défaut: default-parameters.md
+  - User Guide:
+    - Quick Start: user-guide/quickstart.md
+    - Correction Modes: user-guide/correction-modes.md
+    - Curve Editor: user-guide/curve-editor.md
+    - Harmony Generation: user-guide/harmony.md
+    - Default Parameters: default-parameters.md
   - Architecture:
-    - Vue d'ensemble: architecture.md
-    - Pipeline DSP: architecture/dsp-pipeline.md
-    - Interface utilisateur: architecture/ui.md
-  - Développement:
-    - Build guide: build-guide.md
-    - macOS AU & Installer: MACOS_AU_AND_INSTALLER_GUIDE.md
+    - Overview: architecture.md
+    - DSP Pipeline: architecture/dsp-pipeline.md
+    - User Interface: architecture/ui.md
+  - Development:
+    - Build Guide: build-guide.md
     - Tests: testing.md
     - Contributing: contributing.md
-  - Référence:
-    - API DSP: reference/dsp-api.md
+  - Reference:
+    - DSP API: reference/dsp-api.md
     - ARA2: reference/ara2.md
     - Presets: reference/presets.md
-  - Changelog: changelog.md
-  - Licence: license.md
+  - License: license.md
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -91,7 +91,7 @@ markdown_extensions:
 
 plugins:
   - search:
-      lang: fr
+      lang: en
   - git-revision-date-localized:
       type: date
       timezone: Europe/Paris
@@ -105,9 +105,3 @@ extra:
   generator: false
   version:
     provider: mike
-
-extra_css:
-  - stylesheets/extra.css
-
-extra_javascript:
-  - javascripts/mermaid.js

@@ -10,7 +10,22 @@
 #include "ui/OVTTheme.h"
 #include "ui/OVTLanguages.h"
 #include "ui/PresetGallery.h"
+#include "ovt_assets_binary_data.h"
 #include <map>
+
+// Cached vector logo (assets/icon.svg embedded as a binary resource). Parsed
+// once and reused so we don't re-parse the SVG on every repaint.
+static juce::Drawable* getBrandLogo()
+{
+    static std::unique_ptr<juce::Drawable> logo;
+    if (logo == nullptr && ovtAssets::icon_svgSize > 0)
+    {
+        auto svgXml = juce::XmlDocument::parse (ovtAssets::icon_svg);
+        if (svgXml != nullptr)
+            logo = juce::Drawable::createFromSVG (*svgXml);
+    }
+    return logo.get();
+}
 
 // === Theme colors ("autotune" style: dark + pink/purple accent) ===
 
@@ -699,6 +714,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     };
     addAndMakeVisible (advancedButton);
     setupKnob (formantSlider, nullptr, "");
+    // Pivot knob: fill grows from the central 0 value, not from the minimum.
+    formantSlider.getProperties().set ("centred", true);
     // Formant knob: no value textbox; the live value is shown in JUCE's popup
     // display while dragging. The TooltipWindow can't be used for this: it only
     // appears after the mouse is stationary, which never happens during a
@@ -739,7 +756,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyGainMatchButton.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyGainMatch));
     addAndMakeVisible (harmonyGainMatchButton);
 
-    // Harmony type combo â€” index 3 = "3rd Below + Above" (default)
+    // Harmony type combo â€” index 3 = "3rd Below + Above" (default).
+    // IMPORTANT: this list MUST contain ALL 22 choices, matching the
+    // "harmony_type" AudioParameterChoice (0..21). The ComboBoxParameterAttachment
+    // maps the parameter's normalized value via `round(norm * (numItems-1))`, so a
+    // box with fewer items than the parameter shifts every index above the missing
+    // ones (e.g. Power Chord = param 17 but box index 15 when "Unison" items are
+    // absent), making the displayed selection wrong.
     harmonyTypeBox.addItemList (juce::StringArray {
         "None",
         "3rd Below", "3rd Above", "3rd Below + Above",
@@ -748,7 +771,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         "3rd Below + 5th Above", "5th Below + 3rd Above",
         "Octave Below", "Octave Above", "Octave Below + Above",
         "Vocal Stack (3 voices)", "Vocal Stack (4 voices)",
-        "Power Chord", "Parallel 3rd", "Drone"
+        "Power Chord", "Parallel 3rd", "Drone",
+        "Unison (2 voices)", "Unison + Octaves (4 voices)"
     }, 1);
     harmonyTypeBox.setSelectedItemIndex (3, juce::dontSendNotification);
     harmonyTypeBox.setColour (juce::ComboBox::backgroundColourId, ovt::bgPanel());
@@ -783,6 +807,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyAttackSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " ms"; };
 
     setupKnob (harmonyFormantSlider, nullptr, "");
+    // Pivot knob: fill grows from the central 0 value, not from the minimum.
+    harmonyFormantSlider.getProperties().set ("centred", true);
     harmonyFormantSlider.setRange (-5.0, 5.0, 0.1);
     harmonyFormantSlider.setValue (0.0);
     harmonyFormantSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
@@ -1256,10 +1282,24 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // Auto-save the CURRENT slot before loading the other one.
             // Only save if the current state matches this slot's original state
             // (morph slider at the correct endpoint), not a morphed blend.
-            const float morphPos = processorRef.getMorphAmount();
-            const bool atOwnEndpoint = isSlotAActive ? (morphPos < 0.01f) : (morphPos > 0.99f);
-            if (atOwnEndpoint)
+            // Always commit the CURRENT slot's state when switching away, so
+            // edits made on it are never lost. Capture the LIVE parameters
+            // directly. Do NOT snap the morph first: snapping fires
+            // onMorphSliderChanged, which would re-apply the slot's stale
+            // stored state via morphSource and overwrite the live edit before
+            // capture (exactly the "slot A reset to defaults" bug seen).
             {
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+                auto* lp = processorRef.getParameters().getParameter ("vibrato_preserve");
+                auto* lh = processorRef.getParameters().getParameter ("humanize");
+                auto* lf = processorRef.getParameters().getParameter ("harmony_formant");
+                auto* lt = processorRef.getParameters().getParameter ("harmony_type");
+                juce::Logger::writeToLog (
+                    "[DIAG] pre-save live: vibrato=" + juce::String (lp ? lp->getValue() : -1.0f, 4)
+                    + " humanize=" + juce::String (lh ? lh->getValue() : -1.0f, 4)
+                    + " formant=" + juce::String (lf ? lf->getValue() : -1.0f, 4)
+                    + " type=" + juce::String (lt ? (int) std::round (lt->getValue() * 21.0f) : -1));
+#endif
                 auto& currentSlot = isSlotAActive ? slotA : slotB;
                 const int currentIdx = isSlotAActive ? 0 : 1;
                 saveSlot (currentSlot, currentIdx);
@@ -1284,6 +1324,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // Load the clicked slot
             loadSlot (clickedSlot);
             isSlotAActive = (slotIdx == 0);
+            processorRef.setAbActiveSlot (slotIdx);
 
             // Set up morph state: source = A (slider left), target = B (slider right).
             // This is always the same regardless of which slot is active.
@@ -2347,6 +2388,27 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
         restoreSlot (slotA, 0);
         restoreSlot (slotB, 1);
+        // Restore the active slot so the editor reopens on the same slot the
+        // user left. The main APVTS holds that slot's values, so keeping the
+        // active-slot flag in sync prevents slot A from appearing to contain
+        // slot B's content after a restart.
+        isSlotAActive = (processorRef.getAbActiveSlot() == 0);
+        // Snap the live parameters to the ACTIVE slot's saved MorphState ONLY
+        // when the restored state is a "frozen morph" (morph_amount mid-range).
+        // Otherwise the global parameters restored from `.settings` are
+        // authoritative and MUST NOT be overwritten by the active slot's values
+        // — otherwise every global change (Vibrato, Humanize, harmony type /
+        // formant) made before quitting is silently lost on restart.
+        const float restoredMorph = processorRef.getMorphAmount();
+        const bool frozenMorph = (restoredMorph > 0.02f && restoredMorph < 0.98f);
+        {
+            auto& activeSlot = isSlotAActive ? slotA : slotB;
+            if (frozenMorph && activeSlot.hasData && activeSlot.morphState != nullptr)
+                loadSlot (activeSlot);
+        }
+        processorRef.setMorphAmount (isSlotAActive ? 0.0f : 1.0f);
+        lastMorphValue = isSlotAActive ? 0.0f : 1.0f;
+        updateABButtonStates();
     }
     
     // Initialize tab from processor parameter
@@ -2484,21 +2546,10 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (ovt::bgDark());
     g.fillRect (0, 0, getWidth(), 50);
 
-    // --- LOGO DRAWING ---
+    // --- LOGO DRAWING (assets/icon.svg) ---
     juce::Rectangle<float> logoArea (20.0f, 10.0f, 30.0f, 30.0f);
-    
-    // Draw stylized O
-    g.setColour(ovt::accent());
-    g.drawEllipse(logoArea.reduced(2.0f), 3.0f);
-    
-    // Draw pitch curve passing through O
-    juce::Path curve;
-    curve.startNewSubPath(logoArea.getX() - 5.0f, logoArea.getCentreY() + 5.0f);
-    curve.cubicTo(logoArea.getX() + 10.0f, logoArea.getCentreY() + 5.0f,
-                  logoArea.getCentreX(), logoArea.getY() - 5.0f,
-                  logoArea.getRight() + 5.0f, logoArea.getY() + 10.0f);
-    g.setColour(juce::Colours::white);
-    g.strokePath(curve, juce::PathStrokeType(2.5f, juce::PathStrokeType::mitered, juce::PathStrokeType::rounded));
+    if (auto* logo = getBrandLogo())
+        logo->drawWithin (g, logoArea, juce::Justification::centred, 1.0f);
 
     // --- TITLE TEXT ---
     // Drawn with GlyphArrangement so "OpenVox" (accent) and "Tuner" (white) sit
@@ -2507,7 +2558,9 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     // then added an ellipsis ("OpenV...Tun...") because the box was 1px too narrow.
     const juce::Font titleFont = ovt::fontTitle();
     const float titleY = 8.0f;
-    const float baseline = titleY + titleFont.getAscent();
+    // Vertically centre the title against the logo (logoArea centre Y).
+    const float baseline = logoArea.getCentreY()
+                         + (titleFont.getAscent() - titleFont.getDescent()) * 0.5f;
     float x = 60.0f;
 
     juce::GlyphArrangement ga;
@@ -2650,7 +2703,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // revealed to the SIDE via the "Advanced" banner, so we keep the bottom
     // strip compact.
     auto centerArea = bounds.removeFromTop (bounds.getHeight() - 190);
-    tabbedComponent.setBounds (centerArea.reduced (pad));
+    auto tabArea = centerArea.reduced (pad);
+    // Reduce the gap between the title banner and the Live/Curve Editor tabs.
+    tabArea.setY (centerArea.getY() + 4);
+    tabbedComponent.setBounds (tabArea);
     
     // Graphic Mode specific tools aligned over the tab bar row.
     auto tabBounds = tabbedComponent.getBounds();
@@ -3132,6 +3188,34 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
 
     currentCpuUsage = processorRef.getCpuUsage();
 
+    // One-shot diagnostic dump on the first tick, after all restore/attachment
+    // messages have settled, to verify what is actually restored at startup.
+    if (! startupDiagLogged)
+    {
+        startupDiagLogged = true;
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+        auto* htype = processorRef.getParameters().getParameter ("harmony_type");
+        const float hval = htype != nullptr ? htype->getValue() : -1.0f;
+        const int hIdx = (hval >= 0.0f) ? (int) std::round (hval * 21.0f) : -1;
+        const ovtdsp::MorphState* slotBms = processorRef.getAbSlotMorphState (1);
+        const int slotBType = slotBms != nullptr ? slotBms->harmonyType : -999;
+        const ovtdsp::MorphState* slotAms = processorRef.getAbSlotMorphState (0);
+        auto f4 = [] (float v) { return juce::String (v, 4); };
+        juce::Logger::writeToLog (
+            "[DIAG] startup: activeSlot=" + juce::String (processorRef.getAbActiveSlot())
+            + " morph=" + juce::String (processorRef.getMorphAmount(), 2)
+            + " slotA_hasData=" + juce::String (slotA.hasData ? 1 : 0)
+            + " slotB_hasData=" + juce::String (slotB.hasData ? 1 : 0)
+            + " slotB_type=" + juce::String (slotBType)
+            + " harmony_type_param=" + juce::String (hIdx)
+            + " harmony_type_val=" + juce::String (hval, 4)
+            + " slotA_type=" + juce::String (slotAms != nullptr ? slotAms->harmonyType : -999)
+            + " slotA_vibrato=" + (slotAms ? f4 (slotAms->vibratoPreserve) : juce::String ("null"))
+            + " slotA_humanize=" + (slotAms ? f4 (slotAms->humanize) : juce::String ("null"))
+            + " slotA_formant=" + (slotAms ? f4 (slotAms->harmonyFormant) : juce::String ("null")));
+#endif
+    }
+
     // Apply deferred parameter changes from the audio thread (key/scale detection).
     // Must happen on the UI thread to avoid deadlocks in some hosts.
     processorRef.flushPendingParameterChanges();
@@ -3480,6 +3564,13 @@ void OpenVoxTunerAudioProcessorEditor::refreshVisualizer()
     const float hzOut = processorRef.getCurrentOutputPitch();
     pitchVisualizer->pushInputPitch  (hzIn);
     pitchVisualizer->pushOutputPitch (hzOut);
+    const bool midiActive = processorRef.isMidiTargetActive();
+    pitchVisualizer->setMidiFollowActive (midiActive);
+    if (curveEditor != nullptr)
+    {
+        curveEditor->setMidiFollowActive (midiActive);
+        curveEditor->setMidiTargetHz (processorRef.getCurrentMidiTargetHz());
+    }
     if (curveEditor != nullptr)
     {
         curveEditor->getPianoKeyboard().setCurrentPitches (hzIn, hzOut);
@@ -4210,7 +4301,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
             scaleBox.setSelectedItemIndex (currentScale, juce::dontSendNotification);
     }
 
-    // Update harmony combo box items (all 20)
+    // Update harmony combo box items (all 22)
     {
         const char* harmonyKeys[] = {
             ovt::Keys::kHarmonyNone, ovt::Keys::kHarmony3rdBelow,
@@ -4230,7 +4321,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
         for (int i = 0; i < 22; ++i)
             harmonyTypeBox.addItem (ovt::tr (harmonyKeys[i]), i + 1);
         if (currentHarmony >= 0)
-            harmonyTypeBox.setSelectedItemIndex (juce::jmin (currentHarmony, 19), juce::dontSendNotification);
+            harmonyTypeBox.setSelectedItemIndex (juce::jmin (currentHarmony, 21), juce::dontSendNotification);
     }
 
     // Update Voice Type combo box items (6). Labels already include the note
@@ -4578,6 +4669,14 @@ void OpenVoxTunerAudioProcessorEditor::saveSlot (ABState& slot, int slotIndex)
     slot.morphState = std::make_unique<ovtdsp::MorphState> (
         ovtdsp::captureState (processorRef.getParameters(), curve,
                              slotIndex == 0 ? "Slot A" : "Slot B"));
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+    if (slotIndex == 0)
+        juce::Logger::writeToLog (
+            "[DIAG] saveSlot(A): type=" + juce::String (slot.morphState->harmonyType)
+            + " vibrato=" + juce::String (slot.morphState->vibratoPreserve, 4)
+            + " humanize=" + juce::String (slot.morphState->humanize, 4)
+            + " formant=" + juce::String (slot.morphState->harmonyFormant, 4));
+#endif
     slot.hasData = true;
     slot.name = "filled";
 
@@ -4617,6 +4716,7 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("harmony_tone_color", saved.harmonyToneColor,   harmonyToneColorSlider);
     setSlider ("reverb_mix",         saved.reverbMix,          reverbMixSlider);
     setSlider ("noise_gate_threshold", saved.noiseGateThreshold, noiseGateThresholdSlider);
+    setSlider ("upward_comp_amount",   saved.upwardCompAmount,   upwardCompAmountSlider);
     setSlider ("flex_tune",          saved.flexTune,           flexTuneSlider);
     setSlider ("humanize",           saved.humanize,           humanizeSlider);
     setSlider ("vibrato_preserve",    saved.vibratoPreserve,    vibratoPreserveSlider);
@@ -4642,14 +4742,24 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("harmony_shifted_voices",   (float) (saved.harmonyShiftedVoices - 1) / 3.0f);
     setChoice ("latency_mode",             (float) saved.latencyMode / 3.0f);
     setChoice ("editor_measures",          (float) (saved.editorMeasures - 1) / 31.0f);
+    setChoice ("voice_type",               (float) saved.voiceType / 5.0f);
+    // Continuous-style morph params (key_source / companion_group are
+    // normalised 0..1; key_detect steps). They were captured by captureState
+    // but never re-applied here, so a slot switch left them at the previous
+    // slot's values.
+    setChoice ("key_source",               saved.keySource);
+    setChoice ("companion_group",          saved.companionGroup);
+    setChoice ("key_detect",               saved.keyDetect);
 
     // Boolean parameters: use setValueNotifyingHost (Button attachments sync)
     setChoice ("formant_enable",    saved.formantEnable ? 1.0f : 0.0f);
     setChoice ("bypass",            saved.bypass ? 1.0f : 0.0f);
     setChoice ("harmony_enable",    saved.harmonyEnable ? 1.0f : 0.0f);
     setChoice ("harmony_use_voice", saved.harmonyUseVoice ? 1.0f : 0.0f);
+    setChoice ("harmony_follow_lead", saved.harmonyFollowLead ? 1.0f : 0.0f);
     setChoice ("reverb_enable",     saved.reverbEnable ? 1.0f : 0.0f);
     setChoice ("noise_gate_enable", saved.noiseGateEnable ? 1.0f : 0.0f);
+    setChoice ("upward_comp_enable", saved.upwardCompEnable ? 1.0f : 0.0f);
     setChoice ("correction_mode",   saved.correctionMode ? 1.0f : 0.0f);
 
     // Restore the pitch curve

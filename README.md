@@ -62,12 +62,15 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 |----------|----------|-------|
 | Windows  | `OpenVoxTuner_Windows_Installer.exe` | Installer (Inno Setup) |
 | macOS    | `OpenVoxTuner-macOS.zip` | Drag-and-drop: VST3 + Standalone (universal arm64/x86_64) |
-| macOS    | `OpenVoxTuner-macOS.pkg` | Installer (unsigned): VST3 &rarr; `/Library/Audio/Plug-Ins/VST3`, Standalone &rarr; `/Applications` |
+| macOS    | `OpenVoxTuner-macOS.pkg` | Installer (temporarily unsigned): VST3 &rarr; `/Library/Audio/Plug-Ins/VST3`, Standalone &rarr; `/Applications` |
 
-> The macOS `.pkg` is **unsigned**. To install it, right-click &rarr; *Open*, or run
-> `sudo installer -pkg OpenVoxTuner-macOS.pkg -target /`.
-> The **AU** plugin is not included in the unsigned releases (an unsigned AU cannot be
-> loaded by a DAW); build it from source if you need it.
+> The macOS `.pkg` is **unsigned** for now — code signing & notarization are **planned
+> for a later release**, so this is a **temporary** situation. To install it, right-click
+> &rarr; *Open*, or run `sudo installer -pkg OpenVoxTuner-macOS.pkg -target /`.
+> The **AU** is not included in the official releases for the same reason: an unsigned /
+> non-notarized AU is not reliably loadable by all DAWs (especially Logic Pro), so it is
+> not distributed until signing & notarization are in place. You **can** still use it
+> locally by building it from source and ad-hoc signing it (see the docs).
 
 ## Table of Contents
 
@@ -341,7 +344,9 @@ Build AU:
 ./scripts/build_macos_au.sh --juce-path ~/dev/JUCE --install
 ```
 
-Build macOS `.pkg` installer. The official releases ship **VST3 + Standalone** (the AU is omitted because an unsigned AU cannot be loaded by a DAW):
+Build macOS `.pkg` installer. The official releases currently ship **VST3 + Standalone**
+(the AU is omitted because an unsigned AU cannot be loaded by a DAW — a **temporary**
+situation, as code signing & notarization are planned for a later release):
 
 ```bash
 ./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,STANDALONE
@@ -362,9 +367,12 @@ Detailed build guides:
 | Standalone | ✅    | ✅    |
 | ARA2     | ✅      | ✅    |
 
-> \* The AU component is buildable from source, but is **not shipped** in the unsigned
-> releases — an unsigned AU cannot be loaded by a DAW on macOS. The distributed releases
-> include **VST3 + Standalone** on both platforms.
+> \* The AU component is buildable from source and usable locally (ad-hoc signing +
+> clearing quarantine), but it is **not shipped** in the official releases — an unsigned /
+> non-notarized AU is not reliably loadable by all DAWs (especially Logic Pro). This is a
+> **temporary** situation (code signing & notarization, which will include AU, are planned
+> for a later release). The distributed releases include **VST3 + Standalone** on both
+> platforms.
 
 ## Documentation
 

@@ -1,4 +1,4 @@
-﻿// PitchVisualizer.cpp
+// PitchVisualizer.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -612,6 +612,34 @@ namespace ui
         }
 
         g.restoreState();
+
+        // === "FOLLOWS MIDI IN" badge (pulsing glow, top-right of plot) ===
+        if (midiFollowActive)
+        {
+            const float pulse = 0.5f + 0.5f * std::sin (juce::Time::getMillisecondCounter() * 0.006f);
+            const juce::String midiTxt = ovt::tr (ovt::Keys::kLabelMidiFollowBadge);
+            g.setFont (ovt::fontMeter0());
+            const int textW = g.getCurrentFont().getStringWidth (midiTxt);
+            const int padX = 10;
+            const int w = textW + padX * 2;
+            const int h = 20;
+            const int x = plotArea.getRight() - w - 12;
+            const int y = plotArea.getY() + 10;
+            const juce::Colour base = juce::Colour (0xffff9800); // amber
+            // Outer glow (pulsing)
+            g.setColour (base.withAlpha (0.22f + 0.20f * pulse));
+            g.fillRoundedRectangle ((float) (x - 4), (float) (y - 4),
+                                    (float) (w + 8), (float) (h + 8), 10.0f);
+            // Body
+            g.setColour (base.withAlpha (0.9f));
+            g.fillRoundedRectangle ((float) x, (float) y, (float) w, (float) h, 6.0f);
+            // Pulsing border
+            g.setColour (juce::Colours::white.withAlpha (0.5f + 0.45f * pulse));
+            g.drawRoundedRectangle ((float) x, (float) y, (float) w, (float) h, 6.0f, 1.0f);
+            // Text (dark on amber for contrast)
+            g.setColour (juce::Colours::black);
+            g.drawText (midiTxt, x, y, w, h, juce::Justification::centred);
+        }
 
         // --- Hover cursor (crosshair + Hz/note readout) ---
         if (isMouseOverPlot && hoverHz > 0.0f)

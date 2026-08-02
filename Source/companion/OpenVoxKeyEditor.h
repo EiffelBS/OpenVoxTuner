@@ -1,4 +1,4 @@
-﻿// OpenVoxKeyEditor.h
+// OpenVoxKeyEditor.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -8,6 +8,21 @@
 
 #include <cmath>
 #include "OpenVoxKeyProcessor.h"
+#include "ovt_assets_binary_data.h"
+
+// Cached vector logo (assets/icon.svg embedded as a binary resource), parsed
+// once and reused so the SVG is not re-parsed on every repaint.
+static juce::Drawable* getCompanionLogo()
+{
+    static std::unique_ptr<juce::Drawable> logo;
+    if (logo == nullptr && ovtAssets::icon_svgSize > 0)
+    {
+        auto svgXml = juce::XmlDocument::parse (ovtAssets::icon_svg);
+        if (svgXml != nullptr)
+            logo = juce::Drawable::createFromSVG (*svgXml);
+    }
+    return logo.get();
+}
 
 class OpenVoxKeyEditor : public juce::AudioProcessorEditor,
                          private juce::Timer,
@@ -52,9 +67,11 @@ public:
         setSize (320, 200);
 
         addAndMakeVisible (titleLabel);
-        titleLabel.setText ("OpenVoxKey", juce::dontSendNotification);
+        // The two-color title ("OpenVox" accent + "Key" white) is painted in
+        // paint() to match the OpenVoxTuner header; titleLabel only reserves the
+        // layout slot here (its text is drawn empty).
+        titleLabel.setText ("", juce::dontSendNotification);
         titleLabel.setFont (juce::Font (juce::FontOptions (20.0f, juce::Font::bold)));
-        titleLabel.setColour (juce::Label::textColourId, juce::Colours::cyan);
 
         addAndMakeVisible (hintLabel);
         hintLabel.setText ("Place on an accompaniment track.\nDetects the key and shares it with OpenVoxTuner (Key/Scale Detection = OpenVoxKey).",
@@ -107,20 +124,30 @@ public:
     {
         g.fillAll (juce::Colour (0xff1b1d23));
 
-        // Program logo (matches OpenVoxTuner): a stylized "O" with a pitch
-        // curve passing through it, drawn to the left of the "OpenVoxKey" title.
+        // Program logo (assets/icon.svg), drawn to the left of the title.
         juce::Rectangle<float> logoArea (14.0f, 8.0f, 24.0f, 24.0f);
-        g.setColour (juce::Colours::cyan);
-        g.drawEllipse (logoArea.reduced (2.0f), 2.5f);
+        if (auto* logo = getCompanionLogo())
+            logo->drawWithin (g, logoArea, juce::Justification::centred, 1.0f);
 
-        juce::Path curve;
-        curve.startNewSubPath (logoArea.getX() - 4.0f, logoArea.getCentreY() + 4.0f);
-        curve.cubicTo (logoArea.getX() + 8.0f,  logoArea.getCentreY() + 4.0f,
-                       logoArea.getCentreX(),     logoArea.getY() - 4.0f,
-                       logoArea.getRight() + 4.0f, logoArea.getY() + 8.0f);
-        g.setColour (juce::Colours::white);
-        g.strokePath (curve, juce::PathStrokeType (2.0f, juce::PathStrokeType::mitered,
-                                                    juce::PathStrokeType::rounded));
+        // Two-color title ("OpenVox" accent blue + "Key" white), matching the
+        // OpenVoxTuner header. Drawn with GlyphArrangement so both words sit
+        // flush together. titleLabel only reserves this area (text is empty).
+        // Colours are inlined (not OVTTheme.h) to avoid pulling juce_dsp into
+        // this TU (which triggers a Windows min/max macro collision in JUCE SIMD).
+        const juce::Colour accentBlue = juce::Colour::fromString ("#FF1A9AF0");
+        const juce::Colour textWhite  = juce::Colour::fromString ("#FFE1E1E6");
+        const juce::Font titleFont (juce::FontOptions (20.0f, juce::Font::bold));
+        const float baseline = 14.0f + titleFont.getAscent();
+        float tx = 42.0f;
+        juce::GlyphArrangement ga;
+        ga.addLineOfText (titleFont, "OpenVox", tx, baseline);
+        g.setColour (accentBlue);
+        ga.draw (g);
+        tx += juce::GlyphArrangement::getStringWidth (titleFont, "OpenVox");
+        ga.clear();
+        ga.addLineOfText (titleFont, "Key", tx, baseline);
+        g.setColour (textWhite);
+        ga.draw (g);
     }
 
     void resized() override

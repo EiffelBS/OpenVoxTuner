@@ -1,4 +1,4 @@
-﻿// LookAndFeel.cpp
+// LookAndFeel.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -81,9 +81,34 @@ namespace ui
         // Draw active track
         if (slider.isEnabled())
         {
+            // Pivot-aware fill: for knobs flagged "centred" (e.g. -5..+5 Formant),
+            // the filled arc grows symmetrically from the central value instead of
+            // starting at the minimum value.
+            const bool centred = slider.getProperties().contains ("centred")
+                                 && (bool) slider.getProperties()["centred"];
             g.setColour (ovt::accent());
             juce::Path valueArc;
-            valueArc.addCentredArc (centreX, centreY, radius, radius, 0.0f, rotaryStartAngle, angle, true);
+            if (centred)
+            {
+                const auto range = slider.getNormalisableRange();
+                const double pivotValue = (range.start + range.end) * 0.5;
+                const double pivotPos  = range.convertTo0to1 (pivotValue);
+                const float pivotAngle = rotaryStartAngle
+                                       + (float) pivotPos * (rotaryEndAngle - rotaryStartAngle);
+                // Always draw the SHORT arc between the pivot and the current
+                // value, using clockwise=true with ordered angles. Passing
+                // clockwise=false with start>end makes addCentredArc go the long
+                // way around, which draws a spurious arc on the other side.
+                const float arcStart = juce::jmin (angle, pivotAngle);
+                const float arcEnd   = juce::jmax (angle, pivotAngle);
+                valueArc.addCentredArc (centreX, centreY, radius, radius, 0.0f,
+                                        arcStart, arcEnd, true);
+            }
+            else
+            {
+                valueArc.addCentredArc (centreX, centreY, radius, radius, 0.0f,
+                                        rotaryStartAngle, angle, true);
+            }
             g.strokePath (valueArc, juce::PathStrokeType (6.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
 
@@ -406,12 +431,16 @@ namespace ui
                          .brighter (0.15f));
         g.fillRoundedRectangle (trackBounds, trackRadius);
 
-        // Filled portion (from start to thumb position)
-        const float fillWidth = juce::jmax (0.0f, sliderPos - trackLeft);
-        if (fillWidth > 0.0f)
+        // Pivot-centred fill: grows from the central value (0.5 for morph 0..1)
+        // toward the thumb, in both directions, instead of from the track start.
+        const float pivotCenter = trackLeft + trackWidth * 0.5f;
+        const float fillLeft  = juce::jmin (sliderPos, pivotCenter);
+        const float fillRight = juce::jmax (sliderPos, pivotCenter);
+        const float fillW = juce::jmax (0.0f, fillRight - fillLeft);
+        if (fillW > 0.0f)
         {
             g.setColour (slider.findColour (juce::Slider::trackColourId));
-            g.fillRoundedRectangle (juce::Rectangle<float> (trackLeft, trackTop, fillWidth, trackHeight),
+            g.fillRoundedRectangle (juce::Rectangle<float> (fillLeft, trackTop, fillW, trackHeight),
                                     trackRadius);
         }
 

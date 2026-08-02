@@ -161,6 +161,15 @@ namespace ui
         /// Retourne l'etat d'affichage des traces d'harmonie.
         bool getShowHarmoniesTrace() const { return showHarmoniesTrace; }
 
+        /// Show/hide the "FOLLOWS MIDI IN" badge (driven by the MIDI target).
+        void setMidiFollowActive (bool active) { midiFollowActive = active; repaint(); }
+        bool getMidiFollowActive() const { return midiFollowActive; }
+
+        /// Set the frequency (Hz) of the MIDI note driving the tuning, used to
+        /// draw a dashed target line in the editor (0 = none).
+        void setMidiTargetHz (float hz) { midiTargetHz = hz; repaint(); }
+        float getMidiTargetHz() const { return midiTargetHz; }
+
         /// Push an input pitch sample with its timestamp for trace display.
         void addInputTraceSample (double time, float hz);
         /// Clear the input pitch trace.
@@ -341,6 +350,8 @@ namespace ui
         juce::Array<double> inputTraceTimes;
         juce::Array<float>  inputTracePitches;
         bool showInputTrace = true;
+        bool midiFollowActive = false;  // "Tuning follows MIDI IN" badge state
+        float midiTargetHz = 0.0f;      // MIDI target note frequency for the line
 
         // Position du playhead (secondes). 0 par defaut.
         double playheadTime = 0.0;

@@ -1,4 +1,4 @@
-﻿// PresetMorpher.h
+// PresetMorpher.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -136,7 +136,8 @@ namespace ovtdsp
                         "harmony_tone", "harmony_shifted_voices", "latency_mode",
                         "editor_measures", "voice_type", "formant_enable", "bypass", "harmony_enable",
                         "harmony_use_voice", "harmony_follow_lead", "reverb_enable",
-                        "noise_gate_enable", "correction_mode" });
+                        "noise_gate_enable", "upward_comp_enable", "upward_comp_amount",
+                        "correction_mode" });
         return ids;
     }
 

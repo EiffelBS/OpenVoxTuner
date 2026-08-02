@@ -326,7 +326,7 @@ Build AU :
 ./scripts/build_macos_au.sh --juce-path ~/dev/JUCE --install
 ```
 
-Build de l'installateur `.pkg` macOS. Les releases officielles livrent **VST3 + Standalone** (l'AU est omis car un AU non signé ne peut pas être chargé par un DAW) :
+Build de l'installateur `.pkg` macOS. Les releases officielles livrent actuellement **VST3 + Standalone** (l'AU est omis car un AU non signé ne peut pas être chargé par un DAW — situation **temporaire** ; la signature et la notarisation sont prévues pour une prochaine version) :
 
 ```bash
 ./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,STANDALONE
@@ -347,7 +347,7 @@ Guides de build détaillés :
 | Standalone | ✅    | ✅    |
 | ARA2     | ✅      | ✅    |
 
-> \* Le composant AU est compilable depuis les sources, mais **non livré** dans les releases non signées — un AU non signé ne peut pas être chargé par un DAW sur macOS. Les releases distribuées incluent **VST3 + Standalone** sur les deux plateformes.
+> \* Le composant AU est compilable depuis les sources et utilisable localement (signature ad-hoc + retrait de la quarantaine), mais il **n'est pas livré** dans les releases officielles — un AU non signé/non notarisé n'est pas chargé de façon fiable par tous les DAW (notamment Logic Pro). C'est une situation **temporaire** (la signature et la notarisation, qui incluront l'AU, sont prévues pour une prochaine version). Les releases distribuées incluent **VST3 + Standalone** sur les deux plateformes.
 
 ## Documentation
 

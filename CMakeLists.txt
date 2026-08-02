@@ -208,6 +208,13 @@ target_sources(OpenVoxTuner PRIVATE
     Source/external/presonus/ipsleditcontroller.h
 )
 
+# Embed the app logo (assets/icon.svg) so the UI can draw it as a vector
+# Drawable at runtime (used by the OpenVoxTuner header and the OpenVoxKey editor).
+juce_add_binary_data(OVTAssets
+    SOURCES assets/icon.svg
+    NAMESPACE ovtAssets
+    HEADER_NAME ovt_assets_binary_data.h)
+
 # Modules JUCE requis.
 target_link_libraries(OpenVoxTuner PRIVATE
     juce::juce_audio_basics
@@ -224,6 +231,7 @@ target_link_libraries(OpenVoxTuner PRIVATE
     juce::juce_gui_basics
     juce::juce_gui_extra
     $<$<BOOL:${OVT_ENABLE_ARA}>:juce_ara_sdk>
+    OVTAssets
 )
 
 # URL de mise a jour (JSON public sur GitHub raw).
@@ -336,6 +344,7 @@ target_link_libraries(OpenVoxKey PRIVATE
     juce::juce_graphics
     juce::juce_gui_basics
     juce::juce_gui_extra
+    OVTAssets
 )
 
 # === Cible pour les tests unitaires (GTest-like console app) ===

@@ -1,4 +1,4 @@
-﻿// PitchVisualizer.h
+// PitchVisualizer.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -59,6 +59,10 @@ namespace ui
         void setShowHarmonies (bool show) { showHarmonies = show; repaint(); }
         bool getShowHarmonies() const { return showHarmonies; }
 
+        /// Show/hide the "FOLLOWS MIDI IN" badge (driven by the MIDI target).
+        void setMidiFollowActive (bool active) { midiFollowActive = active; repaint(); }
+        bool getMidiFollowActive() const { return midiFollowActive; }
+
         /// Accesseur au clavier de piano integre (correctif R2.2).
         PianoKeyboard& getPianoKeyboard() { return pianoKeyboard; }
 
@@ -114,6 +118,7 @@ namespace ui
         static constexpr int maxHarmonyVoices = 8;
         juce::Array<juce::Array<float>> harmonyHistory;
         bool showHarmonies = true;  // togglable via Curve Editor hamburger menu
+        bool midiFollowActive = false;  // "Tuning follows MIDI IN" badge state
 
         // Stockage de la derniere valeur
         float latestInputHz = 0.0f;

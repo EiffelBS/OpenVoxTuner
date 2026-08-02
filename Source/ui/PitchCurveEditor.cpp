@@ -9,6 +9,7 @@
 #include "OVTTheme.h"
 #include "OVTLanguages.h"
 #include "../dsp/NoteUtils.h"
+#include <cmath>
 
 namespace ui
 {
@@ -553,6 +554,73 @@ namespace ui
             g.drawText (ovt::tr(ovt::Keys::kHintLiveMode),
                         plotArea.getX(), plotArea.getY(), plotArea.getWidth(), plotArea.getHeight(),
                         juce::Justification::centred);
+        }
+
+        // === "FOLLOWS MIDI IN" badge (pulsing glow) ===
+        if (midiFollowActive)
+        {
+            const float pulse = 0.5f + 0.5f * std::sin (juce::Time::getMillisecondCounter() * 0.006f);
+            const juce::String midiTxt = ovt::tr (ovt::Keys::kLabelMidiFollowBadge);
+            g.setFont (ovt::fontMeter0());
+            const int textW = g.getCurrentFont().getStringWidth (midiTxt);
+            const int padX = 10;
+            const int w = textW + padX * 2;
+            const int h = 20;
+            const int x = plotArea.getRight() - w - 12;
+            const int y = plotArea.getY() + 10;
+            const juce::Colour base = juce::Colour (0xffff9800); // amber
+            // Outer glow (pulsing)
+            g.setColour (base.withAlpha (0.22f + 0.20f * pulse));
+            g.fillRoundedRectangle ((float) (x - 4), (float) (y - 4),
+                                    (float) (w + 8), (float) (h + 8), 10.0f);
+            // Body
+            g.setColour (base.withAlpha (0.9f));
+            g.fillRoundedRectangle ((float) x, (float) y, (float) w, (float) h, 6.0f);
+            // Pulsing border
+            g.setColour (juce::Colours::white.withAlpha (0.5f + 0.45f * pulse));
+            g.drawRoundedRectangle ((float) x, (float) y, (float) w, (float) h, 6.0f, 1.0f);
+            // Text (dark on amber for contrast)
+            g.setColour (juce::Colours::black);
+            g.drawText (midiTxt, x, y, w, h, juce::Justification::centred);
+        }
+
+        // === MIDI IN target line (dashed, amber) ===
+        if (midiFollowActive && midiTargetHz > 0.0f)
+        {
+            const float ty = pitchToY (midiTargetHz);
+            if (ty >= rulerH - 1.0f && ty <= (float) b.getHeight() + 1.0f)
+            {
+                const juce::Colour midiLineCol = juce::Colour (0xffff9800); // amber
+                g.setColour (midiLineCol.withAlpha (0.9f));
+                const float dashLen = 10.0f;
+                const float gapLen = 5.0f;
+                const float xStart = (float) pianoW;
+                const float xEnd = (float) b.getWidth();
+                float dx = 0.0f;
+                while (xStart + dx < xEnd)
+                {
+                    const float x0 = xStart + dx;
+                    const float x1 = juce::jmin (x0 + dashLen, xEnd);
+                    g.drawLine (x0, ty, x1, ty, 1.6f);
+                    dx += dashLen + gapLen;
+                }
+                // Note name label at the left edge of the plot
+                const juce::String midiNote = ovtdsp::hzToNoteName (midiTargetHz);
+                g.setFont (ovt::fontLegend());
+                const int labelW = 46;
+                const int labelH = 12;
+                const int labelX = pianoW + 4;
+                const int labelY = (int) ty - labelH - 1;
+                if (labelY >= rulerH)
+                {
+                    g.setColour (juce::Colour (0xcc15151e));
+                    g.fillRoundedRectangle ((float) labelX, (float) labelY,
+                                            (float) labelW, (float) labelH, 3.0f);
+                    g.setColour (midiLineCol);
+                    g.drawText (midiNote, labelX, labelY, labelW, labelH,
+                                juce::Justification::centred);
+                }
+            }
         }
 
         // Feedback visuel du scroll horizontal (bouton milieu) : teinte + cadre.

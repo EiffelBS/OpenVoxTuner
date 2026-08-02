@@ -500,6 +500,10 @@ private:
     // overwritten by the morph crossfade.
     std::map<juce::String, float> lastMorphIntendedValues;
 
+    // Diagnostic: one-shot startup state dump (OVT_FORCE_LOG) to verify what is
+    // restored on launch (active slot, harmony_type param vs stored slot value).
+    bool startupDiagLogged = false;
+
     void onMorphSliderChanged (float value);
     void showMorphContextMenu();
     void resetMorph();

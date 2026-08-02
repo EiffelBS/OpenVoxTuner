@@ -38,6 +38,22 @@
  #define OVT_LOG(msg) do { } while (false)
 #endif
 
+// Diagnostic helper (only compiled when audio logging is enabled): returns the
+// largest sample-to-sample absolute jump in a channel, used to localise clicks.
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+static float computeMaxJump (const float* p, int n)
+{
+    if (p == nullptr || n < 2) return 0.0f;
+    float m = 0.0f;
+    for (int i = 1; i < n; ++i)
+    {
+        const float d = std::fabs (p[i] - p[i - 1]);
+        if (d > m) m = d;
+    }
+    return m;
+}
+#endif
+
 // Definition of the IID for the IEditControllerExtra interface
 #include "pluginterfaces/base/funknown.h"
 #if JUCE_WINDOWS
@@ -623,6 +639,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     // Ensure per-channel MIDI note state starts clean (-1 means no active note)
     for (int ch = 0; ch < 16; ++ch)
         lastSentMidiNote[ch] = -1;
+    midiTargetActive.store (false);
+    midiTargetHz.store (0.0f);
 
     for (int i = 0; i < maxHarmonySnapshotVoices; ++i)
     {
@@ -737,18 +755,34 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         }
     }
 
-    // Install one process-global file logger in Debug AND Release. Do not
+    // Install one process-global file logger. The file is ONLY created in
+    // DEBUG builds (or diagnostic Release builds built with OVT_FORCE_LOG);
+    // in a normal Release build no log file is written at all, so empty/rotated
+    // files do not pile up. Old log files are pruned to keep at most 5. Do not
     // replace a logger installed by the host or by another JUCE application.
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
     {
         const juce::ScopedLock lock (openVoxLoggerLock);
         if (openVoxLogger == nullptr && juce::Logger::getCurrentLogger() == nullptr)
         {
-        juce::File logDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                                .getChildFile ("OpenVoxTuner")
-                                .getChildFile ("logs");
-        logDir.createDirectory();
-        juce::File logFile = logDir.getChildFile (
-            "ovt_" + juce::Time::getCurrentTime().toISO8601(true).replaceCharacter (':', '-') + ".log");
+            juce::File logDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                                    .getChildFile ("OpenVoxTuner")
+                                    .getChildFile ("logs");
+            logDir.createDirectory();
+
+            // Prune old logs: keep only the most recent 5 "ovt_*.log" files.
+            {
+                juce::Array<juce::File> logs = logDir.findChildFiles (juce::File::findFiles, false, "ovt_*.log");
+                std::sort (logs.begin(), logs.end(),
+                           [] (const juce::File& a, const juce::File& b)
+                           { return a.getLastModificationTime() < b.getLastModificationTime(); });
+                const int toDelete = logs.size() - 5;
+                for (int i = 0; i < toDelete; ++i)
+                    logs[i].deleteFile();
+            }
+
+            juce::File logFile = logDir.getChildFile (
+                "ovt_" + juce::Time::getCurrentTime().toISO8601(true).replaceCharacter (':', '-') + ".log");
             openVoxLogger = new BufferedFileLogger (logFile);
             juce::Logger::setCurrentLogger (openVoxLogger);
         }
@@ -758,6 +792,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
             OVT_LOG ("OpenVoxTuner log initialized");
         }
     }
+#endif
 
     // Debug logging: print key metadata so we can diagnose host issues (MIDI bus visibility, bypass state)
     {
@@ -962,6 +997,12 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     harmonyGateGain.reset (sampleRate, 0.015);
     harmonyGateGain.setCurrentAndTargetValue (0.0f);
     harmonyAttackGain = 0.0f;
+    // Harmony-type transition crossfade: clear the state and old-buffer cache.
+    lastHarmonyTypeVal = -1;
+    typeDipFadeTotalSamples = 0;
+    typeDipFadeRemaining = 0;
+    typeCrossfadeActive = false;
+    typeCrossfadeOld.clear();
     synthWorkBuffer.setSize (workCh, samplesPerBlock, false, true, false);
     synthWorkBuffer.clear();
     shiftedVoiceGainRamps.setSize (3, samplesPerBlock, false, true, false);
@@ -985,6 +1026,20 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
         shiftedVoiceGains[v].reset (sampleRate, perVoiceTC);
         shiftedVoiceGains[v].setCurrentAndTargetValue (0.0f);
     }
+
+    // Prepare the per-voice ratio glides used to mask harmony type changes.
+    for (size_t v = 0; v < shiftedVoiceRatioSmoothers.size(); ++v)
+    {
+        shiftedVoiceRatioSmoothers[v].prepare (sampleRate);
+        shiftedVoiceRatioSmoothers[v].setTimeConstantSeconds (0.040); // 40 ms note-change glide
+        shiftedVoiceRatioSmoothers[v].snapTo (shiftedVoiceSmoothedRatio[v]);
+    }
+
+    // Prepare the per-voice loudness normalization smoother (4/sqrt(N)), so a
+    // harmony-type voice-count change does not step the remaining voices' level.
+    shiftedVoiceLevelSmoother.prepare (sampleRate);
+    shiftedVoiceLevelSmoother.setTimeConstantSeconds (0.040); // 40 ms, same as the gain ramps
+    shiftedVoiceLevelSmoother.reset (1.0f);
 
     // Prepare dedicated pitch shifters for shifted harmony voices
     if (shiftedVoicePitchShifters.size() != OpenVoxTunerAudioProcessor::maxShiftedVoices)
@@ -1114,6 +1169,12 @@ void OpenVoxTunerAudioProcessor::reset()
     for (auto& ps : shiftedVoicePitchShifters)
         if (ps != nullptr)
             ps->reset();
+    for (size_t v = 0; v < shiftedVoiceRatioSmoothers.size(); ++v)
+    {
+        shiftedVoiceRatioSmoothers[v].reset (1.0f);
+        shiftedVoiceSmoothedRatio[v] = 1.0f;
+    }
+    shiftedVoiceLevelSmoother.reset (1.0f);
     if (pitchShifter != nullptr)
         pitchShifter->reset();
     harmonyBuffer.clear();
@@ -1149,6 +1210,8 @@ void OpenVoxTunerAudioProcessor::reset()
     // Reset MIDI tracking state (host is releasing audio graph)
     for (int ch = 0; ch < 16; ++ch)
         lastSentMidiNote[ch] = -1;
+    midiTargetActive.store (false);
+    midiTargetHz.store (0.0f);
 }
 
 // === Routine audio principale (appel bloc par bloc par le host) ===
@@ -1597,6 +1660,73 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float f0_out = f0_in;
     const int mode = (modeParam != nullptr) ? static_cast<int> (modeParam->load()) : 0;
 
+    // === Deferred harmony-type retarget (click masking) ===
+    // The engine must keep rendering the OLD note set while it fades out, then
+    // switch to the NEW note set while it fades in. This is computed HERE, at
+    // function scope (not inside the `if (f0_in > 0.0f)` block below), so that
+    // BOTH the harmony note-set computation (inside that block) AND the later
+    // HYBRID mix section use the same deferred type. Previously the note set
+    // was recomputed with the newly requested type on every block, defeating
+    // the retarget and hard-cutting the old content (the source of the
+    // type-change / morph-50% click).
+    int currentHarmonyTypeVal = (harmonyTypeParam != nullptr) ? static_cast<int>(harmonyTypeParam->load()) : 0;
+    const int numSamplesBlock = buffer.getNumSamples();
+    int renderHarmonyType = currentHarmonyTypeVal;
+    // Fade state captured at the START of this block, used by the mix loop for
+    // a sample-accurate bus dip. The member `typeDipFadeRemaining` is advanced
+    // below EVERY block so the transition can never get stuck.
+    int blockStartRemaining = 0;
+    int blockFadeTotal = 0;
+    if (lastHarmonyTypeVal < 0)
+    {
+        lastHarmonyTypeVal = currentHarmonyTypeVal;   // first block: no transition
+    }
+    else if (currentHarmonyTypeVal != lastHarmonyTypeVal)
+    {
+        pendingHarmonyType = currentHarmonyTypeVal;   // request the new type
+        if (! typeCrossfadeActive)
+        {
+            typeDipFadeTotalSamples = juce::jmax (1, static_cast<int> (currentSampleRate * 0.040f));
+            typeDipFadeRemaining = typeDipFadeTotalSamples;
+            typeCrossfadeActive = true;
+            typeCrossfadeOld.clear();
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+            diagTypeChangePending = true;
+            diagHarmonyPeakJump = 0.0f;
+            diagOutputPeakJump  = 0.0f;
+            diagWindowLen = 0;
+            diagWindowFilled = false;
+#endif
+        }
+    }
+    if (typeCrossfadeActive && typeDipFadeTotalSamples > 0)
+    {
+        blockStartRemaining = typeDipFadeRemaining;
+        blockFadeTotal = typeDipFadeTotalSamples;
+        // Advance the fade by this whole block. Advancing here (not only inside
+        // the mix loop) guarantees the transition ALWAYS progresses, so it can
+        // never get stuck rendering the old note set.
+        typeDipFadeRemaining -= numSamplesBlock;
+        if (typeDipFadeRemaining <= 0)
+        {
+            typeDipFadeRemaining = 0;
+            lastHarmonyTypeVal = pendingHarmonyType >= 0 ? pendingHarmonyType : lastHarmonyTypeVal;
+            pendingHarmonyType = -1;
+            typeCrossfadeActive = false;
+            typeDipFadeTotalSamples = 0;
+        }
+        else
+        {
+            const float p = 1.0f - (float) typeDipFadeRemaining / (float) typeDipFadeTotalSamples;
+            renderHarmonyType = (p < 0.40f) ? lastHarmonyTypeVal
+                                            : (pendingHarmonyType >= 0 ? pendingHarmonyType : lastHarmonyTypeVal);
+        }
+    }
+    else
+    {
+        lastHarmonyTypeVal = currentHarmonyTypeVal;
+    }
+
     if (f0_in > 0.0f)
     {
         float f0_target = 0.0f;
@@ -1635,6 +1765,12 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             const int tgtNote = heldMidiNotes.getLast();
             f0_target = ovtdsp::midiToHz (static_cast<float> (tgtNote));
         }
+
+        // Expose the "actively following MIDI" state so the GUI can show a badge.
+        midiTargetActive.store (midiTargetOn && heldMidiNotes.size() > 0);
+        midiTargetHz.store ((midiTargetOn && heldMidiNotes.size() > 0 && f0_in > 0.0f)
+                                ? ovtdsp::midiToHz (static_cast<float> (heldMidiNotes.getLast()))
+                                : 0.0f);
 
         // 2026-07-24 (Deprecation): FlexTune logic is disabled. The
         // deadband code is preserved as commented reference for
@@ -1796,7 +1932,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             lastCentsOffset.store (0.0f);
 
         // === HARMONY ENGINE : generate harmonized voices ===
-        int currentHarmonyType = (harmonyTypeParam != nullptr) ? static_cast<int>(harmonyTypeParam->load()) : 0;
+        // Render with the deferred harmony type (renderHarmonyType) computed at
+        // function scope above, so the OLD note set keeps playing while it dips
+        // out during the retarget transition (click masking).
+        const int currentHarmonyType = renderHarmonyType;
 
         // Respect the master harmony enable parameter if present.
         // We render harmonies when we have a valid output pitch OR when the
@@ -1868,6 +2007,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 // cache notes for potential release rendering
                 lastHarmonyNotes = notes;
                 lastHarmonyNotesClean = cleanNotes;
+                // Keep the cache type in sync with the type actually rendered
+                // (renderHarmonyType), so the deferred retarget's note-set
+                // switch happens exactly when renderHarmonyType flips and the
+                // mismatch regen below does not fire spuriously.
+                lastHarmonyNotesType = renderHarmonyType;
 
                 // Store detected harmony frequencies for the GUI (may include Follow Lead shift)
                 harmonyFrequencies.clear();
@@ -2284,7 +2428,6 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // === HYBRID HARMONY GENERATION + MIXING ===
-    int currentHarmonyTypeVal = (harmonyTypeParam != nullptr) ? static_cast<int>(harmonyTypeParam->load()) : 0;
 
     // Early calculation of useVoiceLocal / harmonyEnabled (needed for shiftedCount clamp).
     bool useVoiceLocal = (harmonyUseVoiceParam != nullptr) ? (harmonyUseVoiceParam->load() > 0.5f) : false;
@@ -2304,7 +2447,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // determines how many voices actually exist. Without this clamp, the
     // mismatch check expects more notes than getHarmonyNotes() returns.
     const int maxVoicesForType = ovtdsp::HarmonyEngine::getHarmonyVoiceCount (
-        static_cast<ovtdsp::HarmonyType>(currentHarmonyTypeVal));
+        static_cast<ovtdsp::HarmonyType>(renderHarmonyType));
     const int clampedShiftedCount = juce::jmin (shiftedCount, maxVoicesForType);
 
     bool shiftedVoicesActive = false;
@@ -2317,9 +2460,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Forces harmony block evaluation if Use Voice is enabled,
     // so shifted PSOLA modules keep ingesting background audio.
     // This absolutely guarantees zero boundary clicks when actual singing starts.
-    bool forceShiftedProcessing = (currentHarmonyTypeVal != 0 && harmonyEnabled && useVoiceLocal);
+    bool forceShiftedProcessing = (renderHarmonyType != 0 && harmonyEnabled && useVoiceLocal);
 
-    if ( (currentHarmonyTypeVal != 0 && ( (f0_out > 0.0f) || (harmonyEngine != nullptr && harmonyEngine->isActive()) || shiftedVoicesActive ) && harmonyEnabled)
+    if ( (renderHarmonyType != 0 && ( (f0_out > 0.0f) || (harmonyEngine != nullptr && harmonyEngine->isActive()) || shiftedVoicesActive ) && harmonyEnabled)
          || forceShiftedProcessing
          // Keep rendering while the enable gain is still fading out, so the
          // harmony bus ramps to silence smoothly instead of clicking off.
@@ -2369,11 +2512,12 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 }
             }
 
-            // Ensure notesToUse is valid and matches expected size.
-            // If main harmony generation was skipped but shifted voices run (forceShiftedProcessing),
-            // lastHarmonyNotes may be stale or wrong size. Fall back to fresh generation.
+            // If the requested render type changed (deferred retarget), or the
+            // cache is empty / wrong size, regenerate the notes with the type
+            // actually being rendered so the OLD note set keeps playing during
+            // the fade-out and the NEW one during the fade-in.
             const size_t expectedSize = (size_t)juce::jmax (1, clampedShiftedCount);
-            if (notesToUse.size() != expectedSize)
+            if (notesToUse.size() != expectedSize || lastHarmonyNotesType != renderHarmonyType)
             {
                 OVT_LOG ("notesToUse SIZE MISMATCH: have=" + juce::String((int)notesToUse.size()) +
                          " expected=" + juce::String((int)expectedSize) +
@@ -2387,7 +2531,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 {
                     const juce::Array<int>& regenIntervals = scaleQuantizer->getScaleIntervals();
                     notesToUse = harmonyEngine->getHarmonyNotes (
-                        regenF0, regenIntervals, static_cast<ovtdsp::HarmonyType>(currentHarmonyTypeVal));
+                        regenF0, regenIntervals, static_cast<ovtdsp::HarmonyType>(renderHarmonyType));
                     juce::String notesStr;
                     for (int i = 0; i < notesToUse.size(); ++i)
                         notesStr += (i > 0 ? "," : "") + juce::String(notesToUse[i], 2);
@@ -2395,6 +2539,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                              " f0=" + juce::String(regenF0, 2) + " notes=[" + notesStr + "]");
                     // Update the persistent cache so next block has valid data
                     lastHarmonyNotes = notesToUse;
+                    lastHarmonyNotesType = renderHarmonyType;
                 }
                 else if (lastHarmonyNotes.size() > 0)
                 {
@@ -2406,6 +2551,14 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     OVT_LOG ("notesToUse NO FALLBACK AVAILABLE - will use safe_f0 * 1.5f");
                 }
             }
+
+            // Smooth the per-voice loudness normalization 4/sqrt(N) once per
+            // block (not per voice). On a harmony TYPE change the active voice
+            // count N steps instantly; without smoothing the remaining voices'
+            // level would jump (e.g. 4/sqrt(4)=2.0 -> 4/sqrt(1)=4.0 when N drops
+            // 4->1), audible as a one-way "pop" / louder attack. Fix HC.12.
+            const float perVoiceLevelTarget = 4.0f / std::sqrt ((float) juce::jmax (1, clampedShiftedCount));
+            const float perVoiceLevel = shiftedVoiceLevelSmoother.processBlock (perVoiceLevelTarget, numSamples);
 
             for (int v = 0; v < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++v)
             {
@@ -2442,18 +2595,49 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     if (refF0 > 0.0f) ratioDenom = refF0;
                 }
                 float ratioH = juce::jmax(0.25f, juce::jmin(4.0f, targetHz / ratioDenom));
-                // All four strategies (Current / P0 / P1 / P2) share the same
-                // harmony path: the creative ratio is passed directly to the
-                // per-voice pitch shifter. The lead voice already applies the
-                // formant warp (1/r for P0/P1/P2, 1/sqrt(r) for Current) which
-                // covers the overall pitch-shift compensation. Per-voice LPC
-                // cross-synthesis was unstable on real vocal signals and has
-                // been temporarily disabled (see the lead `useLpc` branch and
-                // roadmap 8l item LP.7).
-                if (v < static_cast<int>(shiftedVoicePitchShifters.size()) && shiftedVoicePitchShifters[v] != nullptr)
-                    shiftedVoicePitchShifters[v]->process (synthWorkBuffer, tmp, ratioH, harmonyFormantRatio, safe_f0);
+                // Per-voice ratio glide to mask harmony TYPE changes (note jumps)
+                // WITHOUT muting the harmony bus. It glides only on LARGE ratio
+                // changes (>12%, ~a minor 3rd — i.e. a harmony note / type change);
+                // vibrato / follow-lead changes (3-5%) pass through instantly so the
+                // harmony does not wobble. The glide lets us drop the bus mute (dip)
+                // that was itself causing the audible level-hole "click". Voices that
+                // are off are kept in sync so no stale glide happens on re-activation.
+                if (! activeShiftedVoice)
+                {
+                    shiftedVoiceSmoothedRatio[v] = ratioH;
+                    shiftedVoiceRatioSmoothers[v].snapTo (ratioH);
+                }
+                else if (std::fabs (ratioH - shiftedVoiceSmoothedRatio[v]) > 0.12f)
+                {
+                    shiftedVoiceRatioSmoothers[v].setTimeConstantSeconds (0.040);
+                    shiftedVoiceRatioSmoothers[v].processBlock (ratioH, numSamples);
+                    shiftedVoiceSmoothedRatio[v] = shiftedVoiceRatioSmoothers[v].getCurrentValue();
+                    ratioH = shiftedVoiceSmoothedRatio[v];
+                }
                 else
-                    pitchShifter->process (synthWorkBuffer, tmp, ratioH, harmonyFormantRatio, safe_f0);
+                {
+                    shiftedVoiceSmoothedRatio[v] = ratioH;
+                    shiftedVoiceRatioSmoothers[v].snapTo (ratioH);
+                }
+
+                // Option A (HC.13): the granular formant read-speed (F = formant
+                // ratio) is unstable on strongly pitch-shifted grains at extreme
+                // Harmony Formant — the OLA COLA sum no longer holds, producing a
+                // wobble / rapid pops lateralized per voice. Blend the effective
+                // formant ratio back toward 1.0 as the voice's pitch ratio deviates
+                // from 1.0. A FLOOR is kept (never fully 0) so the Harmony Formant
+                // knob stays audibly effective even on octave-shifted voices
+                // (Drone / Octave Below / Octave Above are single octave voices;
+                // zeroing their formant made the knob dead and left the raw
+                // no-formant granular sound). pitchDevOct = 0 at ratio 1, 1 at an octave.
+                const float pitchDevOct = std::fabs (std::log2 (ratioH));
+                const float formantBlend = juce::jlimit (0.5f, 1.0f, juce::jmap (pitchDevOct, 0.25f, 1.0f, 1.0f, 0.5f));
+                const float voiceFormantRatio = 1.0f + (harmonyFormantRatio - 1.0f) * formantBlend;
+
+                if (v < static_cast<int>(shiftedVoicePitchShifters.size()) && shiftedVoicePitchShifters[v] != nullptr)
+                    shiftedVoicePitchShifters[v]->process (synthWorkBuffer, tmp, ratioH, voiceFormantRatio, safe_f0);
+                else
+                    pitchShifter->process (synthWorkBuffer, tmp, ratioH, voiceFormantRatio, safe_f0);
 
                 // Log unexpected voice drop during active singing (f0_out > 0 but voice inactive)
                 if (f0_out > 0.0f && !activeShiftedVoice && v < clampedShiftedCount)
@@ -2473,12 +2657,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 }
 
                 const float blendFactor = 1.0f - harmonyBlend;
-                // Use a higher base level (4.0 vs 1.05) for shifted voices so that
-                // real audio input (typically ~0.2 peak for vocals) produces a
-                // comparable output volume to synthesized sine waves (~0.25 peak).
-                // The sqrt(N) normalization maintains consistent perceived loudness
-                // regardless of the number of active shifted voices.
-                const float perVoiceLevel = 4.0f / std::sqrt ((float) juce::jmax (1, clampedShiftedCount));
+                // perVoiceLevel (the sqrt(N) loudness normalization) is computed
+                // once per block above and smoothed, so a voice-count change does
+                // not step the remaining voices' level.
 
                 if (!activeShiftedVoice) {
                     shiftedVoiceGains[(size_t)v].setTargetValue (0.0f);
@@ -2746,11 +2927,43 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                  for (int i = 0; i < Nmix; ++i)
                  {
                      const float coeff = harmonyAttackTarget > harmonyAttackGain
-                         ? attackCoeff : releaseCoeff;
-                     harmonyAttackGain += (harmonyAttackTarget - harmonyAttackGain) * coeff;
-                     mixGainRamp[i] = hGainFinal * harmonyEnableGain.getNextValue()
-                                    * harmonyGateGain.getNextValue() * harmonyAttackGain;
+                        ? attackCoeff : releaseCoeff;
+                    harmonyAttackGain += (harmonyAttackTarget - harmonyAttackGain) * coeff;
+
+                    // The whole-bus mute (dip to 0) was itself the audible
+                    // "click" (a ~16 ms level hole). The harmony-type change is
+                    // now masked by the per-voice ratio glide in the voice loop,
+                    // so the harmony bus stays at full level throughout the
+                    // transition. `blockStartRemaining` / `blockFadeTotal` are
+                    // still advanced by the deferred-retarget logic for state
+                    // timing, but no longer scale the mix gain.
+                    const float dip = 1.0f;
+
+                    const float enableGain = harmonyEnableGain.getNextValue();
+                    const float gateGain  = harmonyGateGain.getNextValue();
+                    const float gainScale = hGainFinal * enableGain * gateGain;
+                    mixGainRamp[i] = gainScale * harmonyAttackGain * dip;
                  }
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+                if (diagTypeChangePending && numCh > 0)
+                {
+                    const float hj = computeMaxJump (harmonyBuffer.getReadPointer (0), Nmix);
+                    if (hj > diagHarmonyPeakJump) diagHarmonyPeakJump = hj;
+                    if (numCh > 1)
+                    {
+                        const float hj2 = computeMaxJump (harmonyBuffer.getReadPointer (1), Nmix);
+                        if (hj2 > diagHarmonyPeakJump) diagHarmonyPeakJump = hj2;
+                    }
+                    if (! diagWindowFilled)
+                    {
+                        diagWindowLen = juce::jmin (48, Nmix);
+                        const float* hr = harmonyBuffer.getReadPointer (0);
+                        for (int k = 0; k < diagWindowLen; ++k)
+                            diagHarmonyWindow[k] = hr[k];
+                        diagWindowFilled = true;
+                    }
+                }
+#endif
                 juce::FloatVectorOperations::addWithMultiply (outL, harmonyBuffer.getReadPointer (0), mixGainRamp.getData(), Nmix);
                 if (outR != nullptr)
                 {
@@ -2759,6 +2972,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     else
                         juce::FloatVectorOperations::addWithMultiply (outR, harmonyBuffer.getReadPointer (1), mixGainRamp.getData(), Nmix);
                 }
+
+                // (Old-content snapshot fade-out removed: the clean whole-bus dip
+                // in the mix loop now masks the type retarget with no per-block
+                // restart discontinuity.)
 
                  // Compute stereo level of harmony output
                  harmonyOutputLevel.store (
@@ -2898,6 +3115,97 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float instantCpu = (availableSec > 0.0) ? (float) juce::jlimit (0.0, 1.0, blockElapsedSec / availableSec) : 0.0f;
     // Exponential moving average to smooth the meter.
     cpuUsage.store (cpuUsage.load() * 0.9f + instantCpu * 0.1f);
+
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+    // If a harmony-type change happened this block, measure the final output
+    // jump and capture a raw window of the output, then log once. The raw
+    // samples let us distinguish a pitch step, a low-frequency pop (small
+    // sample-to-sample jump but still audible), a phase reset, or a block
+    // boundary step. NOTE: this runs BEFORE updating diagPrevLastOut /
+    // diagPrevHarmonyLast below, so those two still hold the PREVIOUS block's
+    // last samples — a true boundary check against this block's output[0].
+
+    // Log EVERY block of a harmony-type transition (not just the first) so we
+    // can see the fade progress `p`, whether the harmony level dips into a
+    // hole, and whether any single transition block has a boundary / level
+    // discontinuity that reads as a click.
+    if (diagTypeChangePending || typeCrossfadeActive)
+    {
+        const int ns2 = buffer.getNumSamples();
+        const float prog = (blockFadeTotal > 0)
+            ? juce::jlimit (0.0f, 1.0f, 1.0f - (float) blockStartRemaining / (float) blockFadeTotal)
+            : 0.0f;
+        float hPeak = 0.0f, oPeak = 0.0f;
+        if (harmonyBuffer.getNumChannels() > 0 && harmonyBuffer.getNumSamples() >= ns2)
+        {
+            const float* hp = harmonyBuffer.getReadPointer (0);
+            for (int i = 0; i < ns2; ++i) hPeak = juce::jmax (hPeak, std::fabs (hp[i]));
+        }
+        const float* op2 = buffer.getReadPointer (0);
+        for (int i = 0; i < ns2; ++i) oPeak = juce::jmax (oPeak, std::fabs (op2[i]));
+        const float hFirst = (harmonyBuffer.getNumChannels() > 0 && harmonyBuffer.getNumSamples() > 0)
+            ? harmonyBuffer.getSample (0, 0) : 0.0f;
+        const float oFirst = (ns2 > 0) ? buffer.getSample (0, 0) : 0.0f;
+        OVT_LOG ("[DIAG] xfade p=" + juce::String (prog, 3)
+                 + " rendered=" + juce::String (renderHarmonyType)
+                 + " hPeak=" + juce::String (hPeak, 4)
+                 + " oPeak=" + juce::String (oPeak, 4)
+                 + " hBound=" + juce::String (diagPrevHarmonyLast, 4) + "->" + juce::String (hFirst, 4)
+                 + " oBound=" + juce::String (diagPrevLastOut, 4) + "->" + juce::String (oFirst, 4)
+                 + " requested=" + juce::String (currentHarmonyTypeVal)
+                 + " rem=" + juce::String (typeDipFadeRemaining));
+    }
+
+    if (diagTypeChangePending)
+    {
+        const int nc = buffer.getNumChannels();
+        const int ns = buffer.getNumSamples();
+        if (nc > 0)
+        {
+            const float oj = computeMaxJump (buffer.getReadPointer (0), ns);
+            if (oj > diagOutputPeakJump) diagOutputPeakJump = oj;
+            if (nc > 1)
+            {
+                const float oj2 = computeMaxJump (buffer.getReadPointer (1), ns);
+                if (oj2 > diagOutputPeakJump) diagOutputPeakJump = oj2;
+            }
+            const int outLen = juce::jmin (48, ns);
+            const float* orp = buffer.getReadPointer (0);
+            for (int k = 0; k < outLen; ++k)
+                diagOutputWindow[k] = orp[k];
+        }
+
+        juce::String hw, ow;
+        const int logLen = juce::jmin (32, diagWindowLen);
+        for (int k = 0; k < logLen; ++k)
+        {
+            hw += juce::String (diagHarmonyWindow[k], 3) + (k + 1 < logLen ? "," : "");
+            ow += juce::String (diagOutputWindow[k], 3) + (k + 1 < logLen ? "," : "");
+        }
+        OVT_LOG ("[DIAG] type-change block -> harmonyJump=" + juce::String (diagHarmonyPeakJump, 4)
+                 + " outputJump=" + juce::String (diagOutputPeakJump, 4)
+                 + " prevLast=" + juce::String (diagPrevLastOut, 4)
+                 + " prevHarmony=" + juce::String (diagPrevHarmonyLast, 4)
+                 + " requested=" + juce::String (currentHarmonyTypeVal)
+                 + " rendered=" + juce::String (renderHarmonyType)
+                 + " last=" + juce::String (lastHarmonyTypeVal)
+                 + " pending=" + juce::String (pendingHarmonyType)
+                 + " active=" + juce::String (typeCrossfadeActive ? 1 : 0)
+                 + " rem=" + juce::String (typeDipFadeRemaining)
+                 + " shifted=" + juce::String (clampedShiftedCount)
+                 + " harmony=[" + hw + "]"
+                 + " output=[" + ow + "]");
+        diagTypeChangePending = false;
+    }
+
+    // Update the "previous block's last" samples for the next block's boundary
+    // check. Deliberately AFTER the diag log above, so the log sees the values
+    // captured from the block that ran BEFORE the type change.
+    if (buffer.getNumSamples() > 0)
+        diagPrevLastOut = buffer.getSample (0, buffer.getNumSamples() - 1);
+    if (harmonyBuffer.getNumSamples() > 0)
+        diagPrevHarmonyLast = harmonyBuffer.getSample (0, harmonyBuffer.getNumSamples() - 1);
+#endif
     publishHarmonySnapshots();
 }
 
@@ -3866,6 +4174,20 @@ void OpenVoxTunerAudioProcessor::applyPluginPresetState (const juce::ValueTree& 
 // === Etat du plugin : serialisation XML des parametres + pitch curve ===
 void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    // Before saving, make the ACTIVE slot reflect the current live state so any
+    // edits made just before exit are never lost (the editor only recaptures a
+    // slot when the user switches away from it). This keeps the whole-state
+    // snapshot consistent on quit/restart regardless of slot-switch timing.
+    if (pitchCurve != nullptr)
+    {
+        const int active = juce::jlimit (0, 1, abActiveSlot);
+        auto live = ovtdsp::captureState (parameters, *pitchCurve,
+                                          active == 0 ? "Slot A" : "Slot B");
+        if (active == 0) abSlotAMorph = live;
+        else             abSlotBMorph = live;
+        abSlotHasData[active] = true;
+    }
+
     auto state = parameters.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     if (pitchCurve != nullptr)
@@ -3876,6 +4198,7 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
     }
     // Persist UI-only preferences that are not AudioParameters.
     xml->setAttribute ("advancedExpanded", advancedExpandedState ? 1 : 0);
+    xml->setAttribute ("abActiveSlot", abActiveSlot);
 
     // Persist A/B slot MorphStates as compact flat attributes (no nested XML).
     for (int slot = 0; slot < 2; ++slot)
@@ -3904,6 +4227,9 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("harmonyType",      ms.harmonyType);
         slotXml->setAttribute ("harmonyTone",      ms.harmonyTone);
         slotXml->setAttribute ("shiftedVoices",    ms.harmonyShiftedVoices);
+        slotXml->setAttribute ("harmonyFormant",   (double) ms.harmonyFormant);
+        slotXml->setAttribute ("harmonyAttack",    (double) ms.harmonyAttack);
+        slotXml->setAttribute ("voiceType",        ms.voiceType);
         slotXml->setAttribute ("latencyMode",      ms.latencyMode);
         slotXml->setAttribute ("editorMeasures",   ms.editorMeasures);
         slotXml->setAttribute ("formantEnable",    ms.formantEnable);
@@ -3922,6 +4248,16 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         auto curveXml = ms.curve.toXml();
         if (curveXml != nullptr)
             slotXml->addChildElement (curveXml.release());
+
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+        if (slot == 0)
+            OVT_LOG ("[DIAG] getState AB_A: has=" + juce::String (hasAbSlotData (0) ? 1 : 0)
+                     + " type=" + juce::String (abSlotAMorph.harmonyType)
+                     + " vibrato=" + juce::String (abSlotAMorph.vibratoPreserve, 4)
+                     + " humanize=" + juce::String (abSlotAMorph.humanize, 4)
+                     + " formant=" + juce::String (abSlotAMorph.harmonyFormant, 4)
+                     + " activeSlot=" + juce::String (abActiveSlot));
+#endif
     }
     copyXmlToBinary (*xml, destData);
 }
@@ -3931,12 +4267,29 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
     if (xmlState != nullptr && xmlState->hasTagName (parameters.state.getType()))
     {
-        parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
-        advancedExpandedState = xmlState->getBoolAttribute ("advancedExpanded", false);
-        // Restore A/B slot MorphStates from compact flat attributes.
+        // The A/B slots and the pitch curve are plugin-level data, NOT parameter
+        // state. getStateInformation() appends them to the serialized XML, so if
+        // they flow into parameters.state via fromXml() here, every save/load
+        // round-trip re-appends another AB_A/AB_B/PITCH_CURVE and the tree
+        // accumulates dozens of stale copies. getChildByName("AB_A") then returns
+        // the OLDEST copy (often the defaults captured on the first ever save),
+        // which is exactly the "slot A restores to defaults" bug. So we read the
+        // plugin-level data first, then strip it before replacing the param tree.
+        auto getLastChild = [&xmlState] (const juce::String& tag) -> juce::XmlElement*
+        {
+            juce::XmlElement* found = nullptr;
+            if (xmlState != nullptr)
+                for (auto* e = xmlState->getFirstChildElement(); e != nullptr; e = e->getNextElement())
+                    if (e->hasTagName (tag)) found = e;
+            return found;
+        };
+
+        // Restore A/B slot MorphStates from compact flat attributes. Reading the
+        // LAST occurrence recovers the most recent state even from files written
+        // by older builds that accumulated duplicate slot children.
         for (int slot = 0; slot < 2; ++slot)
         {
-            auto* slotXml = xmlState->getChildByName (slot == 0 ? "AB_A" : "AB_B");
+            auto* slotXml = getLastChild (slot == 0 ? "AB_A" : "AB_B");
             if (slotXml == nullptr) continue;
             ovtdsp::MorphState ms;
             ms.speed              = (float) slotXml->getDoubleAttribute ("speed", 0.25);
@@ -3960,6 +4313,9 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.harmonyType        = slotXml->getIntAttribute ("harmonyType", 0);
             ms.harmonyTone        = slotXml->getIntAttribute ("harmonyTone", 0);
             ms.harmonyShiftedVoices = slotXml->getIntAttribute ("shiftedVoices", 1);
+            ms.harmonyFormant     = (float) slotXml->getDoubleAttribute ("harmonyFormant", 0.5);
+            ms.harmonyAttack      = (float) slotXml->getDoubleAttribute ("harmonyAttack", 0.1137);
+            ms.voiceType          = slotXml->getIntAttribute ("voiceType", 0);
             ms.latencyMode        = slotXml->getIntAttribute ("latencyMode", 1);
             ms.editorMeasures     = slotXml->getIntAttribute ("editorMeasures", 8);
             ms.formantEnable      = slotXml->getBoolAttribute ("formantEnable", false);
@@ -3978,16 +4334,30 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
                 ms.curve.fromXml (*curveXml);
             setAbSlotMorphState (slot, std::move (ms));
         }
-        // Restore pitch curve if present in the XML.
+        // Restore the pitch curve if present in the XML.
         if (pitchCurve != nullptr)
         {
-            auto* curveXml = xmlState->getChildByName ("PITCH_CURVE");
+            auto* curveXml = getLastChild ("PITCH_CURVE");
             if (curveXml != nullptr)
             {
                 pitchCurve->fromXml (*curveXml);
                 pendingCurveRestore.store (true);
             }
         }
+
+        // Strip the plugin-level children so they do not accumulate inside
+        // parameters.state on successive save/load cycles.
+        for (auto* e = xmlState->getFirstChildElement(); e != nullptr;)
+        {
+            auto* next = e->getNextElement();
+            if (e->hasTagName ("AB_A") || e->hasTagName ("AB_B") || e->hasTagName ("PITCH_CURVE"))
+                xmlState->removeChildElement (e, true);
+            e = next;
+        }
+
+        advancedExpandedState = xmlState->getBoolAttribute ("advancedExpanded", false);
+        abActiveSlot = juce::jlimit (0, 1, xmlState->getIntAttribute ("abActiveSlot", 0));
+        parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
     }
 }
 

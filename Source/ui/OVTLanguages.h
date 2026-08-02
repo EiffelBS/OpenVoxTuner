@@ -178,6 +178,7 @@ namespace ovt
         static const char* kLabelBypassBtn      = "label.bypass_btn";
         static const char* kLabelMidiOutBtn     = "label.midi_out_btn";
         static const char* kLabelMidiTargetBtn  = "label.midi_target_btn";
+        static const char* kLabelMidiFollowBadge = "label.midi_follow_badge";
         static const char* kLabelDebug          = "label.debug";
         static const char* kLabelAutoScroll     = "label.auto_scroll";
         static const char* kLabelMeasures       = "label.measures";
@@ -538,6 +539,7 @@ namespace ovt
             { kLabelBypassBtn,      "ByPass" },
             { kLabelMidiOutBtn,     "MIDI OUT" },
             { kLabelMidiTargetBtn,  "MIDI TGT" },
+            { kLabelMidiFollowBadge, "FOLLOWS MIDI IN" },
             { kLabelDebug,          "Debug" },
             { kLabelAutoScroll,     "Auto-Scroll" },
             { kLabelMeasures,       "Measures" },
@@ -863,6 +865,7 @@ namespace ovt
             { kLabelBypassBtn,      "Bypass" },
             { kLabelMidiOutBtn,     "MIDI OUT" },
             { kLabelMidiTargetBtn,  "CIB. MIDI" },
+            { kLabelMidiFollowBadge, "SUIT ENTREE MIDI" },
             { kLabelDebug,          "Debug" },
             { kLabelAutoScroll,     "Auto-Scroll" },
             { kLabelMeasures,       "Mesures" },
@@ -1188,6 +1191,7 @@ namespace ovt
             { kLabelBypassBtn,      "Bypass" },
             { kLabelMidiOutBtn,     "MIDI OUT" },
             { kLabelMidiTargetBtn,  "MIDI ZIEL" },
+            { kLabelMidiFollowBadge, "FOLGT MIDI-EINGANG" },
             { kLabelDebug,          "Debug" },
             { kLabelAutoScroll,     "Auto-Scroll" },
             { kLabelMeasures,       "Takte" },
@@ -1513,6 +1517,7 @@ namespace ovt
             { kLabelBypassBtn,      "Bypass" },
             { kLabelMidiOutBtn,     "MIDI OUT" },
             { kLabelMidiTargetBtn,  "OBJ. MIDI" },
+            { kLabelMidiFollowBadge, "SIGUE ENTRADA MIDI" },
             { kLabelDebug,          "Debug" },
             { kLabelAutoScroll,     "Auto-Scroll" },
             { kLabelMeasures,       "Compases" },
