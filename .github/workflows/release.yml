@@ -134,13 +134,15 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
 
-          # Decode and import the .p12 certificates
+          # Decode and import the .p12 certificates. "already exists" is
+          # harmless (e.g. an intermediate bundled in the .p12); the explicit
+          # checks below verify the two required identities are actually present.
           echo "$MACOS_CERT_APP_P12_B64" | base64 --decode > /tmp/cert_app.p12
           echo "$MACOS_CERT_INSTALLER_P12_B64" | base64 --decode > /tmp/cert_installer.p12
-          security import /tmp/cert_app.p12 -P "$MACOS_CERT_APP_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
-          security import /tmp/cert_installer.p12 -P "$MACOS_CERT_INSTALLER_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
-          security import /tmp/DeveloperIDG2CA.cer -A -k "$KEYCHAIN"
-          security import /tmp/AppleRootCA-G2.cer -A -k "$KEYCHAIN"
+          security import /tmp/cert_app.p12 -P "$MACOS_CERT_APP_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN" || echo "warn: cert_app already imported"
+          security import /tmp/cert_installer.p12 -P "$MACOS_CERT_INSTALLER_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN" || echo "warn: cert_installer already imported"
+          security import /tmp/DeveloperIDG2CA.cer -A -k "$KEYCHAIN" || echo "warn: DeveloperIDG2CA already imported"
+          security import /tmp/AppleRootCA-G2.cer -A -k "$KEYCHAIN" || echo "warn: AppleRootCA-G2 already imported"
           sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/AppleRootCA-G2.cer
 
           # Make it the default keychain and let codesign/productbuild access the
@@ -148,6 +150,10 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
           security default-keychain -s "$KEYCHAIN"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          # Fail loudly if a required identity did not make it into the keychain
+          security find-certificate -a -c "Developer ID Application" -k "$KEYCHAIN" >/dev/null || { echo "MISSING: Developer ID Application certificate"; exit 1; }
+          security find-certificate -a -c "Developer ID Installer" -k "$KEYCHAIN" >/dev/null || { echo "MISSING: Developer ID Installer certificate"; exit 1; }
 
           echo "--- signing identities ---"
           security find-identity -v -p codesigning
