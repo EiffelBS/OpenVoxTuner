@@ -44,7 +44,10 @@ jobs:
     runs-on: windows-2022
     env:
       # Forward the tag (e.g. "v0.1.61") to the build script, which strips the "v".
-      OVT_VERSION: ${{ env.OVT_RELEASE }}
+      # Note: the `env` context is not available in a job-level `env:` block, so we
+      # use the github expression directly (dispatch input wins, manual tag push
+      # falls back to github.ref_name).
+      OVT_VERSION: ${{ github.event.inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
