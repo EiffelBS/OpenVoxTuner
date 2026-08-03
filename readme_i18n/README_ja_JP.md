@@ -326,13 +326,13 @@ AU をビルド：
 ./scripts/build_macos_au.sh --juce-path ~/dev/JUCE --install
 ```
 
-macOS の `.pkg` インストーラーをビルド。公式リリースは **VST3 + Standalone** を配信します（AU は未署名のため DAW に読み込めないので除外）：
+macOS の `.pkg` インストーラーをビルド。公式リリースは **署名・公証済み** のインストーラーで **VST3 + AU + Standalone** を配信します：
 
 ```bash
-./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,STANDALONE
+./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,AU,STANDALONE
 ```
 
-ローカルビルドに AU コンポーネントも含めるには、`--formats` に追加します（例：`VST3,AU,STANDALONE`）。
+AU なしの小さいインストーラーをビルドするには、`--formats` を上書きします（例：`VST3,STANDALONE`）。
 
 詳細なビルドガイド：
 - [docs/MACOS_VST3_BUILD_GUIDE.md](../docs/MACOS_VST3_BUILD_GUIDE.md)
@@ -343,11 +343,9 @@ macOS の `.pkg` インストーラーをビルド。公式リリースは **VST
 | フォーマット | Windows | macOS |
 |----------|---------|-------|
 | VST3     | ✅      | ✅    |
-| AU       | —       | ✅*   |
+| AU       | —       | ✅    |
 | Standalone | ✅    | ✅    |
 | ARA2     | ✅      | ✅    |
-
-> \* AU コンポーネントはソースからビルド可能ですが、未署名のリリースには**同梱されません** — 未署名の AU は macOS 上の DAW に読み込めません。配布されるリリースには両プラットフォームとも **VST3 + Standalone** が含まれます。
 
 ## ドキュメント
 

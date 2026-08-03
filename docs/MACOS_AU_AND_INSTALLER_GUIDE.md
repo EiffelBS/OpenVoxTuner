@@ -103,18 +103,18 @@ All options:
 - The generated `.pkg` installs to:
   - `/Library/Audio/Plug-Ins/VST3` (if VST3 is included)
   - `/Library/Audio/Plug-Ins/Components` (if AU is included)
-- For public distribution, add notarization (`notarytool`) and `stapler` afterward.
+- For public distribution, the official artifacts are signed & notarized (see "Signing &
+  Notarization Status" below).
 
 ## Signing & Notarization Status
 
-!!! warning "AU and PKG are not signed"
-    The current builds do **not** include a Apple Developer ID signature. macOS Gatekeeper will block the unsigned `.component` and `.pkg` by default.
+The official macOS artifacts (`.pkg`, AU, VST3, Standalone) are **signed with an Apple
+Developer ID and notarized**. The drag-and-drop `.zip` is **not notarized**.
 
-    To use the unsigned plugin, you need to bypass Gatekeeper for the installed files.
+### If Gatekeeper blocks an artifact (zip contents or locally built plugins)
 
-### Bypass Gatekeeper (one-time per install)
-
-After installing via the `.pkg` or manually copying the `.component`:
+For the drag-and-drop `.zip` or for plugins built locally from source, macOS may attach a
+quarantine attribute. Remove it after installing:
 
 ```bash
 # Remove the quarantine attribute from the AU component
@@ -131,16 +131,14 @@ sudo xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/OpenVoxTuner.v
 sudo xattr -rd com.apple.quarantine /Library/Audio/Plug-Ins/VST3/OpenVoxTuner.vst3
 ```
 
-### Alternative: Allow in System Settings
+### Allow in System Settings
 
-1. Try to open the plugin in your DAW (it will be blocked)
-2. Open **System Settings > Privacy & Security**
-3. Scroll down — you should see a message about "OpenVoxTuner was blocked"
-4. Click **Allow Anyway**
+1. Open **System Settings > Privacy & Security**.
+2. If "OpenVoxTuner was blocked" is reported, click **Allow Anyway**.
 
-### For developers with a Developer ID
+### Signing & notarizing locally (reference)
 
-If you have an Apple Developer ID, you can sign and notarize:
+To sign and notarize a build yourself (requires an Apple Developer ID):
 
 ```bash
 # Sign the component

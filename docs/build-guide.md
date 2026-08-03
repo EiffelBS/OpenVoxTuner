@@ -38,15 +38,9 @@ git clone https://github.com/juce-framework/JUCE.git ~/dev/JUCE
 | Format | Windows | macOS |
 |--------|---------|-------|
 | VST3 | ✅ | ✅ |
-| AU | — | ✅* |
+| AU | — | ✅ |
 | Standalone | ✅ | ✅ |
 | ARA2 | ✅ | ✅ |
-
-> \* The AU component is buildable from source, but it is **not shipped** in the
-> current releases — an unsigned AU cannot be loaded by a DAW on macOS. This is a
-> **temporary** situation (code signing & notarization, which will include AU, are
-> planned for a later release). The distributed releases include **VST3 + Standalone**
-> on both platforms.
 
 !!! note "About CLAP and AAX"
     **CLAP** is not available in JUCE 8.x (verified up to 8.0.14) and is therefore not
@@ -126,24 +120,19 @@ Installed to `~/Library/Audio/Plug-Ins/Components/OpenVoxTuner.component`.
 
 ### `.pkg` installer
 
-The official releases currently ship **VST3 + Standalone** (the AU is omitted because an
-unsigned AU cannot be loaded by a DAW — a **temporary** situation, as code signing &
-notarization are planned for a later release). By default the script builds
-**VST3 + AU + STANDALONE**:
+The official releases ship a **signed & notarized** `.pkg` with **VST3 + AU + Standalone**.
+By default the script builds **VST3 + AU + STANDALONE**:
 
 ```bash
 chmod +x ./scripts/build_macos_pkg.sh
 ./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE
 ```
 
-To match the official release layout (VST3 + Standalone only):
+To build a smaller installer without the AU, override `--formats`:
 
 ```bash
 ./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,STANDALONE
 ```
-
-To also include the AU component in a local build, add it to `--formats`
-(e.g. `VST3,AU,STANDALONE`).
 
 The generated `.pkg` installs:
 

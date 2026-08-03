@@ -53,6 +53,11 @@ Distributing raw `.vst3` or `.component` folders is poor practice. The optimal s
 
 ### B. Code Signing and Notarization (Standard vs Unsigned)
 
+OpenVoxTuner's official macOS artifacts (`.pkg`, AU, VST3, Standalone) are **signed with
+an Apple Developer ID and notarized**; the drag-and-drop `.zip` is not notarized. The
+guidance below covers the general workflow and the unsigned fallback for forks and local
+builds.
+
 **Standard Professional Workflow:**
 Modern operating systems actively block unsigned software.
 - **macOS:** Requires signing binaries (`codesign`), building a `.pkg`, signing the `.pkg`, and notarizing it via Apple's servers (`xcrun notarytool`).

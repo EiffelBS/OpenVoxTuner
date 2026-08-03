@@ -16,13 +16,6 @@ official installers or by installing plugin files manually.
 | Formats | VST3, Standalone | VST3, AU, Standalone |
 | ARA2 | ✅ | ✅ |
 
-!!! note "About the AU plugin"
-    The **AU** format is buildable from source, but it is **not shipped** in the
-    official releases for now — an unsigned AU cannot be loaded by a DAW on macOS.
-    This is a **temporary** situation: code signing & notarization (including AU) are
-    planned for a later release. Until then, if you need the AU,
-    [build it from source](build-guide.md).
-
 ## Official installers
 
 OpenVoxTuner is distributed as GitHub Releases for each version:
@@ -30,20 +23,14 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 | Platform | Artifact | Notes |
 |----------|----------|-------|
 | Windows | `OpenVoxTuner_Windows_Installer.exe` | Installer (Inno Setup) |
-| macOS | `OpenVoxTuner-macOS.zip` | Drag-and-drop: VST3 + Standalone (universal arm64/x86_64) |
-| macOS | `OpenVoxTuner-macOS.pkg` | Installer (temporarily unsigned): VST3 → `/Library/Audio/Plug-Ins/VST3`, Standalone → `/Applications` |
+| macOS | `OpenVoxTuner-macOS.zip` | Drag-and-drop: VST3 + Standalone (universal arm64/x86_64) — not notarized |
+| macOS | `OpenVoxTuner-macOS.pkg` | Signed & notarized installer: VST3 → `/Library/Audio/Plug-Ins/VST3`, AU → `/Library/Audio/Plug-Ins/Components`, Standalone → `/Applications` |
 
-!!! warning "The macOS `.pkg` is temporarily unsigned"
-    The macOS `.pkg` is **unsigned** for now — code signing and notarization are
-    **planned for a later release** and this limitation will be removed. To install it
-    today, right-click (Control-click) the package and choose **Open**, or run:
-
-    ```bash
-    sudo installer -pkg OpenVoxTuner-macOS.pkg -target /
-    ```
-
-    The macOS `.zip` also contains **VST3 + Standalone** only — the AU is not included
-    in the current releases (it will be added once signing is in place).
+!!! note "macOS signing status"
+    The `.pkg` installer is **signed and notarized** and includes **VST3, AU and
+    Standalone**. The drag-and-drop `.zip` is **not notarized** — if Gatekeeper blocks
+    its contents, right-click (Control-click) and choose **Open**, or use the `.pkg`
+    installer.
 
 ## Windows installation
 
@@ -93,7 +80,7 @@ rsync -a --delete ~/Downloads/OpenVoxTuner.vst3 ~/Library/Audio/Plug-Ins/VST3/
 ### Option 2 — `.pkg` installer
 
 1. Download `OpenVoxTuner-macOS.pkg`.
-2. Right-click (Control-click) the package and choose **Open**, or run:
+2. Double-click the package and follow the installer, or run:
 
    ```bash
    sudo installer -pkg OpenVoxTuner-macOS.pkg -target /
@@ -101,36 +88,30 @@ rsync -a --delete ~/Downloads/OpenVoxTuner.vst3 ~/Library/Audio/Plug-Ins/VST3/
 
    This installs:
    - **VST3** → `/Library/Audio/Plug-Ins/VST3/OpenVoxTuner.vst3`
+   - **AU** → `/Library/Audio/Plug-Ins/Components/OpenVoxTuner.component`
    - **Standalone** → `/Applications/OpenVoxTuner.app`
 
 ### Building the AU (from source)
 
-The **AU** is not shipped in the official releases (temporarily — signing & notarization,
-which will include AU, are planned for a later release). But you **can** use it locally by
-building it from source and ad-hoc signing it:
+The **AU** ships in the official `.pkg` installer. Developers can still build it from
+source (for development or testing):
 
 1. [Build the AU](build-guide.md) with `./scripts/build_macos_au.sh --juce-path ~/dev/JUCE --install`.
 2. The component installs to `~/Library/Audio/Plug-Ins/Components/OpenVoxTuner.component`.
-3. **Ad-hoc sign** it (satisfies Apple Silicon's code-signing requirement; the build may
-   already be ad-hoc signed — run this to be sure):
+3. On Apple Silicon, ad-hoc sign the locally built component (satisfies the code-signing
+   requirement; the build may already be ad-hoc signed — run this to be sure):
 
    ```bash
    codesign --force --deep -s - ~/Library/Audio/Plug-Ins/Components/OpenVoxTuner.component
    ```
 
-4. **Remove the quarantine attribute** (Gatekeeper will otherwise block it):
+4. If Gatekeeper blocks it, remove the quarantine attribute:
 
    ```bash
    sudo xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/OpenVoxTuner.component
    ```
 
 5. Restart your DAW and rescan the plugin (in Logic: **Plug-in Manager → Reset & Rescan**).
-
-!!! warning "DAW AU validation"
-    Some DAWs (Logic Pro, GarageBand) run a **strict AU validation** and may still reject
-    an unsigned / non-notarized AU. This is the reason the AU is not shipped in the
-    official releases yet. If a DAW blocks it, open **System Settings → Privacy &
-    Security** and click **Allow Anyway** when OpenVoxTuner is reported as blocked.
 
 ## Standalone application
 

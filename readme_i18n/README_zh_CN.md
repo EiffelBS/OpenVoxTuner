@@ -326,13 +326,13 @@ brew install cmake ninja
 ./scripts/build_macos_au.sh --juce-path ~/dev/JUCE --install
 ```
 
-构建 macOS `.pkg` 安装程序。官方发布提供 **VST3 + Standalone**（AU 被省略，因为未签名的 AU 无法被 DAW 加载）：
+构建 macOS `.pkg` 安装程序。官方发布提供 **已签名并公证** 的安装程序，包含 **VST3 + AU + Standalone**：
 
 ```bash
-./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,STANDALONE
+./scripts/build_macos_pkg.sh --juce-path ~/dev/JUCE --formats VST3,AU,STANDALONE
 ```
 
-若要在本地构建中同时包含 AU 组件，请将其加入 `--formats`（例如 `VST3,AU,STANDALONE`）。
+若要构建不含 AU 的更小安装程序，请覆盖 `--formats`（例如 `VST3,STANDALONE`）。
 
 详细构建指南：
 - [docs/MACOS_VST3_BUILD_GUIDE.md](../docs/MACOS_VST3_BUILD_GUIDE.md)
@@ -343,11 +343,9 @@ brew install cmake ninja
 | 格式 | Windows | macOS |
 |----------|---------|-------|
 | VST3     | ✅      | ✅    |
-| AU       | —       | ✅*   |
+| AU       | —       | ✅    |
 | Standalone | ✅    | ✅    |
 | ARA2     | ✅      | ✅    |
-
-> \* AU 组件可从源代码构建，但**未包含**在未签名的发布中 — 未签名的 AU 无法在 macOS 上被 DAW 加载。发布的版本在两个平台上都包含 **VST3 + Standalone**。
 
 ## 文档
 
