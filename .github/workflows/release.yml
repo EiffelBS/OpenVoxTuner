@@ -196,6 +196,10 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          # On workflow_dispatch (from version-bump) the run's ref is a branch,
+          # so the action cannot infer the tag from the ref — pass it explicitly.
+          # On a manual tag push, github.ref_name already matches OVT_RELEASE.
+          tag_name: ${{ env.OVT_RELEASE }}
           body_path: release_notes.md
           files: |
             release-assets/OpenVoxTuner_Windows_Installer.exe
