@@ -3,6 +3,13 @@ name: CI
 on:
   push:
     branches: [ main ]
+    # Only build on code-affecting changes; doc/site pushes skip CI.
+    paths:
+      - 'Source/**'
+      - 'test/**'
+      - 'CMakeLists.txt'
+      - 'external/**'
+      - '.github/workflows/ci.yml'
   pull_request:
 
 jobs:

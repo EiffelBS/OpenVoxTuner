@@ -3,6 +3,13 @@ name: Version Bump
 on:
   push:
     branches: [ main ]
+    # Only bump/release when the plugin code actually changes; doc/site pushes
+    # must not create a tag nor dispatch the heavy release build.
+    paths:
+      - 'Source/**'
+      - 'CMakeLists.txt'
+      - 'external/**'
+      - '.github/workflows/version-bump.yml'
 
 permissions:
   contents: write
