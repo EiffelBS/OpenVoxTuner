@@ -152,8 +152,8 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
 
           # Fail loudly if a required identity did not make it into the keychain
-          security find-certificate -a -c "Developer ID Application" -k "$KEYCHAIN" >/dev/null || { echo "MISSING: Developer ID Application certificate"; exit 1; }
-          security find-certificate -a -c "Developer ID Installer" -k "$KEYCHAIN" >/dev/null || { echo "MISSING: Developer ID Installer certificate"; exit 1; }
+          security find-certificate -a -c "Developer ID Application" "$KEYCHAIN" >/dev/null || { echo "MISSING: Developer ID Application certificate"; exit 1; }
+          security find-certificate -a -c "Developer ID Installer" "$KEYCHAIN" >/dev/null || { echo "MISSING: Developer ID Installer certificate"; exit 1; }
 
           echo "--- signing identities ---"
           security find-identity -v -p codesigning
