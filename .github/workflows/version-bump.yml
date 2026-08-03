@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: write
+  # Needed to dispatch the Release workflow via `gh workflow run` (workflow_dispatch).
+  actions: write
 
 jobs:
   bump:
