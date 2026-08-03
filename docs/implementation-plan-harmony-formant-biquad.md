@@ -1,6 +1,11 @@
 # Implementation plan — Harmony Formant via per-voice biquad (Option B)
 
-Status: **planned — not implemented** (2026-08-03)
+Status: **experiment reverted** (2026-08-03) — the per-voice biquad formant path
+(option B) was implemented and A/B-tested, but its peaking-EQ formant shift was
+too subtle to be an audible Harmony Formant control and it clicked at position 0.
+User decision: keep the granular method (HC.13) as the sole Harmony Formant path;
+the biquad option was removed from the source. This plan is retained as a record
+of the experiment.
 
 ## Goal
 
