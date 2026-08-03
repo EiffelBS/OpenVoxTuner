@@ -20,6 +20,10 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v0.1.61)'
+        required: true
   push:
     tags:
       - 'v*'
@@ -27,12 +31,20 @@ on:
 permissions:
   contents: write
 
+env:
+  # The release version with the leading "v". Comes from the workflow_dispatch
+  # input (used by version-bump.yml) or, for a manual tag push, from the pushed
+  # tag (github.ref_name). A GITHUB_TOKEN-driven tag push does NOT re-trigger this
+  # workflow (GitHub limitation), so version-bump.yml dispatches it explicitly
+  # with the `version` input.
+  OVT_RELEASE: ${{ github.event.inputs.version || github.ref_name }}
+
 jobs:
   windows-release:
     runs-on: windows-2022
     env:
       # Forward the tag (e.g. "v0.1.61") to the build script, which strips the "v".
-      OVT_VERSION: ${{ github.ref_name }}
+      OVT_VERSION: ${{ env.OVT_RELEASE }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,7 +88,7 @@ jobs:
           cmake -S . -B build-mac-release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DJUCE_PATH="${{ github.workspace }}/JUCE" \
-            -DOVT_VERSION="${GITHUB_REF_NAME#v}" \
+            -DOVT_VERSION="${OVT_RELEASE#v}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
             -DOVT_ENABLE_AU=OFF
@@ -104,7 +116,7 @@ jobs:
       - name: Build macOS installer (.pkg, unsigned)
         run: |
           scripts/build_macos_pkg.sh --skip-build --build-dir build-mac-release \
-            --formats VST3,STANDALONE --version "${GITHUB_REF_NAME#v}" \
+            --formats VST3,STANDALONE --version "${OVT_RELEASE#v}" \
             --output OpenVoxTuner-macOS.pkg
 
       - name: Upload macOS installer artifact
@@ -146,7 +158,7 @@ jobs:
         id: notes
         run: |
           set -euo pipefail
-          CUR="${GITHUB_REF_NAME}"
+          CUR="${OVT_RELEASE}"
           NOTES="release_notes.md"
           {
             echo "## What's Changed — ${CUR}"
@@ -192,7 +204,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          VER="${GITHUB_REF_NAME#v}"
+          VER="${OVT_RELEASE#v}"
           CONTENT=$(printf '{\n  "version": "%s",\n  "url": "https://github.com/EiffelBS/OpenVoxTuner/releases/latest"\n}\n' "$VER" | base64 -w0)
           SHA=$(gh api repos/EiffelBS/OpenVoxTuner/contents/docs/releases/latest.json --jq '.sha')
           gh api -X PUT repos/EiffelBS/OpenVoxTuner/contents/docs/releases/latest.json \

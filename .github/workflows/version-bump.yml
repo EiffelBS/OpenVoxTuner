@@ -53,3 +53,14 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$NEW_TAG" -m "chore: auto-bump version to $NEW_TAG"
           git push origin "$NEW_TAG"
+
+      - name: Trigger release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_TAG: ${{ steps.version.outputs.new_tag }}
+        shell: bash
+        run: |
+          # A GITHUB_TOKEN-driven tag push does not re-trigger the on-tag-push
+          # Release workflow (GitHub limitation to avoid recursion). Dispatch it
+          # explicitly with the new version so a release is created on push.
+          gh workflow run release.yml --ref main -f version="$NEW_TAG"
