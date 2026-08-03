@@ -1,16 +1,39 @@
 name: Release
 
 # Builds OpenVoxTuner for Windows and macOS and publishes the artifacts as a
-# GitHub Release. No code signing is performed:
-#   - macOS ships BOTH an unsigned zip (drag-and-drop) AND an unsigned .pkg
-#     installer (VST3 + Standalone in /Library/Audio/Plug-Ins and /Applications).
-#     The .pkg is unsigned, so Gatekeeper requires a right-click > Open (or
-#     `sudo installer -pkg ... -target /`) to install locally.
-#   - The AU is omitted from both macOS artifacts because an unsigned AU cannot
-#     be loaded by a DAW.
-# This keeps distribution free and open-source friendly.
+# GitHub Release.
+#   - Windows ships an unsigned Inno Setup installer (SmartScreen warning).
+#   - macOS ships a signed+notarized .pkg installer (Standalone in /Applications,
+#     VST3 + AU + companion OpenVoxKey in /Library/Audio/Plug-Ins). The pkg passes
+#     Gatekeeper on a stock macOS: every bundle is codesigned with "Developer ID
+#     Application" (hardened runtime + ovt.entitlements), the pkg is signed with
+#     "Developer ID Installer" and the whole product is notarized + stapled.
+#   - macOS ALSO ships an unsigned drag-and-drop zip (ad-hoc signed bundles) for
+#     users who prefer manual install. Because it is unsigned, those bundles carry
+#     the com.apple.quarantine attribute after download and need
+#     `sudo xattr -rd com.apple.quarantine <path>` before a DAW will load them.
 #
 # Triggers: push of a tag "v*" (e.g. v0.1.47) or manual dispatch.
+#
+# Required GitHub secrets (repo Settings -> Secrets and variables -> Actions):
+#   MACOS_CERT_APP_P12_B64             base64 of the "Developer ID Application" .p12
+#   MACOS_CERT_APP_P12_PASSWORD        password of the above .p12
+#   MACOS_CERT_INSTALLER_P12_B64       base64 of the "Developer ID Installer" .p12
+#   MACOS_CERT_INSTALLER_P12_PASSWORD  password of the above .p12
+#   APPLE_API_KEY                      content of the App Store Connect API key (.p8, single line)
+#   APPLE_API_KEY_ID                   API key id (e.g. XHT9SU62AJ)
+#   APPLE_API_ISSUER                   API issuer UUID (App Store Connect -> Users and Access -> Keys)
+#
+# How to create the .p12 files (from Keychain Access, once both Developer ID
+# certificates are installed and trusted):
+#   security export -k ~/Library/Keychains/login.keychain-db -t certs -f pkcs12 \
+#     -o cert_app.p12 -P "<password>" "Developer ID Application: <Name> (TEAMID)"
+#   security export -k ~/Library/Keychains/login.keychain-db -t certs -f pkcs12 \
+#     -o cert_installer.p12 -P "<password>" "Developer ID Installer: <Name> (TEAMID)"
+#   base64 < cert_app.p12          # paste into MACOS_CERT_APP_P12_B64
+#   base64 < cert_installer.p12    # paste into MACOS_CERT_INSTALLER_P12_B64
+#
+# The signing identities below must match the CN of the installed certificates.
 #
 # Prerequisites (must be committed to the repo):
 #   - CMakeLists.txt must declare `project(... LANGUAGES C CXX)` so the ARA SDK
@@ -74,6 +97,13 @@ jobs:
 
   macos-release:
     runs-on: macos-latest
+    env:
+      # Dedicated CI keychain (created at runtime, avoids touching the login keychain).
+      KEYCHAIN: "${{ runner.temp }}/ovt-signing.keychain-db"
+      KEYCHAIN_PASSWORD: "ovt-ci-keychain"
+      # Must match the CN of the certificates imported from the secrets above.
+      MACOS_APP_IDENTITY: "Developer ID Application: JEROME BEROUD (XXBTBG8N7M)"
+      MACOS_INSTALLER_IDENTITY: "Developer ID Installer: JEROME BEROUD (XXBTBG8N7M)"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -86,7 +116,43 @@ jobs:
           ref: 8.0.8
           path: JUCE
 
-      - name: Configure (macOS, VST3 + Standalone, AU disabled)
+      - name: Import signing certificates
+        env:
+          MACOS_CERT_APP_P12_B64: ${{ secrets.MACOS_CERT_APP_P12_B64 }}
+          MACOS_CERT_APP_P12_PASSWORD: ${{ secrets.MACOS_CERT_APP_P12_PASSWORD }}
+          MACOS_CERT_INSTALLER_P12_B64: ${{ secrets.MACOS_CERT_INSTALLER_P12_B64 }}
+          MACOS_CERT_INSTALLER_P12_PASSWORD: ${{ secrets.MACOS_CERT_INSTALLER_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          # Apple intermediates/root for the Developer ID G2 chain
+          curl -fsSL -o /tmp/DeveloperIDG2CA.cer https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          curl -fsSL -o /tmp/AppleRootCA-G2.cer https://www.apple.com/certificateauthority/AppleRootCA-G2.cer
+
+          # Dedicated CI keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          # Decode and import the .p12 certificates
+          echo "$MACOS_CERT_APP_P12_B64" | base64 --decode > /tmp/cert_app.p12
+          echo "$MACOS_CERT_INSTALLER_P12_B64" | base64 --decode > /tmp/cert_installer.p12
+          security import /tmp/cert_app.p12 -P "$MACOS_CERT_APP_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security import /tmp/cert_installer.p12 -P "$MACOS_CERT_INSTALLER_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security import /tmp/DeveloperIDG2CA.cer -A -k "$KEYCHAIN"
+          security import /tmp/AppleRootCA-G2.cer -A -k "$KEYCHAIN"
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/AppleRootCA-G2.cer
+
+          # Make it the default keychain and let codesign/productbuild access the
+          # private keys without a UI prompt
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          security default-keychain -s "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          echo "--- signing identities ---"
+          security find-identity -v -p codesigning
+
+      - name: Configure (macOS, VST3 + AU + Standalone + companion)
         run: |
           cmake -S . -B build-mac-release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -94,35 +160,49 @@ jobs:
             -DOVT_VERSION="${OVT_RELEASE#v}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
-            -DOVT_ENABLE_AU=OFF
+            -DOVT_ENABLE_AU=ON
 
-      - name: Build VST3 + Standalone (macOS)
+      - name: Build VST3 + AU + Standalone + companion
         run: |
           cmake --build build-mac-release --config Release --target OpenVoxTuner_VST3
+          cmake --build build-mac-release --config Release --target OpenVoxTuner_AU
           cmake --build build-mac-release --config Release --target OpenVoxTuner_Standalone
+          cmake --build build-mac-release --config Release --target OpenVoxKey_VST3
+          cmake --build build-mac-release --config Release --target OpenVoxKey_AU
+
+      - name: Build signed + notarized .pkg
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          echo "$APPLE_API_KEY_CONTENT" > /tmp/AuthKey.p8
+          chmod 600 /tmp/AuthKey.p8
+          export APPLE_API_KEY=/tmp/AuthKey.p8
+          scripts/build_macos_pkg.sh --skip-build --build-dir build-mac-release \
+            --formats VST3,AU,STANDALONE --version "${OVT_RELEASE#v}" \
+            --sign-identity "$MACOS_APP_IDENTITY" \
+            --sign-installer "$MACOS_INSTALLER_IDENTITY" \
+            --notarize --output OpenVoxTuner-macOS.pkg
 
       - name: Package macOS zip (unsigned)
         run: |
           cd "${{ github.workspace }}/build-mac-release/OpenVoxTuner_artefacts/Release"
           mkdir -p OpenVoxTuner-macOS
           cp -R VST3/OpenVoxTuner.vst3 OpenVoxTuner-macOS/
+          cp -R AU/OpenVoxTuner.component OpenVoxTuner-macOS/
           cp -R Standalone/OpenVoxTuner.app OpenVoxTuner-macOS/
           ditto -c -k --keepParent OpenVoxTuner-macOS OpenVoxTuner-macOS.zip
           mv OpenVoxTuner-macOS.zip "${{ github.workspace }}/"
 
-      - name: Upload macOS artifact
+      - name: Upload macOS artifact (zip)
         uses: actions/upload-artifact@v4
         with:
           name: OpenVoxTuner-macOS
           path: OpenVoxTuner-macOS.zip
 
-      - name: Build macOS installer (.pkg, unsigned)
-        run: |
-          scripts/build_macos_pkg.sh --skip-build --build-dir build-mac-release \
-            --formats VST3,STANDALONE --version "${OVT_RELEASE#v}" \
-            --output OpenVoxTuner-macOS.pkg
-
-      - name: Upload macOS installer artifact
+      - name: Upload macOS installer artifact (pkg)
         uses: actions/upload-artifact@v4
         with:
           name: OpenVoxTuner-macOS-Pkg

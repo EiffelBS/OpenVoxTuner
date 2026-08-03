@@ -53,6 +53,32 @@ jobs:
 
           echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
 
+      - name: Update site version (consts.ts)
+        # Keep the marketing site's displayed version in sync with the release so
+        # nobody has to edit site/src/consts.ts by hand. Committed to main BEFORE
+        # the tag is created so the tag (and the release built from it) carries it.
+        # This push does NOT re-trigger this workflow: consts.ts is not in the
+        # `paths` filter above, and the Release workflow commits latest.json back
+        # to main as github-actions[bot] (also excluded via the job-level `if`).
+        env:
+          NEW_TAG: ${{ steps.version.outputs.new_tag }}
+        shell: bash
+        run: |
+          VER="${NEW_TAG#v}"
+          FILE="site/src/consts.ts"
+          git checkout main
+          sed -i.bak "s/export const VERSION = '.*';/export const VERSION = '$VER';/" "$FILE"
+          rm -f "$FILE.bak"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$FILE"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update site version to $NEW_TAG"
+            git push origin main
+          else
+            echo "consts.ts already at $VER — nothing to commit."
+          fi
+
       - name: Create and push tag
         env:
           NEW_TAG: ${{ steps.version.outputs.new_tag }}
