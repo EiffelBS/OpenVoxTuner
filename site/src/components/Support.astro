@@ -15,7 +15,7 @@ const icons = {
 /** Build options from translations. */
 const options = [
   { icon: icons.heart, title: t.support.kofi.title, description: t.support.kofi.description, cta: t.support.kofi.cta, href: 'https://ko-fi.com', color: 'red' },
-  { icon: icons.coin, title: t.support.patreon.title, description: t.support.patreon.description, cta: t.support.patreon.cta, href: 'https://patreon.com', color: 'purple' },
+  { icon: icons.coin, title: t.support.patreon.title, description: t.support.patreon.description, cta: t.support.patreon.cta, href: 'https://patreon.com', color: 'purple', comingSoon: true },
   { icon: icons.heart, title: t.support.sponsors.title, description: t.support.sponsors.description, cta: t.support.sponsors.cta, href: 'https://github.com/sponsors/EiffelBS', color: 'green' },
   { icon: icons.code, title: t.support.contribute.title, description: t.support.contribute.description, cta: t.support.contribute.cta, href: 'https://github.com/EiffelBS/OpenVoxTuner', color: 'cyan' },
 ];
@@ -37,23 +37,40 @@ const options = [
 
     <div class="support-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {options.map((opt) => (
-        <a href={opt.href} target="_blank" rel="noopener noreferrer"
-          class="support-card support-animate group relative flex flex-col items-center text-center p-6 sm:p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-300">
-          <div class={`inline-flex items-center justify-center w-14 h-14 rounded-xl mb-5 text-white ${
-            opt.color === 'red' ? 'bg-gradient-to-br from-red-500 to-pink-600 shadow-lg shadow-red-500/20' :
-            opt.color === 'purple' ? 'bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/20' :
-            opt.color === 'green' ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/20' :
-            'bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20'
-          }`} set:html={opt.icon} />
-          <h3 class="text-xl font-bold text-white mb-2">{opt.title}</h3>
-          <p class="text-gray-400 leading-relaxed text-sm mb-5 flex-1">{opt.description}</p>
-          <span class={`inline-block px-5 py-2 rounded-full text-sm font-semibold transition-colors duration-300 ${
-            opt.color === 'red' ? 'bg-red-500/10 text-red-400 group-hover:bg-red-500/20' :
-            opt.color === 'purple' ? 'bg-purple-500/10 text-purple-400 group-hover:bg-purple-500/20' :
-            opt.color === 'green' ? 'bg-green-500/10 text-green-400 group-hover:bg-green-500/20' :
-            'bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20'
-          }`}>{opt.cta}</span>
-        </a>
+        opt.comingSoon ? (
+          <div aria-disabled="true"
+            class="support-card support-animate relative flex flex-col items-center text-center p-6 sm:p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] opacity-60 cursor-not-allowed select-none">
+            <div class={`inline-flex items-center justify-center w-14 h-14 rounded-xl mb-5 text-white ${
+              opt.color === 'red' ? 'bg-gradient-to-br from-red-500 to-pink-600 shadow-lg shadow-red-500/20' :
+              opt.color === 'purple' ? 'bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/20' :
+              opt.color === 'green' ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/20' :
+              'bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20'
+            }`} set:html={opt.icon} />
+            <h3 class="text-xl font-bold text-white mb-2">{opt.title}</h3>
+            <p class="text-gray-400 leading-relaxed text-sm mb-5 flex-1">{opt.description}</p>
+            <span class="inline-block px-5 py-2 rounded-full text-sm font-semibold bg-gray-500/10 text-gray-400 border border-white/10">
+              {t.support.patreon.comingSoon}
+            </span>
+          </div>
+        ) : (
+          <a href={opt.href} target="_blank" rel="noopener noreferrer"
+            class="support-card support-animate group relative flex flex-col items-center text-center p-6 sm:p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-300">
+            <div class={`inline-flex items-center justify-center w-14 h-14 rounded-xl mb-5 text-white ${
+              opt.color === 'red' ? 'bg-gradient-to-br from-red-500 to-pink-600 shadow-lg shadow-red-500/20' :
+              opt.color === 'purple' ? 'bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/20' :
+              opt.color === 'green' ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/20' :
+              'bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20'
+            }`} set:html={opt.icon} />
+            <h3 class="text-xl font-bold text-white mb-2">{opt.title}</h3>
+            <p class="text-gray-400 leading-relaxed text-sm mb-5 flex-1">{opt.description}</p>
+            <span class={`inline-block px-5 py-2 rounded-full text-sm font-semibold transition-colors duration-300 ${
+              opt.color === 'red' ? 'bg-red-500/10 text-red-400 group-hover:bg-red-500/20' :
+              opt.color === 'purple' ? 'bg-purple-500/10 text-purple-400 group-hover:bg-purple-500/20' :
+              opt.color === 'green' ? 'bg-green-500/10 text-green-400 group-hover:bg-green-500/20' :
+              'bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20'
+            }`}>{opt.cta}</span>
+          </a>
+        )
       ))}
     </div>
 

@@ -102,7 +102,7 @@
       "linux": "Linux"
     },
     "formats": "VST3 / AU / Standalone",
-    "cta": "\u4e0b\u8f7d v0.1.1",
+    "cta": "\u4e0b\u8f7d",
     "sourceCode": "\u6216\u4ece\u6e90\u7801\u6784\u5efa"
   },
   "support": {
@@ -117,7 +117,8 @@
     "patreon": {
       "title": "Patreon",
       "description": "\u6bcf\u6708\u8ba2\u9605\u6709\u52a9\u4e8e\u89c4\u5212\u957f\u671f\u529f\u80fd\uff0c\u4fdd\u6301\u9879\u76ee\u7684\u53ef\u6301\u7eed\u53d1\u5c55\u3002",
-      "cta": "\u52a0\u5165 Patreon"
+      "cta": "\u52a0\u5165 Patreon",
+      "comingSoon": "\u5373\u5c06\u63a8\u51fa"
     },
     "sponsors": {
       "title": "\u8d5e\u52a9\u5546",

@@ -246,8 +246,8 @@ OpenVoxTuner 对所有人免费。如果 OpenVoxTuner 为你节省了时间或�
 | **免费** | — | 0 € | 完整插件，所有功能 |
 | **Buy me a coffee** | [Ko-fi](https://ko-fi.com/) | 一次性 | 一句简单的感谢 ❤️ |
 | **Sponsor** | [GitHub Sponsors](https://github.com/sponsors/) | 按月 | 支持持续开发 |
-| **Supporter** | [Patreon](https://patreon.com/) | 5 €/月 | 私密 Discord + 对未来功能的投票 |
-| **Gold** | [Patreon](https://patreon.com/) | 20 €/月 | 所有 Supporter 权益 + 抢先体验 / 测试版构建 + 署名 |
+| **Supporter** | Patreon | 即将推出 | 私密 Discord + 对未来功能的投票 |
+| **Gold** | Patreon | 即将推出 | 所有 Supporter 权益 + 抢先体验 / 测试版构建 + 署名 |
 
 每一份贡献都有助于让项目保持活力并免费对所有人开放。
 

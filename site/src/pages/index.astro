@@ -7,6 +7,7 @@ import Download from '../components/Download.astro';
 import Support from '../components/Support.astro';
 import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 import { getTranslations } from '../i18n/index';
+import { VERSION } from '../consts';
 
 const t = getTranslations('en');
 ---
@@ -155,7 +156,7 @@ const t = getTranslations('en');
       <div class="max-w-6xl mx-auto text-center">
         <img src="/assets/icon.svg" alt="OpenVoxTuner icon" class="w-10 h-10 rounded-lg mx-auto mb-4" loading="lazy" />
         <p class="text-gray-600 mb-6 font-mono text-sm">
-          OpenVoxTuner v0.1.1 — AGPLv3
+          OpenVoxTuner v{VERSION} — AGPLv3
         </p>
         <div class="flex flex-wrap items-center justify-center gap-8 text-sm">
           <a href="https://github.com/EiffelBS/OpenVoxTuner" class="text-gray-500 hover:text-white transition-colors">GitHub</a>

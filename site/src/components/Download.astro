@@ -1,5 +1,6 @@
 ---
 import OSIcon from './OSIcon.astro';
+import { VERSION } from '../consts';
 
 /** Download component props — accepts translation object for i18n. */
 interface Props {
@@ -27,7 +28,7 @@ const { t } = Astro.props;
         <div class="absolute inset-0 bg-gradient-to-b from-blue-500/0 to-blue-500/[0.05] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         <div class="relative z-10">
           <div class="absolute top-0 right-0 bg-blue-500/10 text-blue-400 text-xs font-mono px-3 py-1 rounded-bl-xl">
-            v0.1.1
+            v{VERSION}
           </div>
           <div class="flex items-center gap-4 mb-6">
             <div class="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20">
@@ -64,7 +65,7 @@ const { t } = Astro.props;
         <div class="absolute inset-0 bg-gradient-to-b from-purple-500/0 to-purple-500/[0.05] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         <div class="relative z-10">
           <div class="absolute top-0 right-0 bg-purple-500/10 text-purple-400 text-xs font-mono px-3 py-1 rounded-bl-xl">
-            v0.1.1
+            v{VERSION}
           </div>
           <div class="flex items-center gap-4 mb-6">
             <div class="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/20">

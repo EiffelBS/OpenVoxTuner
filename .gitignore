@@ -91,6 +91,7 @@ build-test/
 build-tests/
 dist/
 site-docs/
+.venv-mkdocs/
 
 /build/
 

@@ -246,8 +246,8 @@ OpenVoxTuner はすべての人に無料です。OpenVoxTuner があなたの時
 | **無料** | — | 0 € | 全機能のプラグイン |
 | **Buy me a coffee** | [Ko-fi](https://ko-fi.com/) | 単発 | ささやかな感謝 ❤️ |
 | **Sponsor** | [GitHub Sponsors](https://github.com/sponsors/) | 月額 | 継続的な開発の支援 |
-| **Supporter** | [Patreon](https://patreon.com/) | 5 €/月 | プライベート Discord + 今後の機能への投票 |
-| **Gold** | [Patreon](https://patreon.com/) | 20 €/月 | Supporter のすべての特典 + 先行アクセス / ベータビルド + クレジット記載 |
+| **Supporter** | Patreon | 近日公開 | プライベート Discord + 今後の機能への投票 |
+| **Gold** | Patreon | 近日公開 | Supporter のすべての特典 + 先行アクセス / ベータビルド + クレジット記載 |
 
 すべての貢献が、プロジェクトを生かしすべての人に無料で提供し続ける助けになります。
 

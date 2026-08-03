@@ -102,7 +102,7 @@
       "linux": "Linux"
     },
     "formats": "VST3 / AU / Standalone",
-    "cta": "v0.1.1 herunterladen",
+    "cta": "Herunterladen",
     "sourceCode": "Oder aus den Quellen kompilieren"
   },
   "support": {
@@ -117,7 +117,8 @@
     "patreon": {
       "title": "Patreon",
       "description": "Monatliche Unterst\u00fctzungen helfen bei der Planung langfristiger Funktionen und erhalten die Nachhaltigkeit des Projekts.",
-      "cta": "Auf Patreon beitreten"
+      "cta": "Auf Patreon beitreten",
+      "comingSoon": "Bald verf\u00fcgbar"
     },
     "sponsors": {
       "title": "Sponsoren",

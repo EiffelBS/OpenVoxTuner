@@ -246,8 +246,8 @@ OpenVoxTuner es gratis para todos. Si OpenVoxTuner te ahorra tiempo o ayuda a tu
 | **Gratis** | — | 0 $ | Plugin completo, todas las funciones |
 | **Buy me a coffee** | [Ko-fi](https://ko-fi.com/) | Unico | Un rápido gracias ❤️ |
 | **Sponsor** | [GitHub Sponsors](https://github.com/sponsors/) | Mensual | Apoyo al desarrollo continuo |
-| **Supporter** | [Patreon](https://patreon.com/) | 5 $/mes | Discord privado + voto en próximas funciones |
-| **Gold** | [Patreon](https://patreon.com/) | 20 $/mes | Todos los beneficios Supporter + acceso anticipado / builds beta + nombre en créditos |
+| **Supporter** | Patreon | Próximamente | Discord privado + voto en próximas funciones |
+| **Gold** | Patreon | Próximamente | Todos los beneficios Supporter + acceso anticipado / builds beta + nombre en créditos |
 
 Cada contribución ayuda a mantener el proyecto vivo y gratis para todos.
 
