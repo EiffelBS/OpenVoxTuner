@@ -1,0 +1,140 @@
+{
+  "lang": "en",
+  "langName": "English",
+  "meta": {
+    "title": "OpenVoxTuner - Real-time pitch correction & harmony generation for vocals",
+    "description": "OpenVoxTuner - Real-time pitch correction & harmony generation for vocals. VST3 / AU / Standalone - Open Source AGPLv3."
+  },
+  "hero": {
+    "subtitle": "Real-time pitch correction & harmony generation for vocals. VST3 / AU / Standalone.",
+    "cta": "Download Free",
+    "secondaryCta": "View on GitHub"
+  },
+  "marquee": {
+    "pitchCorrection": "PITCH CORRECTION",
+    "harmonyEngine": "HARMONY ENGINE",
+    "formantShift": "FORMANT SHIFT",
+    "ara2Native": "ARA2 NATIVE",
+    "realTimeVisualizer": "REAL-TIME VISUALIZER",
+    "curveEditor": "CURVE EDITOR",
+    "openSource": "OPEN SOURCE"
+  },
+  "stats": {
+    "harmonyTypes": "Harmony Types",
+    "languages": "Languages",
+    "effectsIncluded": "Effects Included",
+    "freeForever": "Free Forever"
+  },
+  "features": {
+    "title": "Everything you need",
+    "titleHighlight": "for vocal production",
+    "subtitle": "Professional-grade pitch correction, harmony generation, and creative tools — all open source.",
+    "pitchCorrection": {
+      "title": "Pitch Correction",
+      "description": "Auto Mode with scale-aware correction, adjustable speed/amount/character. Transparent or Modern style."
+    },
+    "harmonyEngine": {
+      "title": "Harmony Engine",
+      "description": "21 harmony types: intervals, triads, vocal stacks. Voice mode (pitch-shifted live vocal) or Synth mode (6 tone colors)."
+    },
+    "formantPreservation": {
+      "title": "Formant Preservation",
+      "description": "Independent formant shift (+-5 semitones) with LPC cross-synthesis for natural-sounding transposition."
+    },
+    "keyDetection": {
+      "title": "Key Detection",
+      "description": "Detect musical key via the companion app OpenVoxKey (runs alongside your DAW) or directly from a sidechain input. Automatic scale quantization."
+    },
+    "realTimeVisualizer": {
+      "title": "Real-time Visualizer",
+      "description": "Live pitch display with input/output/harmony traces, piano keyboard, cents meter, waveform overlay."
+    },
+    "curveEditor": {
+      "title": "Curve Editor",
+      "description": "Melodyne-style graphical editing: add/move points, snap to scale/grid, copy/paste, undo/redo."
+    },
+    "midiOut": {
+      "title": "MIDI OUT",
+      "description": "Use the plugin as a MIDI source in your DAW. The tuned voice and 4 harmony voices each output on their own MIDI channel for driving virtual instruments."
+    },
+    "multiLanguage": {
+      "title": "Multi-language",
+      "description": "Interface available in 6 languages: English, French, German, Spanish, Japanese, Chinese."
+    },
+    "effectsSuite": {
+      "title": "Effects Suite",
+      "description": "Built-in Gate, Compressor, Reverb, and Formant processing. Complete vocal chain in one plugin."
+    }
+  },
+  "showcase": {
+    "title": "See it in",
+    "titleHighlight": "action",
+    "subtitle": "A professional vocal production tool with an intuitive, dark-themed interface.",
+    "slides": [
+      {
+        "tag": "Live Mode",
+        "title": "Real-time Pitch Visualization",
+        "description": "Live pitch display with input/output/harmony traces, cents meter, and waveform overlay. See every correction happen in real time."
+      },
+      {
+        "tag": "Harmony Engine",
+        "title": "21 Harmony Types",
+        "description": "From simple thirds to vocal stacks and power chords. Voice mode uses pitch-shifted live vocals, Synth mode offers 6 tone colors."
+      },
+      {
+        "tag": "Graphic Mode",
+        "title": "Melodyne-style Curve Editor",
+        "description": "Graphical pitch editing with click-to-add points, snap to scale/grid, copy/paste, undo/redo. Full creative control."
+      },
+      {
+        "tag": "Piano Roll",
+        "title": "Piano Roll View",
+        "description": "Switch between curve and piano roll editing. See harmony voice distribution across the keyboard with clear note blocks."
+      }
+    ]
+  },
+  "download": {
+    "title": "Get started",
+    "subtitle": "Free and open source under AGPLv3.",
+    "platforms": {
+      "windows": "Windows",
+      "macos": "macOS",
+      "linux": "Linux"
+    },
+    "formats": "VST3 / AU / Standalone",
+    "cta": "Download v0.1.1",
+    "sourceCode": "Or build from source"
+  },
+  "support": {
+    "title": "Support the",
+    "titleHighlight": "project",
+    "subtitle": "OpenVoxTuner is free and open source. If you find it useful, consider supporting its development.",
+    "kofi": {
+      "title": "Ko-fi",
+      "description": "Buy me a coffee to support development. One-time or monthly donations welcome.",
+      "cta": "Support on Ko-fi"
+    },
+    "patreon": {
+      "title": "Patreon",
+      "description": "Monthly pledges help plan long-term features and keep the project sustainable.",
+      "cta": "Join on Patreon"
+    },
+    "sponsors": {
+      "title": "Sponsors",
+      "description": "GitHub Sponsors — support directly through GitHub with one-time or recurring contributions.",
+      "cta": "Sponsor on GitHub"
+    },
+    "contribute": {
+      "title": "Contribute",
+      "description": "Open source under AGPLv3. Report bugs, submit PRs, or help with translations.",
+      "cta": "View on GitHub"
+    },
+    "footer": "Every contribution matters — whether it's code, bug reports, translations, or a kind word."
+  },
+  "footer": {
+    "documentation": "Documentation",
+    "releases": "Releases",
+    "issues": "Issues",
+    "license": "License"
+  }
+}

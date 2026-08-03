@@ -1,0 +1,119 @@
+---
+import OSIcon from './OSIcon.astro';
+
+/** Download component props — accepts translation object for i18n. */
+interface Props {
+  t: any;
+}
+const { t } = Astro.props;
+---
+
+<section id="download" class="download relative py-32 px-6 overflow-hidden" data-scroll-section>
+  <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-purple-600/10 rounded-full blur-[150px]" />
+
+  <div class="max-w-6xl mx-auto relative z-10">
+    <header class="text-center mb-20">
+      <h2 class="download-title text-4xl md:text-6xl font-black tracking-tight text-white mb-6">
+        {t.download.title}<br/>
+        <span class="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">OpenVoxTuner</span>
+      </h2>
+      <p class="text-lg text-gray-400 max-w-2xl mx-auto">
+        {t.download.subtitle}
+      </p>
+    </header>
+
+    <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+      <article class="download-card group relative p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-blue-500/0 to-blue-500/[0.05] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div class="relative z-10">
+          <div class="absolute top-0 right-0 bg-blue-500/10 text-blue-400 text-xs font-mono px-3 py-1 rounded-bl-xl">
+            v0.1.1
+          </div>
+          <div class="flex items-center gap-4 mb-6">
+            <div class="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20">
+              <OSIcon name="windows" class="w-8 h-8" />
+            </div>
+            <div>
+              <h3 class="text-2xl font-bold text-white">{t.download.platforms.windows}</h3>
+              <p class="text-sm text-gray-500 font-mono">Windows 10+</p>
+            </div>
+          </div>
+
+          <dl class="space-y-3 mb-8">
+            <div class="flex justify-between">
+              <dt class="text-gray-500">Formats</dt>
+              <dd class="text-white font-mono text-sm">VST3 / Standalone</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-gray-500">Size</dt>
+              <dd class="text-white font-mono text-sm">~45 MB</dd>
+            </div>
+          </dl>
+
+          <a
+            href="https://github.com/EiffelBS/OpenVoxTuner/releases"
+            class="block w-full px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold text-center hover:from-blue-500 hover:to-blue-600 transition-all shadow-lg shadow-blue-500/25"
+            data-magnetic
+          >
+            Download {t.download.platforms.windows}
+          </a>
+        </div>
+      </article>
+
+      <article class="download-card group relative p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-purple-500/0 to-purple-500/[0.05] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div class="relative z-10">
+          <div class="absolute top-0 right-0 bg-purple-500/10 text-purple-400 text-xs font-mono px-3 py-1 rounded-bl-xl">
+            v0.1.1
+          </div>
+          <div class="flex items-center gap-4 mb-6">
+            <div class="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/20">
+              <OSIcon name="macos" class="w-8 h-8" />
+            </div>
+            <div>
+              <h3 class="text-2xl font-bold text-white">{t.download.platforms.macos}</h3>
+              <p class="text-sm text-gray-500 font-mono">macOS 11+ (Apple Silicon & Intel)</p>
+            </div>
+          </div>
+
+          <dl class="space-y-3 mb-8">
+            <div class="flex justify-between">
+              <dt class="text-gray-500">Formats</dt>
+              <dd class="text-white font-mono text-sm">VST3 / AU / Standalone</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-gray-500">Size</dt>
+              <dd class="text-white font-mono text-sm">~52 MB</dd>
+            </div>
+          </dl>
+
+          <a
+            href="https://github.com/EiffelBS/OpenVoxTuner/releases"
+            class="block w-full px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold text-center hover:from-purple-500 hover:to-purple-600 transition-all shadow-lg shadow-purple-500/25"
+            data-magnetic
+          >
+            Download {t.download.platforms.macos}
+          </a>
+        </div>
+      </article>
+    </div>
+
+    <div class="mt-16 text-center">
+      <a href="https://github.com/EiffelBS/OpenVoxTuner/releases" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 bg-white/5 text-gray-300 font-medium hover:bg-white/10 transition-all">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+        {t.download.sourceCode}
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  [data-animate="fade-up"] {
+    animation: fade-up 0.8s ease-out forwards;
+    opacity: 0;
+  }
+</style>

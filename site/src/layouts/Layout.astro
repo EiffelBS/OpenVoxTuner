@@ -1,0 +1,42 @@
+---
+interface Props {
+  lang?: string;
+  meta?: { title?: string; description?: string };
+}
+
+const { lang = 'en', meta } = Astro.props;
+---
+<!DOCTYPE html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={meta?.description || "OpenVoxTuner - Real-time pitch correction & harmony generation for vocals. VST3 / AU / Standalone - Open Source AGPLv3."} />
+    <title>{meta?.title || "OpenVoxTuner"}</title>
+    <meta name="theme-color" content="#1d4ed8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    
+    <!-- Import map for bare specifiers -->
+    <script type="importmap">
+    {
+      "imports": {
+        "lenis": "https://esm.sh/lenis@1.1.14",
+        "gsap": "https://esm.sh/gsap@3.12.5",
+        "gsap/": "https://esm.sh/gsap@3.12.5/"
+      }
+    }
+    </script>
+  </head>
+  <body class="font-sans antialiased bg-black text-white">
+    <slot />
+    <script is:inline>
+      // Theme persistence
+      const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+    </script>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+---
+interface OSIconProps {
+  name: 'windows' | 'macos' | 'linux';
+  class?: string;
+}
+
+const { name, class: className = '' } = Astro.props;
+---
+
+{name === 'windows' && (
+  <svg class={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
+  </svg>
+)}
+
+{name === 'macos' && (
+  <svg class={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M22 2H2c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h20c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 18H4V4h16v16z" />
+  </svg>
+)}
+
+{name === 'linux' && (
+  <svg class={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 2a10 10 0 00-9.95 9h11.64A7.015 7.015 0 0112 2z" />
+  </svg>
+)}

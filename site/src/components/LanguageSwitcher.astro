@@ -1,0 +1,60 @@
+---
+import { locales, localeNames, type Locale } from '../i18n/index';
+
+interface Props {
+  currentLang: Locale;
+}
+
+const { currentLang } = Astro.props;
+---
+
+<div class="relative" data-lang-switcher>
+  <button
+    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+    data-lang-toggle
+  >
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+    </svg>
+    <span class="font-mono text-xs">{localeNames[currentLang]}</span>
+    <svg class="w-3 h-3 transition-transform" data-lang-chevron fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+    </svg>
+  </button>
+
+  <div class="absolute right-0 top-full mt-1 py-1 bg-gray-900 border border-white/10 rounded-lg shadow-xl opacity-0 invisible transition-all duration-200 z-50 min-w-[140px]" data-lang-dropdown>
+    {locales.map((locale) => (
+      <a
+        href={locale === 'en' ? '/' : `/${locale}/`}
+        class={`block px-3 py-1.5 text-sm transition-colors ${
+          locale === currentLang
+            ? 'text-blue-400 bg-blue-500/10'
+            : 'text-gray-400 hover:text-white hover:bg-white/5'
+        }`}
+      >
+        {localeNames[locale]}
+      </a>
+    ))}
+  </div>
+</div>
+
+<script>
+  const btn = document.querySelector('[data-lang-toggle]');
+  const dropdown = document.querySelector('[data-lang-dropdown]');
+  const chevron = document.querySelector('[data-lang-chevron]');
+
+  if (btn && dropdown) {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = !dropdown.classList.contains('opacity-0');
+      dropdown.classList.toggle('opacity-0', isOpen);
+      dropdown.classList.toggle('invisible', isOpen);
+      if (chevron) chevron.classList.toggle('rotate-180', !isOpen);
+    });
+
+    document.addEventListener('click', () => {
+      dropdown.classList.add('opacity-0', 'invisible');
+      if (chevron) chevron.classList.remove('rotate-180');
+    });
+  }
+</script>

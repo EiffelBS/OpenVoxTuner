@@ -90,7 +90,6 @@ build-mac-*/
 build-test/
 build-tests/
 dist/
-site/
 site-docs/
 
 /build/

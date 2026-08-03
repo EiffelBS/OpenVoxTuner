@@ -1,0 +1,140 @@
+{
+  "lang": "de",
+  "langName": "Deutsch",
+  "meta": {
+    "title": "OpenVoxTuner - Echtzeit-Pitchkorrektur & Harmonieerzeugung f\u00fcr Gesang",
+    "description": "OpenVoxTuner - Echtzeit-Pitchkorrektur & Harmonieerzeugung f\u00fcr Gesang. VST3 / AU / Standalone - Open Source AGPLv3."
+  },
+  "hero": {
+    "subtitle": "Echtzeit-Pitchkorrektur & Harmonieerzeugung f\u00fcr Gesang. VST3 / AU / Standalone.",
+    "cta": "Kostenlos herunterladen",
+    "secondaryCta": "Auf GitHub ansehen"
+  },
+  "marquee": {
+    "pitchCorrection": "PITCHKORREKTUR",
+    "harmonyEngine": "HARMONIE-MOTOR",
+    "formantShift": "FORMANT-VERSCHIEBUNG",
+    "ara2Native": "ARA2 NATIV",
+    "realTimeVisualizer": "ECHTZEIT-VISUALISIERER",
+    "curveEditor": "KURVENEDITOR",
+    "openSource": "OPEN SOURCE"
+  },
+  "stats": {
+    "harmonyTypes": "Harmoniearten",
+    "languages": "Sprachen",
+    "effectsIncluded": "Effekte enthalten",
+    "freeForever": "Kostenlos f\u00fcr immer"
+  },
+  "features": {
+    "title": "Alles was Sie ben\u00f6tigen",
+    "titleHighlight": "f\u00fcr Gesangsproduktion",
+    "subtitle": "Professionelle Gesangsproduktionswerkzeuge in einem einzigen Plugin.",
+    "pitchCorrection": {
+      "title": "Pitchkorrektur",
+      "description": "Automatikmodus mit tonleiterbewusster Korrektur, einstellbare Geschwindigkeit/Menge/Charakter. Transparenter oder moderner Stil."
+    },
+    "harmonyEngine": {
+      "title": "Harmonie-Motor",
+      "description": "21 Harmoniearten: Intervalle, Dreikl\u00e4nge, Gesangsstapel. Stimmmodus (pitch-verschobener Live-Gesang) oder Synth-Modus (6 Tonfarben)."
+    },
+    "formantPreservation": {
+      "title": "Formanten-Erhaltung",
+      "description": "Unabh\u00e4ngige Formantverschiebung (\u00b15 Halbt\u00f6ne) mit LPC-Kreuzsynthese f\u00fcr nat\u00fcrlich klingende Transposition."
+    },
+    "keyDetection": {
+      "title": "Tonart-Erkennung",
+      "description": "Tonart erkennen \u00fcber die Begleit-App OpenVoxKey (l\u00e4uft neben Ihrem DAW) oder direkt \u00fcber einen Sidechain-Eingang. Automatische Tonleiter-Quantisierung."
+    },
+    "realTimeVisualizer": {
+      "title": "Echtzeit-Visualisierer",
+      "description": "Live-Pitch-Anzeige mit Eingangs-/Ausgangs-/Harmoniespuren, Klaviertastatur, Cent-Meter und Wellenform-\u00dcberlagerung."
+    },
+    "curveEditor": {
+      "title": "Kurveneditor",
+      "description": "Melodyne-Editor-Style grafische Bearbeitung: Punkte hinzuf\u00fcgen/verschieben, an Tonleiter/Raster einrasten, Kopieren/Einf\u00fcgen, R\u00fcckg\u00e4ngig/Wiederholen."
+    },
+    "midiOut": {
+      "title": "MIDI OUT",
+      "description": "Verwenden Sie das Plugin als MIDI-Quelle in Ihrem DAW. Die korrigierte Stimme und 4 Harmoniestimmen geben jeweils auf ihrem eigenen MIDI-Kanal aus, um virtuelle Instrumente zu steuern."
+    },
+    "multiLanguage": {
+      "title": "Mehrsprachig",
+      "description": "Oberfl\u00e4che verf\u00fcgbar in 6 Sprachen: Englisch, Franz\u00f6sisch, Deutsch, Spanisch, Japanisch, Chinesisch."
+    },
+    "effectsSuite": {
+      "title": "Effektpaket",
+      "description": "Integrierter Gate, Kompressor, Hall und Formantbearbeitung. Komplette Gesangskette in einem Plugin."
+    }
+  },
+  "showcase": {
+    "title": "Sehen Sie es in",
+    "titleHighlight": "Aktion",
+    "subtitle": "Ein professionelles Gesangsproduktionswerkzeug mit einer intuitiven, dunklen Oberfl\u00e4che.",
+    "slides": [
+      {
+        "tag": "Live-Modus",
+        "title": "Echtzeit-Pitch-Visualisierung",
+        "description": "Live-Pitch-Anzeige mit Eingangs-/Ausgangs-/Harmoniespuren, Cent-Meter und Wellenform-\u00dcberlagerung. Sehen Sie jede Korrektur in Echtzeit."
+      },
+      {
+        "tag": "Harmonie-Motor",
+        "title": "21 Harmoniearten",
+        "description": "Von einfachen Terzen bis hin zu Gesangsst\u00e4rkern und Power-Akkorden. Der Stimmmodus verwendet pitch-verschobenen Live-Gesang, der Synth-Modus bietet 6 Tonfarben."
+      },
+      {
+        "tag": "Grafischer Modus",
+        "title": "Melodyne-Editor-Style Kurveneditor",
+        "description": "Grafische Pitch-Bearbeitung mit Klick-zum-Hinzuf\u00fcgen von Punkten, Einrasten an Tonleiter/Raster, Kopieren/Einf\u00fcgen, R\u00fcckg\u00e4ngig/Wiederholen. Volle kreative Kontrolle."
+      },
+      {
+        "tag": "Piano Roll",
+        "title": "Piano Roll-Ansicht",
+        "description": "Wechseln Sie zwischen Kurven- und Piano-Roll-Bearbeitung. Sehen Sie die Verteilung der Harmoniestimmen auf der Tastatur mit klaren Notenbl\u00f6cken."
+      }
+    ]
+  },
+  "download": {
+    "title": "Loslegen",
+    "subtitle": "Kostenlos und Open Source unter AGPLv3.",
+    "platforms": {
+      "windows": "Windows",
+      "macos": "macOS",
+      "linux": "Linux"
+    },
+    "formats": "VST3 / AU / Standalone",
+    "cta": "v0.1.1 herunterladen",
+    "sourceCode": "Oder aus den Quellen kompilieren"
+  },
+  "support": {
+    "title": "Unterst\u00fctzen Sie das",
+    "titleHighlight": "Projekt",
+    "subtitle": "OpenVoxTuner ist kostenlos und Open Source. Wenn Sie es n\u00fctzlich finden, unterst\u00fctzen Sie bitte die Entwicklung.",
+    "kofi": {
+      "title": "Ko-fi",
+      "description": "Schenken Sie mir einen Kaffee zur Unterst\u00fctzung der Entwicklung. Einmalige oder monatliche Spenden willkommen.",
+      "cta": "Auf Ko-fi unterst\u00fctzen"
+    },
+    "patreon": {
+      "title": "Patreon",
+      "description": "Monatliche Unterst\u00fctzungen helfen bei der Planung langfristiger Funktionen und erhalten die Nachhaltigkeit des Projekts.",
+      "cta": "Auf Patreon beitreten"
+    },
+    "sponsors": {
+      "title": "Sponsoren",
+      "description": "GitHub Sponsors \u2014 Unterst\u00fctzen Sie direkt \u00fcber GitHub mit einmaligen oder wiederkehrenden Beitr\u00e4gen.",
+      "cta": "Auf GitHub sponsorisieren"
+    },
+    "contribute": {
+      "title": "Beitragen",
+      "description": "Open Source unter AGPLv3. Melden Sie Fehler, reichen Sie PRs ein oder helfen Sie bei \u00dcbersetzungen.",
+      "cta": "Auf GitHub ansehen"
+    },
+    "footer": "Jeder Beitrag z\u00e4hlt \u2014 ob Code, Fehlerberichte, \u00dcbersetzungen oder ein freundliches Wort."
+  },
+  "footer": {
+    "documentation": "Dokumentation",
+    "releases": "Releases",
+    "issues": "Issues",
+    "license": "Lizenz"
+  }
+}

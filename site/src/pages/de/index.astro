@@ -1,0 +1,185 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Hero from '../../components/Hero.astro';
+import Features from '../../components/Features.astro';
+import Showcase from '../../components/Showcase.astro';
+import Download from '../../components/Download.astro';
+import Support from '../../components/Support.astro';
+import LanguageSwitcher from '../../components/LanguageSwitcher.astro';
+import { getTranslations } from '../../i18n/index';
+
+const t = getTranslations('de');
+---
+
+<Layout lang="de" meta={t.meta}>
+  <div data-lenis data-scroll-container class="relative z-20">
+    <!-- Fixed waveform background -->
+    <div class="fixed inset-0 z-10 pointer-events-none flex items-center justify-center">
+      <svg class="w-full h-full opacity-[0.2]" preserveAspectRatio="none" viewBox="0 0 1440 900">
+        <path class="hero-wave hero-wave-1" d="M0,450 Q180,350 360,450 T720,450 T1080,450 T1440,450" fill="none" stroke="url(#waveGrad1)" stroke-width="2.5"/>
+        <path class="hero-wave hero-wave-2" d="M0,400 Q180,500 360,400 T720,400 T1080,400 T1440,400" fill="none" stroke="url(#waveGrad2)" stroke-width="2"/>
+        <path class="hero-wave hero-wave-3" d="M0,500 Q180,380 360,500 T720,500 T1080,500 T1440,500" fill="none" stroke="url(#waveGrad3)" stroke-width="2"/>
+        <path class="hero-wave hero-wave-center" d="M0,450 Q180,320 360,450 T720,450 T1080,450 T1440,450" fill="none" stroke="url(#waveGradGreen)" stroke-width="2.5"/>
+        <path class="hero-wave hero-wave-4" d="M0,430 Q180,520 360,430 T720,430 T1080,430 T1440,430" fill="none" stroke="url(#waveGrad1)" stroke-width="1.5"/>
+        <path class="hero-wave hero-wave-5" d="M0,470 Q180,360 360,470 T720,470 T1080,470 T1440,470" fill="none" stroke="url(#waveGrad2)" stroke-width="1.5"/>
+        <defs>
+          <linearGradient id="waveGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0"/>
+            <stop offset="30%" stop-color="#3b82f6" stop-opacity="1"/>
+            <stop offset="70%" stop-color="#8b5cf6" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="waveGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#06b6d4" stop-opacity="0"/>
+            <stop offset="40%" stop-color="#06b6d4" stop-opacity="1"/>
+            <stop offset="60%" stop-color="#3b82f6" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="waveGrad3" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0"/>
+            <stop offset="35%" stop-color="#8b5cf6" stop-opacity="1"/>
+            <stop offset="65%" stop-color="#06b6d4" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="waveGradGreen" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#22c55e" stop-opacity="0"/>
+            <stop offset="25%" stop-color="#22c55e" stop-opacity="1"/>
+            <stop offset="75%" stop-color="#10b981" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <!-- Language switcher -->
+    <div class="fixed top-4 right-4 z-50">
+      <LanguageSwitcher currentLang="de" />
+    </div>
+
+    <Hero t={t} />
+
+    <!-- Scrolling marquee ticker -->
+    <div class="relative py-6 border-y border-white/[0.04] overflow-hidden" data-scroll-section>
+      <div class="marquee-track flex gap-12 whitespace-nowrap">
+        <span class="text-sm font-mono text-gray-500 tracking-widest">PITCH CORRECTION</span>
+        <span class="text-blue-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">HARMONY ENGINE</span>
+        <span class="text-purple-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">FORMANT SHIFT</span>
+        <span class="text-cyan-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">ARA2 NATIVE</span>
+        <span class="text-green-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">REAL-TIME VISUALIZER</span>
+        <span class="text-orange-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">CURVE EDITOR</span>
+        <span class="text-pink-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">OPEN SOURCE</span>
+        <span class="text-blue-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">PITCH CORRECTION</span>
+        <span class="text-purple-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">HARMONY ENGINE</span>
+        <span class="text-cyan-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">FORMANT SHIFT</span>
+        <span class="text-green-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">ARA2 NATIVE</span>
+        <span class="text-orange-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">REAL-TIME VISUALIZER</span>
+        <span class="text-pink-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">CURVE EDITOR</span>
+        <span class="text-blue-500">✦</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">OPEN SOURCE</span>
+        <span class="text-purple-500">✦</span>
+      </div>
+    </div>
+
+    <!-- Stats section -->
+    <section class="stats relative py-32 px-6 overflow-hidden" data-scroll-section>
+      <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.08),transparent_50%)]" />
+      <div class="max-w-6xl mx-auto relative z-10">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <div class="stat-item">
+            <div class="stat-number text-5xl md:text-6xl font-black text-white mb-2" data-count="21">0</div>
+            <div class="text-sm text-gray-500 font-mono tracking-wider uppercase">{t.stats.harmonyTypes}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-number text-5xl md:text-6xl font-black text-white mb-2" data-count="6">0</div>
+            <div class="text-sm text-gray-500 font-mono tracking-wider uppercase">{t.stats.languages}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-number text-5xl md:text-6xl font-black text-white mb-2" data-count="4">0</div>
+            <div class="text-sm text-gray-500 font-mono tracking-wider uppercase">{t.stats.effectsIncluded}</div>
+          </div>
+          <div class="stat-item">
+            <div class="text-5xl md:text-6xl font-black bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">&infin;</div>
+            <div class="text-sm text-gray-500 font-mono tracking-wider uppercase">{t.stats.freeForever}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <Features t={t} />
+
+    <Showcase t={t} />
+
+    <!-- Second marquee (reverse) -->
+    <div class="relative py-6 border-y border-white/[0.04] overflow-hidden" data-scroll-section>
+      <div class="marquee-track marquee-reverse flex gap-12 whitespace-nowrap">
+        <span class="text-sm font-mono text-gray-500 tracking-widest">AGPLv3</span>
+        <span class="text-blue-500">◆</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">VST3</span>
+        <span class="text-green-500">◆</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">AU</span>
+        <span class="text-orange-500">◆</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">STANDALONE</span>
+        <span class="text-pink-500">◆</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">ARA2</span>
+        <span class="text-blue-500">◆</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">AGPLv3</span>
+        <span class="text-purple-500">◆</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">VST3</span>
+        <span class="text-green-500">◆</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">AU</span>
+        <span class="text-orange-500">◆</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">STANDALONE</span>
+        <span class="text-pink-500">◆</span>
+        <span class="text-sm font-mono text-gray-500 tracking-widest">ARA2</span>
+        <span class="text-purple-500">◆</span>
+      </div>
+    </div>
+
+    <Download t={t} />
+
+    <Support t={t} />
+
+    <footer class="py-16 px-6 border-t border-white/[0.04]" data-scroll-section>
+      <div class="max-w-6xl mx-auto text-center">
+        <img src="/assets/icon.svg" alt="OpenVoxTuner icon" class="w-10 h-10 rounded-lg mx-auto mb-4" loading="lazy" />
+        <p class="text-gray-600 mb-6 font-mono text-sm">
+          OpenVoxTuner v0.1.1 — AGPLv3
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-8 text-sm">
+          <a href="https://github.com/EiffelBS/OpenVoxTuner" class="text-gray-500 hover:text-white transition-colors">GitHub</a>
+          <a href="/docs/" class="text-gray-500 hover:text-white transition-colors">{t.footer.documentation}</a>
+          <a href="https://github.com/EiffelBS/OpenVoxTuner/releases" class="text-gray-500 hover:text-white transition-colors">{t.footer.releases}</a>
+          <a href="https://github.com/EiffelBS/OpenVoxTuner/issues" class="text-gray-500 hover:text-white transition-colors">{t.footer.issues}</a>
+          <a href="https://github.com/EiffelBS/OpenVoxTuner/blob/main/LICENSE" class="text-gray-500 hover:text-white transition-colors">{t.footer.license}</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <style>
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    .marquee-track {
+      animation: marquee 30s linear infinite;
+    }
+    .marquee-reverse {
+      animation-direction: reverse;
+    }
+  </style>
+
+  <script type="module" src="/scripts/scroll-animations.js"></script>
+</Layout>

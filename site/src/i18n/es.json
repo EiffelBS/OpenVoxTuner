@@ -1,0 +1,140 @@
+{
+  "lang": "es",
+  "langName": "Espa\u00f1ol",
+  "meta": {
+    "title": "OpenVoxTuner - Correcci\u00f3n de tono en tiempo real y generaci\u00f3n de armon\u00edas para vocales",
+    "description": "OpenVoxTuner - Correcci\u00f3n de tono en tiempo real y generaci\u00f3n de armon\u00edas para vocales. VST3 / AU / Standalone - Open Source AGPLv3."
+  },
+  "hero": {
+    "subtitle": "Correcci\u00f3n de tono en tiempo real y generaci\u00f3n de armon\u00edas para vocales. VST3 / AU / Standalone.",
+    "cta": "Descargar gratis",
+    "secondaryCta": "Ver en GitHub"
+  },
+  "marquee": {
+    "pitchCorrection": "CORRECCI\u00d3N DE TONO",
+    "harmonyEngine": "MOTOR DE ARMON\u00cdAS",
+    "formantShift": "DESPLAZAMIENTO DE FORMANTE",
+    "ara2Native": "ARA2 NATIVO",
+    "realTimeVisualizer": "VISUALIZADOR EN TIEMPO REAL",
+    "curveEditor": "EDITOR DE CURVAS",
+    "openSource": "OPEN SOURCE"
+  },
+  "stats": {
+    "harmonyTypes": "Tipos de armon\u00edas",
+    "languages": "Idiomas",
+    "effectsIncluded": "Efectos incluidos",
+    "freeForever": "Gratis para siempre"
+  },
+  "features": {
+    "title": "Todo lo que necesitas",
+    "titleHighlight": "para producci\u00f3n vocal",
+    "subtitle": "Herramientas profesionales de producci\u00f3n vocal en un solo plugin.",
+    "pitchCorrection": {
+      "title": "Correcci\u00f3n de tono",
+      "description": "Modo autom\u00e1tico con correcci\u00f3n adaptada a la escala, velocidad/cantidad/car\u00e1cter ajustables. Estilo transparente o moderno."
+    },
+    "harmonyEngine": {
+      "title": "Motor de armon\u00edas",
+      "description": "21 tipos de armon\u00edas: intervalos, acordes, apilamientos vocales. Modo voz (vocal en vivo con cambio de tono) o modo Sintetizador (6 colores tonales)."
+    },
+    "formantPreservation": {
+      "title": "Preservaci\u00f3n de formantes",
+      "description": "Cambio de formante independiente (\u00b15 semitonos) con s\u00edntesis cruzada LPC para una transposici\u00f3n natural."
+    },
+    "keyDetection": {
+      "title": "Detecci\u00f3n de tonalidad",
+      "description": "Detecta la tonalidad musical a trav\u00e9s de la aplicaci\u00f3n complementaria OpenVoxKey (se ejecuta junto a tu DAW) o directamente desde una entrada sidechain. Cuantizaci\u00f3n autom\u00e1tica de escala."
+    },
+    "realTimeVisualizer": {
+      "title": "Visualizador en tiempo real",
+      "description": "Visualizaci\u00f3n del tono en vivo con trazas de entrada/salida/armon\u00edas, teclado de piano, medidor de cents y superposici\u00f3n de forma de onda."
+    },
+    "curveEditor": {
+      "title": "Editor de curvas",
+      "description": "Edici\u00f3n gr\u00e1fica estilo Melodyne: a\u00f1adir/mover puntos, ajustar a escala/rejilla, copiar/pegar, deshacer/rehacer."
+    },
+    "midiOut": {
+      "title": "MIDI OUT",
+      "description": "Usa el plugin como fuente MIDI en tu DAW. La voz corregida y las 4 voces de armon\u00eda env\u00edan cada una a su propio canal MIDI para controlar instrumentos virtuales."
+    },
+    "multiLanguage": {
+      "title": "Multiidioma",
+      "description": "Interfaz disponible en 6 idiomas: ingl\u00e9s, franc\u00e9s, alem\u00e1n, espa\u00f1ol, japon\u00e9s, chino."
+    },
+    "effectsSuite": {
+      "title": "Paquete de efectos",
+      "description": "Gate, compresor, reverberaci\u00f3n y procesamiento de formantes integrados. Cadena vocal completa en un solo plugin."
+    }
+  },
+  "showcase": {
+    "title": "V\u00e9lo en",
+    "titleHighlight": "acci\u00f3n",
+    "subtitle": "Una herramienta profesional de producci\u00f3n vocal con una interfaz intuitiva de tema oscuro.",
+    "slides": [
+      {
+        "tag": "Modo en vivo",
+        "title": "Visualizaci\u00f3n de tono en tiempo real",
+        "description": "Visualizaci\u00f3n del tono en vivo con trazas de entrada/salida/armon\u00edas, medidor de cents y superposici\u00f3n de forma de onda. Observa cada correcci\u00f3n en tiempo real."
+      },
+      {
+        "tag": "Motor de armon\u00edas",
+        "title": "21 tipos de armon\u00edas",
+        "description": "Desde terceras simples hasta apilamientos vocales y acordes de potencia. El modo voz usa vocales en vivo con cambio de tono, el modo Sintetizador ofrece 6 colores tonales."
+      },
+      {
+        "tag": "Modo gr\u00e1fico",
+        "title": "Editor de curvas estilo Melodyne",
+        "description": "Edici\u00f3n gr\u00e1fica de tono con clic para a\u00f1adir puntos, ajuste a escala/rejilla, copiar/pegar, deshacer/rehacer. Control creativo total."
+      },
+      {
+        "tag": "Piano Roll",
+        "title": "Vista Piano Roll",
+        "description": "Alterna entre la edici\u00f3n por curvas y piano roll. Visualiza la distribuci\u00f3n de las voces de armon\u00eda en el teclado con bloques de notas claros."
+      }
+    ]
+  },
+  "download": {
+    "title": "Empieza ahora",
+    "subtitle": "Gratis y open source bajo AGPLv3.",
+    "platforms": {
+      "windows": "Windows",
+      "macos": "macOS",
+      "linux": "Linux"
+    },
+    "formats": "VST3 / AU / Standalone",
+    "cta": "Descargar v0.1.1",
+    "sourceCode": "O compilar desde el c\u00f3digo fuente"
+  },
+  "support": {
+    "title": "Apoya el",
+    "titleHighlight": "proyecto",
+    "subtitle": "OpenVoxTuner es gratuito y open source. Si lo encuentras \u00fatil, considera apoyar su desarrollo.",
+    "kofi": {
+      "title": "Ko-fi",
+      "description": "C\u00f3mprame un caf\u00e9 para apoyar el desarrollo. Donaciones \u00fanicas o mensuales bienvenidas.",
+      "cta": "Apoyar en Ko-fi"
+    },
+    "patreon": {
+      "title": "Patreon",
+      "description": "Las contribuciones mensuales ayudan a planificar funciones a largo plazo y mantener el proyecto sostenible.",
+      "cta": "Unirse en Patreon"
+    },
+    "sponsors": {
+      "title": "Patrocinadores",
+      "description": "GitHub Sponsors \u2014 apoya directamente a trav\u00e9s de GitHub con contribuciones \u00fanicas o recurrentes.",
+      "cta": "Patrocinar en GitHub"
+    },
+    "contribute": {
+      "title": "Contribuir",
+      "description": "Open source bajo AGPLv3. Informa de errores, env\u00eda PRs o ayuda con las traducciones.",
+      "cta": "Ver en GitHub"
+    },
+    "footer": "Cada contribuci\u00f3n importa \u2014 ya sea c\u00f3digo, informes de errores, traducciones o una palabra amable."
+  },
+  "footer": {
+    "documentation": "Documentaci\u00f3n",
+    "releases": "Versiones",
+    "issues": "Issues",
+    "license": "Licencia"
+  }
+}

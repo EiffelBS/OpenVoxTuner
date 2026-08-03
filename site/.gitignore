@@ -1,0 +1,11 @@
+# Astro build output (deployed by .github/workflows/deploy-site.yml)
+dist/
+
+# Astro development cache
+.astro/
+
+# Dependencies
+node_modules/
+
+# Stale MkDocs build copy (the real docs build output lives in /site-docs, ignored at repo root)
+docs/
