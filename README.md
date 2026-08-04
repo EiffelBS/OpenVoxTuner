@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/badge/JUCE-8-orange.svg?style=for-the-badge&labelColor=ececec" alt="JUCE 8">
   <img src="https://img.shields.io/badge/Platform-Win%20%7C%20Mac-lightgrey.svg?style=for-the-badge&labelColor=ececec" alt="Platform">
   <img src="https://img.shields.io/badge/Format-VST3%20%7C%20AU%20%7C%20Standalone-green.svg?style=for-the-badge&labelColor=ececec" alt="Formats">
+  <a href="https://youtube.com/@EiffelBS"><img src="https://img.shields.io/badge/YouTube-%40EiffelBS-FF0000.svg?style=for-the-badge&logo=youtube&logoColor=white&labelColor=ececec" alt="YouTube"></a>
 </p>
 
 <p align="center">
