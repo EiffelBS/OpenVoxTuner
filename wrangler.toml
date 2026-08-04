@@ -1,0 +1,6 @@
+name = "openvoxtuner-docs"
+compatibility_date = "2024-01-01"
+
+[build]
+command = "pip install mkdocs-material mkdocs-git-revision-date-localized-plugin && mkdocs build"
+output_dir = "site-docs"

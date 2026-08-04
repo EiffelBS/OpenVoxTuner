@@ -1,24 +1,30 @@
 name: Deploy MkDocs Documentation
 
+# Builds the MkDocs site and deploys it to Cloudflare Pages (domain
+# ovtdocs.eiffelbs.ovh). Cloudflare Pages is used instead of GitHub Pages so
+# the docs can have its own custom domain (GitHub Pages only allows one
+# custom domain per repo, already used by the Astro landing site).
+#
+# Required GitHub secret: CLOUDFLARE_API_TOKEN
+#   Create an API token in Cloudflare (My Profile -> API Tokens -> Create
+#   Token) with the "Cloudflare Pages:Edit" permission, scoped to your account
+#   and the "openvoxtuner-docs" Pages project, then add it as a repo secret.
+#
+# The Cloudflare Pages project "openvoxtuner-docs" must exist (connected to
+# this repo or created with `wrangler pages project create`). Its build config
+# is defined in wrangler.toml and mirrored here.
+
 on:
   push:
     branches: [main]
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+      - 'wrangler.toml'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages-docs
-  cancel-in-progress: false
-
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,27 +42,13 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install mkdocs-material mkdocs-git-revision-date-localized-plugin mkdocs-git-committers-plugin-2 pymdown-extensions
+          pip install mkdocs-material mkdocs-git-revision-date-localized-plugin
 
       - name: Build documentation
         run: mkdocs build
 
-      - name: Add CNAME
-        working-directory: ./site-docs
-        run: echo "ovtdocs.eiffelbs.ovh" > CNAME
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
         with:
-          path: ./site-docs
-
-  deploy:
-    needs: build
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: pages deploy site-docs --project-name=openvoxtuner-docs
