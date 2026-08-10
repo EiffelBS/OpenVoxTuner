@@ -1210,6 +1210,16 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 advancedMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuMidiLearn), midiLearnMenu);
             }
 
+            // Chord Detection (ovtchord): real-time chord-aware tuning from the
+            // MIDI input ("Tuning follows MIDI IN") and/or the sidechain bus.
+            {
+                bool chordOn = processorRef.getParameters().getParameter ("chord_detect_enable")->getValue() > 0.5f;
+                advancedMenu.addItem (ovt::tr(ovt::Keys::kMenuChordDetection), true, chordOn, [this] {
+                    if (auto* p = processorRef.getParameters().getParameter ("chord_detect_enable"))
+                        p->setValueNotifyingHost (1.0f - p->getValue());
+                });
+            }
+
             // Reset to Default
             advancedMenu.addItem (ovt::tr(ovt::Keys::kMenuResetDefault), [this] {
                 juce::PopupMenu confirmMenu;
@@ -3289,6 +3299,23 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     }
     catch (...)
     {
+    }
+
+    // Repaint the ARA chord badge only when the chord root or its out-of-scale
+    // state changes (the badge is drawn in paint(); a repaint per tick would
+    // redraw the whole banner). The chord is looked up at the current playhead
+    // so the badge follows the chord track instead of showing the last event.
+    {
+        int araRoot = -999, araBass = -999;
+        juce::String araChordName;
+        processorRef.getAraChordAt (processorRef.getInterpolatedTransportTime(), araRoot, araBass, araChordName);
+        const bool outOfScale = processorRef.isAraChordOutOfScale (processorRef.getInterpolatedTransportTime());
+        if (araRoot != lastAraChordBadgeRoot || outOfScale != lastAraChordBadgeOutOfScale)
+        {
+            lastAraChordBadgeRoot = araRoot;
+            lastAraChordBadgeOutOfScale = outOfScale;
+            repaint();
+        }
     }
 
     refreshVisualizer();

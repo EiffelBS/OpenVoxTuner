@@ -1,4 +1,4 @@
-﻿// ScaleQuantizer.cpp
+// ScaleQuantizer.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -116,7 +116,7 @@ namespace ovtdsp
         }
     }
 
-    float ScaleQuantizer::quantize (float hzIn) const
+    float ScaleQuantizer::quantize (float hzIn, double positionPPQ) const
     {
         if (hzIn <= 0.0f) return 0.0f;
 
@@ -141,7 +141,12 @@ namespace ovtdsp
         if (intervals.size() == 0)
             return hzIn;
 
-        if (intervals.contains (noteInOctave))
+        // Une note est autorisee si elle appartient a la gamme, ou si un override
+        // de contexte d'accord est actif a cette position et la note est un ton
+        // d'accord (cela permet d'accepter temporairement des notes hors gamme
+        // lorsqu'un accord hors gamme est joue).
+        const bool inScale = intervals.contains (noteInOctave);
+        if (inScale || isChordToneAt (noteInOctave, positionPPQ))
         {
             // Deja dans la gamme, la frequence n'est pas modifiee SI le quantificateur
             // etait parfait (T-Pain effect absolu). Mais un Autotune doit *corriger* 
@@ -181,6 +186,98 @@ namespace ovtdsp
         // Note : la valeur "frac" est conservee pour une future extension
         // (quantification avec preservation du micro-tonal).
         juce::ignoreUnused (frac);
+    }
+
+    void ScaleQuantizer::setChordOverride (const juce::Array<int>& chordPitchClasses,
+                                           double positionPPQ,
+                                           double durationPPQ)
+    {
+        // Ajoute une fenetre d'override. L'UI repopule la liste complete a
+        // chaque rafraichissement (clearChordOverrides + setChordOverride x N).
+        ChordWindow w;
+        w.chordNotes = chordPitchClasses;
+        w.startPPQ  = positionPPQ;
+        w.duration  = durationPPQ;
+        const juce::ScopedLock lock (chordOverrideLock);
+        chordWindows.add (w);
+    }
+
+    void ScaleQuantizer::clearChordOverrides()
+    {
+        const juce::ScopedLock lock (chordOverrideLock);
+        chordWindows.clear(); // réinitialise la liste des fenêtres
+    }
+
+    bool ScaleQuantizer::isChordOverrideActive (double positionPPQ) const
+    {
+        const juce::ScopedLock lock (chordOverrideLock);
+        for (const auto& w : chordWindows)
+            if (positionPPQ >= w.startPPQ && positionPPQ < w.startPPQ + w.duration)
+                return true;
+        return false;
+    }
+
+    bool ScaleQuantizer::isChordToneAt (int pitchClass, double pos) const
+    {
+        const juce::ScopedLock lock (chordOverrideLock);
+        // L'accord "live" (temps réel MIDI/sidechain) a priorité sur les
+        // fenêtres ARA quand il est actif.
+        if (liveChordActive && liveChordNotes.contains (pitchClass))
+            return true;
+        for (const auto& w : chordWindows)
+            if (pos >= w.startPPQ && pos < w.startPPQ + w.duration
+                && w.chordNotes.contains (pitchClass))
+                return true;
+        return false;
+    }
+
+    void ScaleQuantizer::setLiveChordOverride (const juce::Array<int>& chordPitchClasses)
+    {
+        const juce::ScopedLock lock (chordOverrideLock);
+        liveChordNotes = chordPitchClasses;
+        liveChordActive = true;
+    }
+
+    void ScaleQuantizer::clearLiveChordOverride()
+    {
+        const juce::ScopedLock lock (chordOverrideLock);
+        liveChordNotes.clear();
+        liveChordActive = false;
+    }
+
+    bool ScaleQuantizer::isLiveChordActive() const
+    {
+        const juce::ScopedLock lock (chordOverrideLock);
+        return liveChordActive;
+    }
+
+    bool ScaleQuantizer::isNoteAllowed (int pitchClass, double pos) const
+    {
+        return intervals.contains (pitchClass) || isChordToneAt (pitchClass, pos);
+    }
+
+    bool ScaleQuantizer::isActiveChordOutOfScale (double pos) const
+    {
+        const juce::ScopedLock lock (chordOverrideLock);
+        // L'accord live (temps réel) prime sur les fenêtres ARA.
+        if (liveChordActive)
+        {
+            for (int pc : liveChordNotes)
+                if (! intervals.contains (pc))
+                    return true;
+            return false;
+        }
+        for (const auto& w : chordWindows)
+        {
+            if (pos >= w.startPPQ && pos < w.startPPQ + w.duration)
+            {
+                for (int pc : w.chordNotes)
+                    if (! intervals.contains (pc))
+                        return true;
+                return false;
+            }
+        }
+        return false;
     }
 }
 

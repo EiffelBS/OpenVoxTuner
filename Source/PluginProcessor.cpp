@@ -432,6 +432,14 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           "key_source", "Key Source",
                           juce::StringArray { "Auto", "OpenVoxKey", "Sidechain" }, 0),
 
+                      // Chord detection master switch (ovtchord). When on, the
+                      // plugin detects the current chord in real time from the
+                      // MIDI input ("Tuning follows MIDI IN") and/or the sidechain
+                      // bus, and feeds it to the ScaleQuantizer chord override
+                      // (priority: MIDI > ARA > Sidechain > scale).
+                      std::make_unique<juce::AudioParameterBool> (
+                          "chord_detect_enable", "Chord Detection", false),
+
                       // Companion group letter (must match the OpenVoxKey instance).
                       std::make_unique<juce::AudioParameterChoice> (
                           "companion_group", "Companion Group",
@@ -705,6 +713,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     keySourceParam = parameters.getRawParameterValue ("key_source");
     companionGroupParam = parameters.getRawParameterValue ("companion_group");
     keyDetectParam = parameters.getRawParameterValue ("key_detect");
+    chordDetectEnableParam = parameters.getRawParameterValue ("chord_detect_enable");
 
     for (int i = 0; i < 12; ++i)
     {
@@ -719,6 +728,18 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     // Dedicated YIN detector for the optional Sidechain input bus (used by the
     // "Sidechain" key source). Kept independent from the main-input detector.
     sidechainPitchDetector = std::make_unique<ovtdsp::YinPitchDetector>();
+
+    // Real-time chord detection contexts (ovtchord): one for MIDI, one for the
+    // sidechain bus. Started lazily; detection only runs when the "Chord
+    // Detection" toggle is on.
+    ovtchord::OvtChordConfig chordCfg;
+    chordCfg.minNotes = 3;
+    chordCfg.minConfidence = 0.5f;
+    chordCfg.stabilityFrames = 1;
+    midiChordHandle = ovtchord::ovtchord_init (&chordCfg);
+    sidechainChordHandle = ovtchord::ovtchord_init (&chordCfg);
+    ovtchord::ovtchord_start (midiChordHandle);
+    ovtchord::ovtchord_start (sidechainChordHandle);
     activeDetectorMode = 0;
     scaleQuantizer   = std::make_unique<ovtdsp::ScaleQuantizer>();
     scaleQuantizer->setScale (ovtdsp::Scale::Chromatic); // Ensure chromatic on first launch
@@ -842,6 +863,10 @@ OpenVoxTunerAudioProcessor::~OpenVoxTunerAudioProcessor()
     // ping-pong in applyLatencyMode(), not by the worker.  Re-enabled
     // 2026-07-22.
     stopPlayheadThread();
+
+    // Destroy the real-time chord detection contexts (ovtchord).
+    if (midiChordHandle != nullptr)      { ovtchord::ovtchord_shutdown (midiChordHandle);      midiChordHandle = nullptr; }
+    if (sidechainChordHandle != nullptr) { ovtchord::ovtchord_shutdown (sidechainChordHandle); sidechainChordHandle = nullptr; }
 
     // Delete the BufferedFileLogger (which subclasses juce::Timer) so the
     // Timer is stopped and destroyed before JUCE module shutdown, avoiding
@@ -1550,6 +1575,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 heldMidiNotes.removeAllInstancesOf (mm.getNoteNumber());
         }
     }
+
+    // === REAL-TIME CHORD DETECTION (ovtchord) ===
+    // Feeds the MIDI ("Tuning follows MIDI IN") and/or sidechain detectors and
+    // resolves the live chord override priority (MIDI > ARA > Sidechain > scale).
+    updateLiveChordOverride (midiMessages, buffer);
 
     // === AUTOMATIC KEY DETECTION (non-ARA sources) ===
     // ARA (if bound) already sets key/scale from the host musical context above,
@@ -4197,6 +4227,116 @@ float OpenVoxTunerAudioProcessor::computeSidechainPitch (const juce::AudioBuffer
 
     const float newPitch = sidechainPitchDetector->detectPitch (linear, decimatedWindow);
     return (newPitch > 0.0f) ? newPitch : 0.0f;
+}
+
+// === Real-time chord detection (ovtchord) ===
+juce::Array<int> OpenVoxTunerAudioProcessor::chordResultToArray (const ovtchord::ChordResult& r)
+{
+    juce::Array<int> arr;
+    for (int pc : r.pitchClasses)
+        arr.addIfNotAlreadyThere (pc);
+    return arr;
+}
+
+void OpenVoxTunerAudioProcessor::updateLiveChordOverride (const juce::MidiBuffer& midiMessages,
+                                                          juce::AudioBuffer<float>& buffer)
+{
+    // Chord detection master switch. When off, no live chord override.
+    const bool chordDetectOn = (chordDetectEnableParam != nullptr)
+                               && chordDetectEnableParam->load() > 0.5f;
+    if (! chordDetectOn || scaleQuantizer == nullptr)
+    {
+        if (scaleQuantizer != nullptr)
+            scaleQuantizer->clearLiveChordOverride();
+        return;
+    }
+
+    bool liveSet = false;
+    juce::Array<int> liveChord;
+
+    // Priority 1: MIDI ("Tuning follows MIDI IN" active). The user explicitly
+    // asked MIDI to control the tuning, so it takes top priority while a MIDI
+    // signal is present.
+    const bool midiTargetOn = (midiTargetEnableParam != nullptr)
+                              && midiTargetEnableParam->load() > 0.5f;
+    if (midiTargetOn && midiChordHandle != nullptr)
+    {
+        // Convert the block's MIDI messages to ovtchord events (note on/off and
+        // the all-notes-off controllers; the tracker ignores everything else).
+        std::vector<ovtchord::MidiEvent> events;
+        for (const auto& meta : midiMessages)
+        {
+            const juce::MidiMessage& mm = meta.getMessage();
+            ovtchord::MidiEvent ev;
+            if (mm.isNoteOn())
+            {
+                ev.status = 0x90;
+                ev.data1  = static_cast<uint8_t> (mm.getNoteNumber());
+                ev.data2  = static_cast<uint8_t> (mm.getVelocity());
+            }
+            else if (mm.isNoteOff())
+            {
+                ev.status = 0x80;
+                ev.data1  = static_cast<uint8_t> (mm.getNoteNumber());
+                ev.data2  = 0;
+            }
+            else if (mm.isController() && (mm.getControllerNumber() == 123
+                                           || mm.getControllerNumber() == 120
+                                           || mm.getControllerNumber() == 121))
+            {
+                ev.status = 0xB0;
+                ev.data1  = static_cast<uint8_t> (mm.getControllerNumber());
+                ev.data2  = static_cast<uint8_t> (mm.getControllerValue());
+            }
+            else
+                continue;
+            events.push_back (ev);
+        }
+        if (! events.empty())
+            ovtchord::ovtchord_process_midi_events (midiChordHandle, events.data(), events.size());
+
+        const auto res = ovtchord::ovtchord_get_result (midiChordHandle);
+        if (res.valid)
+        {
+            liveChord = chordResultToArray (res);
+            liveSet = true;
+        }
+    }
+
+    // Priority 2: ARA (chord track) — when bound, the ARA windows already
+    // populate the override, so we leave the live override clear.
+    // Priority 3: Sidechain (accompaniment) — only when ARA is NOT bound.
+    if (! liveSet)
+    {
+#if OVT_ARA_ENABLED
+        const bool araBound = isBoundToARA();
+#else
+        const bool araBound = false;
+#endif
+        if (! araBound && sidechainChordHandle != nullptr)
+        {
+            const juce::AudioBuffer<float> scBuffer = getBusBuffer (buffer, true, 1);
+            if (scBuffer.getNumChannels() > 0)
+            {
+                const float* sc = scBuffer.getReadPointer (0);
+                const int n = scBuffer.getNumSamples();
+                ovtchord::ovtchord_process_audio (sidechainChordHandle, sc,
+                                                  static_cast<std::size_t> (n),
+                                                  currentSampleRate, 0.0);
+                const auto res = ovtchord::ovtchord_get_result (sidechainChordHandle);
+                if (res.valid)
+                {
+                    liveChord = chordResultToArray (res);
+                    liveSet = true;
+                }
+            }
+        }
+    }
+
+    if (liveSet)
+        scaleQuantizer->setLiveChordOverride (liveChord);
+    else
+        scaleQuantizer->clearLiveChordOverride();
 }
 
 // Detector factory â€” YIN only.

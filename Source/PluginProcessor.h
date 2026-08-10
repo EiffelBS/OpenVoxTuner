@@ -31,6 +31,7 @@
 #include "dsp/SidechainBusLayout.h"
 #include "dsp/FormantPreserver.h"
 #include "dsp/LpcFormantPreserver.h"
+#include "ovtchord/ovtchord.h"
 
 /**
  * Main class of the audio processor.
@@ -474,6 +475,9 @@ private:
     // OpenVoxKey companion detector), 2=Sidechain (analysis of the sidechain input).
     std::atomic<float>* keySourceParam = nullptr;
     std::atomic<float>* companionGroupParam = nullptr; // Companion group (A/B/C/D)
+    // Chord detection master switch (ovtchord): real-time chord-aware tuning
+    // from MIDI ("Tuning follows MIDI IN") and/or the sidechain bus.
+    std::atomic<float>* chordDetectEnableParam = nullptr;
 
     // "Custom note on/off" parameters (12 booleans, indices 0..11).
     // Stored as 12 separate AudioParameterBool so the host can
@@ -904,6 +908,22 @@ private:
     int sidechainSamplesSinceLastAnalysis = 0;
     juce::HeapBlock<float> sidechainLinearBuffer;
     std::unique_ptr<ovtdsp::YinPitchDetector> sidechainPitchDetector;
+
+    // === Real-time chord detection (ovtchord) ===
+    // Two independent detection contexts: one fed by the MIDI input (active in
+    // "Tuning follows MIDI IN" mode), one fed by the sidechain bus (accompaniment).
+    // The detected chord is pushed to ScaleQuantizer::setLiveChordOverride with
+    // priority MIDI > ARA > Sidechain > scale.
+    ovtchord::OvtChordHandle midiChordHandle = nullptr;
+    ovtchord::OvtChordHandle sidechainChordHandle = nullptr;
+
+    // Feeds the MIDI/sidechain chord detectors and resolves the live chord
+    // override priority. Called once per audio block.
+    void updateLiveChordOverride (const juce::MidiBuffer& midiMessages,
+                                  juce::AudioBuffer<float>& buffer);
+
+    // Converts an ovtchord ChordResult pitch-class set to a juce::Array<int>.
+    static juce::Array<int> chordResultToArray (const ovtchord::ChordResult& r);
 
     // Updates DSP parameters from the value tree.
     void syncParameters();
