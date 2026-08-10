@@ -4253,6 +4253,7 @@ void OpenVoxTunerAudioProcessor::updateLiveChordOverride (const juce::MidiBuffer
 
     bool liveSet = false;
     juce::Array<int> liveChord;
+    juce::String liveSymbol;
 
     // Priority 1: MIDI ("Tuning follows MIDI IN" active). The user explicitly
     // asked MIDI to control the tuning, so it takes top priority while a MIDI
@@ -4299,6 +4300,7 @@ void OpenVoxTunerAudioProcessor::updateLiveChordOverride (const juce::MidiBuffer
         if (res.valid)
         {
             liveChord = chordResultToArray (res);
+            liveSymbol = juce::String (res.symbol);
             liveSet = true;
         }
     }
@@ -4327,6 +4329,7 @@ void OpenVoxTunerAudioProcessor::updateLiveChordOverride (const juce::MidiBuffer
                 if (res.valid)
                 {
                     liveChord = chordResultToArray (res);
+                    liveSymbol = juce::String (res.symbol);
                     liveSet = true;
                 }
             }
@@ -4337,6 +4340,22 @@ void OpenVoxTunerAudioProcessor::updateLiveChordOverride (const juce::MidiBuffer
         scaleQuantizer->setLiveChordOverride (liveChord);
     else
         scaleQuantizer->clearLiveChordOverride();
+
+    // Publish the live chord symbol for the UI badge (non-ARA mode).
+    {
+        const juce::ScopedLock lock (liveChordLock);
+        liveChordSymbol = liveSymbol;
+        liveChordActive.store (liveSet, std::memory_order_release);
+    }
+}
+
+void OpenVoxTunerAudioProcessor::getLiveChord (juce::String& symbol, bool& outOfScale) const
+{
+    const juce::ScopedLock lock (liveChordLock);
+    symbol = liveChordSymbol;
+    outOfScale = false;
+    if (liveChordActive.load (std::memory_order_acquire) && scaleQuantizer != nullptr)
+        outOfScale = scaleQuantizer->isActiveChordOutOfScale (0.0);
 }
 
 // Detector factory â€” YIN only.

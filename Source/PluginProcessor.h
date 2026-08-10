@@ -402,6 +402,10 @@ public:
     /// pitch class outside the current scale (i.e. the chord-context override
     /// widens the allowed notes beyond the scale). Used by the UI badge.
     bool isAraChordOutOfScale (double positionPPQ) const;
+    /// Returns the current live chord (ovtchord MIDI/sidechain) symbol and
+    /// whether it is out of scale. `symbol` is empty when no live chord is
+    /// active. Used by the UI badge in non-ARA mode.
+    void getLiveChord (juce::String& symbol, bool& outOfScale) const;
     /// Get the host tempo (BPM) from the ARA tempo map, or 0.0 if unavailable.
     double getAraTempo() const { return araTempoBpm.load (std::memory_order_acquire); }
     /// True if the plugin is reading tempo from an ARA musical context.
@@ -924,6 +928,11 @@ private:
 
     // Converts an ovtchord ChordResult pitch-class set to a juce::Array<int>.
     static juce::Array<int> chordResultToArray (const ovtchord::ChordResult& r);
+
+    // Last detected live chord symbol (audio thread writes, UI thread reads).
+    juce::String liveChordSymbol;
+    mutable juce::CriticalSection liveChordLock;
+    std::atomic<bool> liveChordActive { false };
 
     // Updates DSP parameters from the value tree.
     void syncParameters();
