@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // HarmonyAttackTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -99,7 +99,9 @@ public:
             juce::LinearSmoothedValue<float> refGate;
             refGate.reset (sr, 0.015);
             refGate.setTargetValue (1.0f);
-            juce::AudioBuffer<float> refEnv (1, numBlocks * blockSize);
+            // timeToFractionTest() reads channels 0 AND 1 -> the envelope must
+            // be stereo, otherwise getSample(1, i) reads out of bounds (crash).
+            juce::AudioBuffer<float> refEnv (2, numBlocks * blockSize);
             for (int i = 0; i < refEnv.getNumSamples(); ++i)
                 refEnv.setSample (0, i, refGate.getNextValue());
             const float refSteady = 1.0f;

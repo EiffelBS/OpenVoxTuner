@@ -52,10 +52,20 @@ read, via `kARAContentTypeKeySignatures` and `kARAContentTypeBarSignatures`.
   Any other scale (melodic/harmonic minor, modes, pentatonics, Blues, Custom…)
   is **not** inferred from ARA; the user must select it manually.
 
-!!! note "Chord extraction is NOT implemented"
-    There is no `ARAChord` / `kARAContentTypeChords` reader anywhere in the
-    codebase. The plugin never reads per-chord harmonic information from the
-    host.
+!!! note "Chord extraction (2026-08-07 → 2026-08-08 — experimental)"
+    `ARAContentChord` (`kARAContentTypeSheetChords`) is read and cached by
+    `updateAraMetadata()` on the UI thread and **consumed** by the ScaleQuantizer
+    for **contextual pitch correction**. The chord is decoded into a chromatic
+    pitch-class set (root/bass `ARACircleOfFifthsIndex` → PC via
+    `((index * 7) % 12 + 12) % 12`; `intervals[12] != 0x00` ⇒ chord tone) and
+    pushed to `ScaleQuantizer::setChordOverride()` as time-indexed PPQ windows.
+    During correction, a pitch class that belongs to the active chord passes
+    through to its exact frequency even when it is **out of scale** (e.g. the
+    F♯ of a D7 played over a C-major key); non-chord-tone out-of-scale notes
+    are still snapped to the nearest scale note. The "last event" heuristic from
+    2026-08-07 was replaced with a full playhead-indexed scan, so rapid bar-level
+    chord changes are tracked. `ARATempoEntry` (`kARAContentTypeTempoEntries`)
+    remains **read & cached only** (not yet consumed by DSP).
 
 ## Measures ruler & time-signature awareness
 
@@ -86,13 +96,13 @@ current position rather than assuming a fixed 4/4.
 
 ## Compatibility matrix
 
-| DAW | ARA2 support | Key & bar extraction | Chord extraction |
-|-----|--------------|----------------------|------------------|
-| Studio One (PreSonus) | Native (Clip & Track) | Yes | **Not implemented** |
-| Cubase / Nuendo | Native VST3 | Yes | **Not implemented** |
-| Logic Pro | ARA2 AudioUnit (Track recommended) | Yes | **Not implemented** |
-| Reaper | ARA2 VST3 | Yes | **Not implemented** |
-| Ableton Live / FL Studio | Real-time fallback (no ARA metadata) | — | — |
+| DAW | ARA2 support | Key & bar extraction | Chord extraction | Tempo extraction |
+|-----|--------------|----------------------|------------------|------------------|
+| Studio One (PreSonus) | Native (Clip & Track) | Yes | Consumed by ScaleQuantizer (contextual correction) | Experimental (read, not consumed) |
+| Cubase / Nuendo | Native VST3 | Yes | Consumed by ScaleQuantizer (contextual correction) | Experimental (read, not consumed) |
+| Logic Pro | ARA2 AudioUnit (Track recommended) | Yes | Consumed by ScaleQuantizer (contextual correction) | Experimental (read, not consumed) |
+| Reaper | ARA2 VST3 | Yes | Consumed by ScaleQuantizer (contextual correction) | Experimental (read, not consumed) |
+| Ableton Live / FL Studio | Real-time fallback (no ARA metadata) | — | — | — |
 
 ## Build-time enablement
 
