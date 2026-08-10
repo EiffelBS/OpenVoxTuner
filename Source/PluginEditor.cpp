@@ -2625,6 +2625,54 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
         g.drawText (cpuText, cpuX, cpuY, cpuW, cpuH, juce::Justification::centred);
     }
 #endif
+
+    // === ARA chord badge ===
+    // A small pill shown only when the ARA host provides lead-sheet chord info
+    // (no "ARA" word in the label, per product wording). The ARA root/bass are
+    // circle-of-fifths indices (C=0, G=1, D=2, ..., F=-1); convert them to a
+    // chromatic pitch class for display. Anchored between the preset selector
+    // and the A/B button cluster.
+    {
+        int araRoot = -999, araBass = -999;
+        juce::String araChordName;
+        processorRef.getAraChordAt (processorRef.getInterpolatedTransportTime(), araRoot, araBass, araChordName);
+        if (processorRef.isBoundToARA_custom() && araRoot != -999 && presetSaveButton.getRight() > 0)
+        {
+            auto cofToPc = [] (int cof) { return ((cof * 7) % 12 + 12) % 12; };
+            // Show just the chord symbol (e.g. "C7", "Csus4"); fall back to
+            // root (+bass) if no name could be derived.
+            juce::String badgeText;
+            if (araChordName.isNotEmpty())
+                badgeText = araChordName;
+            else
+            {
+                badgeText = ovtdsp::noteInOctaveName (cofToPc (araRoot));
+                if (araBass != -999 && araBass != araRoot)
+                    badgeText += "/" + juce::String (ovtdsp::noteInOctaveName (cofToPc (araBass)));
+            }
+
+            // When the chord contains notes outside the selected scale, the
+            // chord-context override widens the allowed notes (bypass). Show
+            // that with a warning colour instead of the normal accent.
+            const bool outOfScale = processorRef.isAraChordOutOfScale (processorRef.getInterpolatedTransportTime());
+            const juce::Colour badgeColour = outOfScale ? juce::Colour (0xffffb300) : ovt::accent();
+
+            const juce::Font badgeFont = ovt::fontLegendHint();
+            const int badgeH = 22;
+            const int badgeW = (int) juce::GlyphArrangement::getStringWidth (badgeFont, badgeText) + 18;
+            const int badgeX = presetSaveButton.getRight() + 8;
+            const int badgeY = 14;
+            const juce::Rectangle<int> badgeRect (badgeX, badgeY, badgeW, badgeH);
+
+            g.setColour (badgeColour.withAlpha (0.18f));
+            g.fillRoundedRectangle (badgeRect.toFloat(), badgeH * 0.5f);
+            g.setColour (badgeColour.withAlpha (0.7f));
+            g.drawRoundedRectangle (badgeRect.toFloat(), badgeH * 0.5f, 1.0f);
+            g.setColour (badgeColour);
+            g.setFont (badgeFont);
+            g.drawText (badgeText, badgeRect, juce::Justification::centred);
+        }
+    }
 }
 
 void OpenVoxTunerAudioProcessorEditor::resized()

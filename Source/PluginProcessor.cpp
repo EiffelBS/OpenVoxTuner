@@ -56,6 +56,9 @@ static float computeMaxJump (const float* p, int n)
 
 // Definition of the IID for the IEditControllerExtra interface
 #include "pluginterfaces/base/funknown.h"
+#if OVT_ARA_ENABLED
+#include <ARA_Library/Utilities/ARAPitchInterpretation.h>
+#endif
 #if JUCE_WINDOWS
 # include <windows.h>
 #endif
@@ -1750,7 +1753,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         else
         {
             // === Mode AUTO : quantification standard vers la gamme ===
-            f0_target = scaleQuantizer->quantize (f0_in);
+            // La position PPQ courante sert a évaluer l'override de contexte
+            // d'accord (accords hors gamme acceptés) si ARA l'a fourni.
+            f0_target = scaleQuantizer->quantize (f0_in, currentTransportTime);
         }
 
         // === MIDI TARGET (follow) ===
@@ -1917,7 +1922,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             if (mode == 1 && pitchCurve != nullptr && pitchCurve->getNumPoints() >= 2)
                 f0_target_center = pitchCurve->getPitchAt (currentTransportTime, center);
             else
-                f0_target_center = scaleQuantizer->quantize (center);
+                f0_target_center = scaleQuantizer->quantize (center, currentTransportTime);
 
             targetRatio = vibratoPreserver.blend (targetRatio, f0_in, f0_target_center, vibratoPreserve);
             f0_target = f0_in * targetRatio;
@@ -3280,6 +3285,59 @@ void OpenVoxTunerAudioProcessor::copyAraWaveform (juce::AudioBuffer<float>& dest
     }
 }
 
+// --- Enhanced ARA2 metadata accessors ---
+
+/** Copy the latest chord extracted from the ARA host.
+    @param destRoot  output root pitch class (0=C, -1=F, ...), or -999 if not bound.
+    @param destBass  output bass pitch class, or -999 if not bound.
+*/
+void OpenVoxTunerAudioProcessor::copyAraChord (int& destRoot, int& destBass) const
+{
+#if OVT_ARA_ENABLED
+    if (! isBoundToARA())
+    {
+        destRoot = -999;
+        destBass = -999;
+        return;
+    }
+    juce::ScopedLock lock (araChordLock);
+    destRoot = araChordRoot.load (std::memory_order_acquire);
+    destBass = araChordBass.load (std::memory_order_acquire);
+#else
+    destRoot = -999;
+    destBass = -999;
+#endif // OVT_ARA_ENABLED
+}
+
+void OpenVoxTunerAudioProcessor::getAraChordAt (double positionPPQ, int& root, int& bass, juce::String& name) const
+{
+    root = -999;
+    bass = -999;
+    name.clear();
+#if OVT_ARA_ENABLED
+    if (! isBoundToARA())
+        return;
+    juce::ScopedLock lock (araChordLock);
+    for (const auto& e : araChordEvents)
+    {
+        if (positionPPQ >= e.startPPQ && positionPPQ < e.startPPQ + e.duration)
+        {
+            root = e.root;
+            bass = e.bass;
+            name = e.name;
+            return;
+        }
+    }
+#else
+    juce::ignoreUnused (positionPPQ);
+#endif // OVT_ARA_ENABLED
+}
+
+bool OpenVoxTunerAudioProcessor::isAraChordOutOfScale (double positionPPQ) const
+{
+    return scaleQuantizer != nullptr && scaleQuantizer->isActiveChordOutOfScale (positionPPQ);
+}
+
 // --- Deferred parameter changes (audio â†’ UI thread) ---
 // Reads atomics written by the audio thread (applyDetectedKey) and applies
 // them via setValueNotifyingHost on the UI thread, avoiding deadlocks.
@@ -3662,6 +3720,131 @@ void OpenVoxTunerAudioProcessor::updateAraMetadata()
         {
             currentTimeSigNumerator.store (araBarSignatures[0].numerator);
             currentTimeSigDenominator.store (araBarSignatures[0].denominator);
+        }
+    }
+
+    // --- Chords (kARAContentTypeSheetChords) ---
+    // Extract the lead-sheet chord (root + bass) so the Harmony engine can
+    // adapt its strategy dynamically (e.g. force a diatonic harmony type
+    // when the host reports a dominant-7th). ARA provides multiple events
+    // sorted by position; each event is valid until the next one, and the
+    // first event is assumed valid for all times before it is actually defined.
+    {
+        ARA::PlugIn::HostContentReader<ARA::kARAContentTypeSheetChords> chordReader (contexts[0]);
+        const int chordCount = chordReader.getEventCount();
+
+        // Rebuild the time-indexed chord-override windows from the ScaleQuantizer.
+        // The last chord root/bass are still cached for copyAraChord() / GUI.
+        if (scaleQuantizer != nullptr)
+            scaleQuantizer->clearChordOverrides();
+
+        if (chordCount > 0)
+        {
+            // Use the last chord event for the cached root/bass atomics (ARA
+            // semantics: each event valid until the next).
+            const int bestIdx = juce::jmax (0, chordCount - 1);
+            {
+                juce::ScopedLock lock (araChordLock);
+                araChordEvents.clear();
+                // Generate chord symbols from the interval data (the host's
+                // `name` field is often empty). Unicode symbols (ø, ♭, ♯, Δ, °)
+                // are clearer than ASCII ("halfdim", "b", "#", "maj", "dim").
+                ARA::ChordInterpreter chordInterpreter (false);
+                for (int i = 0; i < chordCount; ++i)
+                {
+                    auto* chord = chordReader.getDataPtrForEvent (i);
+                    if (chord == nullptr)
+                        continue;
+
+                    const int rootCOF = static_cast<int> (chord->root);
+                    const int bassCOF = static_cast<int> (chord->bass);
+
+                    // ARACircleOfFifthsIndex -> classe de hauteur chromatique 0..11.
+                    // Convention ARA : C=0, G=1, D=2 (cercle des quintes), F=-1.
+                    // Conversion : (root * 7) mod 12, ramené dans [0,11].
+                    const int rootPC = ((rootCOF * 7) % 12 + 12) % 12;
+                    const int bassPC = ((bassCOF * 7) % 12 + 12) % 12;
+
+                    // Décoder le full pitch-class set de l'accord : les intervalles
+                    // kARAChordIntervalUsed (0xFF) ou degrés diatoniques (0x01..0x0D)
+                    // indiquent les intervalles actifs par rapport à la racine.
+                    juce::Array<int> chordNotes;
+                    chordNotes.add (rootPC);
+                    for (int k = 0; k < 12; ++k)
+                        if (chord->intervals[k] != 0) // kARAChordIntervalUnused == 0x00
+                            chordNotes.addIfNotAlreadyThere ((rootPC + k) % 12);
+                    chordNotes.addIfNotAlreadyThere (bassPC); // la basse peut sortir du triade
+                    chordNotes.sort();
+
+                    // Fenêtre de validité : [position, position suivante).
+                    double start = static_cast<double> (chord->position);
+                    double end   = (i + 1 < chordCount)
+                                       ? static_cast<double> (chordReader.getDataPtrForEvent (i + 1)->position)
+                                       : (start + 1.0e6); // dernier accord -> ouvert
+                    const double duration = juce::jmax (0.0, end - start);
+
+                    if (scaleQuantizer != nullptr)
+                        scaleQuantizer->setChordOverride (chordNotes, start, duration);
+
+                    AraChordEvent ev;
+                    ev.root = rootCOF;
+                    ev.bass = bassCOF;
+                    ev.startPPQ = start;
+                    ev.duration = duration;
+                    ev.name = juce::String::fromUTF8 (chordInterpreter.getNameForChord (*chord).c_str());
+                    // "N.C." = undefined chord (no intervals) -> fall back to
+                    // the host-provided name, else empty (badge shows the root).
+                    if (ev.name == "N.C.")
+                        ev.name = (chord->name != nullptr) ? juce::String::fromUTF8 (chord->name) : juce::String();
+                    araChordEvents.push_back (ev);
+
+                    if (i == bestIdx)
+                    {
+                        araChordRoot.store (rootCOF, std::memory_order_release);
+                        araChordBass.store (bassCOF, std::memory_order_release);
+                    }
+                }
+            }
+        }
+        else
+        {
+            juce::ScopedLock lock (araChordLock);
+            araChordEvents.clear();
+            araChordRoot.store (-999, std::memory_order_release);
+            araChordBass.store (-999, std::memory_order_release);
+        }
+    }
+
+    // --- Tempo (kARAContentTypeTempoEntries) ---
+    // Extract the host tempo so the plugin can align time-based DSP
+    // (e.g. humanize, vibrato rate, harmony attack timing) to the actual
+    // project BPM instead of guessing from the sample rate.
+    // ARA tempo entries: { timePosition (sec), quarterPosition (beats) }.
+    // BPM = (quarterDelta / timeDelta) * 60.
+    {
+        ARA::PlugIn::HostContentReader<ARA::kARAContentTypeTempoEntries> tempoReader (contexts[0]);
+        const int tempoCount = tempoReader.getEventCount();
+        if (tempoCount >= 2)
+        {
+            // Compute BPM from the first and last tempo sync points.
+            auto* first = tempoReader.getDataPtrForEvent (0);
+            auto* last  = tempoReader.getDataPtrForEvent (tempoCount - 1);
+            if (first != nullptr && last != nullptr)
+            {
+                const double dt = static_cast<double> (last->timePosition) - static_cast<double> (first->timePosition);
+                const double dq = static_cast<double> (last->quarterPosition) - static_cast<double> (first->quarterPosition);
+                if (dt > 0.0 && dq > 0.0)
+                {
+                    const double bpm = (dq / dt) * 60.0;
+                    araTempoBpm.store (bpm, std::memory_order_release);
+                    hasAraTempoFlag.store (true, std::memory_order_release);
+                }
+            }
+        }
+        else
+        {
+            araTempoBpm.store (0.0, std::memory_order_release);
+            hasAraTempoFlag.store (false, std::memory_order_release);
         }
     }
 }

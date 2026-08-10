@@ -388,6 +388,24 @@ public:
     /// Copy the cached waveform into the provided buffer (thread-safe).
     void copyAraWaveform (juce::AudioBuffer<float>& dest, double& sr);
 
+    // --- Enhanced ARA2 metadata accessors (UI thread) ---
+    /// Copy the latest chord extracted from the ARA host (if bound).
+    /// @param destRoot  output root pitch class (0=C, -1=F, etc.), or -999 if not bound.
+    /// @param destBass  output bass pitch class, or -999 if not bound.
+    void copyAraChord (int& destRoot, int& destBass) const;
+    /// Copy the ARA chord (root/bass, circle-of-fifths indices) active at the
+    /// given transport position (quarter notes / PPQ). Returns -999 for both
+    /// when not bound to ARA or when no chord covers that position.
+    void getAraChordAt (double positionPPQ, int& root, int& bass, juce::String& name) const;
+    /// True if the ARA chord active at @p positionPPQ contains at least one
+    /// pitch class outside the current scale (i.e. the chord-context override
+    /// widens the allowed notes beyond the scale). Used by the UI badge.
+    bool isAraChordOutOfScale (double positionPPQ) const;
+    /// Get the host tempo (BPM) from the ARA tempo map, or 0.0 if unavailable.
+    double getAraTempo() const { return araTempoBpm.load (std::memory_order_acquire); }
+    /// True if the plugin is reading tempo from an ARA musical context.
+    bool hasAraTempo() const { return hasAraTempoFlag.load (std::memory_order_acquire); }
+
 private:
     // === User parameters (JUCE parameter tree) ===
     // Uses AudioProcessorValueTreeState to expose parameters
@@ -627,6 +645,31 @@ private:
     std::atomic<bool> araWaveformReady { false };
     juce::CriticalSection araWaveformLock;
     std::atomic<bool> waveformCaptureEnabled { true };
+
+    // === Enhanced ARA2 metadata caches (UI thread only, updated in updateAraMetadata) ===
+    // Latest chord read from the host's ARA tempo/track content.
+    std::atomic<int> araChordRoot { -999 };
+    std::atomic<int> araChordBass { -999 };
+    juce::CriticalSection araChordLock;
+
+    // Time-indexed ARA lead-sheet chord events (root/bass as circle-of-fifths
+    // indices, valid over [startPPQ, startPPQ+duration) in quarter notes).
+    // Populated in updateAraMetadata(); read by getAraChordAt() for the UI
+    // badge so it reflects the chord at the current playhead, not just the
+    // last event.
+    struct AraChordEvent
+    {
+        int root = -999;
+        int bass = -999;
+        double startPPQ = 0.0;
+        double duration = 0.0;
+        juce::String name; // chord symbol from the host (e.g. "Gm7"), may be empty
+    };
+    std::vector<AraChordEvent> araChordEvents;
+
+    // Latest tempo (BPM) read from the ARA musical context.
+    std::atomic<double> araTempoBpm { 0.0 };
+    std::atomic<bool> hasAraTempoFlag { false };
 
     // Deferred key/scale changes detected on the audio thread.
     // flushPendingParameterChanges() (UI thread) reads these and calls
