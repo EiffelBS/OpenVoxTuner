@@ -75,7 +75,7 @@
 ### Tonhöhenkorrektur
 
 - **Auto-Modus** — Skalen-Quantisierung mit 14 Skalenarten (Dur, Moll, Pentatonisch, Blues, Dorisch, Phrygisch, Lydisch, Mixolydisch, Lokrisch, Chromatisch, Benutzerdefiniert...)
-- **Grafischer Modus** — zeichnen Sie Ihre eigene Tonhöhenkurve (Melodyne-artiger Editor mit Snap, Raster, Kopieren/Einfügen, Rückgängig/Wiederherstellen)
+- **Grafischer Modus** — zeichnen Sie Ihre eigene Tonhöhenkurve (grafischer Editor mit Snap, Raster, Kopieren/Einfügen, Rückgängig/Wiederherstellen)
 - **Korrekturmodus** — Modern (streng) oder Transparent (sanft)er Charakter
 - **Speed & Amount** — Rückführungs-Hüllkurve und Trochen/Nass-Mischung für natürliches oder robotisches Ansprechverhalten
 - **Humanize** — fügt subtile zufällige Variation für natürlicheren Klang hinzu (0–50 Cent)
@@ -114,10 +114,12 @@
 
 ### ARA2-Integration
 
-- Vollständiger ARA2-Support — nahtlose DAW-Timeline-Integration
-- Automatische Tonart-/Skalen-Extraktion aus dem ARA-Musikkontext
+- ARA2-Support — liest Tonart, Skala und Taktart aus der DAW-Timeline
 - Taktart-sensitiver Taktstrich-Lineal mit Auto-Scroll
 - Multi-Taktart-Support (Taktartwechsel mitten im Projekt)
+- Wellenform-Overlay, synchron zur DAW-Timeline
+
+> ARA2 synchronisiert das Plugin mit der DAW-Timeline (Tonart/Skala, Taktart, Playhead, Wellenform). OpenVoxTuner bleibt ein **Echtzeit-Effekt** — es bietet keine Offline-Bearbeitung Note für Note wie dedizierte Pitch-Editoren.
 
 ### A/B-Vergleich & Morphing
 
@@ -139,8 +141,8 @@
 
 - **Open Source by Design** — jede Zeile DSP, UI und Preset-Logik ist öffentlich. Keine Black Box, keine Telemetrie, keine Funktions-Paywalls. Sie können genau nachlesen, wie Ihre Stimme verarbeitet wird.
 - **AGPLv3 für Freiheit** — die Lizenz garantiert, dass das Projekt frei und offen bleibt. Jeder darf es nutzen (sogar kommerziell), und Verbesserungen müssen mit der Community geteilt werden.
-- **ARA2 nativ** — tiefe DAW-Integration bedeutet, dass Tonart, Skala und Tempo direkt aus Ihrem Projekt gelesen werden. Keine manuelle Einrichtung, kein Raten — OpenVoxTuner folgt Ihrer Arrangement automatisch.
-- **Für echten Gesang gebaut** — YIN-Pitch-Erkennung, formanterhaltendes PSOLA und ein Melodyne-artiger Curve-Editor sind auf die Nuancen gesungener Performances abgestimmt, nicht nur auf Proof-of-Concept-Demos.
+- **ARA2 nativ** — Tonart, Skala und Taktart werden direkt aus Ihrem DAW-Projekt gelesen, sodass das Plugin Ihrem Arrangement ohne manuelle Einrichtung folgt.
+- **Für echten Gesang gebaut** — YIN-Pitch-Erkennung, formanterhaltendes PSOLA und ein grafischer Curve-Editor sind auf die Nuancen gesungener Performances abgestimmt, nicht nur auf Proof-of-Concept-Demos.
 
 ### KI-unterstützte Entwicklung
 

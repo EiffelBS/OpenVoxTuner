@@ -89,7 +89,7 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 ### Pitch Correction
 
 - **Auto mode** — scale quantization with 14 scale types (Major, Minor, Pentatonic, Blues, Dorian, Phrygian, Lydian, Mixolydian, Locrian, Chromatic, Custom...)
-- **Graphic mode** — draw your own pitch curve (Melodyne-style editor with snap, grid, copy/paste, undo/redo)
+- **Graphic mode** — draw your own pitch curve (graphical editor with snap, grid, copy/paste, undo/redo)
 - **Correction Mode** — Modern (tight) or Transparent (gentle) character
 - **Speed & Amount** — retarget envelope + dry/wet blend for natural or robotic response
 - **Humanize** — add subtle random variation for a more natural sound (0-50 cents)
@@ -128,10 +128,12 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 
 ### ARA2 Integration
 
-- Full ARA2 support — seamless DAW timeline integration
-- Automatic key/scale extraction from ARA musical context
+- ARA2 support — reads key, scale, and time signature from your DAW timeline
 - Time signature-aware measures ruler with auto-scroll
 - Multi-signature support (time signature changes mid-project)
+- Waveform overlay synced to the DAW timeline
+
+> ARA2 syncs the plugin to your DAW timeline (key/scale, time signature, playhead, waveform). OpenVoxTuner remains a **real-time effect** — it does not provide offline, note-level editing like dedicated pitch editors.
 
 ### A/B Comparison & Morphing
 
@@ -153,8 +155,8 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 
 - **Open source by design** — every line of DSP, UI, and preset logic is public. No black boxes, no telemetry, no feature paywalls. You can read exactly how your voice is processed.
 - **AGPLv3 for freedom** — the license guarantees the project stays free and open. Anyone can use it (even commercially), and any improvements must be shared back with the community.
-- **ARA2 native** — deep DAW integration means key, scale, and tempo are read directly from your project. No manual setup, no guesswork — OpenVoxTuner follows your arrangement automatically.
-- **Built for real vocals** — YIN pitch detection, formant-preserving PSOLA, and a Melodyne-style curve editor are tuned for the nuances of sung performances, not just proof-of-concept demos.
+- **ARA2 native** — key, scale, and time signature are read directly from your DAW project, so the plugin follows your arrangement without manual setup.
+- **Built for real vocals** — YIN pitch detection, formant-preserving PSOLA, and a graphical curve editor are tuned for the nuances of sung performances, not just proof-of-concept demos.
 
 ### AI-Assisted Development
 

@@ -142,7 +142,7 @@ This gives an exponential response with time constant `tau`:
 - Transient preservation (onset detection -> PSOLA bypass)
 - Additional YIN refinements (the legacy `PitchDetector` and other detectors were removed)
 
-## "Graphic" Mode (Phase 4 - Melodyne style)
+## "Graphic" Mode (Phase 4 - graphical curve editor)
 
 Graphic mode lets the user **draw the ideal pitch curve** that the audio should follow over time. This is what distinguishes an Auto-Tune Pro from a basic plugin.
 
