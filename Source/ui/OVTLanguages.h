@@ -68,6 +68,7 @@ namespace ovt
         static const char* kMenuWaveformMirror = "menu.waveform_mirror";
         static const char* kMenuWaveformSpectral = "menu.waveform_spectral";
         static const char* kMenuMidiLearn      = "menu.midi_learn";
+        static const char* kMenuChordDetection = "menu.chord_detection";
         static const char* kMenuKeyboardShortcuts = "menu.keyboard_shortcuts";
         static const char* kMenuConfirmReset   = "menu.confirm_reset";
         static const char* kMenuCancel         = "menu.cancel";
@@ -430,6 +431,7 @@ namespace ovt
             { kMenuWaveformMirror, "Mirror" },
             { kMenuWaveformSpectral, "Spectral" },
             { kMenuMidiLearn,      "MIDI Learn" },
+            { kMenuChordDetection, "Chord Detection" },
             { kMenuKeyboardShortcuts, "Keyboard Shortcuts" },
             { kMenuConfirmReset,   "Confirm Reset" },
             { kMenuCancel,         "Cancel" },
@@ -761,6 +763,7 @@ namespace ovt
             { kMenuWaveformMirror, "Miroir" },
             { kMenuWaveformSpectral, "Spectral" },
             { kMenuMidiLearn,      "Apprentissage MIDI" },
+            { kMenuChordDetection, "D\u00e9tection d'accord" },
             { kMenuKeyboardShortcuts, "Keyboard Shortcuts" },
             { kMenuConfirmReset,   "Confirmer la reinitialisation" },
             { kMenuCancel,         "Annuler" },
@@ -1087,6 +1090,7 @@ namespace ovt
             { kMenuWaveformMirror, "Spiegelung" },
             { kMenuWaveformSpectral, "Spektral" },
             { kMenuMidiLearn,      "MIDI-Lernen" },
+            { kMenuChordDetection, "Akkorderkennung" },
             { kMenuKeyboardShortcuts, "Keyboard Shortcuts" },
             { kMenuConfirmReset,   "Zuruecksetzen bestaetigen" },
             { kMenuCancel,         "Abbrechen" },
@@ -1413,6 +1417,7 @@ namespace ovt
             { kMenuWaveformMirror, "Espejo" },
             { kMenuWaveformSpectral, "Espectral" },
             { kMenuMidiLearn,      "Aprendizaje MIDI" },
+            { kMenuChordDetection, "Detecci\u00f3n de acordes" },
             { kMenuKeyboardShortcuts, "Keyboard Shortcuts" },
             { kMenuConfirmReset,   "Confirmar reinicio" },
             { kMenuCancel,         "Cancelar" },
@@ -1739,6 +1744,7 @@ namespace ovt
             { kMenuWaveformMirror, "ãƒŸãƒ©ãƒ¼" },
             { kMenuWaveformSpectral, "ã‚¹ãƒšã‚¯ãƒˆãƒ«" },
             { kMenuMidiLearn,      "MIDIå­¦ç¿’" },
+            { kMenuChordDetection, "コード検出" },
             { kMenuKeyboardShortcuts, "Keyboard Shortcuts" },
             { kMenuConfirmReset,   "ãƒªã‚»ãƒƒãƒˆã‚’ç¢ºèª" },
             { kMenuCancel,         "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" },
@@ -2062,6 +2068,7 @@ namespace ovt
             { kMenuWaveformMirror, "é•œåƒ" },
             { kMenuWaveformSpectral, "é¢‘è°±" },
             { kMenuMidiLearn,      "MIDI å­¦ä¹ " },
+            { kMenuChordDetection, "和弦检测" },
             { kMenuKeyboardShortcuts, "Keyboard Shortcuts" },
             { kMenuConfirmReset,   "ç¡®è®¤é‡ç½®" },
             { kMenuCancel,         "å–æ¶ˆ" },

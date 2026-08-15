@@ -56,6 +56,9 @@ static float computeMaxJump (const float* p, int n)
 
 // Definition of the IID for the IEditControllerExtra interface
 #include "pluginterfaces/base/funknown.h"
+#if OVT_ARA_ENABLED
+#include <ARA_Library/Utilities/ARAPitchInterpretation.h>
+#endif
 #if JUCE_WINDOWS
 # include <windows.h>
 #endif
@@ -429,6 +432,14 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           "key_source", "Key Source",
                           juce::StringArray { "Auto", "OpenVoxKey", "Sidechain" }, 0),
 
+                      // Chord detection master switch (ovtchord). When on, the
+                      // plugin detects the current chord in real time from the
+                      // MIDI input ("Tuning follows MIDI IN") and/or the sidechain
+                      // bus, and feeds it to the ScaleQuantizer chord override
+                      // (priority: MIDI > ARA > Sidechain > scale).
+                      std::make_unique<juce::AudioParameterBool> (
+                          "chord_detect_enable", "Chord Detection", false),
+
                       // Companion group letter (must match the OpenVoxKey instance).
                       std::make_unique<juce::AudioParameterChoice> (
                           "companion_group", "Companion Group",
@@ -702,6 +713,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     keySourceParam = parameters.getRawParameterValue ("key_source");
     companionGroupParam = parameters.getRawParameterValue ("companion_group");
     keyDetectParam = parameters.getRawParameterValue ("key_detect");
+    chordDetectEnableParam = parameters.getRawParameterValue ("chord_detect_enable");
 
     for (int i = 0; i < 12; ++i)
     {
@@ -716,6 +728,18 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     // Dedicated YIN detector for the optional Sidechain input bus (used by the
     // "Sidechain" key source). Kept independent from the main-input detector.
     sidechainPitchDetector = std::make_unique<ovtdsp::YinPitchDetector>();
+
+    // Real-time chord detection contexts (ovtchord): one for MIDI, one for the
+    // sidechain bus. Started lazily; detection only runs when the "Chord
+    // Detection" toggle is on.
+    ovtchord::OvtChordConfig chordCfg;
+    chordCfg.minNotes = 3;
+    chordCfg.minConfidence = 0.5f;
+    chordCfg.stabilityFrames = 1;
+    midiChordHandle = ovtchord::ovtchord_init (&chordCfg);
+    sidechainChordHandle = ovtchord::ovtchord_init (&chordCfg);
+    ovtchord::ovtchord_start (midiChordHandle);
+    ovtchord::ovtchord_start (sidechainChordHandle);
     activeDetectorMode = 0;
     scaleQuantizer   = std::make_unique<ovtdsp::ScaleQuantizer>();
     scaleQuantizer->setScale (ovtdsp::Scale::Chromatic); // Ensure chromatic on first launch
@@ -839,6 +863,10 @@ OpenVoxTunerAudioProcessor::~OpenVoxTunerAudioProcessor()
     // ping-pong in applyLatencyMode(), not by the worker.  Re-enabled
     // 2026-07-22.
     stopPlayheadThread();
+
+    // Destroy the real-time chord detection contexts (ovtchord).
+    if (midiChordHandle != nullptr)      { ovtchord::ovtchord_shutdown (midiChordHandle);      midiChordHandle = nullptr; }
+    if (sidechainChordHandle != nullptr) { ovtchord::ovtchord_shutdown (sidechainChordHandle); sidechainChordHandle = nullptr; }
 
     // Delete the BufferedFileLogger (which subclasses juce::Timer) so the
     // Timer is stopped and destroyed before JUCE module shutdown, avoiding
@@ -1548,6 +1576,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    // === REAL-TIME CHORD DETECTION (ovtchord) ===
+    // Feeds the MIDI ("Tuning follows MIDI IN") and/or sidechain detectors and
+    // resolves the live chord override priority (MIDI > ARA > Sidechain > scale).
+    updateLiveChordOverride (midiMessages, buffer);
+
     // === AUTOMATIC KEY DETECTION (non-ARA sources) ===
     // ARA (if bound) already sets key/scale from the host musical context above,
     // so we only run the in-plugin / companion sources when ARA is NOT bound.
@@ -1750,7 +1783,9 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         else
         {
             // === Mode AUTO : quantification standard vers la gamme ===
-            f0_target = scaleQuantizer->quantize (f0_in);
+            // La position PPQ courante sert a évaluer l'override de contexte
+            // d'accord (accords hors gamme acceptés) si ARA l'a fourni.
+            f0_target = scaleQuantizer->quantize (f0_in, currentTransportTime);
         }
 
         // === MIDI TARGET (follow) ===
@@ -1917,7 +1952,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             if (mode == 1 && pitchCurve != nullptr && pitchCurve->getNumPoints() >= 2)
                 f0_target_center = pitchCurve->getPitchAt (currentTransportTime, center);
             else
-                f0_target_center = scaleQuantizer->quantize (center);
+                f0_target_center = scaleQuantizer->quantize (center, currentTransportTime);
 
             targetRatio = vibratoPreserver.blend (targetRatio, f0_in, f0_target_center, vibratoPreserve);
             f0_target = f0_in * targetRatio;
@@ -3280,6 +3315,59 @@ void OpenVoxTunerAudioProcessor::copyAraWaveform (juce::AudioBuffer<float>& dest
     }
 }
 
+// --- Enhanced ARA2 metadata accessors ---
+
+/** Copy the latest chord extracted from the ARA host.
+    @param destRoot  output root pitch class (0=C, -1=F, ...), or -999 if not bound.
+    @param destBass  output bass pitch class, or -999 if not bound.
+*/
+void OpenVoxTunerAudioProcessor::copyAraChord (int& destRoot, int& destBass) const
+{
+#if OVT_ARA_ENABLED
+    if (! isBoundToARA())
+    {
+        destRoot = -999;
+        destBass = -999;
+        return;
+    }
+    juce::ScopedLock lock (araChordLock);
+    destRoot = araChordRoot.load (std::memory_order_acquire);
+    destBass = araChordBass.load (std::memory_order_acquire);
+#else
+    destRoot = -999;
+    destBass = -999;
+#endif // OVT_ARA_ENABLED
+}
+
+void OpenVoxTunerAudioProcessor::getAraChordAt (double positionPPQ, int& root, int& bass, juce::String& name) const
+{
+    root = -999;
+    bass = -999;
+    name.clear();
+#if OVT_ARA_ENABLED
+    if (! isBoundToARA())
+        return;
+    juce::ScopedLock lock (araChordLock);
+    for (const auto& e : araChordEvents)
+    {
+        if (positionPPQ >= e.startPPQ && positionPPQ < e.startPPQ + e.duration)
+        {
+            root = e.root;
+            bass = e.bass;
+            name = e.name;
+            return;
+        }
+    }
+#else
+    juce::ignoreUnused (positionPPQ);
+#endif // OVT_ARA_ENABLED
+}
+
+bool OpenVoxTunerAudioProcessor::isAraChordOutOfScale (double positionPPQ) const
+{
+    return scaleQuantizer != nullptr && scaleQuantizer->isActiveChordOutOfScale (positionPPQ);
+}
+
 // --- Deferred parameter changes (audio â†’ UI thread) ---
 // Reads atomics written by the audio thread (applyDetectedKey) and applies
 // them via setValueNotifyingHost on the UI thread, avoiding deadlocks.
@@ -3664,6 +3752,131 @@ void OpenVoxTunerAudioProcessor::updateAraMetadata()
             currentTimeSigDenominator.store (araBarSignatures[0].denominator);
         }
     }
+
+    // --- Chords (kARAContentTypeSheetChords) ---
+    // Extract the lead-sheet chord (root + bass) so the Harmony engine can
+    // adapt its strategy dynamically (e.g. force a diatonic harmony type
+    // when the host reports a dominant-7th). ARA provides multiple events
+    // sorted by position; each event is valid until the next one, and the
+    // first event is assumed valid for all times before it is actually defined.
+    {
+        ARA::PlugIn::HostContentReader<ARA::kARAContentTypeSheetChords> chordReader (contexts[0]);
+        const int chordCount = chordReader.getEventCount();
+
+        // Rebuild the time-indexed chord-override windows from the ScaleQuantizer.
+        // The last chord root/bass are still cached for copyAraChord() / GUI.
+        if (scaleQuantizer != nullptr)
+            scaleQuantizer->clearChordOverrides();
+
+        if (chordCount > 0)
+        {
+            // Use the last chord event for the cached root/bass atomics (ARA
+            // semantics: each event valid until the next).
+            const int bestIdx = juce::jmax (0, chordCount - 1);
+            {
+                juce::ScopedLock lock (araChordLock);
+                araChordEvents.clear();
+                // Generate chord symbols from the interval data (the host's
+                // `name` field is often empty). Unicode symbols (ø, ♭, ♯, Δ, °)
+                // are clearer than ASCII ("halfdim", "b", "#", "maj", "dim").
+                ARA::ChordInterpreter chordInterpreter (false);
+                for (int i = 0; i < chordCount; ++i)
+                {
+                    auto* chord = chordReader.getDataPtrForEvent (i);
+                    if (chord == nullptr)
+                        continue;
+
+                    const int rootCOF = static_cast<int> (chord->root);
+                    const int bassCOF = static_cast<int> (chord->bass);
+
+                    // ARACircleOfFifthsIndex -> classe de hauteur chromatique 0..11.
+                    // Convention ARA : C=0, G=1, D=2 (cercle des quintes), F=-1.
+                    // Conversion : (root * 7) mod 12, ramené dans [0,11].
+                    const int rootPC = ((rootCOF * 7) % 12 + 12) % 12;
+                    const int bassPC = ((bassCOF * 7) % 12 + 12) % 12;
+
+                    // Décoder le full pitch-class set de l'accord : les intervalles
+                    // kARAChordIntervalUsed (0xFF) ou degrés diatoniques (0x01..0x0D)
+                    // indiquent les intervalles actifs par rapport à la racine.
+                    juce::Array<int> chordNotes;
+                    chordNotes.add (rootPC);
+                    for (int k = 0; k < 12; ++k)
+                        if (chord->intervals[k] != 0) // kARAChordIntervalUnused == 0x00
+                            chordNotes.addIfNotAlreadyThere ((rootPC + k) % 12);
+                    chordNotes.addIfNotAlreadyThere (bassPC); // la basse peut sortir du triade
+                    chordNotes.sort();
+
+                    // Fenêtre de validité : [position, position suivante).
+                    double start = static_cast<double> (chord->position);
+                    double end   = (i + 1 < chordCount)
+                                       ? static_cast<double> (chordReader.getDataPtrForEvent (i + 1)->position)
+                                       : (start + 1.0e6); // dernier accord -> ouvert
+                    const double duration = juce::jmax (0.0, end - start);
+
+                    if (scaleQuantizer != nullptr)
+                        scaleQuantizer->setChordOverride (chordNotes, start, duration);
+
+                    AraChordEvent ev;
+                    ev.root = rootCOF;
+                    ev.bass = bassCOF;
+                    ev.startPPQ = start;
+                    ev.duration = duration;
+                    ev.name = juce::String::fromUTF8 (chordInterpreter.getNameForChord (*chord).c_str());
+                    // "N.C." = undefined chord (no intervals) -> fall back to
+                    // the host-provided name, else empty (badge shows the root).
+                    if (ev.name == "N.C.")
+                        ev.name = (chord->name != nullptr) ? juce::String::fromUTF8 (chord->name) : juce::String();
+                    araChordEvents.push_back (ev);
+
+                    if (i == bestIdx)
+                    {
+                        araChordRoot.store (rootCOF, std::memory_order_release);
+                        araChordBass.store (bassCOF, std::memory_order_release);
+                    }
+                }
+            }
+        }
+        else
+        {
+            juce::ScopedLock lock (araChordLock);
+            araChordEvents.clear();
+            araChordRoot.store (-999, std::memory_order_release);
+            araChordBass.store (-999, std::memory_order_release);
+        }
+    }
+
+    // --- Tempo (kARAContentTypeTempoEntries) ---
+    // Extract the host tempo so the plugin can align time-based DSP
+    // (e.g. humanize, vibrato rate, harmony attack timing) to the actual
+    // project BPM instead of guessing from the sample rate.
+    // ARA tempo entries: { timePosition (sec), quarterPosition (beats) }.
+    // BPM = (quarterDelta / timeDelta) * 60.
+    {
+        ARA::PlugIn::HostContentReader<ARA::kARAContentTypeTempoEntries> tempoReader (contexts[0]);
+        const int tempoCount = tempoReader.getEventCount();
+        if (tempoCount >= 2)
+        {
+            // Compute BPM from the first and last tempo sync points.
+            auto* first = tempoReader.getDataPtrForEvent (0);
+            auto* last  = tempoReader.getDataPtrForEvent (tempoCount - 1);
+            if (first != nullptr && last != nullptr)
+            {
+                const double dt = static_cast<double> (last->timePosition) - static_cast<double> (first->timePosition);
+                const double dq = static_cast<double> (last->quarterPosition) - static_cast<double> (first->quarterPosition);
+                if (dt > 0.0 && dq > 0.0)
+                {
+                    const double bpm = (dq / dt) * 60.0;
+                    araTempoBpm.store (bpm, std::memory_order_release);
+                    hasAraTempoFlag.store (true, std::memory_order_release);
+                }
+            }
+        }
+        else
+        {
+            araTempoBpm.store (0.0, std::memory_order_release);
+            hasAraTempoFlag.store (false, std::memory_order_release);
+        }
+    }
 }
 #else
 void OpenVoxTunerAudioProcessor::updateAraMetadata() {}
@@ -4014,6 +4227,135 @@ float OpenVoxTunerAudioProcessor::computeSidechainPitch (const juce::AudioBuffer
 
     const float newPitch = sidechainPitchDetector->detectPitch (linear, decimatedWindow);
     return (newPitch > 0.0f) ? newPitch : 0.0f;
+}
+
+// === Real-time chord detection (ovtchord) ===
+juce::Array<int> OpenVoxTunerAudioProcessor::chordResultToArray (const ovtchord::ChordResult& r)
+{
+    juce::Array<int> arr;
+    for (int pc : r.pitchClasses)
+        arr.addIfNotAlreadyThere (pc);
+    return arr;
+}
+
+void OpenVoxTunerAudioProcessor::updateLiveChordOverride (const juce::MidiBuffer& midiMessages,
+                                                          juce::AudioBuffer<float>& buffer)
+{
+    // Chord detection master switch. When off, no live chord override.
+    const bool chordDetectOn = (chordDetectEnableParam != nullptr)
+                               && chordDetectEnableParam->load() > 0.5f;
+    if (! chordDetectOn || scaleQuantizer == nullptr)
+    {
+        if (scaleQuantizer != nullptr)
+            scaleQuantizer->clearLiveChordOverride();
+        return;
+    }
+
+    bool liveSet = false;
+    juce::Array<int> liveChord;
+    juce::String liveSymbol;
+
+    // Priority 1: MIDI ("Tuning follows MIDI IN" active). The user explicitly
+    // asked MIDI to control the tuning, so it takes top priority while a MIDI
+    // signal is present.
+    const bool midiTargetOn = (midiTargetEnableParam != nullptr)
+                              && midiTargetEnableParam->load() > 0.5f;
+    if (midiTargetOn && midiChordHandle != nullptr)
+    {
+        // Convert the block's MIDI messages to ovtchord events (note on/off and
+        // the all-notes-off controllers; the tracker ignores everything else).
+        std::vector<ovtchord::MidiEvent> events;
+        for (const auto& meta : midiMessages)
+        {
+            const juce::MidiMessage& mm = meta.getMessage();
+            ovtchord::MidiEvent ev;
+            if (mm.isNoteOn())
+            {
+                ev.status = 0x90;
+                ev.data1  = static_cast<uint8_t> (mm.getNoteNumber());
+                ev.data2  = static_cast<uint8_t> (mm.getVelocity());
+            }
+            else if (mm.isNoteOff())
+            {
+                ev.status = 0x80;
+                ev.data1  = static_cast<uint8_t> (mm.getNoteNumber());
+                ev.data2  = 0;
+            }
+            else if (mm.isController() && (mm.getControllerNumber() == 123
+                                           || mm.getControllerNumber() == 120
+                                           || mm.getControllerNumber() == 121))
+            {
+                ev.status = 0xB0;
+                ev.data1  = static_cast<uint8_t> (mm.getControllerNumber());
+                ev.data2  = static_cast<uint8_t> (mm.getControllerValue());
+            }
+            else
+                continue;
+            events.push_back (ev);
+        }
+        if (! events.empty())
+            ovtchord::ovtchord_process_midi_events (midiChordHandle, events.data(), events.size());
+
+        const auto res = ovtchord::ovtchord_get_result (midiChordHandle);
+        if (res.valid)
+        {
+            liveChord = chordResultToArray (res);
+            liveSymbol = juce::String (res.symbol);
+            liveSet = true;
+        }
+    }
+
+    // Priority 2: ARA (chord track) — when bound, the ARA windows already
+    // populate the override, so we leave the live override clear.
+    // Priority 3: Sidechain (accompaniment) — only when ARA is NOT bound.
+    if (! liveSet)
+    {
+#if OVT_ARA_ENABLED
+        const bool araBound = isBoundToARA();
+#else
+        const bool araBound = false;
+#endif
+        if (! araBound && sidechainChordHandle != nullptr)
+        {
+            const juce::AudioBuffer<float> scBuffer = getBusBuffer (buffer, true, 1);
+            if (scBuffer.getNumChannels() > 0)
+            {
+                const float* sc = scBuffer.getReadPointer (0);
+                const int n = scBuffer.getNumSamples();
+                ovtchord::ovtchord_process_audio (sidechainChordHandle, sc,
+                                                  static_cast<std::size_t> (n),
+                                                  currentSampleRate, 0.0);
+                const auto res = ovtchord::ovtchord_get_result (sidechainChordHandle);
+                if (res.valid)
+                {
+                    liveChord = chordResultToArray (res);
+                    liveSymbol = juce::String (res.symbol);
+                    liveSet = true;
+                }
+            }
+        }
+    }
+
+    if (liveSet)
+        scaleQuantizer->setLiveChordOverride (liveChord);
+    else
+        scaleQuantizer->clearLiveChordOverride();
+
+    // Publish the live chord symbol for the UI badge (non-ARA mode).
+    {
+        const juce::ScopedLock lock (liveChordLock);
+        liveChordSymbol = liveSymbol;
+        liveChordActive.store (liveSet, std::memory_order_release);
+    }
+}
+
+void OpenVoxTunerAudioProcessor::getLiveChord (juce::String& symbol, bool& outOfScale) const
+{
+    const juce::ScopedLock lock (liveChordLock);
+    symbol = liveChordSymbol;
+    outOfScale = false;
+    if (liveChordActive.load (std::memory_order_acquire) && scaleQuantizer != nullptr)
+        outOfScale = scaleQuantizer->isActiveChordOutOfScale (0.0);
 }
 
 // Detector factory â€” YIN only.

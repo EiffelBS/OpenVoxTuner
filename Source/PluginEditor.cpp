@@ -1210,6 +1210,16 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 advancedMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuMidiLearn), midiLearnMenu);
             }
 
+            // Chord Detection (ovtchord): real-time chord-aware tuning from the
+            // MIDI input ("Tuning follows MIDI IN") and/or the sidechain bus.
+            {
+                bool chordOn = processorRef.getParameters().getParameter ("chord_detect_enable")->getValue() > 0.5f;
+                advancedMenu.addItem (ovt::tr(ovt::Keys::kMenuChordDetection), true, chordOn, [this] {
+                    if (auto* p = processorRef.getParameters().getParameter ("chord_detect_enable"))
+                        p->setValueNotifyingHost (1.0f - p->getValue());
+                });
+            }
+
             // Reset to Default
             advancedMenu.addItem (ovt::tr(ovt::Keys::kMenuResetDefault), [this] {
                 juce::PopupMenu confirmMenu;
@@ -2625,6 +2635,68 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
         g.drawText (cpuText, cpuX, cpuY, cpuW, cpuH, juce::Justification::centred);
     }
 #endif
+
+    // === Chord badge (ARA or live ovtchord) ===
+    // A small pill shown when the host provides lead-sheet chord info via ARA,
+    // or when real-time chord detection (ovtchord, MIDI/sidechain) is active in
+    // non-ARA mode. Anchored between the preset selector and the A/B cluster.
+    {
+        juce::String badgeText;
+        bool outOfScale = false;
+        bool showBadge = false;
+
+        if (processorRef.isBoundToARA_custom())
+        {
+            int araRoot = -999, araBass = -999;
+            juce::String araChordName;
+            processorRef.getAraChordAt (processorRef.getInterpolatedTransportTime(), araRoot, araBass, araChordName);
+            if (araRoot != -999)
+            {
+                auto cofToPc = [] (int cof) { return ((cof * 7) % 12 + 12) % 12; };
+                // Show just the chord symbol (e.g. "C7", "Csus4"); fall back to
+                // root (+bass) if no name could be derived.
+                if (araChordName.isNotEmpty())
+                    badgeText = araChordName;
+                else
+                {
+                    badgeText = ovtdsp::noteInOctaveName (cofToPc (araRoot));
+                    if (araBass != -999 && araBass != araRoot)
+                        badgeText += "/" + juce::String (ovtdsp::noteInOctaveName (cofToPc (araBass)));
+                }
+                outOfScale = processorRef.isAraChordOutOfScale (processorRef.getInterpolatedTransportTime());
+                showBadge = true;
+            }
+        }
+        else
+        {
+            // Non-ARA: show the live chord detected by ovtchord (MIDI/sidechain).
+            processorRef.getLiveChord (badgeText, outOfScale);
+            showBadge = badgeText.isNotEmpty();
+        }
+
+        // When the chord contains notes outside the selected scale, the
+        // chord-context override widens the allowed notes (bypass). Show that
+        // with a warning colour instead of the normal accent.
+        if (showBadge && presetSaveButton.getRight() > 0)
+        {
+            const juce::Colour badgeColour = outOfScale ? juce::Colour (0xffffb300) : ovt::accent();
+
+            const juce::Font badgeFont = ovt::fontLegendHint();
+            const int badgeH = 22;
+            const int badgeW = (int) juce::GlyphArrangement::getStringWidth (badgeFont, badgeText) + 18;
+            const int badgeX = presetSaveButton.getRight() + 8;
+            const int badgeY = 14;
+            const juce::Rectangle<int> badgeRect (badgeX, badgeY, badgeW, badgeH);
+
+            g.setColour (badgeColour.withAlpha (0.18f));
+            g.fillRoundedRectangle (badgeRect.toFloat(), badgeH * 0.5f);
+            g.setColour (badgeColour.withAlpha (0.7f));
+            g.drawRoundedRectangle (badgeRect.toFloat(), badgeH * 0.5f, 1.0f);
+            g.setColour (badgeColour);
+            g.setFont (badgeFont);
+            g.drawText (badgeText, badgeRect, juce::Justification::centred);
+        }
+    }
 }
 
 void OpenVoxTunerAudioProcessorEditor::resized()
@@ -3241,6 +3313,32 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     }
     catch (...)
     {
+    }
+
+    // Repaint the chord badge only when the displayed chord or its out-of-scale
+    // state changes (the badge is drawn in paint(); a repaint per tick would
+    // redraw the whole banner). In ARA mode the chord is looked up at the
+    // current playhead so the badge follows the chord track; in non-ARA mode it
+    // reflects the live ovtchord detection (MIDI/sidechain).
+    {
+        int araRoot = -999, araBass = -999;
+        juce::String araChordName;
+        processorRef.getAraChordAt (processorRef.getInterpolatedTransportTime(), araRoot, araBass, araChordName);
+        const bool outOfScale = processorRef.isAraChordOutOfScale (processorRef.getInterpolatedTransportTime());
+
+        juce::String liveSymbol;
+        bool liveOutOfScale = false;
+        processorRef.getLiveChord (liveSymbol, liveOutOfScale);
+
+        if (araRoot != lastAraChordBadgeRoot
+            || outOfScale != lastAraChordBadgeOutOfScale
+            || liveSymbol != lastLiveChordBadgeSymbol)
+        {
+            lastAraChordBadgeRoot = araRoot;
+            lastAraChordBadgeOutOfScale = outOfScale;
+            lastLiveChordBadgeSymbol = liveSymbol;
+            repaint();
+        }
     }
 
     refreshVisualizer();

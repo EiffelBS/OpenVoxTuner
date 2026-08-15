@@ -75,7 +75,7 @@
 ### Correction de hauteur
 
 - **Mode auto** — quantification sur 14 types de gamme (Majeur, Mineur, Pentatonique, Blues, Dorian, Phrygien, Lydien, Mixolydien, Locrien, Chromatique, Personnalisé...)
-- **Mode graphique** — dessinez votre propre courbe de hauteur (éditeur style Melodyne avec aimantation, grille, copier/coller, annuler/rétablir)
+- **Mode graphique** — dessinez votre propre courbe de hauteur (éditeur graphique avec aimantation, grille, copier/coller, annuler/rétablir)
 - **Mode de correction** — Modern (serré) ou Transparent (doux)
 - **Vitesse & montant** — enveloppe de rattrapage + mélange sec/humide pour une réponse naturelle ou robotique
 - **Humanize** — ajout de variations aléatoires subtiles pour un son plus naturel (0-50 cents)
@@ -114,10 +114,12 @@
 
 ### Intégration ARA2
 
-- Support complet d'ARA2 — intégration transparente à la timeline du DAW
-- Extraction automatique de la tonalité/gamme depuis le contexte musical ARA
+- Support ARA2 — lit la tonalité, la gamme et la signature depuis la timeline du DAW
 - Règle de mesure sensible à la signature avec défilement auto
 - Support multi-signatures (changement de signature en cours de projet)
+- Superposition de forme d'onde synchronisée à la timeline du DAW
+
+> ARA2 synchronise le plugin avec la timeline de votre DAW (tonalité/gamme, signature, playhead, forme d'onde). OpenVoxTuner reste un **effet temps réel** — il ne fournit pas d'édition hors-ligne note par note comme les éditeurs de hauteur dédiés.
 
 ### Comparaison & morphing A/B
 
@@ -139,8 +141,8 @@
 
 - **Open source par conception** — chaque ligne de DSP, d'UI et de logique de préréglage est publique. Pas de boîte noire, pas de télémétrie, pas de fonctionnalité payante. Vous pouvez lire exactement comment votre voix est traitée.
 - **AGPLv3 pour la liberté** — la licence garantit que le projet reste libre et ouvert. Chacun peut l'utiliser (même commercialement), et toute amélioration doit être partagée avec la communauté.
-- **ARA2 natif** — l'intégration profonde au DAW signifie que tonalité, gamme et tempo sont lus directement depuis votre projet. Pas de configuration manuelle, pas de conjecture — OpenVoxTuner suit votre arrangement automatiquement.
-- **Conçu pour la voix réelle** — la détection YIN, le PSOLA préservant les formants et un éditeur de courbe style Melodyne sont accordés aux nuances des performances chantées, pas seulement à des démos proof-of-concept.
+- **ARA2 natif** — la tonalité, la gamme et la signature sont lues directement depuis votre projet DAW, pour que le plugin suive votre arrangement sans configuration manuelle.
+- **Conçu pour la voix réelle** — la détection YIN, le PSOLA préservant les formants et un éditeur de courbe graphique sont accordés aux nuances des performances chantées, pas seulement à des démos proof-of-concept.
 
 ### Développement assisté par IA
 

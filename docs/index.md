@@ -23,9 +23,9 @@
 OpenVoxTuner is a **real-time vocal pitch correction and harmony generation plugin** built with JUCE 8 (C++17). It provides:
 
 - **Auto Mode**: Scale-aware pitch correction with adjustable speed, amount, and character
-- **Graphic Mode**: Melodyne-style curve editor for manual pitch editing
+- **Graphic Mode**: graphical curve editor for manual pitch editing
 - **Harmony Engine**: 21 harmony types with formant-preserved pitch shifting (up to 4 voices)
-- **ARA2 Integration**: Full DAW timeline sync with key/scale detection
+- **ARA2 Integration**: DAW timeline sync — reads key/scale, time signature, and playhead
 - **Cross-platform**: Windows (VST3/CLAP), macOS (VST3/AU/CLAP), Linux (VST3/CLAP)
 
 ---
@@ -47,7 +47,7 @@ OpenVoxTuner is a **real-time vocal pitch correction and harmony generation plug
 - **Independent formant shift** (±5 semitones) per voice
 
 ### ARA2 Integration
-- Automatic key/scale detection from audio
+- Key/scale read from the DAW timeline (ARA2) or detected from audio
 - Time-signature aware ruler in curve editor
 - Playhead follow & loop sync with DAW
 - Multi-signature project support

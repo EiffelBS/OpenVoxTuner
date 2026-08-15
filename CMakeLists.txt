@@ -62,6 +62,10 @@ option(AUTOTUNE_BUILD_TESTS "Compile les tests unitaires" OFF)
 # Charge le support JUCE pour CMake.
 add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 
+# Standalone chord detection library (MIDI + audio). No JUCE / plugin dependency.
+# Used by the plugin for real-time chord-aware tuning (MIDI + sidechain sources).
+add_subdirectory(libs/ovtchord)
+
 # ARA2 support (optionnel -- desactiver pour les hotes qui ne le supportent pas,
 # ex. Ableton Live, FL Studio).
 option(OVT_ENABLE_ARA "Build with ARA2 support" ON)
@@ -232,6 +236,7 @@ target_link_libraries(OpenVoxTuner PRIVATE
     juce::juce_gui_extra
     $<$<BOOL:${OVT_ENABLE_ARA}>:juce_ara_sdk>
     OVTAssets
+    ovtchord
 )
 
 # URL de mise a jour (JSON public sur GitHub raw).

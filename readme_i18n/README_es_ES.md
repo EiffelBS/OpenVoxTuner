@@ -75,7 +75,7 @@
 ### Corrección de tono
 
 - **Modo automático** — cuantización a escala con 14 tipos de escala (Mayor, Menor, Pentatónica, Blues, Dórico, Frigio, Lidio, Mixolidio, Locrio, Cromática, Personalizada...)
-- **Modo gráfico** — dibuja tu propia curva de tono (editor estilo Melodyne con snap, rejilla, copiar/pegar, deshacer/rehacer)
+- **Modo gráfico** — dibuja tu propia curva de tono (editor gráfico con snap, rejilla, copiar/pegar, deshacer/rehacer)
 - **Modo de corrección** — personaje Moderno (ajuste estricto) o Transparente (suave)
 - **Speed & Amount** — envolvente de reorientación y mezcla seco/húmedo para una respuesta natural o robótica
 - **Humanize** — añade una variación aleatoria sutil para un sonido más natural (0–50 cents)
@@ -114,10 +114,12 @@
 
 ### Integración ARA2
 
-- Soporte completo de ARA2 — integración transparente con la línea de tiempo del DAW
-- Extracción automática de tonalidad/escala desde el contexto musical ARA
+- Soporte ARA2 — lee tonalidad, escala y métrica desde la línea de tiempo del DAW
 - Regla de compás sensible a la métrica con auto-scroll
 - Soporte multi-firma (cambio de métrica a mitad de proyecto)
+- Superposición de forma de onda sincronizada con la línea de tiempo del DAW
+
+> ARA2 sincroniza el plugin con la línea de tiempo de tu DAW (tonalidad/escala, métrica, playhead, forma de onda). OpenVoxTuner sigue siendo un **efecto en tiempo real** — no ofrece edición offline nota por nota como los editores de tono dedicados.
 
 ### Comparación A/B y morphing
 
@@ -139,8 +141,8 @@
 
 - **Open source por diseño** — cada línea de DSP, UI y lógica de preset es pública. Sin caja negra, sin telemetría, sin paywalls de funciones. Puedes leer exactamente cómo se procesa tu voz.
 - **AGPLv3 para la libertad** — la licencia garantiza que el proyecto permanezca libre y abierto. Cualquiera puede usarlo (incluso comercialmente), y cualquier mejora debe compartirse con la comunidad.
-- **ARA2 nativo** — la integración profunda con el DAW significa que tonalidad, escala y tempo se leen directamente de tu proyecto. Sin configuración manual, sin conjeturas — OpenVoxTuner sigue tu arreglo automáticamente.
-- **Hecho para voces reales** — la detección YIN, el PSOLA preservador de formantes y un editor de curva estilo Melodyne están afinados para los matices de las interpretaciones cantadas, no solo para demos de prueba de concepto.
+- **ARA2 nativo** — tonalidad, escala y métrica se leen directamente de tu proyecto DAW, para que el plugin siga tu arreglo sin configuración manual.
+- **Hecho para voces reales** — la detección YIN, el PSOLA preservador de formantes y un editor de curva gráfico están afinados para los matices de las interpretaciones cantadas, no solo para demos de prueba de concepto.
 
 ### Desarrollo asistido por IA
 

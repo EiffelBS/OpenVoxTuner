@@ -31,6 +31,7 @@
 #include "dsp/SidechainBusLayout.h"
 #include "dsp/FormantPreserver.h"
 #include "dsp/LpcFormantPreserver.h"
+#include "ovtchord/ovtchord.h"
 
 /**
  * Main class of the audio processor.
@@ -388,6 +389,28 @@ public:
     /// Copy the cached waveform into the provided buffer (thread-safe).
     void copyAraWaveform (juce::AudioBuffer<float>& dest, double& sr);
 
+    // --- Enhanced ARA2 metadata accessors (UI thread) ---
+    /// Copy the latest chord extracted from the ARA host (if bound).
+    /// @param destRoot  output root pitch class (0=C, -1=F, etc.), or -999 if not bound.
+    /// @param destBass  output bass pitch class, or -999 if not bound.
+    void copyAraChord (int& destRoot, int& destBass) const;
+    /// Copy the ARA chord (root/bass, circle-of-fifths indices) active at the
+    /// given transport position (quarter notes / PPQ). Returns -999 for both
+    /// when not bound to ARA or when no chord covers that position.
+    void getAraChordAt (double positionPPQ, int& root, int& bass, juce::String& name) const;
+    /// True if the ARA chord active at @p positionPPQ contains at least one
+    /// pitch class outside the current scale (i.e. the chord-context override
+    /// widens the allowed notes beyond the scale). Used by the UI badge.
+    bool isAraChordOutOfScale (double positionPPQ) const;
+    /// Returns the current live chord (ovtchord MIDI/sidechain) symbol and
+    /// whether it is out of scale. `symbol` is empty when no live chord is
+    /// active. Used by the UI badge in non-ARA mode.
+    void getLiveChord (juce::String& symbol, bool& outOfScale) const;
+    /// Get the host tempo (BPM) from the ARA tempo map, or 0.0 if unavailable.
+    double getAraTempo() const { return araTempoBpm.load (std::memory_order_acquire); }
+    /// True if the plugin is reading tempo from an ARA musical context.
+    bool hasAraTempo() const { return hasAraTempoFlag.load (std::memory_order_acquire); }
+
 private:
     // === User parameters (JUCE parameter tree) ===
     // Uses AudioProcessorValueTreeState to expose parameters
@@ -456,6 +479,9 @@ private:
     // OpenVoxKey companion detector), 2=Sidechain (analysis of the sidechain input).
     std::atomic<float>* keySourceParam = nullptr;
     std::atomic<float>* companionGroupParam = nullptr; // Companion group (A/B/C/D)
+    // Chord detection master switch (ovtchord): real-time chord-aware tuning
+    // from MIDI ("Tuning follows MIDI IN") and/or the sidechain bus.
+    std::atomic<float>* chordDetectEnableParam = nullptr;
 
     // "Custom note on/off" parameters (12 booleans, indices 0..11).
     // Stored as 12 separate AudioParameterBool so the host can
@@ -627,6 +653,31 @@ private:
     std::atomic<bool> araWaveformReady { false };
     juce::CriticalSection araWaveformLock;
     std::atomic<bool> waveformCaptureEnabled { true };
+
+    // === Enhanced ARA2 metadata caches (UI thread only, updated in updateAraMetadata) ===
+    // Latest chord read from the host's ARA tempo/track content.
+    std::atomic<int> araChordRoot { -999 };
+    std::atomic<int> araChordBass { -999 };
+    juce::CriticalSection araChordLock;
+
+    // Time-indexed ARA lead-sheet chord events (root/bass as circle-of-fifths
+    // indices, valid over [startPPQ, startPPQ+duration) in quarter notes).
+    // Populated in updateAraMetadata(); read by getAraChordAt() for the UI
+    // badge so it reflects the chord at the current playhead, not just the
+    // last event.
+    struct AraChordEvent
+    {
+        int root = -999;
+        int bass = -999;
+        double startPPQ = 0.0;
+        double duration = 0.0;
+        juce::String name; // chord symbol from the host (e.g. "Gm7"), may be empty
+    };
+    std::vector<AraChordEvent> araChordEvents;
+
+    // Latest tempo (BPM) read from the ARA musical context.
+    std::atomic<double> araTempoBpm { 0.0 };
+    std::atomic<bool> hasAraTempoFlag { false };
 
     // Deferred key/scale changes detected on the audio thread.
     // flushPendingParameterChanges() (UI thread) reads these and calls
@@ -861,6 +912,27 @@ private:
     int sidechainSamplesSinceLastAnalysis = 0;
     juce::HeapBlock<float> sidechainLinearBuffer;
     std::unique_ptr<ovtdsp::YinPitchDetector> sidechainPitchDetector;
+
+    // === Real-time chord detection (ovtchord) ===
+    // Two independent detection contexts: one fed by the MIDI input (active in
+    // "Tuning follows MIDI IN" mode), one fed by the sidechain bus (accompaniment).
+    // The detected chord is pushed to ScaleQuantizer::setLiveChordOverride with
+    // priority MIDI > ARA > Sidechain > scale.
+    ovtchord::OvtChordHandle midiChordHandle = nullptr;
+    ovtchord::OvtChordHandle sidechainChordHandle = nullptr;
+
+    // Feeds the MIDI/sidechain chord detectors and resolves the live chord
+    // override priority. Called once per audio block.
+    void updateLiveChordOverride (const juce::MidiBuffer& midiMessages,
+                                  juce::AudioBuffer<float>& buffer);
+
+    // Converts an ovtchord ChordResult pitch-class set to a juce::Array<int>.
+    static juce::Array<int> chordResultToArray (const ovtchord::ChordResult& r);
+
+    // Last detected live chord symbol (audio thread writes, UI thread reads).
+    juce::String liveChordSymbol;
+    mutable juce::CriticalSection liveChordLock;
+    std::atomic<bool> liveChordActive { false };
 
     // Updates DSP parameters from the value tree.
     void syncParameters();

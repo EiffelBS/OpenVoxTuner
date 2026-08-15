@@ -89,6 +89,7 @@ build-mac/
 build-mac-*/
 build-test/
 build-tests/
+build-ovtchord/
 dist/
 site-docs/
 .venv-mkdocs/

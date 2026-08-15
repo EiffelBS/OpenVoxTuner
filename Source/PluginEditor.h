@@ -409,6 +409,17 @@ private:
 
     // Last waveform display type synced to visualizer/curve editor.
     int lastWaveformDisplayType = -1;
+    // Last ARA chord root drawn in the header badge (-999 = none). The badge is
+    // repainted only when this changes (timerCallback), so the banner is not
+    // redrawn every tick.
+    int lastAraChordBadgeRoot = -999;
+    // Last "chord out of scale" state drawn in the badge (drives the warning
+    // colour). Tracked separately so the badge recolours when the override
+    // toggles even if the root stays the same.
+    bool lastAraChordBadgeOutOfScale = false;
+    // Last live chord symbol drawn in the badge (non-ARA ovtchord detection).
+    // The badge is repainted only when this changes.
+    juce::String lastLiveChordBadgeSymbol;
     // Tracks the last Harmony enable state seen by the timer so we can
     // re-run refreshLabels() (which disables the Follow Lead / Gain Match /
     // Use Voice sub-toggles) when Harmony changes via preset load or DAW

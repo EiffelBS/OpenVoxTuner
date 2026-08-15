@@ -81,7 +81,7 @@ The most important controls are:
 OpenVoxTuner has two ways of working:
 
 - **Auto (Live)** — scale-aware quantization in real time. Great for live performance and fast results.
-- **Graphic (Curve Editor)** — draw the exact pitch curve the audio should follow. Great for offline, note-by-note perfection (Melodyne-style).
+- **Graphic (Curve Editor)** — draw the exact pitch curve the audio should follow. Great for offline, note-by-note control.
 
 You switch between them with the **Mode** selector. See [Correction Modes](../user-guide/correction-modes.md) and [Curve Editor](../user-guide/curve-editor.md).
 

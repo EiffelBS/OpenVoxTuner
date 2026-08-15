@@ -35,8 +35,45 @@
 - [x] Audio Unit (AU) plugin format (macOS)
 - [x] Standalone application mode
 - [x] ARA integration (DAW timeline sync)
+- [x] ARA2 chord extraction (2026-08-07): `ARAChord` (root/bass) read from `kARAContentTypeSheetChords`, cached thread-safely via `araChordLock`, accessible via `copyAraChord()`. Experimental — Harmony Engine not yet consuming chord data.
+- [x] ARA2 chord-context override (2026-08-08): `ARAContentChord` decoded into a chromatic pitch-class set (root/bass circle-of-fifths → PC; `intervals[12] != 0x00` = chord tone) and pushed to `ScaleQuantizer::setChordOverride()` as time-indexed PPQ windows. Out-of-scale chord tones now pass through to exact pitch in AUTO + vibrato-center correction.
+- [x] ARA2 tempo extraction (2026-08-07): BPM computed from `kARAContentTypeTempoEntries` (first→last sync point), accessible via `getAraTempo()` / `hasAraTempo()`. Experimental — not yet consumed by DSP.
 - [x] MIDI output (quantized note events)
 - [x] Bypass mode (audio pass-through)
+
+## 2b. Standalone chord detection library (ovtchord)
+
+Standalone, plugin-independent C++17 library in `libs/ovtchord/` (no JUCE, no
+plugin dependency). Detailed plan: `docs/implementation-plan-chord-detection.md`.
+
+- [x] MIDI 1.0 parsing (running status, SysEx, Note On vel 0 = Off)
+- [x] Active-note tracker (pitch-class set + bass)
+- [x] Chord engine (19 templates, coverage/parsimony scoring, stability)
+- [x] Audio chroma extraction (internal FFT, peak-picking, harmonic summation,
+      parabolic interpolation)
+- [x] Audio preprocessing (bandpass, noise gate, AGC)
+- [x] WAV reader (PCM 16/24-bit, mono downmix)
+- [x] MP3 reader (minimp3 vendored)
+- [x] Unified public API (`ovtchord_init/start/stop/process_midi/process_audio/
+      process_audio_file/get_result/shutdown`) + callbacks + JSON export
+- [x] Unit tests (18 tests / 65 checks / 0 failure)
+- [x] Chroma benchmark (`tools/benchmark_chords.cpp`, CMake target
+      `ovtchord_benchmark`): 11/11 reference chords (100 %), ~2.1 ms/chord.
+      **Decision: Aubio not adopted** (internal chroma sufficient, zero
+      dependency); Aubio leg kept behind `#if defined(OVTCHORD_HAVE_AUBIO)`.
+- [x] Plugin integration (inject `ChordResult` into
+      `ScaleQuantizer::setChordOverride`) — **implemented 2026-08-10**.
+      Scope: MIDI chord detection active only in "Tuning follows MIDI IN" mode
+      (plugin + standalone); audio chord detection only on the sidechain bus
+      (plugin only — standalone does not route sidechain; mirrors the existing
+      `sidechainKeyDetector`); main voice input excluded (monopitch, latency).
+      UI: "Chord detection" toggle in the wrench/Advanced menu.
+      Source priority: MIDI ("Tuning follows MIDI IN" active + MIDI signal
+      present) > ARA (chord track) > Sidechain > scale. MIDI is an explicit
+      user override, so it takes top priority while a MIDI signal is present;
+      without MIDI, fall back to scale + ARA chord. MIDI processing is not
+      gated by ARA, so "Tuning follows MIDI IN" also applies in ARA mode (if
+      the DAW routes MIDI).
 
 ## 3. UI / GUI - Main Editor
 

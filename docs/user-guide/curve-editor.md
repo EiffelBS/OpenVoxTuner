@@ -1,6 +1,6 @@
 # Curve Editor
 
-The **Curve Editor** (Graphic mode) is a Melodyne-style editor that lets you **draw the ideal pitch curve** the audio should follow over time. Instead of snapping automatically to the scale, you control the target pitch note-by-note.
+The **Curve Editor** (Graphic mode) is a graphical editor that lets you **draw the ideal pitch curve** the audio should follow over time. Instead of snapping automatically to the scale, you control the target pitch note-by-note.
 
 !!! tip
     Switch to Graphic mode using the **Mode** selector. The editor is time-synced to your DAW via ARA2 when available, and uses an internal transport otherwise.
