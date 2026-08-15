@@ -12,6 +12,8 @@ namespace ovtchord
         int ilog2 (int v) { int l = 0; while ((1 << l) < v) ++l; return l; }
     }
 
+    ChromaExtractor::ChromaExtractor() : ChromaExtractor (Config()) {}
+
     ChromaExtractor::ChromaExtractor (const Config& cfg)
         : cfg (cfg), fft (ilog2 (cfg.fftSize))
     {

@@ -24,7 +24,11 @@ namespace ovtchord
             float agcTarget = 0.5f;        // normalize toward this peak
         };
 
-        explicit AudioPreprocessor (const Config& cfg = Config());
+        // NOTE: see chord_engine.h — no in-class default argument using Config()
+        // (Clang: "default member initializer needed within the definition of the
+        // enclosing class"). The no-arg ctor delegates instead.
+        explicit AudioPreprocessor();
+        explicit AudioPreprocessor (const Config& cfg);
 
         void setSampleRate (double sampleRate);
 

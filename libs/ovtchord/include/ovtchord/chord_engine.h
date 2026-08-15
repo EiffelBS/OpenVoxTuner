@@ -21,7 +21,12 @@ namespace ovtchord
             int stabilityFrames = 1;   // consecutive frames for a stable result
         };
 
-        explicit ChordEngine (const Config& cfg = Config());
+        // NOTE: the default Config() is not used as an in-class default argument
+        // (Clang rejects a nested struct with default member initializers as an
+        // in-class default argument: "default member initializer needed within the
+        // definition of the enclosing class"). The no-arg ctor delegates instead.
+        explicit ChordEngine();
+        explicit ChordEngine (const Config& cfg);
 
         // Recognize a chord from a pitch-class set.
         // `bassPitchClass` (-1 = unknown) is used to annotate inversions.

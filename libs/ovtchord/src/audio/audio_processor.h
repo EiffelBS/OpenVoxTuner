@@ -25,7 +25,11 @@ namespace ovtchord
             float chromaThreshold = 0.35f;  // chroma bin cutoff (rel. to max)
         };
 
-        explicit AudioProcessor (const Config& cfg = Config());
+        // NOTE: see chord_engine.h — no in-class default argument using Config()
+        // (Clang: "default member initializer needed within the definition of the
+        // enclosing class"). The no-arg ctor delegates instead.
+        explicit AudioProcessor();
+        explicit AudioProcessor (const Config& cfg);
 
         void setSampleRate (double sampleRate);
 

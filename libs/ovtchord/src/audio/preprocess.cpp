@@ -7,6 +7,8 @@
 
 namespace ovtchord
 {
+    AudioPreprocessor::AudioPreprocessor() : AudioPreprocessor (Config()) {}
+
     AudioPreprocessor::AudioPreprocessor (const Config& cfg) : cfg (cfg) {}
 
     void AudioPreprocessor::setSampleRate (double sampleRate)

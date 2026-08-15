@@ -74,6 +74,14 @@ plugin dependency). Detailed plan: `docs/implementation-plan-chord-detection.md`
       without MIDI, fall back to scale + ARA chord. MIDI processing is not
       gated by ARA, so "Tuning follows MIDI IN" also applies in ARA mode (if
       the DAW routes MIDI).
+- [x] **Clang/macOS portability fix (2026-08-15)**: nested `Config` structs use
+      default member initializers, so using `Config()` as an *in-class default
+      argument* (`explicit X (const Config& cfg = Config())`) is ill-formed —
+      AppleClang rejects it ("default member initializer needed within the
+      definition of the enclosing class"), while MSVC silently accepts it.
+      Split each ctor into a no-arg delegating ctor (`X() : X (Config()) {}`)
+      + a `Config`-taking ctor, both defined out-of-line. Applies to
+      `ChordEngine`, `AudioProcessor`, `ChromaExtractor`, `AudioPreprocessor`.
 
 ## 3. UI / GUI - Main Editor
 

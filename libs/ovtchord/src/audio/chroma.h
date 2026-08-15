@@ -25,7 +25,11 @@ namespace ovtchord
             float highFreqHz = 4000.0f;
         };
 
-        explicit ChromaExtractor (const Config& cfg = Config());
+        // NOTE: see chord_engine.h — no in-class default argument using Config()
+        // (Clang: "default member initializer needed within the definition of the
+        // enclosing class"). The no-arg ctor delegates instead.
+        explicit ChromaExtractor();
+        explicit ChromaExtractor (const Config& cfg);
 
         // Computes the 12-bin chroma (normalized so the largest bin == 1) and
         // writes it into `out` (must be pre-allocated to 12). No heap

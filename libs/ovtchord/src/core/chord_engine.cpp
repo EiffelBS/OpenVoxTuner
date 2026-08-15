@@ -17,6 +17,8 @@ namespace ovtchord
         }
     }
 
+    ChordEngine::ChordEngine() : ChordEngine (Config()) {}
+
     ChordEngine::ChordEngine (const Config& cfg) : cfg (cfg) {}
 
     ChordResult ChordEngine::recognize (const std::vector<int>& pitchClasses,

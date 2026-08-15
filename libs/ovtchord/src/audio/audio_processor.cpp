@@ -7,6 +7,8 @@
 
 namespace ovtchord
 {
+    AudioProcessor::AudioProcessor() : AudioProcessor (Config()) {}
+
     AudioProcessor::AudioProcessor (const Config& cfg)
         : cfg (cfg),
           chroma ([&]() {
