@@ -13,5 +13,9 @@
   - `OpenVoxTuner_VST3` (Release) builds clean.
 - The real validation is the macOS CI run itself (AppleClang) once this fix is pushed.
 
+## CI/release trigger fix — `libs/**` now in workflow path filters (2026-08-15)
+- **Problem**: the previous fix push only touched `libs/ovtchord/**` and `docs/**`, but neither the `ci.yml` nor the `version-bump.yml` push-path filters listed `libs/**`. Result: the fix was never re-validated by CI on macOS, no version bump ran, no tag was created, and no Release workflow was dispatched (only the docs deploy ran).
+- **Fix**: added `'libs/**'` to the `paths` filters of `.github/workflows/ci.yml` and `.github/workflows/version-bump.yml`. Both workflows list themselves in their own filters, so pushing these edits triggers CI (Windows + macOS + tests, which now re-validates the ovtchord Clang fix) and the version bump (tag → Release dispatch).
+
 ## Tests
 - N/A beyond the re-verification above (no behavioral change; constructor API preserved).
