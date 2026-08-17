@@ -51,7 +51,7 @@
     },
     "curveEditor": {
       "title": "Kurveneditor",
-      "description": "Melodyne-Editor-Style grafische Bearbeitung: Punkte hinzuf\u00fcgen/verschieben, an Tonleiter/Raster einrasten, Kopieren/Einf\u00fcgen, R\u00fcckg\u00e4ngig/Wiederholen."
+      "description": "Grafische Tonh\u00f6henbearbeitung: Punkte hinzuf\u00fcgen/verschieben, an Tonleiter/Raster einrasten, Kopieren/Einf\u00fcgen, R\u00fcckg\u00e4ngig/Wiederholen."
     },
     "midiOut": {
       "title": "MIDI OUT",
@@ -83,7 +83,7 @@
       },
       {
         "tag": "Grafischer Modus",
-        "title": "Melodyne-Editor-Style Kurveneditor",
+        "title": "Grafischer Kurveneditor",
         "description": "Grafische Pitch-Bearbeitung mit Klick-zum-Hinzuf\u00fcgen von Punkten, Einrasten an Tonleiter/Raster, Kopieren/Einf\u00fcgen, R\u00fcckg\u00e4ngig/Wiederholen. Volle kreative Kontrolle."
       },
       {

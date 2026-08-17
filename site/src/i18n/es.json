@@ -51,7 +51,7 @@
     },
     "curveEditor": {
       "title": "Editor de curvas",
-      "description": "Edici\u00f3n gr\u00e1fica estilo Melodyne: a\u00f1adir/mover puntos, ajustar a escala/rejilla, copiar/pegar, deshacer/rehacer."
+      "description": "Edici\u00f3n gr\u00e1fica de tono: a\u00f1adir/mover puntos, ajustar a escala/rejilla, copiar/pegar, deshacer/rehacer."
     },
     "midiOut": {
       "title": "MIDI OUT",
@@ -83,7 +83,7 @@
       },
       {
         "tag": "Modo gr\u00e1fico",
-        "title": "Editor de curvas estilo Melodyne",
+        "title": "Editor de curvas gráfico",
         "description": "Edici\u00f3n gr\u00e1fica de tono con clic para a\u00f1adir puntos, ajuste a escala/rejilla, copiar/pegar, deshacer/rehacer. Control creativo total."
       },
       {

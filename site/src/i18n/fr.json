@@ -51,7 +51,7 @@
     },
     "curveEditor": {
       "title": "\u00c9diteur de courbe",
-      "description": "\u00c9dition graphique de type Melodyne : ajouter/d\u00e9placer des points, accrocher \u00e0 la gamme/la grille, copier/coller, annuler/r\u00e9tablir."
+      "description": "\u00c9dition graphique du pitch : ajouter/d\u00e9placer des points, accrocher \u00e0 la gamme/la grille, copier/coller, annuler/r\u00e9tablir."
     },
     "midiOut": {
       "title": "MIDI OUT",
@@ -83,7 +83,7 @@
       },
       {
         "tag": "Mode Graphique",
-        "title": "\u00c9diteur de courbe de type Melodyne",
+        "title": "Éditeur de courbe graphique",
         "description": "\u00c9dition graphique du pitch avec ajout de points au clic, accrochage \u00e0 la gamme/la grille, copier/coller, annuler/r\u00e9tablir. Contr\u00f4le cr\u00e9atif complet."
       },
       {

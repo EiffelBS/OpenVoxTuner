@@ -51,7 +51,7 @@
     },
     "curveEditor": {
       "title": "Curve Editor",
-      "description": "Melodyne-style graphical editing: add/move points, snap to scale/grid, copy/paste, undo/redo."
+      "description": "Graphical pitch editing: add/move points, snap to scale/grid, copy/paste, undo/redo."
     },
     "midiOut": {
       "title": "MIDI OUT",
@@ -83,7 +83,7 @@
       },
       {
         "tag": "Graphic Mode",
-        "title": "Melodyne-style Curve Editor",
+        "title": "Graphical Curve Editor",
         "description": "Graphical pitch editing with click-to-add points, snap to scale/grid, copy/paste, undo/redo. Full creative control."
       },
       {
