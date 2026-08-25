@@ -1,4 +1,4 @@
-﻿// HarmonyEngine.h
+// HarmonyEngine.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -11,31 +11,31 @@
 
 namespace ovtdsp
 {
-    // Types d'harmonie presets (intervalle de chaque voix par rapport a la note de base).
+    // Harmony type presets (interval of each voice relative to the base note).
     enum class HarmonyType
     {
-        None              = 0,  // Pas d'harmonie
-        ThirdBelow        = 1,  // Tierce en dessous (-2 degres)
-        ThirdAbove        = 2,  // Tierce au-dessus (+2 degres)
-        ThirdBelowAbove   = 3,  // Tierce en-dessous + tierce en-dessus (-2 / +2)
-        FourthBelow       = 4,  // Quarte en dessous (-3 degres)
-        FourthAbove       = 5,  // Quarte au-dessus (+3 degres)
-        FourthBelowAbove  = 6,  // Quarte en-dessous + quarte en-dessus (-3 / +3)
-        FifthBelow        = 7,  // Quinte en dessous (-4 degres)
-        FifthAbove        = 8,  // Quinte au-dessus (+4 degres)
-        FifthBelowAbove   = 9,  // Quinte en-dessous + quinte en-dessus (-4 / +4)
-        ThirdBelowFifthAbove  = 10, // Tierce en-dessous + quinte au-dessus (-2 / +4)
-        FifthBelowThirdAbove  = 11, // Quinte en-dessous + tierce au-dessus (-4 / +2)
-        OctaveBelow       = 12, // Octave en dessous
-        OctaveAbove       = 13, // Octave au-dessus
-        OctaveBelowAbove  = 14, // Octave en-dessous + octave au-dessus
-        VocalStack3       = 15, // Tierce + quinte + octave (0 +3 / +7 / +12)
+        None              = 0,  // No harmony
+        ThirdBelow        = 1,  // Third below (-2 scale degrees)
+        ThirdAbove        = 2,  // Third above (+2 scale degrees)
+        ThirdBelowAbove   = 3,  // Third below + third above (-2 / +2)
+        FourthBelow       = 4,  // Fourth below (-3 scale degrees)
+        FourthAbove       = 5,  // Fourth above (+3 scale degrees)
+        FourthBelowAbove  = 6,  // Fourth below + fourth above (-3 / +3)
+        FifthBelow        = 7,  // Fifth below (-4 scale degrees)
+        FifthAbove        = 8,  // Fifth above (+4 scale degrees)
+        FifthBelowAbove   = 9,  // Fifth below + fifth above (-4 / +4)
+        ThirdBelowFifthAbove  = 10, // Third below + fifth above (-2 / +4)
+        FifthBelowThirdAbove  = 11, // Fifth below + third above (-4 / +2)
+        OctaveBelow       = 12, // Octave below
+        OctaveAbove       = 13, // Octave above
+        OctaveBelowAbove  = 14, // Octave below + octave above
+        VocalStack3       = 15, // Third + fifth + octave (0 +3 / +7 / +12)
         VocalStack4       = 16, // 3rd below + 3rd above + 5th above + octave above
-        PowerChord        = 17, // Quinte + octave (+7 +12)
-        ParallelThird     = 18, // Tierce parallele (+1 degre)
-        Drone             = 19, // Note fixe (tonique)
-        Unison2           = 20, // Unisson (2 voix identiques)
-        UnisonOctaves4    = 21, // Unisson + octave dessous + octave dessus (4 voix)
+        PowerChord        = 17, // Fifth + octave (+7 +12)
+        ParallelThird     = 18, // Parallel third (+1 degree)
+        Drone             = 19, // Fixed note (tonic)
+        Unison2           = 20, // Unison (2 identical voices)
+        UnisonOctaves4    = 21, // Unison + octave below + octave above (4 voices)
     };
 
     /**

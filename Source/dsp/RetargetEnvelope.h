@@ -1,4 +1,4 @@
-﻿// RetargetEnvelope.h
+// RetargetEnvelope.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -19,33 +19,33 @@ namespace ovtdsp
         void prepare (double sampleRate);
         void reset();
 
-        /// Definit le temps de retargeting en millisecondes.
+        /// Sets the retargeting time in milliseconds.
         void setSpeed (float ms);
 
-        /// Traite un echantillon de ratio et retourne le ratio lisse.
-        /// @param targetRatio  ratio cible (calcule par la quantification)
-        /// @return             ratio applique apres lissage
+        /// Processes one ratio sample and returns the smoothed ratio.
+        /// @param targetRatio  target ratio (computed by the quantizer)
+        /// @return             ratio applied after smoothing
         float processSample (float targetRatio);
 
-        /// Variante "block" : applique le lissage en tenant compte du nombre
-        /// d'echantillons dans le bloc, pour que la constante de temps soit
-        /// INDEPENDANTE de la taille de buffer.
-        /// Sans cela, appeler processSample() une fois par bloc avec un alpha
-        /// per-sample donne un temps de reponse effectif de tau*numSamples
-        /// (7.2s a 144 samples @ 44.1kHz pour speed=50ms -> le Speed n'a
-        /// praticamente aucun effet a petit buffer).
-        /// @param targetRatio  ratio cible
-        /// @param numSamples   taille du bloc audio
-        /// @return             ratio lisse applique pour ce bloc
+        /// "Block" variant: applies the smoothing while accounting for the
+        /// number of samples in the block, so the time constant is
+        /// INDEPENDENT of the buffer size.
+        /// Without this, calling processSample() once per block with a
+        /// per-sample alpha gives an effective response time of tau*numSamples
+        /// (7.2s at 144 samples @ 44.1kHz for speed=50ms -> Speed has almost
+        /// no effect at small buffer sizes).
+        /// @param targetRatio  target ratio
+        /// @param numSamples   audio block size
+        /// @return             smoothed ratio applied for this block
         float processBlock (float targetRatio, int numSamples);
 
     private:
         double sampleRate = 44100.0;
         float speedMs = 50.0f;
         float currentValue = 1.0f;
-        float alpha = 1.0f; // coefficient du filtre IIR (0 = pas de change, 1 = instantane)
+        float alpha = 1.0f; // IIR filter coefficient (0 = no change, 1 = instantaneous)
 
-        // Recalcule alpha en fonction de speedMs et sampleRate.
+        // Recomputes alpha from speedMs and sampleRate.
         void recomputeAlpha();
     };
 }

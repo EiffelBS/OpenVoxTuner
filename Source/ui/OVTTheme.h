@@ -193,7 +193,7 @@ namespace ovt
     enum class WaveformDisplayType
     {
         Line    = 0,   // Simple waveform line (outline only)
-        Mirror  = 1,   // Mirrored bars (symmetric around center) â€” default
+        Mirror  = 1,   // Mirrored bars (symmetric around center) - default
         Spectral = 2   // FFT magnitude spectrum rising from the bottom (EQ-like)
     };
 

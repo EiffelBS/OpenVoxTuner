@@ -48,7 +48,7 @@ namespace ovtdsp
         // level. Quiet passages (below the pivot) get boosted; loud passages
         // (at/above the pivot) stay at unity. The 2 s TC ensures the pivot
         // doesn't track individual words or notes, only the overall level.
-        const double pivotTau = 2.0; // 2 seconds â€” very slow
+        const double pivotTau = 2.0; // 2 seconds - very slow
         pivotCoeff = 1.0f - std::exp (-1.0 / (pivotTau * sr));
         reset();
     }

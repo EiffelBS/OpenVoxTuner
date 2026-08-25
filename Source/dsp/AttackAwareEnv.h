@@ -60,7 +60,7 @@ namespace ovtdsp
             // The slowEnv > kMinLevel guard avoids a false onset on the very first
             // block after reset/start, when slowEnv is still ~0.
             //
-            // 2026-07-23 (Fix AX â€” "silence instead of scratch" bug): the
+            // 2026-07-23 (Fix AX - "silence instead of scratch" bug): the
             // original check also fired on EVERY rising block during a
             // sustained attack (e.g. a singer's note attack is 5-15 blocks
             // of continuously rising level). With the IIR ramp, each
@@ -139,7 +139,7 @@ namespace ovtdsp
         // and silence the output. 0.9 means we require at least 90% of the
         // ramp to have completed before the next onset can fire; with a
         // 60 ms release and 5.8 ms block, that's ~150 ms of "cooldown"
-        // after the helper fires â€” well-matched to the perceived length
+        // after the helper fires - well-matched to the perceived length
         // of a vocal note attack.
         static constexpr float kReadyThreshold = 0.9f;
     };

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // FormantPreserverTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -17,7 +17,7 @@ public:
     {
         using namespace ovtdsp;
 
-        beginTest ("Desactive : pas de modification");
+        beginTest ("Disabled: no modification");
         {
             FormantPreserver fp;
             fp.prepare (44100.0, 64);
@@ -26,12 +26,12 @@ public:
             juce::AudioBuffer<float> buf (1, 64);
             for (int i = 0; i < 64; ++i) buf.setSample (0, i, 0.5f);
 
-            fp.process (buf, 2.0f); // ratio extreme, mais desactive
+            fp.process (buf, 2.0f); // extreme ratio, but disabled
             for (int i = 0; i < 64; ++i)
                 expectWithinAbsoluteError (buf.getSample (0, i), 0.5f, 1e-6f);
         }
 
-        beginTest ("Ratio = 1.0 : pas de modification");
+        beginTest ("Ratio = 1.0: no modification");
         {
             FormantPreserver fp;
             fp.prepare (44100.0, 64);
@@ -41,15 +41,15 @@ public:
             for (int i = 0; i < 64; ++i) buf.setSample (0, i, 0.5f);
 
             fp.process (buf, 1.0f);
-            // Filtre biquad a 500 Hz sur DC -> b0 + b1 + b2 = gain DC.
-            // Le signal DC traverse donc un gain non unitaire, mais il n'est
-            // PAS nul. Le test verifie juste qu'on n'a pas NaN.
+            // 500 Hz biquad filter on DC -> b0 + b1 + b2 = DC gain.
+            // The DC signal therefore goes through a non-unity gain, but it
+            // is NOT zero. The test only checks that there is no NaN.
             for (int i = 0; i < 64; ++i)
                 expect (std::isfinite (buf.getSample (0, i)),
-                        "NaN dans la sortie");
+                        "NaN in the output");
         }
 
-        beginTest ("Ratio extreme : signal filtre reste borne");
+        beginTest ("Extreme ratio: filtered signal stays bounded");
         {
             FormantPreserver fp;
             fp.prepare (44100.0, 64);
@@ -64,22 +64,22 @@ public:
             {
                 const float s = buf.getSample (0, i);
                 expect (std::isfinite (s), "NaN");
-                expect (std::abs (s) < 10.0f, "Sortie explosive : " + juce::String (s));
+                expect (std::abs (s) < 10.0f, "Explosive output: " + juce::String (s));
             }
         }
 
-        beginTest ("MultiFormant : pas de discontinuite au saut de ratio (clic)");
+        beginTest ("MultiFormant: no discontinuity at ratio jump (click)");
         {
-            // Corrige la cause A : les coefficients biquad doivent etre lisses
-            // d'un bloc a l'autre. Un saut brutal de ratio (note qui demarre)
-            // ne doit PAS produire un echantillon de sortie qui explose
-            // brutalement par rapport au precedent (ce qui serait un pop).
+            // Fixes cause A: the biquad coefficients must be smooth from
+            // one block to the next. A brutal ratio jump (a note starting)
+            // must NOT produce an output sample that explodes abruptly
+            // relative to the previous one (which would be a pop).
             FormantPreserver fp;
             fp.prepare (44100.0, 512);
             fp.setEnabled (true);
             fp.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
 
-            // Signal sinusoidal continu (100 Hz) pour isoler l'effet du filtre.
+            // Continuous sine signal (100 Hz) to isolate the filter effect.
             juce::AudioBuffer<float> buf (1, 512);
             auto fill = [&] (float phase0)
             {
@@ -88,37 +88,37 @@ public:
                                                  * 100.0f * (phase0 + i) / 44100.0f));
             };
 
-            // Phase 1 : ratio stable (note de reference).
+            // Phase 1: stable ratio (reference note).
             fill (0.0f);
             fp.process (buf, 1.0f);
             float lastSample = buf.getSample (0, 511);
 
-            // Phase 2 : SAUT de ratio (simule le demarrage d'une note chantee
-            // ou un changement de hauteur). On traite plusieurs blocs.
+            // Phase 2: ratio JUMP (simulates the start of a sung note
+            // or a pitch change). Several blocks are processed.
             int maxJumpCount = 0;
             float prev = lastSample;
             for (int blk = 0; blk < 5; ++blk)
             {
                 fill (static_cast<float> (blk) * 512.0f);
-                fp.process (buf, 2.0f); // ratio double
+                fp.process (buf, 2.0f); // doubled ratio
                 for (int i = 0; i < 512; ++i)
                 {
                     const float s = buf.getSample (0, i);
-                    expect (std::isfinite (s), "NaN apres saut de ratio");
-                    // Un vrai clic audible = un saut instantane > 0.5 d'amplitude
-                    // (sur un signal unitaire). Le lissage des coefficients
-                    // biquad empÃªche les sauts repetes : on tolÃ¨re au plus 3
-                    // echantillons de saut (le tout premier sample du changement
-                    // de coeff, inÃ©vitable car le filtre a une memoire), contre
-                    // des dizaines sans lissage.
+                    expect (std::isfinite (s), "NaN after ratio jump");
+                    // A real audible click = an instantaneous jump > 0.5 in
+                    // amplitude (on a unit signal). The smoothing of the biquad
+                    // coefficients prevents repeated jumps: at most 3 jump
+                    // samples are tolerated (the very first sample of the
+                    // coefficient change, unavoidable since the filter has
+                    // memory), versus dozens without smoothing.
                     const float jump = std::abs (s - prev);
                     if (jump > 0.5f) maxJumpCount++;
                     prev = s;
                 }
             }
             expect (maxJumpCount <= 3,
-                    "Trop de discontinuites (clics) au saut de ratio MultiFormant : "
-                    + juce::String (maxJumpCount) + " echantillons (attendu <= 3)");
+                    "Too many discontinuities (clicks) at MultiFormant ratio jump: "
+                    + juce::String (maxJumpCount) + " samples (expected <= 3)");
         }
 
         beginTest ("P0 strategy (1/r + voice-type) differs from Current (1/sqrt(r))");
@@ -133,8 +133,8 @@ public:
             fpC.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
             fpP.setMode (ovtdsp::FormantPreserver::Mode::MultiFormant);
 
-            // Identical noise for both strategies. Amplitude 0.5 is safe â€”
-            // the peaking-EQ cascade (4 Ã— Qâ‰¤3.25, gain=6 dB) at ratio 2.0
+            // Identical noise for both strategies. Amplitude 0.5 is safe:
+            // the peaking-EQ cascade (4 x Q<=3.25, gain=6 dB) at ratio 2.0
             // produces bounded output without NaN when the biquad states
             // are fresh (no warm-up).
             srand (42);
@@ -175,10 +175,10 @@ public:
                     "(rmsRatio=" + juce::String (rmsRatio, 6) + ")");
         }
 
-        beginTest ("Mode.Allpass : aucune discontinuite au saut de ratio (pop/click fix)");
+        beginTest ("Mode.Allpass: no discontinuity at ratio jump (pop/click fix)");
         {
-            // Vefifie le fix #X : les coefficients lisses utilisent leurs
-            // propres z1/z2. Le saut de ratio doit etre lisse sans pop.
+            // Verifies fix #X: the smoothed coefficients use their
+            // own z1/z2. The ratio jump must be smooth without pop.
             FormantPreserver fp;
             fp.prepare (44100.0, 256);
             fp.setEnabled (true);
@@ -194,12 +194,12 @@ public:
                                              * 220.0f * (phase0 + i) / 44100.0f));
             };
 
-            // Bloc 1 : ratio 1.0
+            // Block 1: ratio 1.0
             initSignal (0.0f);
             fp.process (buf, 1.0f);
             float lastSamp = buf.getSample (0, 255);
 
-            // Bloc 2 : SAUT vers ratio 2.0
+            // Block 2: JUMP to ratio 2.0
             initSignal (256.0f);
             fp.process (buf, 2.0f);
             int bigJumps = 0;
@@ -207,15 +207,15 @@ public:
             for (int i = 0; i < 256; ++i)
             {
                 const float s = buf.getSample (0, i);
-                expect (std::isfinite (s), "Allpass: NaN sur saut de ratio");
+                expect (std::isfinite (s), "Allpass: NaN on ratio jump");
                 if (std::abs (s - prev) > 0.5f) bigJumps++;
                 prev = s;
             }
             expect (bigJumps <= 3,
-                    "Allpass : trop de sauts > 0.5 au saut de ratio "
-                    "(attendu <= 3, obtenu " + juce::String (bigJumps) + ")");
+                    "Allpass: too many jumps > 0.5 at ratio jump "
+                    "(expected <= 3, got " + juce::String (bigJumps) + ")");
 
-            // Bloc 3 : retour a ratio 1.0 (vibrato simulate)
+            // Block 3: back to ratio 1.0 (simulated vibrato)
             initSignal (512.0f);
             fp.process (buf, 1.0f);
             prev = buf.getSample (0, 252);
@@ -227,10 +227,10 @@ public:
             for (int i = 0; i < 256; ++i)
             {
                 const float s = buf.getSample (0, i);
-                expect (std::isfinite (s), "Allpass: NaN retour ratio 1.0");
+                expect (std::isfinite (s), "Allpass: NaN back at ratio 1.0");
             }
 
-            // Bloc 4+: variations rapides (ratio entre 1.0 et 2.0 alternÃ©)
+            // Block 4+: fast variations (ratio alternating between 1.0 and 2.0)
             float prevBig = buf.getSample (0, 252);
             for (int blk = 0; blk < 10; ++blk)
             {
@@ -245,11 +245,11 @@ public:
                 }
             }
             expect (bigJumps <= 50,
-                    "Allpass variations rapides : trop de pop ("
-                    + juce::String (bigJumps) + ", attendu <= 50)");
+                    "Allpass fast variations: too many pops ("
+                    + juce::String (bigJumps) + ", expected <= 50)");
         }
 
-        beginTest ("Reset : aucun artefact apres reinitialisation");
+        beginTest ("Reset: no artifact after reinitialization");
         {
             FormantPreserver fp;
             fp.prepare (44100.0, 256);
@@ -261,7 +261,7 @@ public:
                 buf.setSample (0, i, std::sin (2.0f * juce::MathConstants<float>::pi * 220.0f * i / 44100.0f));
 
             fp.process (buf, 1.5f);
-            // Reset, puis un autre bloc de process
+            // Reset, then another process block
             fp.reset();
             for (int i = 0; i < 256; ++i)
                 buf.setSample (0, i, std::sin (2.0f * juce::MathConstants<float>::pi * 220.0f * i / 44100.0f));

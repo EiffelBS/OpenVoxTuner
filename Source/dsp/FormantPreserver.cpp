@@ -1,4 +1,4 @@
-﻿// FormantPreserver.cpp
+// FormantPreserver.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -130,11 +130,11 @@ namespace ovtdsp
 
     void FormantPreserver::processChannel (float* data, int numSamples, ChannelState& s)
     {
-        // Lisse les coefficients cibles vers les coefficients appliques (un
-        // seul pas par bloc, mais applique a chaque echantillon du bloc pour
-        // rester independant de la taille de buffer). Cela empeche toute
-        // discontinuite a la sortie quand le ratio de pitch change
-        // brutalement (demarrage d'une note chanter).
+        // Smooths the target coefficients toward the applied coefficients
+        // (one step per block, but applied at every sample of the block to
+        // stay buffer-size independent). This prevents any discontinuity at
+        // the output when the pitch ratio changes abruptly (start of a sung
+        // note).
         for (int f = 0; f < 4; ++f)
         {
             s.smooth[f].b0 += biquadSmoothAlpha * (s.formants[f].b0 - s.smooth[f].b0);
@@ -180,15 +180,15 @@ namespace ovtdsp
 
     void FormantPreserver::process (juce::AudioBuffer<float>& buffer, float ratio)
     {
-        // On desactive si le module est off et qu'il n'y a ni pitch shifting ni formant shift.
+        // Disable if the module is off and there is neither pitch shifting nor formant shift.
         if (!enabled || (std::abs (ratio - 1.0f) < 1e-6f && std::abs(shiftSemitones) < 1e-6f))
             return;
 
-        // Calcul de la compensation : on deplace les formants en sens
-        // inverse du ratio (compensation). Si ratio > 1 (on va monter le
-        // pitch via PSOLA), on baisse ici les formants de (1/ratio).
-        // Note : c'est une approximation, mais elle preserve
-        // deja bien mieux le timbre qu'un PSOLA pur.
+        // Compensation computation: move the formants in the direction
+        // opposite to the ratio (compensation). If ratio > 1 (the pitch will
+        // be raised via PSOLA), lower the formants here by (1/ratio).
+        // Note: this is an approximation, but it already preserves the
+        // timbre much better than a pure PSOLA.
         const float r = juce::jlimit (0.25f, 4.0f, ratio);
 
         // Compensation ratio. P0 strategy uses full 1/r compensation (moves
@@ -198,7 +198,7 @@ namespace ovtdsp
                                             ? (1.0f / r)
                                             : (1.0f / std::sqrt (r));
 
-        // Ajout du decalage de formants manuel
+        // Apply the manual formant shift on top
         const float shiftRatio = std::pow (2.0f, shiftSemitones / 12.0f);
 
         const int numChannels = juce::jmin (2, buffer.getNumChannels());

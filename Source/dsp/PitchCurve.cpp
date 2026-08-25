@@ -1,11 +1,11 @@
-﻿// PitchCurve.cpp
+// PitchCurve.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
 
 
 #include "PitchCurve.h"
-#include "ScaleQuantizer.h" // pour l'enum ovtdsp::Scale et les types lies a la gamme
+#include "ScaleQuantizer.h" // for the ovtdsp::Scale enum and scale-related types
 #include <cmath>
 
 namespace ovtdsp
@@ -14,21 +14,21 @@ namespace ovtdsp
 
     int PitchCurve::addOrUpdatePoint (double time, float pitch)
     {
-        // Cherche si un point existe deja au meme 'time' (a 1 ms pres).
+        // Look for an existing point at the same 'time' (within 1 ms).
         for (int i = 0; i < points.size(); ++i)
         {
             if (std::abs (points[i].time - time) < 0.001)
             {
-                // Fix : on passe par une reference pour eviter un probleme
-                // d'evaluation de l-value avec juce::Array::operator[] dans
-                // certains contextes (defensive).
+                // Fix: go through a reference to avoid an l-value evaluation
+                // problem with juce::Array::operator[] in some contexts
+                // (defensive).
                 auto& pt = points.getReference (i);
                 pt.pitch = pitch;
                 return i;
             }
         }
 
-        // Sinon, ajoute un nouveau point.
+        // Otherwise, add a new point.
         PitchPoint p;
         p.time = time;
         p.pitch = pitch;
@@ -112,7 +112,7 @@ namespace ovtdsp
 
     void PitchCurve::sortPoints()
     {
-        // Tri par insertion (la liste reste petite : qq dizaines de points max).
+        // Insertion sort (the list stays small: a few dozen points at most).
         for (int i = 1; i < points.size(); ++i)
         {
             const PitchPoint key = points[i];
@@ -132,12 +132,12 @@ namespace ovtdsp
         if (N == 0) return defaultValue;
         if (N == 1) return points[0].pitch;
 
-        // Avant le premier point : on tient la valeur du premier.
+        // Before the first point: hold the first point's value.
         if (time <= points[0].time) return points[0].pitch;
-        // Apres le dernier point : on tient la valeur du dernier.
+        // After the last point: hold the last point's value.
         if (time >= points[N - 1].time) return points[N - 1].pitch;
 
-        // Recherche dichotomique du segment [points[i], points[i+1]] contenant time.
+        // Binary search for the segment [points[i], points[i+1]] containing time.
         int lo = 0, hi = N - 1;
         while (hi - lo > 1)
         {
@@ -146,7 +146,7 @@ namespace ovtdsp
             else hi = mid;
         }
 
-        // Interpolation lineaire entre points[lo] et points[hi] (ou palier si stepMode).
+        // Linear interpolation between points[lo] and points[hi] (or plateau in stepMode).
         const double t0 = points[lo].time;
         const double t1 = points[hi].time;
         const double frac = stepMode ? 0.0 : ((t1 > t0) ? (time - t0) / (t1 - t0) : 0.0);
@@ -169,13 +169,12 @@ namespace ovtdsp
         const int currentMidi = static_cast<int> (std::round (12.0f * std::log2 (hz / 440.0f))) + midiRef;
         const int noteInOctave = ((currentMidi % 12) + 12) % 12;
 
-        // Deja sur une note de la gamme : on "quantifie" quand meme vers la
-        // frequence EXACTE de la note (et non la valeur brute cliquee), sinon
-        // le point reste ou il a ete pose (leger decalage) et l'effet "snap"
-        // n'est pas visible pour les notes de la gamme. C'est ce comportement
-        // qui faisait que D/G/A# (notes de la gamme) ne semblaient pas snapper
-        // alors que les notes hors-gamme (corrigees par la boucle circulaire
-        // plus bas) bougeaient bel et bien.
+        // Already on a scale note: still "quantize" toward the note's EXACT
+        // frequency (not the raw clicked value); otherwise the point stays
+        // where it was dropped (slight offset) and the "snap" effect is not
+        // visible for in-scale notes. This behavior was why D/G/A# (in-scale
+        // notes) did not seem to snap while out-of-scale notes (corrected by
+        // the circular loop below) did move.
         if (intervals.contains (noteInOctave))
             return 440.0f * std::pow (2.0f, (currentMidi - midiRef) / 12.0f);
 
@@ -263,12 +262,12 @@ namespace ovtdsp
 
         if (presetName == "default")
         {
-            makeFlat(220.0f); // A3 par defaut
+            makeFlat(220.0f); // A3 default
         }
         else if (presetName == "robot_c3")
         {
             makeFlat(130.81f); // C3
-            stepMode = true; // flat robotique = step mode ok
+            stepMode = true; // robotic flat = step mode is fine
         }
         else if (presetName == "robot_c4")
         {
@@ -277,17 +276,17 @@ namespace ovtdsp
         }
         else if (presetName == "spoken_male")
         {
-            makeSpoken(120.0f, 5.0f); // Autour de B2
+            makeSpoken(120.0f, 5.0f); // Around B2
         }
         else if (presetName == "spoken_female")
         {
-            makeSpoken(220.0f, 10.0f); // Autour de A3
+            makeSpoken(220.0f, 10.0f); // Around A3
         }
         else if (presetName == "bass")
         {
             const float p[] = { 82.41f, 98.00f, 110.00f, 130.81f, 110.00f, 98.00f, 82.41f, 82.41f };
             makeMelody(p, 8);
-            stepMode = true; // notes separees
+            stepMode = true; // separate notes
         }
         else if (presetName == "baritone")
         {

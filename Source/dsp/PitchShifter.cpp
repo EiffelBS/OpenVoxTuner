@@ -1,4 +1,4 @@
-﻿// PitchShifter.cpp
+// PitchShifter.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -14,9 +14,6 @@
  #define OVT_LOG(msg) do { } while (false)
 #endif
 
-// Global debug counter
-std::atomic<int> gPitchShifterGrainEvents { 0 };
-
 namespace ovtdsp
 {
     // Forward declaration: kbdWindow is defined further below but needed
@@ -25,11 +22,11 @@ namespace ovtdsp
 
     PitchShifter::PitchShifter()
     {
-        // Le ringBuffer a une taille constexpr (65536), donc on l'alloue une
-        // seule fois ici, au lieu de le (re)allouer a chaque prepare(). C'est
-        // crucial : sur Live/Cubase VST3, prepareToPlay() peut etre appele des
-        // dizaines de fois en cascade au demarrage, et chaque ringBuffer de
-        // 512 KB (5 instances) alloue + memset a 0 coutait ~18s cumules.
+        // The ringBuffer has a constexpr size (65536), so we allocate it once
+        // here instead of (re)allocating it on every prepare(). This matters:
+        // on Live/Cubase VST3, prepareToPlay() can be called dozens of times
+        // in a row at startup, and each ringBuffer allocation + memset to 0
+        // (512 KB x 5 instances) used to cost ~18s cumulated.
         ringBuffer.setSize (2, bufferSize);
         ringBuffer.clear();
     }
@@ -47,19 +44,11 @@ namespace ovtdsp
         externalAttackSmoother.setTimeConstantSeconds (externalAttackTauSeconds);
         externalAttackSmoother.snapTo (1.0f);
         externalAttackEnabled = false;
-        attackGain = 1.0f;
 
-        // Initialize attack envelope alpha (one-pole smoothing)
-        if (attackMs > 0.0f)
-        {
-            const double tau = attackMs * 0.001;
-            attackAlpha = 1.0 - std::exp (-1.0 / (tau * sampleRate));
-        }
-        else
-        {
-            attackAlpha = 0.0;
-        }
-        attackGain = (attackMs > 0.0f) ? 0.0f : 1.0f;
+        // Initialize attack envelope alphas + initial gain (the note-on
+        // fade-in starts faded down when an attack time is configured).
+        attackEnvelope.computeAlphas (sampleRate, attackMs);
+        attackEnvelope.initGain (attackMs > 0.0f);
         wasVoiced = false;
 
         // Initialize startup fade-in (~20ms)
@@ -67,27 +56,27 @@ namespace ovtdsp
         startupGain = 0.0f;
         startupAlpha = 1.0 - std::exp (-1.0 / (0.020 * sampleRate));
 
-        // Mesure la somme OLA reelle du KBD (beta=6) pour la
-        // configuration effective : 2.5 grains en overlap (outLength =
-        // 2.5 * min(Tin, Tout), donc 2.5 grains a 40% d'ecart de phase
-        // = 1/2.5). La mesure precedente (2 fenetres a 50% d'ecart)
-        // etait theoriquement correcte pour un overlap 50% parfait,
-        // mais ne reflait pas le nombre de grains reels en overlap,
-        // d'ou un sous-gain de -9 dB dans le DAW.
+        // Measure the real OLA sum of the KBD window (beta=6) for the
+        // effective configuration: 2.5 grains in overlap (outLength =
+        // 2.5 * min(Tin, Tout), i.e. 2.5 grains at 40% phase spacing
+        // = 1/2.5). The previous measurement (2 windows at 50% spacing)
+        // was theoretically correct for a perfect 50% overlap but did
+        // not reflect the actual number of overlapping grains,
+        // hence a -9 dB under-gain in the DAW.
         //
-        // Formule : OLA_sum = moyenne sur une periode de sortie de
+        // Formula: OLA_sum = average over one output period of
         //   sum_{k=0}^{N-1} w(phase + k/N)
-        // ou N = 2.5 (arrondi a 3 grains au maximum, legerement
-        // conservateur). Pour cette fenetre Kaiser beta=6, on mesure
-        // ~1.27 (au lieu de 1.07 pour 2 fenetres a 50%).
+        // where N = 2.5 (rounded up to 3 grains maximum, slightly
+        // conservative). For this Kaiser beta=6 window we measure
+        // ~1.27 (instead of 1.07 for 2 windows at 50%).
         //
-        // Idempotence : ce calcul ne depend pas de sampleRate (uniquement
-        // de beta et du nombre d'overlaps), donc on ne le fait qu'une fois
-        // par instance (au premier prepare()).
-        if (kbdColaSum < 0.0)  // sentinel: initialise a -1 dans le header
+        // Idempotence: this computation does not depend on sampleRate
+        // (only on beta and the number of overlaps), so it is done only
+        // once per instance (on the first prepare()).
+        if (kbdColaSum < 0.0)  // sentinel: initialized to -1 in the header
         {
             constexpr int N = 2048;
-            constexpr int numOverlap = 3;   // 2.5 grains, arrondi a 3
+            constexpr int numOverlap = 3;   // 2.5 grains, rounded to 3
             constexpr double phaseStep = 1.0 / 2.5; // = 0.4 (= 1/2.5)
             double sum = 0.0;
             for (int i = 0; i < N; ++i)
@@ -102,18 +91,18 @@ namespace ovtdsp
                 }
                 sum += winSum;
             }
-            // colaPerSample = OLA sum par echantillon de sortie.
-            // Grain gain = 1.0 / colaPerSample pour un OLA unitaire.
+            // colaPerSample = OLA sum per output sample.
+            // Grain gain = 1.0 / colaPerSample for a unit OLA.
             const double colaPerSample = (sum > 1e-6) ? (sum / static_cast<double> (N)) : 1.0;
             kbdColaSum = colaPerSample;
         }
 
-        // ringBuffer deja alloue dans le constructeur (taille constexpr).
-        // On le clear() pour repartir d'un etat propre (zeros).
+        // ringBuffer already allocated in the constructor (constexpr size).
+        // We clear() it to start from a clean state (zeros).
         ringBuffer.clear();
 
         reset();
-        firstPrepareDone = true; // vrai demarrage du plugin
+        firstPrepareDone = true; // actual plugin startup
     }
 
     void PitchShifter::reset()
@@ -129,16 +118,18 @@ namespace ovtdsp
     // initial state.
     lastPitchRatio = 1.0f;
 
-    // Reset attack envelope state
-    attackGain = (attackMs > 0.0f) ? 0.0f : 1.0f;
+    // Reset attack envelope state. The timers are cleared too: after a
+    // full reset the ring buffer is empty, so an in-flight RampDown/
+    // RecoverSlow phase has no audible purpose anymore.
+    attackEnvelope.initGain (attackMs > 0.0f);
+    attackEnvelope.clearTimers();
     wasVoiced = false;
     lastF0 = 0.0f;
-        hystVoiced = false;
-        voiceDebounceCounter = 0;
+        voiceDetector.reset();
 
-    // Reset startup fade-in: ne se re-arme QUE lors du tout premier
-    // demarrage du plugin (prepare), pas lors d'un reset de session
-    // (seek/preset) qui survient en plein milieu d'un signal deja audible.
+    // Reset the startup fade-in: it only re-arms on the very first
+    // plugin start (prepare), not on a session reset (seek/preset)
+    // happening in the middle of an already audible signal.
         if (! firstPrepareDone)
     {
     startupGain = 0.0f;
@@ -151,8 +142,8 @@ namespace ovtdsp
 
     void PitchShifter::resetSoft()
     {
-        // Reset l'etat interne (ring, phases, enveloppes, grains) SANS toucher
-        // a la fade-in de demarrage : on evite ainsi un pop en cours de session.
+        // Reset the internal state (ring, phases, envelopes, grains) WITHOUT
+        // touching the startup fade-in: this avoids a pop mid-session.
         ringBuffer.clear();
         absoluteWritePos = 0;
         totalWritten = 0;
@@ -163,16 +154,17 @@ namespace ovtdsp
         lastGrainCenter = 0.0;
         // 2026-07-23 (Fix BB): reset the previous-pitch-ratio tracker.
         lastPitchRatio = 1.0f;
-        attackGain = (attackMs > 0.0f) ? 0.0f : 1.0f;
         wasVoiced = false;
         lastF0 = 0.0f;
+        voiceDetector.reset();
         // 2026-07-23 (Fix AW): reset the external attack-gain smoother so
         // the first block after a transport stop / preset change doesn't
         // carry any residual modulation from the previous session.
         externalAttackSmoother.snapTo (1.0f);
-        attackGain = 1.0f;
+        attackEnvelope.forceOpen();
+        attackEnvelope.clearTimers();
         externalAttackEnabled = false;
-        // startupSamplesRemaining et startupGain NE SONT PAS reinitialises.
+        // startupSamplesRemaining and startupGain are NOT reset here.
         for (int i = 0; i < MAX_GRAINS; ++i)
             grains[i].active = false;
     }
@@ -180,20 +172,30 @@ namespace ovtdsp
     void PitchShifter::setAttackTimeMs (float ms)
     {
         attackMs = juce::jmax (0.0f, ms);
-        // Recalculate alpha if sampleRate is known
+        // Recalculate the envelope alphas if sampleRate is known
         if (sampleRate > 0.0)
-        {
-            // One-pole smoothing: alpha = 1 - exp(-1 / (tau * sr))
-            // where tau = attackMs / 1000
-            const double tau = attackMs * 0.001;
-            attackAlpha = 1.0 - std::exp (-1.0 / (tau * sampleRate));
-        }
+            attackEnvelope.computeAlphas (sampleRate, attackMs);
     }
 
     void PitchShifter::setLatencyMs (float newLatencyMs)
     {
         latencyMs = juce::jlimit (8.0f, 40.0f, newLatencyMs);
         latencySamples = static_cast<int> (sampleRate * (latencyMs * 0.001f));
+    }
+
+    // See the header comment for the full rationale. The outPhase clamp
+    // means only ONE grain is created at the onset; the chain then restarts
+    // cleanly at its normal ~5 ms cadence. Trade-off: ~5-20 ms of additional
+    // attack latency (the time for the first grain to reach the note's start
+    // behind the latency line), inaudible behind the 30 ms attack envelope.
+    // Resetting lastGrainCenter forces the "(idealCenter - lastGrainCenter)
+    // > 50 ms" branch of findBestOffset, which searches a pitch mark
+    // LOCALLY around idealCenter - always correct since the new signal is
+    // stable by then.
+    void PitchShifter::restartGrainChainOnOnset() noexcept
+    {
+        outPhase = 1.0;
+        lastGrainCenter = 0.0;
     }
 
     // ------------------------------------------------------------------------
@@ -203,7 +205,7 @@ namespace ovtdsp
     // KBD (Kaiser-Bessel derived) window with lookup table.
     //
     // The window is precomputed once for beta=6 (the only value used in
-    // practice â€” see the prepare() function) at 2049 phase points across
+    // practice - see the prepare() function) at 2049 phase points across
     // [0, 1]. The per-sample cost drops from ~10 I0 iterations + 1 sqrt
     // to a single linear-interpolated table lookup. For 3 active grains
     // per sample at 44.1 kHz, this saves ~20-30 ms/sec of CPU (1-3% of
@@ -412,15 +414,17 @@ namespace ovtdsp
 
         // Block-level voice onset detection: if first sample has f0 > 0
         // and lastF0 was 0 (or very small), it's a voice onset. Only used
-        // to arm the internal attack envelope (slowAttackSamplesRemaining /
-        // attackRampDownSamplesRemaining); the grain chain reset and the
-        // "idealCenter / lastGrainCenter = 0" logic below is independent
-        // and always runs, because it is what keeps the OLA chain from
-        // reading stale positions.
+        // to snap the attack envelope automaton to zero (note-on fade-in);
+        // the grain chain restart below is independent and always runs,
+        // because it is what keeps the OLA chain from reading stale
+        // positions.
         bool blockOnset = (f0 > 40.0f && lastF0 <= 40.0f);
         if (blockOnset && attackEnvelopeEnabled)
         {
-            attackGain = 0.0f; // Trigger attack envelope at start of block
+            // Note-on: hard snap the envelope to zero at the block boundary.
+            // The preceding gap was silent, so no step is audible; the
+            // RecoverNormal phase then fades the note in over attackMs.
+            attackEnvelope.snapToZero();
         }
 
         for (int i = 0; i < numSamples; ++i)
@@ -439,59 +443,31 @@ namespace ovtdsp
             // Virtual read position (accounting for latency)
             double virtualInputTime = static_cast<double> (absoluteWritePos) - latencySamples;
 
-            // Lissage du pitch d'entree (evite les sauts de periode
-            // des grains au demarrage d'une note ou a un saut de hauteur).
+            // Smooth the input pitch (avoids period jumps of the grains
+            // at note start or on a pitch step).
             if (f0 > 0.0f)
             {
-                // A l'onset d'une note (saut net de hauteur), on fait
-                // converger smoothedF0 directement vers f0 au lieu de
-                // lisser : le nouveau grain obtient ainsi les bonnes
-                // periodes immediatement, et le per-grain attack (40%)
-                // lisse le demarrage. Sans cela le grain cible une
-                // periode erronee -> discontinuite au saut de note.
+                // At note onset (sharp pitch jump), we make smoothedF0
+                // converge directly to f0 instead of smoothing: the new
+                // grain thus gets the correct periods immediately, and
+                // the per-grain attack (40%) smooths the start. Without
+                // this, the grain targets a wrong period -> discontinuity
+                // at the note jump.
                 smoothedF0 += kF0SmoothAlpha * (f0 - smoothedF0);
             }
             else
-                smoothedF0 = 0.0f; // silence : on garde 0
+                smoothedF0 = 0.0f; // silence: keep 0
 
-            // Target pitch frequency (basee sur le f0 lisse)
+            // Target pitch frequency (based on the smoothed f0)
             double targetF0 = smoothedF0 * currentRatio;
             targetF0 = juce::jlimit (20.0, 2000.0, targetF0);
 
             // Phase accumulator for output pitch marks.
-            // Detection voiced/unvoiced avec HYSTERESIS + DEBOUNCE : on evite
-            // les allers-retours autour du seuil (fremissement vocal au debut
-            // d'une note) qui remettraient attackGain a 0 en boucle -> clics.
-            {
-                const bool rawVoiced = (f0 > kVoiceOnThreshold);
-                if (rawVoiced && !hystVoiced)
-                {
-                    // Montee : exige kVoiceDebounceSamples echantillons
-                    // consecutifs au-dessus du seuil avant de valider.
-                    if (++voiceDebounceCounter >= kVoiceDebounceSamples)
-                        hystVoiced = true;
-                }
-                else if (!rawVoiced && hystVoiced)
-                {
-                    // Descente : seuil plus bas (hysteresis) et debounce.
-                    if (f0 < kVoiceOffThreshold)
-                    {
-                        if (++voiceDebounceCounter >= kVoiceDebounceSamples)
-                            hystVoiced = false;
-                    }
-                    else
-                    {
-                        // Entre les deux seuils : garde l'etat, reset compteur.
-                        voiceDebounceCounter = 0;
-                    }
-                }
-                else
-                {
-                    // Pas de changement d'etat en cours : ne compte pas.
-                    voiceDebounceCounter = 0;
-                }
-            }
-            const bool isVoiced = hystVoiced;
+            // Voiced/unvoiced detection with HYSTERESIS + DEBOUNCE (see the
+            // VoiceActivityDetector documentation): avoids back-and-forth
+            // around the threshold (vocal flutter at note starts), which
+            // would re-arm the attack envelope in a loop -> clicks.
+            const bool isVoiced = voiceDetector.processSample (f0);
             
             // Voice onset detection: f0 transitions from unvoiced to voiced
             // OR large sudden pitch jump (new note attack)
@@ -517,8 +493,8 @@ namespace ovtdsp
             // is armed to mask the OLA re-organisation. Without this,
             // the OLA chain "snaps" to a new period every time the
             // smoother output changes by more than ~1% per block,
-            // producing the user-reported "pop/clics aux changements de
-            // pitch" with Flex>0 (which can change currentFlexTuneAmount
+            // producing the user-reported "pop/clicks at pitch changes"
+            // with Flex>0 (which can change currentFlexTuneAmount
             // from 0 to 1.0 at every deadband transition, i.e. several
             // times per vibrato cycle).
             //
@@ -546,80 +522,40 @@ namespace ovtdsp
             // detected (e.g. FlexTune deadband transition), arm the
             // internal attack envelope WITHOUT resetting the OLA chain.
             // This is the same envelope arming as the ONSET case, but
-            // without `outPhase = 1.0` and `lastGrainCenter = 0.0`
-            // (which would re-introduce the "trumpet" artifact at every
-            // deadband transition).
+            // without the grain-chain restart (which would re-introduce
+            // the "trumpet" artifact at every deadband transition).
             if (ratioJumpDetected)
-            {
-                slowAttackSamplesRemaining = static_cast<int> (sampleRate * 0.100);
-                attackRampDownSamplesRemaining = static_cast<int> (sampleRate * 0.015);
-            }
+                attackEnvelope.armForRatioJump (sampleRate);
 
             if (onsetDetected)
             {
-                // The slowAttackSamplesRemaining / attackRampDownSamplesRemaining
-                // arming below is what gives the internal attack envelope its
-                // 150 ms / 20 ms "ramp down then ramp up" behaviour on note
-                // onsets and pitch jumps. When an external helper (e.g.
-                // ovtdsp::AttackAwareEnv) is driving the correction amount,
-                // we don't want the internal envelope to ALSO run â€” that
-                // double-attenuation is what the user reports as a
-                // "scratchy attack" at low Amount. Skip the arming, but
-                // still do the OLA chain reset (outPhase = 1.0,
-                // lastGrainCenter = 0.0) which is independent of the
-                // envelope and is what prevents clicks from mis-aligned
-                // grains.
+                // The arming below is what gives the internal attack
+                // envelope its 150/20 ms "ramp down then slow ramp up"
+                // behaviour on note onsets and pitch jumps (see the
+                // AttackEnvelope phase documentation). When an external
+                // helper (e.g. ovtdsp::AttackAwareEnv) is driving the
+                // correction gain, we don't want the internal envelope to
+                // ALSO run - that double-attenuation is what the user
+                // reports as a "scratchy attack" at low Amount (Fix AL).
+                // The arming is skipped, but the grain-chain restart below
+                // still runs: it is independent of the envelope and is what
+                // prevents clicks from mis-aligned grains.
                 if (attackEnvelopeEnabled)
                 {
-                    // Do NOT reset attackGain to 0 here: that creates an instant
-                    // step from the previous output (attackGain=1, e.g. -0.39) to
-                    // 0 at the first sample after the jump -> audible click.
-                    // Instead, drive the smoother's target to 0 for ~20 ms (882
-                    // samples @ 44.1 kHz), so the attackGain ramps DOWN smoothly
-                    // from 1.0 to ~0.17, then ramps back UP to 1.0 over a
-                    // total slow window of ~150 ms. The deeper + longer dip
-                    // masks the OLA re-organisation that follows a continuous
-                    // pitch jump (200 -> 300 Hz): the old 200 Hz grains die
-                    // and the new 300 Hz grains start, causing local OLA sum
-                    // fluctuations of up to Â±0.4 around the steady-state value
-                    // during ~20-50 ms. By keeping attackGain < 0.5 during
-                    // that window, the audible delta stays below 0.1.
-                    slowAttackSamplesRemaining = static_cast<int> (sampleRate * 0.150);
-                    attackRampDownSamplesRemaining = static_cast<int> (sampleRate * 0.020);
+                    // NOTE: no hard reset of the envelope gain here - that
+                    // would create an instant step from the previous output
+                    // to 0 at the first sample after the jump -> click.
+                    // Instead RampDown drives the target to 0 so the gain
+                    // dips smoothly, then RecoverSlow climbs back with the
+                    // slow TC, masking the OLA re-organisation window.
+                    attackEnvelope.armForOnset (sampleRate);
                 }
 
-                // Clamp outPhase to 1.0 to prevent a burst of grains at the
-                // onset. After a silence of N ms, the !isVoiced branch above
-                // accumulated outPhase by N * 100 / sampleRate â€” easily 5+
-                // for a 50 ms gap. Without this clamp, the next sample would
-                // create (floor(outPhase) + 1) grains in rapid succession, all
-                // reading the same content. With a per-grain gain of 0.4 and
-                // 5 grains overlapping, the OLA sum peaks at 5 * 0.4 = 2.0
-                // after the per-grain attack ramp finishes (~10 ms), causing
-                // a "trumpet" / clipping attack (sum > 1.0). Clamping to 1.0
-                // means only ONE grain is created at the onset, then the
-                // chain restarts cleanly at 5 ms intervals. The trade-off is
-                // ~5-20 ms of additional attack latency (the time for the
-                // first grain to reach the note's start in the ring buffer),
-                // which is inaudible behind the 30 ms attack envelope.
-                outPhase = 1.0;
-
-                // Force the next grain to look for a LOCAL pitch mark
-                // instead of a "follow-up" of the previous grain's center.
-                // After a jump (saut de note 200->300 Hz) or a long silence
-                // (staccato rep #2+), lastGrainCenter is stale: it points
-                // into a region of the old pitch period, and
-                // (lastGrainCenter + Tin) computed at the new f0 may
-                // fall outside the 10 ms search window of findBestOffset,
-                // OR worse, find a spurious cross-correlation peak on the
-                // new pitch period, mis-aligning the first new grain by
-                // tens of samples. The result is an audible click 10-30 ms
-                // after the onset (when the OLA re-organises around the
-                // mis-aligned grain). Resetting to 0 forces the
-                // "(idealCenter - lastGrainCenter) > 50 ms" branch, which
-                // searches a pitch mark locally around idealCenter â€” always
-                // correct since the new signal is now stable.
-                lastGrainCenter = 0.0;
+                // Grain-chain restart: clamp outPhase so exactly ONE grain
+                // is created at the onset, and invalidate lastGrainCenter so
+                // the next grain re-aligns on a LOCAL pitch mark (full
+                // rationale in restartGrainChainOnOnset()).
+                restartGrainChainOnOnset();
             }
             wasVoiced = isVoiced;
             lastF0 = f0;
@@ -647,8 +583,8 @@ namespace ovtdsp
                 outPhase -= 1.0;
 
                 // Input and output periods
-                // Periode basee sur le f0 LISSE pour que la taille
-                // de grain evolue en douceur lors d'un saut de note.
+                // Period based on the SMOOTHED f0 so the grain size
+                // evolves smoothly across a note jump.
                 double Tin = (smoothedF0 > 40.0f) ? (sampleRate / smoothedF0) : (sampleRate * 0.010);
                 double Tout = (smoothedF0 > 40.0f) ? (sampleRate / targetF0) : (sampleRate * 0.010);
                 double F = currentFormantRatio;
@@ -672,12 +608,12 @@ namespace ovtdsp
                 // start, and smoothedF0 softens the period transition.
                 // We keep outPhase continuous.
 
-                // Protection anti-lecture hors historique valide : si le centre
-                // ideal (ou le debut de lecture du grain qui le precede) tomberait
-                // avant les echantillons reellement disponibles dans le ring, on
-                // le decale vers la droite. Sans cela, en mode faible latence ou
-                // juste apres prepare(), on lirait des zeros melanges au signal
-                // -> transition brute -> pop au demarrage de la note.
+                // Protection against reading outside valid history: if the
+                // ideal center (or the read start of the grain preceding it)
+                // would fall before the samples actually available in the
+                // ring, we shift it right. Otherwise, in low-latency mode or
+                // right after prepare(), we would read zeros mixed with the
+                // signal -> raw transition -> pop at note start.
                 const double halfGrain = outLength * F / 2.0;
                 const double minCenter = static_cast<double> (latencySamples) + halfGrain;
                 if (idealCenter < minCenter)
@@ -690,18 +626,19 @@ namespace ovtdsp
                     if (lastGrainCenter > 0.0
                         && (idealCenter - lastGrainCenter) <= sampleRate * 0.05)
                     {
-                        // Grain precedent proche : on recherche le pitch mark
-                        // qui suit (lastGrainCenter + Tin) pour une phase coherente.
+                        // Previous grain is close: search for the pitch mark
+                        // that follows (lastGrainCenter + Tin) for a coherent
+                        // phase.
                         double targetToMatch = lastGrainCenter + Tin;
                         bestOffset = findBestOffset (idealCenter, targetToMatch, 10.0, f0, maxSafeOffset);
                     }
                     else
                     {
-                        // Pas de grain precedent proche (pause > 50 ms ou tout
-                        // premier grain) : on recherche un pitch mark LOCAL
-                        // autour d'idealCenter au lieu de sauter au hasard. Cela
-                        // aligne le 1er grain de la nouvelle note sur une
-                        // periode reelle du signal -> pas de discontinuite.
+                        // No close previous grain (pause > 50 ms or very
+                        // first grain): search for a LOCAL pitch mark around
+                        // idealCenter instead of jumping randomly. This aligns
+                        // the 1st grain of the new note on an actual period of
+                        // the signal -> no discontinuity.
                         bestOffset = findBestOffset (idealCenter, idealCenter, 12.0, f0, maxSafeOffset);
                     }
                 }
@@ -735,8 +672,8 @@ namespace ovtdsp
                     //
                     // K = 1.20 : empirical factor calibrated against the
                     //   measured RMS on a sustained 200 Hz sinus with
-                    //   attackFraction=0.0. Gives RMS = 0.71 (sinus unitaire
-                    //   attendu = 0.707) -> 0 dB.
+                    //   attackFraction=0.0. Gives RMS = 0.71 (expected for
+                    //   a unit sinus = 0.707) -> 0 dB.
                     // Without this, RMS = 0.24 instead of 0.707 (-9.3 dB
                     // under-gain, perceived as "the plugin drops the level"
                     // in the DAW). With K, RMS = 0.71 (target).
@@ -750,34 +687,31 @@ namespace ovtdsp
                     // ~0.374 instead of the correct ~0.87.
                     //
                     // History of K values (attackFraction, K) -> RMS:
-                    //   (0.50, 1.45) -> 0.52  // Fix J/J': sous-gain residuel
-                    //   (0.50, 1.97) -> 0.71  // correct, mais clic 452 ms
-                    //   (0.00, 1.20) -> 0.71  // OK rms, mais clic 325 ms
-                    //   (onset=1, non=0, 1.20) -> 0.71  // Fix K retenu
+                    //   (0.50, 1.45) -> 0.52  // Fix J/J': residual under-gain
+                    //   (0.50, 1.97) -> 0.71  // correct, but click at 452 ms
+                    //   (0.00, 1.20) -> 0.71  // OK rms, but click at 325 ms
+                    //   (onset=1, no=0, 1.20) -> 0.71  // Fix K retained
                     constexpr double kGainCompensation = 1.20;
                     grains[gIdx].gain = static_cast<float> (kGainCompensation / kbdColaSum);
                     grains[gIdx].active = true;
 
-                    // Per-grain attack: ABSENT en regime permanent
-                    // (attackFraction = 0.0) pour ne pas detourner le gain
-                    // COLA et garder RMS = 0.71. La rampe d'attaque globale
-                    // (attackMs = 30 ms via setAttackTimeMs) absorbe deja
-                    // les transitoires au demarrage d'une note.
+                    // Per-grain attack: ABSENT in steady state
+                    // (attackFraction = 0.0) so as not to divert the COLA
+                    // gain and keep RMS = 0.71. The global attack ramp
+                    // (attackMs = 30 ms via setAttackTimeMs) already absorbs
+                    // transients at note start.
                     //
-                    // En cas d'onset (debut de note ou saut de hauteur > 2
-                    // demi-tons), on impose attackFraction = 1.0 (grain
-                    // complet) : le nouveau grain contribue ~0 au moment du
-                    // saut, ce qui empeche le "clic d'OOLA" (somme de
-                    // fenetres depassant 1.0 transitoirement au saut).
-                    // Cet impact est localise aux ~12 premiers ms d'un
-                    // onset, negligeable sur le RMS mesure (note soutenue
-                    // > 200 ms).
+                    // On onset (note start or pitch jump > 2 semitones), we
+                    // force attackFraction = 1.0 (full grain): the new grain
+                    // contributes ~0 at the jump instant, which prevents the
+                    // "OLA click" (sum of windows transiently exceeding 1.0
+                    // at the jump). This impact is localized to the first
+                    // ~12 ms of an onset, negligible on the measured RMS
+                    // (sustained note > 200 ms).
                     const float attackFraction = onsetDetected ? 1.0f : 0.0f;
                     const int attackSamples = juce::jmax (4, static_cast<int> (outLength * attackFraction));
                     grains[gIdx].attackAlpha = 1.0 / static_cast<double> (attackSamples);
                     grains[gIdx].attackGain = 0.0f;
-
-                    gPitchShifterGrainEvents.fetch_add (1, std::memory_order_relaxed);
 
                     if (doLog)
                     {
@@ -829,67 +763,43 @@ namespace ovtdsp
                 }
             }
 
-            // Apply attack envelope on voice onset. After a pitch jump we
-            // 1) drive the smoother's target to 0 for ~5 ms (attackRampDown)
-            //    so attackGain ramps DOWN smoothly from 1.0 to ~0.86,
-            //    avoiding the instant step (click) that a hard reset to 0
-            //    would cause.
-            // 2) then ramp UP to 1.0 with a slower ~80 ms time constant
-            //    (slowAttackSamplesRemaining) instead of the user attackMs,
-            //    so the old 200 Hz content is fully masked.
+            // Apply the output gain from the attack-envelope automaton.
+            // Three exclusive modes (the mode can only change on block
+            // boundaries):
             //
-            // The envelope can be disabled by an external helper (e.g.
-            // ovtdsp::AttackAwareEnv) that already controls the correction
-            // gain via the amount multiplier. In that case we leave
-            // attackGain at 1.0 and skip the per-sample math entirely. This
-            // is critical for the Attack feature at low Amount: with the
-            // helper enabled, both the helper AND the internal envelope
-            // would compete, producing a "double attenuation" that the
-            // user perceives as a scratchy artifact.
-            // 2026-07-23 (Fix AW): external attack-gain driver. When the
-            // external driver is enabled (set via setExternalAttackGain),
-            // the per-block smoothed value is used as the OUTPUT
-            // multiplier directly, without per-sample ramping. The
-            // modulation is applied to the OUTPUT (not the OLA target
-            // ratio) so the OLA chain's grain spacing is stable across
-            // the transition. The internal envelope's onset-ramping
-            // (slowAttackSamplesRemaining / attackRampDownSamplesRemaining)
-            // is bypassed in this case to avoid double-attenuation.
+            // 1. EXTERNAL DRIVER (Fix AW): ovtdsp::AttackAwareEnv pushes a
+            //    smoothed BLOCK-level gain through setExternalAttackGain();
+            //    it lands directly in attackEnvelope.gain. Per-sample
+            //    ramping is a no-op here because the value is constant
+            //    within the block. The modulation is applied to the OUTPUT
+            //    (not the OLA target ratio) so the grain spacing stays
+            //    stable across the transition. The internal timers are kept
+            //    cleared so they cannot fire later in a stale state.
+            // 2. INTERNAL ENVELOPE: the explicit automaton runs per sample
+            //    (RampDown -> RecoverSlow -> RecoverNormal -> Open). It is
+            //    skipped when an external helper owns the gain: with BOTH
+            //    envelopes active they would compete, producing the "double
+            //    attenuation" scratch reported on the Attack feature at low
+            //    Amount (Fix AL).
+            // 3. BYPASS: envelope disabled or attackMs == 0. Pin the gain
+            //    fully open so a mid-session toggle cannot leave a residual
+            //    dip.
             if (externalAttackEnabled)
             {
-                // attackGain was already updated by setExternalAttackGain
-                // before the audio block was processed. Apply it to the
-                // output here. Per-sample ramping is a no-op because
-                // attackGain is constant within the block.
-                outL *= attackGain;
-                outR *= attackGain;
-                // Clear the onset-ramping counters so they don't fire
-                // on a later onset in a stale state.
-                slowAttackSamplesRemaining = 0;
-                attackRampDownSamplesRemaining = 0;
+                attackEnvelope.clearTimers();
+                const float g = attackEnvelope.gain;
+                outL *= g;
+                outR *= g;
             }
             else if (attackEnvelopeEnabled && attackMs > 0.0f)
             {
-                const double currentAlpha = (slowAttackSamplesRemaining > 0)
-                    ? (1.0 - std::exp (-1.0 / (0.080 * sampleRate)))   // ~80 ms TC
-                    : attackAlpha;
-                const float target = (attackRampDownSamplesRemaining > 0) ? 0.0f : 1.0f;
-                if (attackRampDownSamplesRemaining > 0)
-                    --attackRampDownSamplesRemaining;
-                if (slowAttackSamplesRemaining > 0)
-                    --slowAttackSamplesRemaining;
-                if (attackGain < 1.0f || target < 1.0f)
-                    attackGain += (target - attackGain) * static_cast<float> (currentAlpha);
-                else
-                    attackGain = 1.0f;
-                outL *= attackGain;
-                outR *= attackGain;
+                const float g = attackEnvelope.processSample();
+                outL *= g;
+                outR *= g;
             }
             else
             {
-                // Bypass: ensure attackGain stays at 1.0 in case the helper
-                // toggles the envelope on/off mid-session.
-                attackGain = 1.0f;
+                attackEnvelope.forceOpen();
             }
 
             // Startup fade-in: ring buffer starts empty, so first ~20ms reads zeros
@@ -948,8 +858,6 @@ namespace ovtdsp
         grains[gIdx].phaseInc = 1.0 / outLength;
         grains[gIdx].gain = static_cast<float> (Tout / outLength * 2.0);
         grains[gIdx].active = true;
-
-        gPitchShifterGrainEvents.fetch_add (1, std::memory_order_relaxed);
     }
 
 } // namespace ovtdsp

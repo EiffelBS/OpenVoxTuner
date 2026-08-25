@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // PitchShifterOutputRmsTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -24,7 +24,7 @@ public:
         // The previous failure (Fix K) measured RMS = 0.519 = -2.68 dB
         // (with kGainCompensation = 1.45) and 0.244 = -9.3 dB (with the
         // stale "Tout / outLength" formula) - both well under 0.65.
-        beginTest ("Sinus 200 Hz soutenu : RMS > 0.65 (regression Fix K, pas de sous-gain)");
+        beginTest ("Sustained 200 Hz sine: RMS > 0.65 (Fix K regression, no under-gain)");
         {
             PitchShifter ps;
             ps.prepare (44100.0, 512);
@@ -39,9 +39,9 @@ public:
             juce::AudioBuffer<float> in (1, 512);
             juce::AudioBuffer<float> out (1, 512);
 
-            // On laisse passer les 20 premiers blocs (~232 ms) pour
-            // s'eloigner de la fade-in de demarrage et de l'enveloppe
-            // d'attaque, puis on mesure la RMS sur les 20 suivants.
+            // Let the first 20 blocks (~232 ms) go by to move away from
+            // the startup fade-in and the attack envelope, then measure
+            // the RMS over the following 20.
             const int skipBlocks = 20;
 
             double sumSq = 0.0;
@@ -63,7 +63,7 @@ public:
                     for (int i = 0; i < 512; ++i)
                     {
                         const float s = out.getSample (0, i);
-                        expect (std::isfinite (s), "NaN dans la sortie du PitchShifter");
+                        expect (std::isfinite (s), "NaN in the PitchShifter output");
                         sumSq += static_cast<double> (s) * s;
                         ++nRms;
                     }
@@ -71,22 +71,22 @@ public:
             }
 
             const double rms = std::sqrt (sumSq / static_cast<double> (nRms));
-            const double rmsExpected = 0.70710678; // 1/sqrt(2) pour sinus unitaire
+            const double rmsExpected = 0.70710678; // 1/sqrt(2) for a unit sine
             const double gainDb = 20.0 * std::log10 (rms / rmsExpected);
 
-            // Seuils : RMS > 0.65 = -0.73 dB minimum, RMS < 0.80 (le
-            // pic OLA peut theoriquement depasser 0.707 si kbdColaSum
-            // est sous-estime, on accepte jusqu'a +1.1 dB pour absorber
-            // les fluctuations COLA).
+            // Thresholds: RMS > 0.65 = -0.73 dB minimum, RMS < 0.80 (the
+            // OLA peak can theoretically exceed 0.707 if kbdColaSum is
+            // underestimated; we accept up to +1.1 dB to absorb COLA
+            // fluctuations).
             expect (rms > 0.65,
-                "Sous-gain severe : RMS=" + juce::String (rms, 4)
-                + " (cible = 0.707, " + juce::String (gainDb, 2) + " dB). "
-                + "Verifier la formule de gain OLA (kGainCompensation / kbdColaSum) "
-                + "et la mesure de kbdColaSum dans PitchShifter::prepare().");
+                "Severe under-gain: RMS=" + juce::String (rms, 4)
+                + " (target = 0.707, " + juce::String (gainDb, 2) + " dB). "
+                + "Check the OLA gain formula (kGainCompensation / kbdColaSum) "
+                + "and the kbdColaSum measurement in PitchShifter::prepare().");
             expect (rms < 0.80,
-                "Sur-gain : RMS=" + juce::String (rms, 4)
-                + " (cible = 0.707, " + juce::String (gainDb, 2) + " dB). "
-                + "kGainCompensation trop eleve.");
+                "Over-gain: RMS=" + juce::String (rms, 4)
+                + " (target = 0.707, " + juce::String (gainDb, 2) + " dB). "
+                + "kGainCompensation too high.");
         }
     }
 };

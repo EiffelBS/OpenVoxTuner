@@ -216,7 +216,7 @@ public:
     void setWaveformCaptureEnabled (bool enabled) { waveformCaptureEnabled.store (enabled); }
     bool isWaveformCaptureEnabled() const { return waveformCaptureEnabled.load(); }
 
-    // --- Deferred parameter changes (audio â†’ UI thread) ---
+    // --- Deferred parameter changes (audio → UI thread) ---
     // Called from the UI thread (editor timerCallback) to apply key/scale
     // changes that were detected on the audio thread.  Using
     // setValueNotifyingHost() from the audio thread can deadlock certain
@@ -225,7 +225,7 @@ public:
     void flushPendingParameterChanges();
 
     // Read host transport (playhead position, playing state, time signature).
-    // MUST be called from the UI thread only â€” getPlayHead()->getPosition()
+    // MUST be called from the UI thread only - getPlayHead()->getPosition()
     // can deadlock Cubase and Live VST3 when called from the audio thread.
     void updateHostTransport();
 
@@ -233,7 +233,7 @@ public:
     // hostIsPlaying / time-signature atomics.  Safe to call from any
     // thread provided the caller has already verified that getPlayHead()
     // is reachable (auReady, !editorShuttingDown, !isStandalone).  All
-    // exceptions are swallowed â€” on macOS a torn-down AU can raise an
+    // exceptions are swallowed - on macOS a torn-down AU can raise an
     // Objective-C++ exception that we never want to propagate out of
     // an audio callback.
     void readAndCachePlayHeadInfo (juce::AudioPlayHead& playHead) noexcept;
@@ -268,12 +268,12 @@ public:
     // UI thread is unsafe on AU: JuceAU::ScopedPlayHead dereferences an
     // internal pointer (to the JuceAU instance) that can be invalidated
     // at any time by the host (device change, sample-rate change,
-    // project reload, â€¦).  The resulting SIGSEGV is a Mach exception
+    // project reload, ...).  The resulting SIGSEGV is a Mach exception
     // and CANNOT be caught by try/catch.  We therefore gate every call
     // to getPlayHead() on `auReady`, which is true only between a
     // prepareToPlay() and the next releaseResources() (and false again
     // on destruction).  For AU we additionally skip the call entirely
-    // â€” see updateHostTransport().
+    // - see updateHostTransport().
     void notifyAuReady() noexcept
     {
         auReady.store (true, std::memory_order_release);
@@ -310,8 +310,6 @@ public:
     void clearHarmonyCache();
     // Dump VST3 bundle info (debug)
     void dumpVST3BundleInfo();
-    // Force-create a test grain in the pitch shifter (debug)
-    void forceCreatePitchTestGrain();
 
     // Time signature access (for the Curve Editor ruler).
     int getCurrentTimeSigNumerator() const { return currentTimeSigNumerator.load(); }
@@ -574,9 +572,9 @@ private:
     // pitch is detected. Avoids the "no audible effect" regression.
     std::atomic<float> lastValidPitchForAutotune { 0.0f };
 
-    // Dernier pitch retourne par YIN (0 compris). Utilise par le filtre
-    // anti-saut-octave. Separe de lastValidPitchForAutotune qui ne descend
-    // jamais a 0 (fallback) et empecherait le reset du filtre.
+    // Last pitch returned by YIN (including 0). Used by the anti-octave-jump
+    // filter. Separate from lastValidPitchForAutotune, which never drops
+    // to 0 (fallback) and would prevent the filter reset.
     std::atomic<float> lastRawYinPitch { 0.0f };
 
     // Last non-trivial pitch ratio passed to the PitchShifter. Used as
@@ -584,16 +582,16 @@ private:
     // collapsing to a 1.0 ratio (pass-through) for a few blocks.
     std::atomic<float> lastRatioSnapshot { 1.0f };
 
-    // Dernier pitch valide apres filtrage anti-saut-d'octave.
-    // Si le pitch detecte saute d'un facteur ~2 ou ~0.5 par rapport a
-    // cette reference, on conserve l'ancienne valeur. Un compteur de
-    // persistence permet de laisser passer les vrais changements de
-    // registre vocal apres ~140 ms de detection stable.
+    // Last valid pitch after anti-octave-jump filtering.
+    // If the detected pitch jumps by a factor of ~2 or ~0.5 relative to
+    // this reference, the old value is kept. A persistence counter lets
+    // real vocal register changes through after ~140 ms of stable
+    // detection.
     std::atomic<float> lastOctaveValidatedPitch { 0.0f };
-    // Compteur de cycles consecutifs ou le filtre a rejete un saut
-    // d'octave. Apres OCTAVE_JUMP_PERSISTENCE_THRESHOLD rejets, on
-    // accepte le nouveau pitch (vrai changement de registre).
-    // 3 rejets ~= 140ms a 44.1kHz (hop=2048 echantillons).
+    // Number of consecutive cycles where the filter rejected an octave
+    // jump. After OCTAVE_JUMP_PERSISTENCE_THRESHOLD rejections, the new
+    // pitch is accepted (real register change).
+    // 3 rejections ~= 140ms at 44.1kHz (hop=2048 samples).
     static constexpr int octaveJumpPersistenceThreshold = 3;
     int octaveJumpRejectionCount = 0;
 
@@ -723,7 +721,7 @@ private:
     // enable button ramps this (instead of hard-cutting the mix) so enabling/
     // disabling harmony produces no click.
     juce::LinearSmoothedValue<float> harmonyEnableGain { 0.0f };
-    // Smoothed gate gain for harmony voices â€” prevents clicks when the
+    // Smoothed gate gain for harmony voices - prevents clicks when the
     // Noise Gate opens/closes (the raw gateGain jumps instantly).
     juce::LinearSmoothedValue<float> harmonyGateGain { 0.0f };
     // Harmony-type transition dip: when the harmony TYPE changes (morph, preset
@@ -869,8 +867,6 @@ private:
 
     // Debug: remember previous bypass state to log changes
     std::atomic<int> prevBypassState { 0 };
-    // Debug: observe grains created by PitchShifter (cross-thread counter)     
-    int lastObservedGrainCount = 0;
     // Debug: test grain parameter
     std::atomic<float>* dbgTestGrainParam = nullptr;
     std::atomic<int> prevDbgTestGrain { 0 };

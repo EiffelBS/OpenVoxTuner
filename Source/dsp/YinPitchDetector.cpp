@@ -1,4 +1,4 @@
-﻿// YinPitchDetector.cpp
+// YinPitchDetector.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -94,13 +94,13 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
     const int halfSize = numSamples / 2;
     const int maxTau = juce::jmin (maxLag, numSamples - 1);
 
-    // Portee de recherche limitee par la taille du buffer disponible : on ne
-    // peut pas evaluer une periode plus longue que numSamples/2. On recherche
-    // donc jusqu'a searchMax = min(maxLag, numSamples/2) au lieu d'exiger
-    // 2*maxLag echantillons. Cela rend YIN fonctionnel avec des buffers
-    // realistes (ex. la fenetre decimee de 1024 echantillons utilisee en
-    // temps reel) et couvre la plage [freqMax, sampleRate/searchMax]
-    // physiquement disponible dans le buffer.
+    // Search range limited by the available buffer size: we cannot evaluate
+    // a period longer than numSamples/2. So we search up to
+    // searchMax = min(maxLag, numSamples/2) instead of requiring
+    // 2*maxLag samples. This makes YIN work with realistic buffers
+    // (e.g. the 1024-sample decimated window used in real time) and covers
+    // the [freqMax, sampleRate/searchMax] range physically available in
+    // the buffer.
     const int minLag = juce::jmax (2, static_cast<int> (sampleRate / freqMaxHz));
     const int searchMax = juce::jmin (maxLag, halfSize);
     if (searchMax < minLag)

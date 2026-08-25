@@ -1,4 +1,4 @@
-﻿// PianoKeyboard.cpp
+// PianoKeyboard.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -12,11 +12,11 @@ namespace ui
 {
     const juce::Colour PianoKeyboard::kWhiteKey      = juce::Colour (0xffffffff);
     const juce::Colour PianoKeyboard::kBlackKey      = juce::Colour (0xff1a1a1a);
-    const juce::Colour PianoKeyboard::kWhiteKeyScale = juce::Colour (0xffffffff); // On n'utilise plus la couleur de fond
-    const juce::Colour PianoKeyboard::kBlackKeyScale = juce::Colour (0xff1a1a1a); // On n'utilise plus la couleur de fond
+    const juce::Colour PianoKeyboard::kWhiteKeyScale = juce::Colour (0xffffffff); // Background color no longer used
+    const juce::Colour PianoKeyboard::kBlackKeyScale = juce::Colour (0xff1a1a1a); // Background color no longer used
     const juce::Colour PianoKeyboard::kBorder        = juce::Colour (0xff333333);
     const juce::Colour PianoKeyboard::kText          = juce::Colour (0xff000000);
-    const juce::Colour kScaleIndicator               = juce::Colour (0xff3399ff); // Bleu clair de la capture
+    const juce::Colour kScaleIndicator               = juce::Colour (0xff3399ff); // Light blue from the screenshot
 
     PianoKeyboard::PianoKeyboard() = default;
     PianoKeyboard::~PianoKeyboard() = default;
@@ -24,7 +24,7 @@ namespace ui
     bool PianoKeyboard::isBlackKey (int midi) noexcept
     {
         const int n = ovtdsp::midiToNoteInOctave (midi);
-        // 1=C#, 3=D#, 6=F#, 8=G#, 10=A# (les autres sont blanches).
+        // 1=C#, 3=D#, 6=F#, 8=G#, 10=A# (the others are white keys).
         return n == 1 || n == 3 || n == 6 || n == 8 || n == 10;
     }
 
@@ -52,17 +52,17 @@ namespace ui
         if (highestMidi < lowestMidi) std::swap (lowestMidi, highestMidi);
         if (highestMidi <= lowestMidi) return 0.0f;
 
-        // Nombre de touches blanches dans la plage visible.
+        // Number of white keys in the visible range.
         int numWhite = 0;
         for (int m = lowestMidi; m <= highestMidi; ++m)
             if (! isBlackKey (m)) ++numWhite;
         if (numWhite == 0) return 0.0f;
 
-        // Index (eventuellement < 0 ou > numWhite-1) de la touche blanche la plus
-        // proche EN DESSOUS de `midi`, compte depuis `lowestMidi`. On compte SANS
-        // clamp pour permettre l'extrapolation hors plage : les notes en dehors de
-        // la fenetre visible sont alors projettees hors de la zone de tracage (puis
-        // recadrees par le clip), au lieu d'etre empilees sur les bords.
+        // Index (possibly < 0 or > numWhite-1) of the white key closest BELOW `midi`,
+        // counted from `lowestMidi`. Counting is done WITHOUT clamping to allow
+        // out-of-range extrapolation: notes outside the visible window are then
+        // projected outside the drawing area (and clipped afterwards), instead of
+        // being stacked on the edges.
         int belowIndex = 0;
         if (midi >= lowestMidi)
         {
@@ -77,19 +77,19 @@ namespace ui
 
         if (isBlackKey (midi))
         {
-            // Touche noire : frontiere entre la blanche belowIndex-1 et belowIndex
-            // (meme formule que pour les notes dans la plage, mais extrapolee).
+            // Black key: boundary between white keys belowIndex-1 and belowIndex
+            // (same formula as for in-range notes, but extrapolated).
             return static_cast<float> (belowIndex) / static_cast<float> (numWhite);
         }
 
-        // Touche blanche : centre de la case = (index + 0.5) / numWhite.
+        // White key: center of the cell = (index + 0.5) / numWhite.
         return (static_cast<float> (belowIndex) + 0.5f) / static_cast<float> (numWhite);
     }
 
     float PianoKeyboard::midiToY (int midi) const
     {
-        // Geometrie de piano : meme hauteur pour toutes les blanches, noires coherentes.
-        // t = 0 -> bas (graves), t = 1 -> haut (aigus).
+        // Piano geometry: same height for all white keys, consistent black keys.
+        // t = 0 -> bottom (low notes), t = 1 -> top (high notes).
         const float t = midiToNorm (midi, lowestMidi, highestMidi);
         return getHeight() * (1.0f - t);
     }
@@ -97,7 +97,7 @@ namespace ui
     int PianoKeyboard::yToMidi (float y) const
     {
         const float t = 1.0f - juce::jlimit (0.0f, 1.0f, y / static_cast<float> (getHeight()));
-        // Inverse par balayage : note dont la position normale est la plus proche de t.
+        // Inverse by scanning: note whose normalized position is closest to t.
         int best = lowestMidi;
         float bestD = 1.0e9f;
         for (int m = lowestMidi; m <= highestMidi; ++m)
@@ -140,7 +140,7 @@ namespace ui
         const int H = getHeight();
         if (W <= 0 || H <= 0) return;
 
-        // Fond transparent.
+        // Transparent background.
         g.fillAll (juce::Colours::transparentBlack);
 
         const float whiteW = static_cast<float> (W);
@@ -163,7 +163,7 @@ namespace ui
         whiteRects.ensureStorageAllocated (whiteMidis.size());
         juce::HashMap<int, int> whiteIndex;
 
-        // === Etape 1 : dessine les touches BLANCHES (avec texte) ===
+        // === Step 1: draw the WHITE keys (with text) ===
         for (int i = 0; i < whiteMidis.size(); ++i)
         {
             const int midi = whiteMidis.getUnchecked (i);
@@ -176,11 +176,11 @@ namespace ui
             whiteIndex.set (midi, i);
             whiteRects.add (keyRect);
 
-            // Touche blanche standard
+            // Standard white key
             g.setColour (kWhiteKey);
             g.fillRect (keyRect);
             
-            // Surbrillance Input/Output
+            // Input/Output highlighting
             if (midi == inMidi && midi == outMidi)
             {
                 juce::ColourGradient mixGrad(juce::Colour(0xffe91e63).withAlpha(0.5f), keyRect.getX(), keyRect.getY(),
@@ -199,18 +199,18 @@ namespace ui
                 g.fillRect(keyRect);
             }
 
-            // Bordures (grise pour separer les touches blanches)
+            // Borders (gray to separate white keys)
             g.setColour (kBorder);
             g.drawRect (keyRect, 1.0f);
 
-            // Indicateur de gamme (Scale Indicator) a droite
+            // Scale indicator on the right
             if (isInScale(midi))
             {
                 g.setColour (kScaleIndicator);
                 g.fillRect (whiteW - 4.0f, keyRect.getY(), 4.0f, keyRect.getHeight());
             }
 
-            // Label : nom de note (C, D, E, F, G, A, B) + octave.
+            // Label: note name (C, D, E, F, G, A, B) + octave.
             // Show labels only when keys are tall enough (>= 20px) to avoid clutter.
             const int note = ovtdsp::midiToNoteInOctave (midi);
             const int oct  = ovtdsp::midiToOctave (midi);
@@ -228,7 +228,7 @@ namespace ui
             }
         }
 
-        // === Etape 2 : dessine les touches NOIRES par-dessus ===
+        // === Step 2: draw the BLACK keys on top ===
         for (int midi = highestMidi; midi >= lowestMidi; --midi)
         {
             if (! isBlackKey (midi)) continue;
@@ -256,19 +256,19 @@ namespace ui
 
             juce::Rectangle<float> keyRect (0.0f, keyTop, blackW, keyH);
 
-            // Ombre portee
+            // Drop shadow
             g.setColour(juce::Colours::black.withAlpha(0.6f));
             g.fillRect(keyRect.translated(2.0f, 2.0f));
 
-            // Touche noire
+            // Black key
             juce::ColourGradient grad (kBlackKey.brighter(0.2f), 0.0f, keyTop,
                                        kBlackKey.darker(0.3f), blackW, keyTop, false);
             g.setGradientFill (grad);
             
-            // Coins arrondis a droite
+            // Rounded corners on the right
             g.fillRoundedRectangle (keyRect, 2.0f);
             
-            // Surbrillance Input/Output
+            // Input/Output highlighting
             if (midi == inMidi && midi == outMidi)
             {
                 juce::ColourGradient mixGrad(juce::Colour(0xffe91e63).withAlpha(0.6f), keyRect.getX(), keyRect.getY(),
@@ -287,11 +287,11 @@ namespace ui
                 g.fillRoundedRectangle(keyRect, 2.0f);
             }
 
-            // Bordure
+            // Border
             g.setColour (kBorder.darker());
             g.drawRoundedRectangle (keyRect, 2.0f, 1.0f);
 
-            // Indicateur de gamme (Scale Indicator) a droite de la touche noire
+            // Scale indicator to the right of the black key
             if (isInScale(midi))
             {
                 g.setColour (kScaleIndicator);
@@ -299,8 +299,8 @@ namespace ui
             }
         }
 
-        // === Etape 3 : curseur du pitch courant (optionnel) ===
-        // Supprime car l'utilisateur prefere la surbrillance des touches elles-memes.
+        // === Step 3: current pitch cursor (optional) ===
+        // Removed because the user prefers highlighting the keys themselves.
     }
 
     void PianoKeyboard::resized() {}

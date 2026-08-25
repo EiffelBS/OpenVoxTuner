@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // PitchShifterClickTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -18,16 +18,16 @@ public:
         using namespace ovtdsp;
 
         // ===================================================================
-        // Test 1 : attaque forte + saut de pitch
+        // Test 1: strong attack + pitch jump
         // ===================================================================
-        beginTest ("Scenario realiste : note 200Hz -> saut 300Hz, aucun clic audible");
+        beginTest ("Realistic scenario: 200Hz note -> jump to 300Hz, no audible click");
         {
             PitchShifter ps;
             ps.prepare (44100.0, 512);
             ps.setAttackTimeMs (30.0f);
 
             const double sr = 44100.0;
-            const float ratio = 1.0f;          // pas de correction (isole le shifter)
+            const float ratio = 1.0f;          // no correction (isolates the shifter)
             const float formantRatio = 1.0f;
 
             juce::AudioBuffer<float> in (1, 512);
@@ -35,7 +35,7 @@ public:
 
             int clickCount = 0;
             float prev = 0.0f;
-            double t = 0.0;                    // temps courant (echantillons)
+            double t = 0.0;                    // current time (samples)
             juce::String clickLog;
 
             auto feedBlock = [&] (float f0, double freqHz)
@@ -55,10 +55,10 @@ public:
                 for (int i = 0; i < 512; ++i)
                 {
                     const float s = out.getSample (0, i);
-                    expect (std::isfinite (s), "NaN dans la sortie");
+                    expect (std::isfinite (s), "NaN in the output");
                     const float jump = std::abs (s - prev);
-                    // Un clic audible = saut instantane > 0.1 d'amplitude
-                    // (sur un signal sinusoidal unitaire).
+                    // An audible click = instantaneous jump > 0.1 in amplitude
+                    // (on a unit sine signal).
                     if (jump > 0.15f)
                     {
                         ++clickCount;
@@ -71,29 +71,31 @@ public:
 
             // 1) silence ~50 ms (f0 = 0)
             for (int b = 0; b < 5; ++b) feedBlock (0.0f, 0.0);
-            // 2) attaque note 200 Hz ~200 ms
+            // 2) 200 Hz note attack ~200 ms
             for (int b = 0; b < 20; ++b) feedBlock (200.0f, 200.0);
-            // 3) saut vers 300 Hz ~200 ms
+            // 3) jump to 300 Hz ~200 ms
             for (int b = 0; b < 20; ++b) feedBlock (300.0f, 300.0);
 
-            // On ecrit quand meme le compte dans un fichier pour la tracabilite.
+            // Still write the count to a file for traceability (relative to
+            // the working directory the test runner is launched from).
             {
-                juce::File f ("c:/Users/User/Documents/trae_projects/OpenVoxTuner/test/dsp/click_count.txt");
+                auto f = juce::File::getCurrentWorkingDirectory()
+                             .getChildFile ("test/dsp/click_count.txt");
                 f.deleteFile();
                 f.create();
                 f.replaceWithText ("clickCount=" + juce::String (clickCount)
                                    + "\npositions=" + clickLog + "\n");
             }
             expectEquals (clickCount, 0,
-                "Clic(s) audible(s) sur attaque/saut de note : " + clickLog);
+                "Audible click(s) on note attack/jump: " + clickLog);
         }
 
         // ===================================================================
-        // Test 2 : STACCATO (meme note repetee avec gap court)
-        // Verifie que les repetitions rapides d'une meme note ne produisent
-        // pas de "pop" (sur-gain OLA) au debut de chaque attaque.
+        // Test 2: STACCATO (same note repeated with a short gap)
+        // Verifies that fast repetitions of the same note do not produce
+        // a "pop" (OLA over-gain) at the start of each attack.
         // ===================================================================
-        beginTest ("Staccato : 5 repetitions rapides meme note, pas de pop a chaque attaque");
+        beginTest ("Staccato: 5 fast repetitions of same note, no pop at each attack");
         {
             PitchShifter ps;
             ps.prepare (44100.0, 512);
@@ -129,7 +131,7 @@ public:
                 for (int i = 0; i < 512; ++i)
                 {
                     const float s = out.getSample (0, i);
-                    expect (std::isfinite (s), "NaN dans la sortie");
+                    expect (std::isfinite (s), "NaN in the output");
                     const float jump = std::abs (s - prev);
                     if (jump > 0.15f)
                     {
@@ -141,31 +143,31 @@ public:
                 }
             };
 
-            // 1) silence initial ~50 ms
+            // 1) initial silence ~50 ms
             for (int b = 0; b < 5; ++b) feedBlock (0.0f, 0.0);
 
-            // 2) 5 repetitions staccato : note (~100 ms) + gap (~50 ms)
+            // 2) 5 staccato repetitions: note (~100 ms) + gap (~50 ms)
             for (int rep = 0; rep < 5; ++rep)
             {
-                // Note 200 Hz pendant ~100 ms (10 blocs)
+                // 200 Hz note for ~100 ms (10 blocks)
                 for (int b = 0; b < 10; ++b) feedBlock (noteFreq, noteFreq);
-                // Silence pendant ~50 ms (5 blocs)
+                // Silence for ~50 ms (5 blocks)
                 for (int b = 0; b < 5; ++b) feedBlock (0.0f, 0.0);
             }
 
             expectEquals (clickCount, 0,
-                "Pop(s) audible(s) sur attaques staccato : " + clickLog);
+                "Audible pop(s) on staccato attacks: " + clickLog);
         }
 
         // ===================================================================
-        // Test 3 : pic d'amplitude a l'attaque (OLA burst "trompette")
-        // Verifie que l'amplitude du signal apres l'enveloppe d'attaque ne
-        // depasse pas 1.0x l'amplitude d'entree. Sans le clamp outPhase,
-        // 5 grains en burst causent une somme OLA 2x -> clipping audible
-        // meme si aucun saut > 0.1 n'est detecte (la rampe d'attaque lisse
-        // la transition, mais le pic est sure Amplifie).
+        // Test 3: amplitude peak at attack (OLA "trumpet" burst)
+        // Verifies that the signal amplitude after the attack envelope does
+        // not exceed 1.0x the input amplitude. Without the outPhase clamp,
+        // 5 grains in burst cause a 2x OLA sum -> audible clipping even if
+        // no jump > 0.1 is detected (the attack ramp smooths the transition
+        // but the peak is over-amplified).
         // ===================================================================
-        beginTest ("Attaque brute : pas de sur-amplification OLA (somme <= entree)");
+        beginTest ("Raw attack: no OLA over-amplification (sum <= input)");
         {
             PitchShifter ps;
             ps.prepare (44100.0, 512);
@@ -180,16 +182,16 @@ public:
             juce::AudioBuffer<float> out (1, 512);
 
             double t = 0.0;
-            // Silence initial ~50 ms
+            // Initial silence ~50 ms
             for (int b = 0; b < 5; ++b)
             {
                 for (int i = 0; i < 512; ++i) { in.setSample (0, i, 0.0f); ++t; }
                 out.setSize (1, 512, false, true, false);
                 ps.process (in, out, ratio, formantRatio, 0.0f);
             }
-            // Note 200 Hz pendant ~200 ms (40 blocs, ~464 ms)
-            // On capture le max amplitude sur les 100 premiers ms
-            // (l'attaque + le debut de la note stable).
+            // 200 Hz note for ~200 ms (40 blocks, ~464 ms)
+            // We capture the max amplitude over the first 100 ms
+            // (the attack + the start of the stable note).
             float maxAbs = 0.0f;
             double tAtMax = 0.0;
             const double inputAmp = 1.0; // sin amplitude
@@ -210,14 +212,14 @@ public:
                     if (v > maxAbs) { maxAbs = v; tAtMax = (t - 512 + i) * 1000.0 / sr; }
                 }
             }
-            // Tolere 10% de sur-amplification (1.1) pour absorber les petites
-            // fluctuations COLA. Un burst de 5 grains donnerait 2.0x, donc
-            // largement au-dessus du seuil.
+            // Tolerates 10% over-amplification (1.1) to absorb small COLA
+            // fluctuations. A 5-grain burst would give 2.0x, well above
+            // the threshold.
             expect (maxAbs <= inputAmp * 1.10f,
-                "Sur-amplification OLA : max |out|=" + juce::String (maxAbs, 3)
-                + " (a t=" + juce::String (tAtMax, 2) + "ms), attendu <= "
+                "OLA over-amplification: max |out|=" + juce::String (maxAbs, 3)
+                + " (at t=" + juce::String (tAtMax, 2) + "ms), expected <= "
                 + juce::String (inputAmp * 1.10f, 3)
-                + " (10% au-dessus de l'amplitude d'entree " + juce::String (inputAmp, 2) + ")");
+                + " (10% above the input amplitude " + juce::String (inputAmp, 2) + ")");
         }
     }
 };

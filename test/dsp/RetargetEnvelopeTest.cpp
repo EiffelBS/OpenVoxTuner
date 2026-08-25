@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // RetargetEnvelopeTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -17,53 +17,53 @@ public:
     {
         using namespace ovtdsp;
 
-        beginTest ("Speed=0 -> reponse instantanee");
+        beginTest ("Speed=0 -> instantaneous response");
         {
             RetargetEnvelope env;
             env.prepare (44100.0);
             env.setSpeed (0.0f);
-            // Premier appel : la valeur doit deja etre egale a la cible.
+            // First call: the value must already equal the target.
             const float v = env.processSample (1.5f);
             expectWithinAbsoluteError (v, 1.5f, 1e-3f);
         }
 
-        beginTest ("Speed=200 ms -> convergence progressive");
+        beginTest ("Speed=200 ms -> progressive convergence");
         {
             RetargetEnvelope env;
             env.prepare (44100.0);
             env.setSpeed (200.0f);
             env.reset();
-            // Pas a pas sur 1 seconde (44100 echantillons) avec cible 2.0
-            // depuis 1.0 : on devrait etre proche de 2.0 a la fin.
+            // Step by step over 1 second (44100 samples) with target 2.0
+            // from 1.0: we should be close to 2.0 at the end.
             float v = 1.0f;
             for (int i = 0; i < 44100; ++i)
                 v = env.processSample (2.0f);
-            // Apres 1 s = 5 * tau, on est a ~99% de la cible.
-            expect (v > 1.95f, "Convergence insuffisante : v=" + juce::String (v));
+            // After 1 s = 5 * tau, we are at ~99% of the target.
+            expect (v > 1.95f, "Insufficient convergence: v=" + juce::String (v));
         }
 
-        beginTest ("Cible = 1.0 -> reste a 1.0");
+        beginTest ("Target = 1.0 -> stays at 1.0");
         {
             RetargetEnvelope env;
             env.prepare (44100.0);
             env.setSpeed (50.0f);
-            // Meme cible que la valeur initiale -> pas de drift.
+            // Same target as the initial value -> no drift.
             float v = 1.0f;
             for (int i = 0; i < 1000; ++i)
                 v = env.processSample (1.0f);
             expectWithinAbsoluteError (v, 1.0f, 1e-5f);
         }
 
-        beginTest ("Reset remet a 1.0");
+        beginTest ("Reset restores 1.0");
         {
             RetargetEnvelope env;
             env.prepare (44100.0);
             env.setSpeed (50.0f);
             for (int i = 0; i < 100; ++i) (void) env.processSample (1.5f);
             env.reset();
-            // Apres reset, prochaine cible doit etre appliquee depuis 1.0.
+            // After reset, the next target must be applied from 1.0.
             const float v = env.processSample (1.5f);
-            expect (v < 1.1f, "Reset non applique, v=" + juce::String (v));
+            expect (v < 1.1f, "Reset not applied, v=" + juce::String (v));
         }
     }
 };

@@ -138,7 +138,7 @@ namespace ovtdsp
             KeyBridgeSlot* slot = &region_->slots[idx];
             // Always record the group string so reads can verify the slot belongs
             // to this group. We overwrite unconditionally (including stale data
-            // left by a previous session in the shared memory) â€” skipping the
+            // left by a previous session in the shared memory) - skipping the
             // write when non-empty would let a stale/different group in the slot
             // silently mask a fresh publish.
             const juce::String g = group.substring (0, kKeyBridgeNameLen - 1);

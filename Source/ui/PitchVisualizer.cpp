@@ -12,7 +12,7 @@
 
 namespace ui
 {
-    // === Couleurs du theme ===
+    // === Theme colours ===
     const juce::Colour PitchVisualizer::kBg              = juce::Colour (0x4015151b);
     const juce::Colour PitchVisualizer::kGrid            = juce::Colour (0x20ffffff);
     const juce::Colour PitchVisualizer::kInputColour     = juce::Colour (0xffe91e63).withAlpha (0.4f);
@@ -312,13 +312,13 @@ namespace ui
                     // Split: left half = detected (red), right half = target (green)
                     const int splitPx = static_cast<int> (std::round (badgeSplitX));
 
-                    // 1) Full badge in detected color (red) â€” covers the entire
+                    // 1) Full badge in detected color (red) - covers the entire
                     //    badge area including the rounded corners.
                     g.setColour (juce::Colour (0xffe53935));
                     g.fillRoundedRectangle ((float) noteAreaX, (float) badgeY,
                                             (float) curW, (float) badgeH, 6.0f);
 
-                    // 2) Green right half â€” use a pixel-perfect Rectangle clip
+                    // 2) Green right half - use a pixel-perfect Rectangle clip
                     //    (no anti-aliasing) to prevent any red bleed at the edges.
                     //    The rectangle extends to the badge right edge; the
                     //    rounded corners are masked by the border drawn in step 3.
@@ -329,7 +329,7 @@ namespace ui
                     g.fillRect (noteAreaX + splitPx, badgeY, curW - splitPx, badgeH);
                     g.restoreState();
 
-                    // 3) Border â€” covers the sharp green corners at the seam and
+                    // 3) Border - covers the sharp green corners at the seam and
                     //    provides a consistent outline around the full badge.
                     g.setColour (juce::Colour (0x55ffffff));
                     g.drawRoundedRectangle ((float) noteAreaX, (float) badgeY,
@@ -337,7 +337,7 @@ namespace ui
                 }
                 else
                 {
-                    // Single note (green â€” in tune)
+                    // Single note (green - in tune)
                     g.setColour (juce::Colour (0xff66bb6a));
                     g.fillRoundedRectangle ((float) noteAreaX, (float) badgeY,
                                             (float) curW, (float) badgeH, 6.0f);
@@ -583,7 +583,7 @@ namespace ui
             g.strokePath (p, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
 
-        // Harmony voices (blue) â€” only when enabled via the Curve Editor menu
+        // Harmony voices (blue) - only when enabled via the Curve Editor menu
         if (showHarmonies)
         {
             const float dx = static_cast<float> (plotArea.getWidth()) / static_cast<float> (historySize - 1);
@@ -849,7 +849,7 @@ namespace ui
         }
         else if (autoCenter && latestOutputHz <= 0.0f)
         {
-            // Signal lost â€” keep the last known center position.
+            // Signal lost - keep the last known center position.
             // Do NOT reset smoothedOutputHz; the view stays put until a new
             // note is detected, preventing the scroll-to-bottom on silence.
         }

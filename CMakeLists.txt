@@ -1,7 +1,7 @@
 # ============================================================================
 # CMakeLists.txt - OpenVoxTuner
-# Utilise le support CMake natif de JUCE 8 (ne necessite pas Projucer compile).
-# Prerequis : CMake >= 3.22 et Visual Studio 2022.
+# Uses JUCE 8 native CMake support (does not require a compiled Projucer).
+# Prerequisites: CMake >= 3.22 and Visual Studio 2022.
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.22)
@@ -13,67 +13,63 @@ set(OVT_VERSION "0.1.0" CACHE STRING "OpenVoxTuner version (e.g. 0.1.61). Overri
 
 project(OpenVoxTuner VERSION ${OVT_VERSION} LANGUAGES C CXX)
 
-# Standard C++17 (Projucer utilise ce standard pour les plugins).
+# C++17 standard (the standard Projucer uses for plugins).
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Position Independent Code (necessaire pour certains formats de plugin).
+# Position Independent Code (needed by some plugin formats).
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ---------------------------------------------------------------
-# Encodage source : force UTF-8 pour MSVC afin de preserver les
-# caracteres accentues et les traductions non-latines (japonais,
-# etc.) stockees en litteraux dans OVTLanguages.h. Sans ce flag,
-# MSVC decode la source en CP1252 et genere du mojibake a la compile.
+# Source encoding: force UTF-8 for MSVC so accented characters and
+# non-Latin translations (Japanese, etc.) stored as literals in
+# OVTLanguages.h are preserved. Without this flag, MSVC decodes the
+# source as CP1252 and emits mojibake at compile time.
 # ---------------------------------------------------------------
 if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
 # ---------------------------------------------------------------
-# Compatibilite macOS : forcer un deployment target compatible
-# avec JUCE 8 pour les builds sur Xcode 17+ / SDK 26.x "insider".
+# macOS compatibility: force a deployment target compatible
+# with JUCE 8 for builds on Xcode 17+ / SDK 26.x "insider".
 # ---------------------------------------------------------------
 if(APPLE)
-    # Force le SDK macOS a une version compatible avec JUCE 8.
-    # JuCE 8 supporte officiellement macOS 10.15+ (Catalina) / 11.0+ (Big Sur).
-    # Sur un SDK "insider" 26.x, certaines API sont depreciees et le flag
-    # -Wunguarded-availability peut generer des erreurs. On fixe le
-    # deployment target pour utiliser uniquement les API disponibles
-    # depuis cette version.
+    # Force the macOS SDK to a version compatible with JUCE 8.
+    # JUCE 8 officially supports macOS 10.15+ (Catalina) / 11.0+ (Big Sur).
+    # On an "insider" SDK 26.x, some APIs are deprecated and the flag
+    # -Wunguarded-availability may raise errors. We pin the deployment
+    # target so only APIs available since that version are used.
     if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS deployment target (force 11.0 pour compat JUCE8 avec SDK 26.x)")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS deployment target (forced to 11.0 for JUCE8 compatibility with SDK 26.x)")
     endif()
-    # Desactiver les avertissements de disponibilite non guardee
-    # (causes par des API nouvelles dans le SDK 26.x que JUCE 8 ne connait pas)
+    # Disable unguarded-availability warnings
+    # (caused by new APIs in SDK 26.x unknown to JUCE 8)
     add_compile_options(-Wno-unguarded-availability)
     
     message(STATUS "macOS build: deployment target = ${CMAKE_OSX_DEPLOYMENT_TARGET}")
 endif()
 
-# Emplacement de JUCE (relatif ou absolu).
+# JUCE location (relative or absolute path).
 if(NOT DEFINED JUCE_PATH)
-    set(JUCE_PATH "C:/JUCE" CACHE PATH "Chemin vers le depot JUCE")
+    set(JUCE_PATH "C:/JUCE" CACHE PATH "Path to the JUCE repository")
 endif()
 
-# Active les exemples / tests si demandes.
-option(AUTOTUNE_BUILD_TESTS "Compile les tests unitaires" OFF)
-
-# Charge le support JUCE pour CMake.
+# Load the JUCE CMake support.
 add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 
 # Standalone chord detection library (MIDI + audio). No JUCE / plugin dependency.
 # Used by the plugin for real-time chord-aware tuning (MIDI + sidechain sources).
 add_subdirectory(libs/ovtchord)
 
-# ARA2 support (optionnel -- desactiver pour les hotes qui ne le supportent pas,
-# ex. Ableton Live, FL Studio).
+# ARA2 support (optional -- disable for hosts that do not support it,
+# e.g. Ableton Live, FL Studio).
 option(OVT_ENABLE_ARA "Build with ARA2 support" ON)
 if(OVT_ENABLE_ARA)
     juce_set_ara_sdk_path(${CMAKE_CURRENT_SOURCE_DIR}/external/ARA_SDK)
 endif()
 
-# Formats plugin : VST3 + Standalone partout, AU/CLAP en option sur macOS.
+# Plugin formats: VST3 + Standalone everywhere, AU/CLAP optional on macOS.
 set(OVT_PLUGIN_FORMATS VST3 Standalone)
 if(APPLE)
     option(OVT_ENABLE_AU "Build AU format on macOS" ON)
@@ -81,7 +77,7 @@ if(APPLE)
         list(APPEND OVT_PLUGIN_FORMATS AU)
     endif()
     # CLAP is NOT available in JUCE 8.x: verified up to 8.0.14 (the latest
-    # 8.x tag on juce-framework/JUCE) — there is no CLAP module and no
+    # 8.x tag on juce-framework/JUCE) -- there is no CLAP module and no
     # plugin_client support. CLAP was added in a later JUCE release (post-8.x).
     # The getStringWidth -> GlyphArrangement port below is still required for any
     # JUCE >= 8.0.10 upgrade, so keep this wired but disabled until JUCE
@@ -92,7 +88,7 @@ if(APPLE)
     endif()
 endif()
 
-# Cree la cible plugin.
+# Create the plugin target.
 juce_add_plugin(OpenVoxTuner
     COMPANY_NAME "EiffelBS"
     PLUGIN_MANUFACTURER_CODE Eiff
@@ -104,7 +100,7 @@ juce_add_plugin(OpenVoxTuner
     # routing to other tracks. Without this, MIDI routes show "Missing Device"
     # on project reload. The MIDI input is not processed by the plugin.
     NEEDS_MIDI_INPUT TRUE
-    IS_ARA_EFFECT ${OVT_ENABLE_ARA}  # ARA2 support (optionnel, voir OVT_ENABLE_ARA)
+    IS_ARA_EFFECT ${OVT_ENABLE_ARA}  # ARA2 support (optional, see OVT_ENABLE_ARA)
     # VST3 category: effect ("Fx") with the "Pitch" sub-category so DAWs (Cubase,
     # Nuendo, Studio One, ...) file the plugin under "Pitch & Time" alongside other
     # pitch-correction plug-ins (Auto-Tune, Melodyne, Graillon, ...). Without this,
@@ -150,7 +146,7 @@ target_include_directories(OpenVoxTuner PRIVATE ${CMAKE_BINARY_DIR})
 # Ensure the generated plugin metadata declares MIDI I/O for VST3 event buses.
 # The plugin PRODUCES MIDI output (harmony note output on separate channels).
 # MIDI_INPUT is declared to ensure Studio One/Fender Studio Pro correctly
-# registers and persists MIDI output routing between sessions — the MIDI input
+# registers and persists MIDI output routing between sessions -- the MIDI input
 # bus is present but not processed by the plugin.
 target_compile_definitions(OpenVoxTuner PRIVATE
     JUCE_PLUGIN_PRODUCES_MIDI_OUTPUT=1
@@ -160,13 +156,13 @@ target_compile_definitions(OpenVoxTuner PRIVATE
 )
 
 # Workaround for VST3 JUCE 8 Parameter ID Warning.
-# Le format VST3 attend des ID haches, mais JUCE genere les siens (compat VST2).
-# Comme on ne distribue PAS de version VST2, on peut ignorer ce warning
-# sans risque (les sessions ne referenceront jamais de VST2 de toute facon).
+# The VST3 format expects hashed IDs, but JUCE generates its own (VST2 compat).
+# Since we do NOT ship a VST2 build, this warning can safely be ignored
+# (sessions will never reference a VST2 anyway).
 target_compile_definitions(OpenVoxTuner PRIVATE
     JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1)
 
-# Chemins des sources.
+# Source paths.
 target_sources(OpenVoxTuner PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
@@ -194,7 +190,6 @@ target_sources(OpenVoxTuner PRIVATE
     Source/dsp/IEffect.h
     Source/dsp/ReverbEffect.cpp
     Source/dsp/ReverbEffect.h
-    Source/dsp/PitchDetector.cpp
     Source/dsp/FactoryPresets.cpp
     Source/dsp/FactoryPresets.h
     Source/ui/PresetGallery.cpp
@@ -219,7 +214,7 @@ juce_add_binary_data(OVTAssets
     NAMESPACE ovtAssets
     HEADER_NAME ovt_assets_binary_data.h)
 
-# Modules JUCE requis.
+# Required JUCE modules.
 target_link_libraries(OpenVoxTuner PRIVATE
     juce::juce_audio_basics
     juce::juce_audio_devices
@@ -239,7 +234,7 @@ target_link_libraries(OpenVoxTuner PRIVATE
     ovtchord
 )
 
-# URL de mise a jour (JSON public sur GitHub raw).
+# Update info URL (public JSON on GitHub raw).
 if(NOT DEFINED OVT_UPDATE_INFO_URL)
     set(OVT_UPDATE_INFO_URL "https://raw.githubusercontent.com/EiffelBS/OpenVoxTuner/main/docs/releases/latest.json" CACHE STRING "Update info JSON URL")
 endif()
@@ -296,7 +291,7 @@ endif()
 # OpenVoxTuner instance (Key Source = "Companion") can pick it up. It passes the
 # audio through unchanged so the accompaniment keeps playing.
 # Companion formats: only DAW plug-in formats (VST3/AU). A Standalone makes no
-# sense here — the companion needs a host track to analyse and an OpenVoxTuner
+# sense here -- the companion needs a host track to analyse and an OpenVoxTuner
 # instance to consume the detected key, neither of which exists autonomously.
 set(OVT_COMPANION_FORMATS VST3)
 if(APPLE)
@@ -352,7 +347,7 @@ target_link_libraries(OpenVoxKey PRIVATE
     OVTAssets
 )
 
-# === Cible pour les tests unitaires (GTest-like console app) ===
+# === Unit test target (GTest-like console app) ===
 # Main.cpp includes all test files via #include, so we only compile Main.cpp
 juce_add_console_app(OpenVoxTunerTests
     PRODUCT_NAME "OpenVoxTunerTests"
@@ -362,12 +357,12 @@ target_sources(OpenVoxTunerTests PRIVATE
     test/Main.cpp
 
     # DSP sources to test (linked so tests can access internals)
-    Source/dsp/PitchDetector.cpp
     Source/dsp/ScaleQuantizer.cpp
     Source/dsp/RetargetEnvelope.cpp
     Source/dsp/FormantPreserver.cpp
     Source/dsp/LpcFormantPreserver.cpp
     Source/dsp/PitchCurve.cpp
+    Source/dsp/MidiImporter.cpp
     Source/dsp/PitchShifter.cpp
     Source/dsp/HarmonyEngine.cpp
     Source/ui/ScaleKeyboardComponent.cpp

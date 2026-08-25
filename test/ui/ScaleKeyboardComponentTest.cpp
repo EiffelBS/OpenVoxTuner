@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // ScaleKeyboardComponentTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -33,79 +33,79 @@ public:
         // below catches this by asserting that a freshly
         // constructed `PianoKeyButton` is actually toggleable on
         // click.
-        beginTest ("PianoKeyButton est toggleable au clic (regression JUCE 8)");
+        beginTest ("PianoKeyButton is toggleable on click (JUCE 8 regression)");
         {
             PianoKeyButton btn;
             expect (btn.isToggleable(),
-                "Un PianoKeyButton fraichement construit doit etre "
-                "toggleable au clic (clickTogglesState = true). Sans "
-                "cela, un clic souris reel ne fait que fire "
-                "sendClickMessage sans jamais appeler setToggleState, "
-                "donc le AudioParameterBool custom_i n'est jamais "
-                "ecrit par le clic et l'utilisateur ne peut pas "
-                "ajouter/retirer des notes de la gamme dans le plugin.");
+                "A freshly constructed PianoKeyButton must be "
+                "toggleable on click (clickTogglesState = true). Without "
+                "this, a real mouse click only fires sendClickMessage "
+                "without ever calling setToggleState, so the "
+                "AudioParameterBool custom_i is never written by the "
+                "click and the user cannot add/remove notes from the "
+                "scale in the plugin.");
         }
 
-        // La logique de rendu de PianoKeyButton::paintButton est :
+        // The rendering logic of PianoKeyButton::paintButton is:
         //   isActive = activeInScale || getToggleState()
-        // L'invariant qu'on veut verifier : apres un clic utilisateur
-        // reel (mouseDown + mouseUp -> clicked -> sendClickMessage ->
-        // tous les Button::Listener notifies), isActive ==
-        // getToggleState() ET la callback onUserInteraction est appelee
-        // (c'est elle qui fait basculer le combo de gamme en "Custom").
+        // The invariant we want to verify: after a real user click
+        // (mouseDown + mouseUp -> clicked -> sendClickMessage ->
+        // all Button::Listener notified), isActive ==
+        // getToggleState() AND the onUserInteraction callback is
+        // invoked (it is what switches the scale combo to "Custom").
         //
-        // Pour simuler un clic utilisateur dans un test unitaire
-        // portable, on appelle `triggerClick()` : c'est la methode
-        // publique de juce::Button qui simule un mouseDown + mouseUp +
-        // clicked. C'est exactement ce que la souris declenche en
-        // runtime, et donc ce que le ButtonAttachment observe.
+        // To simulate a user click in a portable unit test, we call
+        // `triggerClick()`: it is the public method of juce::Button
+        // that simulates a mouseDown + mouseUp + clicked. That is
+        // exactly what a real mouse triggers at runtime, and thus
+        // what the ButtonAttachment observes.
 
-        // 1) En C Natural Minor, la touche D (index 2) fait partie de
-        //    la gamme : activeInScale=true, getToggleState()=true
-        //    (le cas problematique rapporte par l'utilisateur).
-        beginTest ("Clic OFF sur touche de la gamme preset : visuel = toggle (etat OFF)");
+        // 1) In C Natural Minor, key D (index 2) belongs to the
+        //    scale: activeInScale=true, getToggleState()=true
+        //    (the problematic case reported by the user).
+        beginTest ("Click OFF on a preset-scale key: visual follows toggle (OFF state)");
         {
             ScaleKeyboardComponent comp;
             auto& btnD = comp.getButton (2); // D
 
-            // Setup : on simule "C Natural Minor" + le toggle ON.
+            // Setup: simulate "C Natural Minor" + toggle ON.
             btnD.setActiveInScale (true);
             btnD.setToggleState (true, juce::dontSendNotification);
 
-            // Capture la callback onUserInteraction (qui, en runtime,
-            // fait basculer le combo de gamme en "Custom" via le
-            // `scale` AudioParameterChoice).
+            // Capture the onUserInteraction callback (at runtime it
+            // switches the scale combo to "Custom" via the `scale`
+            // AudioParameterChoice).
             int interactionCount = 0;
             btnD.onUserInteraction = [&interactionCount] { ++interactionCount; };
 
-            // Simule un clic utilisateur complet via triggerClick().
-            // Le base class Button::clicked() fait setToggleState(!current)
-            // + sendClickMessage, ce qui propage au ButtonAttachment ET a
-            // notre InteractionListener.
+            // Simulate a full user click via triggerClick().
+            // The base class Button::clicked() does setToggleState(!current)
+            // + sendClickMessage, which propagates to the ButtonAttachment
+            // AND to our InteractionListener.
             btnD.triggerClick();
 
-            // Verification : apres triggerClick(), le toggle est OFF,
-            // le visuel suit (activeInScale == false), et la callback
-            // onUserInteraction a ete appelee une fois.
+            // Verification: after triggerClick(), the toggle is OFF,
+            // the visual follows (activeInScale == false), and the
+            // onUserInteraction callback was called once.
             expect (! btnD.getToggleState(),
-                "Toggle de D apres clic doit etre OFF (le base class "
-                "Button::clicked() a fait setToggleState(!current))");
+                "Toggle of D after the click must be OFF (the base "
+                "class Button::clicked() did setToggleState(!current))");
             expect (! btnD.isActiveInScale(),
-                "activeInScale doit suivre le toggle (etat OFF) "
-                "pour que le visuel reflete correctement le clic. "
-                "Sinon paintButton (activeInScale || getToggleState()) "
-                "continue d'afficher la touche comme active.");
+                "activeInScale must follow the toggle (OFF state) "
+                "so the visual correctly reflects the click. Otherwise "
+                "paintButton (activeInScale || getToggleState()) keeps "
+                "showing the key as active.");
             expect (interactionCount == 1,
-                "onUserInteraction doit etre appelee une fois apres "
-                "le clic, pour faire basculer le combo de gamme en "
-                "Custom. Sans cela, le passage preset -> Custom ne "
-                "se fait pas et la touche D reste figee visuellement.");
+                "onUserInteraction must be called once after the "
+                "click, to switch the scale combo to Custom. Without "
+                "this, the preset -> Custom transition does not happen "
+                "and key D stays visually frozen.");
         }
 
-        // 2) En C Natural Minor, la touche D# (index 3) NE fait PAS
-        //    partie de la gamme : activeInScale=false. Si l'utilisateur
-        //    veut l'activer, le clic ON doit etre visible.
-        beginTest ("Clic ON sur touche hors gamme preset : visuel = toggle (etat ON)");
+        // 2) In C Natural Minor, key D# (index 3) is NOT part of the
+        //    scale: activeInScale=false. If the user wants to enable
+        //    it, the ON click must be visible.
+        beginTest ("Click ON on an out-of-scale preset key: visual follows toggle (ON state)");
         {
             ScaleKeyboardComponent comp;
             auto& btnDs = comp.getButton (3); // D#
@@ -116,51 +116,51 @@ public:
             int interactionCount = 0;
             btnDs.onUserInteraction = [&interactionCount] { ++interactionCount; };
 
-            // Clic utilisateur -> triggerClick() -> toggle ON + sync.
+            // User click -> triggerClick() -> toggle ON + sync.
             btnDs.triggerClick();
 
             expect (btnDs.getToggleState(),
-                "Toggle de D# apres clic doit etre ON");
+                "Toggle of D# after the click must be ON");
             expect (btnDs.isActiveInScale(),
-                "activeInScale doit suivre le toggle (etat ON) "
-                "pour que le visuel reflete correctement le clic.");
+                "activeInScale must follow the toggle (ON state) "
+                "so the visual correctly reflects the click.");
             expect (interactionCount == 1,
-                "onUserInteraction doit etre appelee une fois apres "
-                "le clic, pour faire basculer le combo en Custom.");
+                "onUserInteraction must be called once after the "
+                "click, to switch the combo to Custom.");
         }
 
-        // 3) En Custom, on peut librement toggler. On verifie que
-        //    l'invariant est respecte dans les deux directions.
-        beginTest ("Toggles successifs en Custom : visuel suit le toggle");
+        // 3) In Custom, toggling freely is allowed. We check that the
+        //    invariant holds in both directions.
+        beginTest ("Successive toggles in Custom: visual follows the toggle");
         {
             ScaleKeyboardComponent comp;
             auto& btn = comp.getButton (5); // F
 
-            // Setup : F est ON (etait dans la gamme precedente)
+            // Setup: F is ON (was part of the previous scale)
             btn.setActiveInScale (true);
             btn.setToggleState (true, juce::dontSendNotification);
 
             for (int k = 0; k < 3; ++k)
             {
-                // Clic utilisateur -> triggerClick()
+                // User click -> triggerClick()
                 btn.triggerClick();
-                // L'invariant : les deux sont egaux
+                // The invariant: both must be equal
                 expect (btn.isActiveInScale() == btn.getToggleState(),
-                    "Apres iteration " + juce::String (k)
-                    + " : activeInScale et getToggleState() doivent coincider. "
+                    "After iteration " + juce::String (k)
+                    + ": activeInScale and getToggleState() must match. "
                     + "activeInScale=" + juce::String (btn.isActiveInScale() ? "true" : "false")
                     + ", getToggleState()=" + juce::String (btn.getToggleState() ? "true" : "false"));
             }
         }
 
-        // 4) Verification que triggerClick() est bien le bon point
-        //    d'entree (c'est la seule methode publique qui simule un
-        //    mouseDown+mouseUp complet + clicked). La logique JUCE
-        //    standard de Button::clicked() fait le setToggleState(!)
-        //    + sendClickMessage (qui notifie le ButtonAttachment et
-        //    notre InteractionListener). Notre InteractionListener
-        //    fait le reste : sync activeInScale + onUserInteraction.
-        beginTest ("triggerClick() est bien le point d'entree public (simule un mouseDown+Up complet)");
+        // 4) Verification that triggerClick() is indeed the right
+        //    entry point (it is the only public method simulating a
+        //    full mouseDown+mouseUp + clicked). The standard JUCE
+        //    logic of Button::clicked() does setToggleState(!)
+        //    + sendClickMessage (which notifies the ButtonAttachment
+        //    and our InteractionListener). Our InteractionListener
+        //    does the rest: sync activeInScale + onUserInteraction.
+        beginTest ("triggerClick() is the proper public entry point (simulates a full mouseDown+Up)");
         {
             ScaleKeyboardComponent comp;
             auto& btn = comp.getButton (0); // C
@@ -171,25 +171,25 @@ public:
             int interactionCount = 0;
             btn.onUserInteraction = [&interactionCount] { ++interactionCount; };
 
-            // Simule un clic utilisateur : JUCE appelle triggerClick()
-            // qui simule un cycle mouseDown + mouseUp reussi. C'est la
-            // methode publique (la seule accessible) qui contient la
-            // logique a tester.
+            // Simulate a user click: JUCE calls triggerClick()
+            // which simulates a successful mouseDown + mouseUp cycle.
+            // It is the public method (the only accessible one)
+            // holding the logic under test.
             btn.triggerClick();
 
-            // Apres triggerClick(), le base class Button::clicked() a
-            // toggle l'etat, le ButtonAttachment a ete notifie (custom_i
-            // mis a jour), l'InteractionListener a fait le sync
-            // activeInScale et a appele onUserInteraction.
+            // After triggerClick(), the base class Button::clicked()
+            // has toggled the state, the ButtonAttachment was notified
+            // (custom_i updated), the InteractionListener did the
+            // activeInScale sync and called onUserInteraction.
             expect (btn.getToggleState(),
-                "Toggle de C apres triggerClick() doit etre ON (base "
-                "class Button::clicked() toggle !current)");
+                "Toggle of C after triggerClick() must be ON (base "
+                "class Button::clicked() toggles !current)");
             expect (btn.isActiveInScale(),
-                "activeInScale doit suivre le toggle apres triggerClick() "
-                "(InteractionListener fait le sync)");
+                "activeInScale must follow the toggle after triggerClick() "
+                "(the InteractionListener does the sync)");
             expect (interactionCount == 1,
-                "onUserInteraction doit etre appelee une fois par "
-                "triggerClick() (InteractionListener fait l'appel)");
+                "onUserInteraction must be called once per "
+                "triggerClick() (the InteractionListener makes the call)");
         }
 
         // 5) Regression (2026-07-17, Fix AC): when the parent
@@ -198,7 +198,7 @@ public:
         // custom_i) must NOT fire onUserInteraction (which would switch
         // the scale combo back to "Custom" and cancel the user's preset
         // selection). The guard is isUpdatingFromScaleCombo().
-        beginTest ("Suppression onUserInteraction pendant maj depuis combo (regression Fix AC)");
+        beginTest ("onUserInteraction suppressed during update from combo (Fix AC regression)");
         {
             ScaleKeyboardComponent comp;
             auto& btn = comp.getButton (0); // C
@@ -215,13 +215,14 @@ public:
             comp.setUpdatingFromScaleCombo (false);
 
             expect (interactionCount == 0,
-                "Pendant une maj programmee depuis la combo "
-                "(setUpdatingFromScaleCombo(true)), un toggle ne doit "
-                "PAS appeler onUserInteraction. Sans cela, selectionner "
-                "une gamme preset dans la combo la remettait a 'Custom'.");
+                "During a programmatic update from the combo "
+                "(setUpdatingFromScaleCombo(true)), a toggle must NOT "
+                "call onUserInteraction. Without this, selecting a "
+                "preset scale in the combo would reset it back to "
+                "'Custom'.");
             expect (btn.getToggleState() == false,
-                "Le toggle visuel doit quand meme etre applique "
-                "(etat OFF) meme si onUserInteraction est supprime.");
+                "The visual toggle must still be applied (OFF state) "
+                "even though onUserInteraction is suppressed.");
         }
     }
 };

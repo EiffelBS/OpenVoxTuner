@@ -1,4 +1,4 @@
-﻿// ScaleKeyboardComponent.cpp
+// ScaleKeyboardComponent.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -31,7 +31,7 @@ namespace ui
         // our listener runs the `activeInScale` sync + `onUserInteraction`
         // dispatch. The juce::ButtonAttachment is created by the caller
         // AFTER the button constructor, so it gets appended to the
-        // listener list AFTER us â€” but ButtonAttachment::buttonClicked
+        // listener list AFTER us - but ButtonAttachment::buttonClicked
         // does NOT depend on us, it just pushes the new toggle value
         // to the AudioParameterBool. The order in which we run vs the
         // ButtonAttachment is therefore irrelevant: by the time
@@ -70,12 +70,12 @@ namespace ui
         // Active state: use toggle state for Custom mode, activeInScale for preset modes
         bool isActive = activeInScale || getToggleState();
 
-        // Couleurs
+        // Colours
         juce::Colour baseColour;
         if (isBlack) {
-            baseColour = isActive ? juce::Colour(0xff0088ff) : juce::Colour(0xff333333); // Bleu si actif, Gris fonce sinon
+            baseColour = isActive ? juce::Colour(0xff0088ff) : juce::Colour(0xff333333); // Blue when active, dark gray otherwise
         } else {
-            baseColour = isActive ? juce::Colour(0xff00aaff) : juce::Colour(0xff777777); // Bleu clair si actif, Gris moyen sinon
+            baseColour = isActive ? juce::Colour(0xff00aaff) : juce::Colour(0xff777777); // Light blue when active, medium gray otherwise
         }
 
         if (shouldDrawButtonAsDown) {
@@ -84,15 +84,15 @@ namespace ui
             baseColour = baseColour.brighter(0.1f);
         }
 
-        // Dessin de la touche
+        // Key drawing
         g.setColour(baseColour);
         g.fillRoundedRectangle(bounds, 2.0f);
 
-        // Bordure
+        // Border
         g.setColour(juce::Colours::black.withAlpha(0.8f));
         g.drawRoundedRectangle(bounds, 2.0f, 1.0f);
 
-        // Effet 3D leger
+        // Light 3D effect
         if (!isBlack) {
             g.setGradientFill(juce::ColourGradient(juce::Colours::white.withAlpha(0.2f), 0, 0,
                                                    juce::Colours::transparentWhite, 0, bounds.getHeight() * 0.2f, false));
@@ -108,7 +108,7 @@ namespace ui
 
     ScaleKeyboardComponent::ScaleKeyboardComponent()
     {
-        // Initialisation des notes
+        // Note initialization
         // 0:C, 1:C#, 2:D, 3:D#, 4:E, 5:F, 6:F#, 7:G, 8:G#, 9:A, 10:A#, 11:B
         bool isBlackKey[12] = { false, true, false, true, false, false, true, false, true, false, true, false };
 
@@ -122,7 +122,7 @@ namespace ui
 
     void ScaleKeyboardComponent::paint (juce::Graphics& g)
     {
-        // Fond autour du clavier
+        // Background around the keyboard
         g.setColour(juce::Colours::black.withAlpha(0.3f));
         g.fillRoundedRectangle(getLocalBounds().toFloat(), 4.0f);
         g.setColour(juce::Colours::black.withAlpha(0.8f));
@@ -138,26 +138,26 @@ namespace ui
 
         int whiteIndex = 0;
 
-        // D'abord on place les touches blanches
+        // First place the white keys
         for (int i = 0; i < 12; ++i)
         {
             if (!keys[i].getIsBlack())
             {
                 keys[i].setBounds(bounds.getX() + static_cast<int>(whiteIndex * whiteKeyWidth),
                                   bounds.getY(),
-                                  static_cast<int>(whiteKeyWidth) + 1, // +1 pour eviter les gaps
+                                  static_cast<int>(whiteKeyWidth) + 1, // +1 to avoid gaps
                                   bounds.getHeight());
                 whiteIndex++;
             }
         }
 
-        // Ensuite les touches noires par-dessus
+        // Then the black keys on top
         whiteIndex = 0;
         for (int i = 0; i < 12; ++i)
         {
             if (keys[i].getIsBlack())
             {
-                // La touche noire est entre la touche blanche precedente et la suivante
+                // The black key sits between the previous and next white keys
                 keys[i].setBounds(bounds.getX() + static_cast<int>(whiteIndex * whiteKeyWidth - blackKeyWidth / 2.0f),
                                   bounds.getY(),
                                   static_cast<int>(blackKeyWidth),
@@ -168,7 +168,7 @@ namespace ui
                 whiteIndex++;
             }
 
-            // On s'assure que les touches noires sont au premier plan
+            // Make sure the black keys are in front
             if (keys[i].getIsBlack()) {
                 keys[i].toFront(false);
             }

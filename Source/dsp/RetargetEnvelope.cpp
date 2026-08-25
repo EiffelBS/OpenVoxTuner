@@ -1,4 +1,4 @@
-﻿// RetargetEnvelope.cpp
+// RetargetEnvelope.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -31,10 +31,10 @@ namespace ovtdsp
 
     void RetargetEnvelope::recomputeAlpha()
     {
-        // alpha = 1 - exp(-dt / tau) avec dt = 1 / sampleRate et tau = speedMs / 1000
+        // alpha = 1 - exp(-dt / tau) with dt = 1 / sampleRate and tau = speedMs / 1000
         if (speedMs <= 0.0f)
         {
-            alpha = 1.0f; // reponse instantanee
+            alpha = 1.0f; // instantaneous response
             return;
         }
         const double dt = 1.0 / sampleRate;
@@ -52,17 +52,17 @@ namespace ovtdsp
 
     float RetargetEnvelope::processBlock (float targetRatio, int numSamples)
     {
-        // Variante block-aware : on applique un seul pas de filtre par bloc,
-        // mais avec un alpha equivalent a N pas per-sample successifs.
-        // Formule : alpha_block = 1 - (1 - alpha_sample)^N
-        // Comme alpha_sample = 1 - exp(-dt/tau) et dt = 1/sampleRate :
+        // Block-aware variant: apply a single filter step per block, but with
+        // an alpha equivalent to N successive per-sample steps.
+        // Formula: alpha_block = 1 - (1 - alpha_sample)^N
+        // Since alpha_sample = 1 - exp(-dt/tau) and dt = 1/sampleRate:
         //   alpha_block = 1 - exp(-numSamples / (sampleRate * tau))
         //              = 1 - exp(-blockDuration / tau)
-        // Cela garantit que la constante de temps effective est tau, independamment
-        // de la taille du bloc.
+        // This guarantees the effective time constant is tau, regardless of
+        // the block size.
         if (speedMs <= 0.0f)
         {
-            // Speed = 0 : reponse instantanee.
+            // Speed = 0: instantaneous response.
             currentValue = targetRatio;
             return currentValue;
         }

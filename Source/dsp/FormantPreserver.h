@@ -1,4 +1,4 @@
-﻿// FormantPreserver.h
+// FormantPreserver.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -12,8 +12,8 @@
 namespace ovtdsp
 {
     /**
-     * Decale les formants d'un signal dans le sens oppose a une transposition.
-     * Doit etre appele AVANT le PSOLA.
+     * Shifts the formants of a signal in the direction opposite to a pitch
+     * transposition. Must be called BEFORE the PSOLA.
      */
     class FormantPreserver
     {
@@ -41,21 +41,21 @@ namespace ovtdsp
         void prepare (double sampleRate, int blockSize);
         void reset();
 
-        /// Applique le deplacement de formants au buffer.
-        /// @param ratio ratio de transposition (1.0 = passthrough)
+        /// Applies the formant shifting to the buffer.
+        /// @param ratio transposition ratio (1.0 = passthrough)
         void process (juce::AudioBuffer<float>& buffer, float ratio);
 
         void setEnabled (bool b) { enabled = b; }
         bool isEnabled() const   { return enabled; }
 
-        /// Definit le decalage manuel de formants en demi-tons
+        /// Sets the manual formant shift in semitones
         void setFormantShift (float semitones) { shiftSemitones = semitones; }
 
-        /// Selectionne le mode de preservation des formants
+        /// Selects the formant preservation mode
         void setMode (Mode m) { mode = m; }
         Mode getMode() const { return mode; }
 
-        /// Selectionne la strategie de compensation (Current ou P0).
+        /// Selects the compensation strategy (Current or P0).
         void setStrategy (Strategy s) { strategy = s; }
         Strategy getStrategy() const { return strategy; }
 
@@ -71,15 +71,15 @@ namespace ovtdsp
         void setSmoothingAlpha (float a) { biquadSmoothAlpha = juce::jlimit (0.001f, 1.0f, a); }
         float getSmoothingAlpha() const { return biquadSmoothAlpha; }
 
-        /// Definit le type de voix (0=Universal,1=Bass,2=Baritone,3=Tenor,4=Alto,5=Soprano)
-        /// utilise pour choisir les centres de formants en mode P0.
+        /// Sets the voice type (0=Universal,1=Bass,2=Baritone,3=Tenor,4=Alto,5=Soprano)
+        /// used to pick the formant centers in P0 mode.
         void setVoiceType (int vt) { voiceType = juce::jlimit (0, 5, vt); }
 
-        /// Configure un formant specifique (mode MultiFormant uniquement)
+        /// Configures a specific formant (MultiFormant mode only)
         /// @param index 0=F1, 1=F2, 2=F3, 3=F4
-        /// @param freqHz frequence du formant en Hz
-        /// @param q qualite (resonance)
-        /// @param gainDb gain en dB
+        /// @param freqHz formant frequency in Hz
+        /// @param q quality (resonance)
+        /// @param gainDb gain in dB
         void setFormant (int index, float freqHz, float q, float gainDb);
 
     private:
@@ -109,14 +109,14 @@ namespace ovtdsp
         
         float shiftSemitones = 0.0f;
 
-        // Coefficients du filtre IIR (biquad par formant par canal).
+        // IIR filter coefficients (one biquad per formant per channel).
         struct ChannelState
         {
-            // Un biquad par formant (max 4).
-            // `formants` stocke les coefficients CIBLES (recalculees chaque
-            // bloc selon le ratio). `smooth` stocke les coefficients
-            // APPLIQUES au signal avec leurs propres Ã©tats de retard (fixe
-            // les pops/clics causÃ©s par l'incompatibilitÃ© coefficient/Ã©tat).
+            // One biquad per formant (max 4).
+            // `formants` stores the TARGET coefficients (recomputed every
+            // block from the ratio). `smooth` stores the coefficients
+            // APPLIED to the signal along with their own delay states
+            // (fixes pops/clicks caused by coefficient/state mismatch).
             struct BiquadState
             {
                 float a1 = 0.0f, a2 = 0.0f;
@@ -129,13 +129,13 @@ namespace ovtdsp
                 float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
                 float z1 = 0.0f, z2 = 0.0f; // delay states OWNED by smoothed coefficients
             };
-            BiquadState  formants[4];   // coefficients cibles (recalcule par bloc)
-            BiquadSmooth smooth[4];     // coefficients + Ã©tats appliquÃ©s au signal
+            BiquadState  formants[4];   // target coefficients (recomputed per block)
+            BiquadSmooth smooth[4];     // coefficients + states applied to the signal
         };
         juce::Array<ChannelState> channels;
 
-        // Coefficient de lissage des biquads (un pas par bloc, applique a
-        // chaque echantillon du bloc pour rester buffer-size independent).
+        // Biquad smoothing coefficient (one step per block, applied to every
+        // sample of the block to stay buffer-size independent).
         //
         // 2026-07-23 (Fix AZ): increased from 0.002 (~2.9s TC at 256/44100,
         // which produced a 5Hz warble of formant frequencies when the input
@@ -152,7 +152,7 @@ namespace ovtdsp
         // side-effect of an old buffer-size-dependent formula.
         float biquadSmoothAlpha = 0.05f;
 
-        // Configuration des formants par defaut (F1-F4 typiques voix masculine)
+        // Default formant configuration (typical male voice F1-F4)
         struct FormantConfig
         {
             float freqHz = 500.0f;
@@ -175,13 +175,13 @@ namespace ovtdsp
         // overall gain level. Default 1.0 = original Q.
         float qMultiplier = 1.0f;
 
-        // Frequence de Nyquist securite.
+        // Nyquist safety frequency.
         static constexpr float maxCutoffHz = 8000.0f;
 
-        // Active / desactive le module.
+        // Enables / disables the module.
         bool enabled = false;
 
-        // Recalcule les coefficients biquad pour la freq de coupure demandee.
+        // Recomputes the biquad coefficients for the requested cutoff frequency.
         void updateBiquadCoefficients (ChannelState::BiquadState& s, float freqHz, float q, float gainDb);
 
         // Allpass biquad coefficients (RBJ cookbook). Magnitude is unity; the
@@ -189,10 +189,10 @@ namespace ovtdsp
         // formant without colouring the spectral envelope.
         void updateAllpassCoefficients (ChannelState::BiquadState& s, float freqHz, float q);
 
-        // Met a jour tous les formants pour un canal selon le ratio
+        // Updates all formants for a channel according to the ratio
         void updateAllFormants (ChannelState& s, float compensationRatio, float shiftRatio);
 
-        // Traite un canal avec tous les biquads en serie
+        // Processes one channel through all biquads in series
         void processChannel (float* data, int numSamples, ChannelState& s);
     };
 }

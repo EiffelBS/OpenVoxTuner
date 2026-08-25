@@ -16,14 +16,14 @@
 namespace ui
 {
     /**
-     * Editeur interactif de PitchCurve.
-     * Communique avec le processor via un listener (changement de courbe).
+     * Interactive PitchCurve editor.
+     * Communicates with the processor via a listener (curve changes).
      */
     class PitchCurveEditor : public juce::Component,
                              public juce::Timer
     {
     public:
-        /** Notifie le processor d'un changement de courbe. */
+        /** Notifies the processor of a curve change. */
         class Listener
         {
         public:
@@ -38,7 +38,7 @@ namespace ui
         void resized() override;
         void timerCallback() override;
 
-        // === Saisie souris ===
+        // === Mouse input ===
         void mouseDown (const juce::MouseEvent& e) override;
         void mouseDrag (const juce::MouseEvent& e) override;
         void mouseUp (const juce::MouseEvent& e) override;
@@ -53,58 +53,58 @@ namespace ui
         // === Keyboard (copy/paste, undo/redo) ===
         bool keyPressed (const juce::KeyPress& key) override;
 
-        // === API publique ===
+        // === Public API ===
 
-        /// Acces a la courbe (lecture seule recommande depuis l'exterieur).
+        /// Access to the curve (read-only recommended from outside).
         const ovtdsp::PitchCurve& getCurve() const { return curve; }
 
-        /// Remplace la courbe (apres chargement de preset par exemple).
-        /// Reinitialise aussi les options d'edition (snap, grid, step) a leurs
-        /// valeurs par defaut pour eviter les conflits d'etat UI.
+        /// Replaces the curve (e.g. after loading a preset).
+        /// Also resets the editing options (snap, grid, step) to their
+        /// default values to avoid UI state conflicts.
         void setCurve (const ovtdsp::PitchCurve& newCurve);
-        
-        /// Reinitialise les options d'edition aux valeurs par defaut :
+
+        /// Resets the editing options to their defaults:
         /// snap=ON, stepMode=OFF, snapToGrid=OFF.
         void resetEditState();
 
-        /// Capture la valeur du pitch courant (fourni par le processor) comme
-        /// un point sur la courbe au temps 'currentTime'. Utilise en mode
-        /// "Live recording".
+        /// Captures the current pitch value (provided by the processor) as
+        /// a point on the curve at time 'currentTime'. Used in
+        /// "Live recording" mode.
         void capturePitch (float hz, double currentTime);
 
-        /// Definit le zoom en temps (secondes affichees) et le zoom en pitch.
+        /// Sets the time zoom (displayed seconds) and the pitch zoom.
         void setViewRange (double secondsVisible, float minHz, float maxHz);
 
-        /// Zoom la vue en pitch (range plus etroit), centre sur le pitch central courant.
+        /// Zooms the pitch view in (narrower range), centered on the current center pitch.
         void zoomIn();
-        /// Dezoom la vue en pitch (range plus large).
+        /// Zooms the pitch view out (wider range).
         void zoomOut();
-        /// Pan la vue en pitch vers le haut (pitches plus aigus).
+        /// Pans the pitch view up (higher pitches).
         void scrollUp();
-        /// Pan la vue en pitch vers le bas (pitches plus graves).
+        /// Pans the pitch view down (lower pitches).
         void scrollDown();
 
-        /// Exporte l'editeur de courbe en image PNG (resolution 2x), comme
-        /// le visualiseur Live. Utilise le paint() de l'editeur directement.
-        /// @param filePath  chemin de destination (.png)
-        /// @return          true si l'export a reussi
+        /// Exports the curve editor as a PNG image (2x resolution), like
+        /// the Live visualizer. Uses the editor's paint() directly.
+        /// @param filePath  destination path (.png)
+        /// @return          true if the export succeeded
         bool exportAsImage (const juce::File& filePath);
-        /// Reinitialise la vue : range de pitch par defaut et scroll temporel au debut.
+        /// Resets the view: default pitch range and time scroll back to the start.
         void resetView();
 
-        /// Active/desactive le snap a la gamme.
+        /// Enables/disables snap to scale.
         void setSnapEnabled (bool b);
         bool isSnapEnabled() const { return snapEnabled; }
 
-        /// Active ou desactive le magnetisme sur la grille temporelle.
+        /// Enables or disables snapping to the time grid.
         void setSnapToGridEnabled (bool b);
         bool isSnapToGridEnabled() const { return snapToGridEnabled; }
 
-        /// Active ou desactive le mode "escalier" (Step Mode) pour l'interpolation.
+        /// Enables or disables "staircase" mode (Step Mode) for interpolation.
         void setStepModeEnabled (bool b);
         bool isStepModeEnabled() const { return curve.isStepMode(); }
 
-        /// Vider la courbe (Reset)
+        /// Clear the curve (Reset)
         void clearCurve() { curve.clear(); repaint(); notifyChanged(); }
 
         /** Import a pitch curve from an external source (e.g. MIDI file).
@@ -133,18 +133,18 @@ namespace ui
             repaint();
         }
 
-        /// Definit la gamme (pour le snap).
+        /// Sets the scale (for snapping).
         void setKeyAndScale (int key, ovtdsp::Scale scale);
 
-        /// Definit les notes de la gamme pour l'affichage du piano.
-        /// Liste de demi-tons 0..11 relatifs a C.
+        /// Sets the scale notes for the piano display.
+        /// List of semitones 0..11 relative to C.
         void setScaleIntervals (const juce::Array<int>& intervals);
 
-        /// Renvoie les notes de la gamme (demi-tons 0..11) pour le mode Custom.
-        /// En mode non-Custom, les intervalles sont calcules depuis key+scale.
+        /// Returns the scale notes (semitones 0..11) for Custom mode.
+        /// In non-Custom mode, intervals are computed from key+scale.
         const juce::Array<int>& getCustomIntervals() const { return customIntervalsCache; }
 
-        /// Definit les notes de la gamme pour le mode Custom.
+        /// Sets the scale notes for Custom mode.
         void setCustomIntervals (const juce::Array<int>& intervals)
         {
             customIntervalsCache = intervals;
@@ -154,11 +154,11 @@ namespace ui
         /// editor can draw harmony traces aligned with the curve timeline.
         void addHarmonySamples (double time, const juce::Array<float>& freqs);
 
-        /// Active/desactive l'affichage des traces d'harmonie (lignes bleues).
-        /// Par defaut active : la trace des voix d'harmonie s'affiche des que
-        /// des samples sont recus via addHarmonySamples().
+        /// Enables/disables the harmony trace display (blue lines).
+        /// Enabled by default: harmony voice traces are shown as soon as
+        /// samples are received via addHarmonySamples().
         void setShowHarmoniesTrace (bool show) { showHarmoniesTrace = show; repaint(); }
-        /// Retourne l'etat d'affichage des traces d'harmonie.
+        /// Returns the harmony trace display state.
         bool getShowHarmoniesTrace() const { return showHarmoniesTrace; }
 
         /// Show/hide the "FOLLOWS MIDI IN" badge (driven by the MIDI target).
@@ -175,29 +175,29 @@ namespace ui
         /// Clear the input pitch trace.
         void clearInputTrace();
 
-        /// Active/desactive l'affichage de la trace d'entree live (monitoring/capture).
-        /// Par defaut desactivee : la courbe editable s'affiche proprement au lancement,
-        /// sans la trace rouge de l'entree audio (qui peut capter un signal parasite).
+        /// Enables/disables the live input trace display (monitoring/capture).
+        /// Disabled by default: the editable curve displays cleanly at startup,
+        /// without the red audio input trace (which may pick up stray signal).
         void setShowInputTrace (bool show) { showInputTrace = show; if (! show) clearInputTrace(); repaint(); }
-        /// Retourne l'etat d'affichage de la trace d'entree live.
+        /// Returns the live input trace display state.
         bool getShowInputTrace() const { return showInputTrace; }
 
-        /// Definit la position du playhead (en PPQ) et l'etat de lecture
-        /// du DAW. L'auto-scroll n'est actif que si le DAW joue vraiment.
+        /// Sets the playhead position (in PPQ) and the DAW playing state.
+        /// Auto-scroll is only active if the DAW is really playing.
         void setPlayheadTime (double time, bool isHostPlaying, bool isLooping = false);
 
-        /// Replace le playhead au debut et fait defiler la vue pour reveler le
-        /// temps 0. Utilise par le bouton "Retour au debut" et l'item de menu
-        /// "Reset Playhead" pour garantir un retour fiable au premier clic
-        /// (sans dependre du detecteur de seek de setPlayheadTime). Preserve
-        /// le zoom et la plage de pitch.
+        /// Moves the playhead back to the start and scrolls the view to reveal
+        /// time 0. Used by the "Return to start" button and the "Reset Playhead"
+        /// menu item to guarantee a reliable return on the first click
+        /// (without relying on the seek detector in setPlayheadTime). Keeps
+        /// the zoom and pitch range.
         void returnToStart();
 
-        /// Snap temporel (grille de projet) utilise par le clic sur la regle et
-        /// le double-clic. Public/statique pour permettre des tests unitaires.
+        /// Time snapping (project grid) used by ruler clicks and
+        /// double-clicks. Public/static to allow unit testing.
         static double snapTimeToGrid (double t, bool snapToGridEnabled)
         {
-            const double gridStep = 0.5; // grille de projet (noire = 1.0 beat)
+            const double gridStep = 0.5; // project grid (quarter note = 1.0 beat)
             const double nearest = std::round (t / gridStep) * gridStep;
             if (snapToGridEnabled)
                 return nearest;
@@ -205,25 +205,25 @@ namespace ui
                 return nearest;
             return t;
         }
-        /// Borne le decalage de scroll horizontal (>= 0). Public/statique pour tests.
+        /// Clamps the horizontal scroll offset (>= 0). Public/static for tests.
         static double clampScrollOffset (double offset)
         {
             return offset < 0.0 ? 0.0 : offset;
         }
 
-        /// Callback de demande de seek (clic sur la regle). Relie l'editeur au
-        /// transport du processeur sans couplage direct editeur->processeur.
+        /// Seek request callback (ruler click). Connects the editor to the
+        /// processor transport without direct editor->processor coupling.
         std::function<void(double)> onSeek;
 
-        /// Definit le nombre de mesures visibles (1, 2, 4, 8).
+        /// Sets the number of visible measures (1, 2, 4, 8).
         void setMeasuresVisible (int measures);
 
-        /// Definit la time signature courante (numerator/denominator).
+        /// Sets the current time signature (numerator/denominator).
         void setTimeSignature (int numerator, int denominator);
 
-        /// Active/desactive le defilement automatique (auto-scroll ARA / standalone timeline).
+        /// Enables/disables automatic scrolling (ARA auto-scroll / standalone timeline).
         void setAutoScroll (bool enabled);
-        /// Retourne l'etat de l'auto-scroll (utilise par le menu Options).
+        /// Returns the auto-scroll state (used by the Options menu).
         bool getAutoScroll() const { return autoScrollEnabled; }
 
         void setWaveformOverlay (const float* samples, int numSamples, double sampleRate);
@@ -249,14 +249,14 @@ namespace ui
         }
         bool isPianoRollMode() const { return pianoRollMode; }
 
-        /// Active/desactive l'edition (utilise pour griser en mode Auto).
+        /// Enables/disables editing (used to gray out in Auto mode).
         void setEditorEnabled (bool b);
         bool isEditorEnabled() const { return editorEnabled; }
 
-        /// Vide les traces d'harmonie (pour cacher quand on entre en onglet Curve Editor)
+        /// Clears the harmony traces (to hide them when entering the Curve Editor tab)
         void clearHarmonyTraces();
 
-        /// Acces au clavier piano (pour le configurer depuis l'exterieur).
+        /// Access to the piano keyboard (to configure it from outside).
         PianoKeyboard& getPianoKeyboard() { return pianoKeyboard; }
 
         /// Undo/Redo button access (for PluginEditor to position them)
@@ -266,22 +266,22 @@ namespace ui
         /// Refresh all translatable strings after a language change.
         void refreshTranslations();
 
-        // Listener (un seul pour MVP).
+        // Listener (a single one for MVP).
         void addListener (Listener* l) { listener = l; }
         void removeListener() { listener = nullptr; }
 
         std::function<void(const juce::MouseEvent&)> onRightClick;
 
     private:
-        // === Donnees ===
+        // === Data ===
         ovtdsp::PitchCurve curve;
         ovtdsp::PitchCurve ghostCurve;   // owned copy of the morph-target overlay
         bool hasGhostCurve = false;    // whether the ghost overlay is currently active
 
-        // Clavier piano affiche sur la gauche.
+        // Piano keyboard displayed on the left.
         PianoKeyboard pianoKeyboard;
 
-        // Drag en cours.
+        // Ongoing drag.
         int  dragIndex = -1;
         bool isDragging = false;
         bool isDraggingSelection = false;
@@ -293,27 +293,27 @@ namespace ui
         juce::Array<float> selectionStartPitches;
         int selectionAnchorLocal = -1;
 
-        // Scroll horizontal a la souris (bouton milieu), actif quand auto-scroll OFF.
+        // Mouse horizontal scrolling (middle button), active when auto-scroll is OFF.
         bool isMiddleScrolling = false;
         double middleDragStartX = 0.0;
         double middleDragStartScroll = 0.0;
 
-        // Snap et gamme.
+        // Snap and scale.
         bool snapEnabled = true;
         bool snapToGridEnabled = false;
         int  keyIdx = 0;
         ovtdsp::Scale currentScale = ovtdsp::Scale::Major;
-        juce::Array<int> customIntervalsCache; // copie locale des notes (mode Custom)
-        juce::Array<int> scaleIntervals; // notes de la gamme pour les lignes de reference
+        juce::Array<int> customIntervalsCache; // local copy of the notes (Custom mode)
+        juce::Array<int> scaleIntervals; // scale notes for the reference lines
 
-        // Etat d'activation (false en mode Auto -> lecture seule).
+        // Enabled state (false in Auto mode -> read-only).
         bool editorEnabled = true;
 
         // "Piano Roll" editing metaphor (second metaphor for the same curve).
         bool pianoRollMode = false;
 
-        // Vue.
-        double timeVisible = 16.0; // calcul automatique par recalculateTimeVisible()
+        // View.
+        double timeVisible = 16.0; // automatically computed by recalculateTimeVisible()
         float  minHz = 50.0f;
         float  maxHz = 1000.0f;
 
@@ -323,11 +323,11 @@ namespace ui
         int timeSigDen = 4;
         void recalculateTimeVisible();
 
-        // Borne le range de pitch (1..8 octaves, C0..C9) comme mouseWheelMove.
+        // Clamps the pitch range (1..8 octaves, C0..C9) like mouseWheelMove.
         void clampPitchRange();
 
-        // Zoom la vue en pitch autour d'un pitch de reference (souris / doigt).
-        // factor > 1 => zoom avant (range plus etroit), borne a 1..8 octaves.
+        // Zooms the pitch view around a reference pitch (mouse / finger).
+        // factor > 1 => zoom in (narrower range), clamped to 1..8 octaves.
         void applyZoom (float anchorPitch, float factor);
 
         // Auto-scroll (Feature 2).
@@ -353,7 +353,7 @@ namespace ui
         bool midiFollowActive = false;  // "Tuning follows MIDI IN" badge state
         float midiTargetHz = 0.0f;      // MIDI target note frequency for the line
 
-        // Position du playhead (secondes). 0 par defaut.
+        // Playhead position (seconds). 0 by default.
         double playheadTime = 0.0;
 
         // Hover cursor (horizontal line + note/Hz readout).
@@ -375,12 +375,12 @@ namespace ui
         int waveformTotalWritten = 0;
         juce::AudioBuffer<float> waveformTailBuffer;  // contiguous tail for the spectral draw
 
-        // Couleurs.
+        // Colors.
         static const juce::Colour kCurveColour;
         static const juce::Colour kPointColour;
         static const juce::Colour kGridColour;
 
-        // Hover et Tooltip
+        // Hover and Tooltip
         int hoverIndex = -1;
         juce::String getNoteName (float hz) const;
 
@@ -396,7 +396,7 @@ namespace ui
         void registerUndoableAction (juce::UndoableAction* action) { undoManager.beginNewTransaction(); undoManager.perform (action); }
         void beginTransaction (const juce::String& name) { undoManager.beginNewTransaction (name); }
 
-        // Snapshot de la courbe avant une modification (pour undo)
+        // Curve snapshot before a modification (for undo)
         ovtdsp::PitchCurve pendingUndoSnapshot;
 
         // === Undoable action helper ===
@@ -413,7 +413,7 @@ namespace ui
             bool undo() override;
         };
 
-        // Conversion temps / pitch <-> pixels.
+        // Time / pitch <-> pixel conversion.
         double timeToX (double t) const;
         double xToTime (float x) const;
         float  pitchToY (float p) const;
@@ -422,10 +422,10 @@ namespace ui
         // Snap a frequency to the nearest MIDI note (piano-roll editing).
         float snapToNearestNote (float hz) const;
 
-        // Trouve le point le plus proche d'une position pixel.
+        // Finds the point closest to a pixel position.
         int findPointAtPixel (juce::Point<float> p, float maxDist = 30.0f) const;
 
-        // Notifie le listener.
+        // Notifies the listener.
         void notifyChanged();
 
         // Renders the piano-roll metaphor (note rows + blocks) when pianoRollMode is on.
@@ -436,8 +436,8 @@ namespace ui
         // Undo/Redo buttons (positioned by parent)
         // Hex escapes produce raw UTF-8 bytes (>127) which juce::String(const char*)
         // rejects in Debug; wrap in CharPointer_UTF8 so JUCE decodes them correctly.
-        juce::TextButton undoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb6") };  // Undo arrow symbol â†¶
-        juce::TextButton redoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb7") };  // Redo arrow symbol â†·
+        juce::TextButton undoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb6") };  // Undo arrow symbol ↶
+        juce::TextButton redoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb7") };  // Redo arrow symbol ↷
 
         // Piano Roll mode toggle (second editing metaphor for the same curve).
         juce::TextButton pianoRollButton { "Piano Roll" };

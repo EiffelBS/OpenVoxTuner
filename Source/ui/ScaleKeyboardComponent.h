@@ -64,7 +64,7 @@ namespace ui
         // ~PianoKeyButton). That listener fires the same `onUserInteraction`
         // callback that the old `clicked()` override used to, plus the
         // `activeInScale` visual sync, but does so in the same dispatch
-        // cycle as the ButtonAttachment â€” so both the user-visible toggle
+        // cycle as the ButtonAttachment - so both the user-visible toggle
         // AND the AudioParameterBool (custom_i) get updated in one go, with
         // no manual `sendClickMessage` call and no risk of a
         // changeNotification stack overflow.
@@ -79,7 +79,7 @@ namespace ui
         //   (b) once in Custom mode, switching to a different scale
         //       preserved stale custom_i values because the
         //       scaleBox.onChange() flow reads custom_i to seed the new
-        //       preset â€” but custom_i was never updated by the click.
+        //       preset - but custom_i was never updated by the click.
         // The root cause was that we never fired the Button::Listener
         // chain, so the ButtonAttachment never pushed the new toggle
         // value into the AudioParameterBool. Listening via an internal

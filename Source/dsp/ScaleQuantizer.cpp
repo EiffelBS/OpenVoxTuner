@@ -9,7 +9,7 @@
 
 namespace ovtdsp
 {
-    // Demi-tons d'une octave pour chaque mode (relatifs a la tonique).
+    // Semitones of one octave for each mode (relative to the tonic).
     static const std::vector<int> chromaticIntervals       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
     static const std::vector<int> majorIntervals           = { 0, 2, 4, 5, 7, 9, 11 };
     static const std::vector<int> melodicMinorIntervals    = { 0, 2, 3, 5, 7, 9, 11 };
@@ -28,7 +28,7 @@ namespace ovtdsp
 
     ScaleQuantizer::ScaleQuantizer()
     {
-        // Par defaut, on active toute la gamme chromatique comme custom.
+        // By default, enable the full chromatic scale as custom.
         for (int i = 0; i < 12; ++i) customIntervals.add (i);
         rebuildIntervals();
     }
@@ -54,7 +54,7 @@ namespace ovtdsp
             if (! customIntervals.contains (m))
                 customIntervals.add (m);
         }
-        // Si vide, on retombe sur chromatique pour eviter une gamme vide.
+        // If empty, fall back to chromatic to avoid an empty scale.
         if (customIntervals.isEmpty())
             for (int i = 0; i < 12; ++i) customIntervals.add (i);
         rebuildIntervals();
@@ -120,47 +120,48 @@ namespace ovtdsp
     {
         if (hzIn <= 0.0f) return 0.0f;
 
-        // 1) Conversion Hz -> demi-tons par rapport a A4 (440 Hz).
+        // 1) Convert Hz -> semitones relative to A4 (440 Hz).
         const float semitones = hzToSemitones (hzIn);
 
-        // 2) Separer la partie entiere (octave) et fractionnaire (position dans l'octave).
-        //    La gamme se repete a chaque octave, donc on ne quantifie que modulo 12.
+        // 2) Separate the integer part (octave) and fractional part (position in the octave).
+        //    The scale repeats at every octave, so we only quantize modulo 12.
         const float roundedSemi = std::round (semitones);
-        const float frac = semitones - roundedSemi; // dans [-0.5, 0.5]
+        const float frac = semitones - roundedSemi; // in [-0.5, 0.5]
 
-        // 3) Convertir la position dans l'octave en [0, 12).
-        //    "roundedSemi" est la note MIDI en demi-tons par rapport a A4.
-        //    A4 = 69 en MIDI. Demi-ton 0 = A, 1 = A#, ..., 12 = A suivant.
-        const int midiRef = 69; // A4 en MIDI
+        // 3) Convert the position in the octave to [0, 12).
+        //    "roundedSemi" is the MIDI note in semitones relative to A4.
+        //    A4 = 69 in MIDI. Semitone 0 = A, 1 = A#, ..., 12 = next A.
+        const int midiRef = 69; // A4 in MIDI
         const int currentMidi = static_cast<int> (std::round (roundedSemi)) + midiRef;
         const int noteInOctave = ((currentMidi % 12) + 12) % 12; // [0,11]
 
-        // 4) Trouver le demi-ton de la gamme le plus proche.
-        //    Si la note exacte est dans la gamme, on la garde.
-        //    Sinon, on prend la note de la gamme la plus proche (en cycles modulo 12).
+        // 4) Find the closest scale semitone.
+        //    If the exact note is in the scale, keep it.
+        //    Otherwise, take the closest scale note (in modulo-12 cycles).
         if (intervals.size() == 0)
             return hzIn;
 
-        // Une note est autorisee si elle appartient a la gamme, ou si un override
-        // de contexte d'accord est actif a cette position et la note est un ton
-        // d'accord (cela permet d'accepter temporairement des notes hors gamme
-        // lorsqu'un accord hors gamme est joue).
+        // A note is allowed if it belongs to the scale, or if a chord-context
+        // override is active at this position and the note is a chord tone
+        // (this allows temporarily accepting out-of-scale notes when an
+        // out-of-scale chord is played).
         const bool inScale = intervals.contains (noteInOctave);
         if (inScale || isChordToneAt (noteInOctave, positionPPQ))
         {
-            // Deja dans la gamme, la frequence n'est pas modifiee SI le quantificateur
-            // etait parfait (T-Pain effect absolu). Mais un Autotune doit *corriger* 
-            // le pitch meme s'il est de la bonne note (ex: 445Hz -> 440Hz).
+            // Already in the scale: the frequency would be unchanged IF the
+            // quantizer were perfect (absolute T-Pain effect). But an autotune
+            // must *correct* the pitch even if it is the right note
+            // (e.g. 445Hz -> 440Hz).
             const int correctedMidi = currentMidi;
             return 440.0f * std::pow (2.0f, (correctedMidi - midiRef) / 12.0f);
         }
 
-        // Recherche de la note de la gamme la plus proche, en distance circulaire.
-        // Distance circulaire entre deux notes modulo 12, dans [-6, 6].
+        // Find the closest scale note, using circular distance.
+        // Circular distance between two notes modulo 12, within [-6, 6].
         auto circularDist = [] (int a, int b) -> int
         {
             int d = b - a;
-            d = ((d + 6) % 12) - 6; // ramene dans [-6, 5]
+            d = ((d + 6) % 12) - 6; // bring back into [-6, 5]
             if (d < -6) d += 12;
             return d;
         };
@@ -179,12 +180,12 @@ namespace ovtdsp
             }
         }
 
-        // 5) Recalculer la frequence corrigee.
+        // 5) Recompute the corrected frequency.
         const int correctedMidi = currentMidi + bestShift;
         return 440.0f * std::pow (2.0f, (correctedMidi - midiRef) / 12.0f);
 
-        // Note : la valeur "frac" est conservee pour une future extension
-        // (quantification avec preservation du micro-tonal).
+        // Note: the "frac" value is kept for a possible future extension
+        // (quantization with microtonal preservation).
         juce::ignoreUnused (frac);
     }
 
@@ -192,8 +193,8 @@ namespace ovtdsp
                                            double positionPPQ,
                                            double durationPPQ)
     {
-        // Ajoute une fenetre d'override. L'UI repopule la liste complete a
-        // chaque rafraichissement (clearChordOverrides + setChordOverride x N).
+        // Adds an override window. The UI rebuilds the whole list at every
+        // refresh (clearChordOverrides + setChordOverride x N).
         ChordWindow w;
         w.chordNotes = chordPitchClasses;
         w.startPPQ  = positionPPQ;
@@ -205,7 +206,7 @@ namespace ovtdsp
     void ScaleQuantizer::clearChordOverrides()
     {
         const juce::ScopedLock lock (chordOverrideLock);
-        chordWindows.clear(); // réinitialise la liste des fenêtres
+        chordWindows.clear(); // resets the list of windows
     }
 
     bool ScaleQuantizer::isChordOverrideActive (double positionPPQ) const
@@ -220,8 +221,8 @@ namespace ovtdsp
     bool ScaleQuantizer::isChordToneAt (int pitchClass, double pos) const
     {
         const juce::ScopedLock lock (chordOverrideLock);
-        // L'accord "live" (temps réel MIDI/sidechain) a priorité sur les
-        // fenêtres ARA quand il est actif.
+        // The "live" chord (real-time MIDI/sidechain) takes priority over
+        // ARA windows when active.
         if (liveChordActive && liveChordNotes.contains (pitchClass))
             return true;
         for (const auto& w : chordWindows)
@@ -259,7 +260,7 @@ namespace ovtdsp
     bool ScaleQuantizer::isActiveChordOutOfScale (double pos) const
     {
         const juce::ScopedLock lock (chordOverrideLock);
-        // L'accord live (temps réel) prime sur les fenêtres ARA.
+        // The live chord (real-time) takes priority over ARA windows.
         if (liveChordActive)
         {
             for (int pc : liveChordNotes)

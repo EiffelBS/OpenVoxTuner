@@ -13,12 +13,12 @@
 namespace ui
 {
     /**
-     * Affiche la pitch curve d'entree et la pitch curve corrigee,
-     * avec en overlay :
-     *   - la note actuellement chantee (ex: "F3")
-     *   - l'offset en cents par rapport a la note quantifiee
-     *   - un meter de tuning vertical (style Antares / Studio One)
-     *   - les lignes horizontales des notes de la gamme selectionnee
+     * Displays the input pitch curve and the corrected pitch curve,
+     * with overlays:
+     *   - the currently sung note (e.g. "F3")
+     *   - the offset in cents relative to the quantized note
+     *   - a vertical tuning meter (Antares / Studio One style)
+     *   - horizontal lines for the notes of the selected scale
      */
     class PitchVisualizer : public juce::Component,
                             public juce::Timer
@@ -39,16 +39,16 @@ namespace ui
         void mouseMove (const juce::MouseEvent& e) override;
         void mouseExit (const juce::MouseEvent& e) override;
 
-        /// Ajoute un echantillon de pitch (Hz) d'entree.
+        /// Adds an input pitch sample (Hz).
         void pushInputPitch (float hz);
-        /// Ajoute un echantillon de pitch (Hz) corrige.
+        /// Adds a corrected pitch sample (Hz).
         void pushOutputPitch (float hz);
 
-        /// Met a jour les informations de note / offset pour l'affichage.
+        /// Updates the note / offset information for display.
         void setNoteInfo (const ovtdsp::NoteInfo& info);
 
-        /// Definit les notes de la gamme actuelle (demi-tons 0..11) pour
-        /// tracer les lignes de la gamme en arriere-plan.
+        /// Sets the notes of the current scale (semitones 0..11) to draw
+        /// the scale lines in the background.
         void setScaleIntervals (const juce::Array<int>& intervals);
         /// Provide the frequencies (Hz) of currently active harmony voices
         /// to be pushed into the harmony history (time series) so they are
@@ -63,7 +63,7 @@ namespace ui
         void setMidiFollowActive (bool active) { midiFollowActive = active; repaint(); }
         bool getMidiFollowActive() const { return midiFollowActive; }
 
-        /// Accesseur au clavier de piano integre (correctif R2.2).
+        /// Accessor to the built-in piano keyboard (R2.2 fix).
         PianoKeyboard& getPianoKeyboard() { return pianoKeyboard; }
 
         /// Export the visualizer as an image file.
@@ -103,16 +103,16 @@ namespace ui
         std::function<void()> onRightClick;
 
     private:
-        // Historique des pitches (Hz), taille max ~5 secondes a 30 fps.
+        // Pitch history (Hz), max size ~5 seconds at 30 fps.
         static constexpr int historySize = 150;
         juce::Array<float> inputHistory;
         juce::Array<float> outputHistory;
 
-        // Note info + gamme courante (mis a jour par le processor / editor).
+        // Note info + current scale (updated by the processor / editor).
         ovtdsp::NoteInfo noteInfo;
         juce::Array<int> scaleIntervals;
 
-        // Piano vertical
+        // Vertical piano
         PianoKeyboard pianoKeyboard;
         // Harmony history: one history buffer per voice (fixed max voices)
         static constexpr int maxHarmonyVoices = 8;
@@ -120,11 +120,11 @@ namespace ui
         bool showHarmonies = true;  // togglable via Curve Editor hamburger menu
         bool midiFollowActive = false;  // "Tuning follows MIDI IN" badge state
 
-        // Stockage de la derniere valeur
+        // Storage of the latest value
         float latestInputHz = 0.0f;
         float latestOutputHz = 0.0f;
 
-        // Couleurs du theme.
+        // Theme colours.
         static const juce::Colour kBg;
         static const juce::Colour kGrid;
         static const juce::Colour kInputColour;
@@ -132,7 +132,7 @@ namespace ui
         static const juce::Colour kScaleLineColour;
         static const juce::Colour kHarmonyColour;
 
-        // Limites d'affichage (Hz, echelle log).
+        // Display limits (Hz, log scale).
         float fMin = 50.0f;
         float fMax = 1500.0f;
 
@@ -182,7 +182,7 @@ namespace ui
         /** Recalculate tuning statistics (avg, stddev, in-tune %) from centsHistory. */
         void updateStatistics();
 
-        // Animated zoom/scroll (smooth transitions) â€” used by the toolbar
+        // Animated zoom/scroll (smooth transitions) - used by the toolbar
         // buttons. Trackpad gestures apply immediately instead (see mouseWheelMove /
         // mouseMagnify) so they track the fingers 1:1 like the Curve Editor.
         float targetFMin = 50.0f;
@@ -202,13 +202,13 @@ namespace ui
 
         // Auto-center: keeps the output pitch vertically centered.
         bool  autoCenter = false;
-        float smoothedOutputHz = 5.61f; // log(440 Hz) â€” initial seed
+        float smoothedOutputHz = 5.61f; // log(440 Hz) - initial seed
 
         // Setup helper for SVG icon buttons.
         void setupIconBtn (juce::DrawableButton& btn, const char* svgXml,
                            const juce::String& tooltip, bool isToggle = false);
 
-        // Conversion Hz -> Y pixel.
+        // Hz -> Y pixel conversion.
         float hzToY (float hz, int height) const;
 
         // Y pixel -> Hz (inverse of hzToY).

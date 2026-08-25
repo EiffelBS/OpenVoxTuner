@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // PitchCurveEditorTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -19,54 +19,54 @@ public:
     {
         using ui::PitchCurveEditor;
 
-        beginTest ("snapTimeToGrid : grille active (snapToGridEnabled = true)");
+        beginTest ("snapTimeToGrid: grid enabled (snapToGridEnabled = true)");
         {
-            // Sur une ligne de grille exacte -> reste sur place.
+            // Exactly on a grid line -> stays in place.
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.0, true), 0.0, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.5, true), 0.5, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (1.0, true), 1.0, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (2.5, true), 2.5, 1e-9);
 
-            // Au milieu entre deux lignes (0.25) -> arrondi a la ligne la plus
-            // proche (regle "round half away from zero" : 0.25 -> 0.5).
+            // Halfway between two lines (0.25) -> rounded to the nearest
+            // line ("round half away from zero" rule: 0.25 -> 0.5).
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.25, true), 0.5, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.75, true), 1.0, 1e-9);
 
-            // Decalage quelconque -> toujours aligne sur la grille 1/2 beat.
+            // Arbitrary offset -> always aligned to the 1/2 beat grid.
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (1.27, true), 1.5, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (3.61, true), 3.5, 1e-9);
 
-            // Valeur negative (ne devrait pas arriver car xToTime est borne >= 0)
-            // -> quantifiee vers 0 par l'arrondi.
+            // Negative value (should not happen since xToTime is clamped >= 0)
+            // -> quantized toward 0 by the rounding.
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (-0.1, true), 0.0, 1e-9);
         }
 
-        beginTest ("snapTimeToGrid : grille inactive (snapToGridEnabled = false)");
+        beginTest ("snapTimeToGrid: grid disabled (snapToGridEnabled = false)");
         {
-            // Sur une ligne de grille -> reste sur place (tolerance 0.05).
+            // On a grid line -> stays in place (tolerance 0.05).
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.0, false), 0.0, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.5, false), 0.5, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (1.0, false), 1.0, 1e-9);
 
-            // Tres proche d'une ligne (<= 0.05) -> aligne quand meme (aimant).
+            // Very close to a line (<= 0.05) -> still aligned (magnet).
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.52, false), 0.5, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.48, false), 0.5, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (1.03, false), 1.0, 1e-9);
 
-            // Plus loin qu'une ligne que la tolerance -> temps brut conserve.
+            // Farther from a line than the tolerance -> raw time kept.
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.25, false), 0.25, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (0.75, false), 0.75, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::snapTimeToGrid (1.3,  false), 1.3,  1e-9);
         }
 
-        beginTest ("clampScrollOffset : borne le decalage horizontal a >= 0");
+        beginTest ("clampScrollOffset: clamps the horizontal offset to >= 0");
         {
-            // Negatif -> 0 (empeche de defiler avant le debut de la timeline).
+            // Negative -> 0 (prevents scrolling before the start of the timeline).
             expectWithinAbsoluteError (PitchCurveEditor::clampScrollOffset (-1.0), 0.0, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::clampScrollOffset (-5.0), 0.0, 1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::clampScrollOffset (-0.0001), 0.0, 1e-9);
 
-            // Zero et positif -> passe-plat.
+            // Zero and positive -> pass-through.
             expectWithinAbsoluteError (PitchCurveEditor::clampScrollOffset (0.0),  0.0,  1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::clampScrollOffset (2.3),  2.3,  1e-9);
             expectWithinAbsoluteError (PitchCurveEditor::clampScrollOffset (12.75), 12.75, 1e-9);

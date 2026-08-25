@@ -13,8 +13,8 @@
 
 namespace ui
 {
-    const juce::Colour PitchCurveEditor::kCurveColour = juce::Colour (0xff4caf50); // vert
-    const juce::Colour PitchCurveEditor::kPointColour = juce::Colour (0xffe91e63); // rose
+    const juce::Colour PitchCurveEditor::kCurveColour = juce::Colour (0xff4caf50); // green
+    const juce::Colour PitchCurveEditor::kPointColour = juce::Colour (0xffe91e63); // pink
     const juce::Colour PitchCurveEditor::kGridColour  = juce::Colour (0x40ffffff);
 
     // Static clipboard for copy/paste across instances
@@ -30,7 +30,7 @@ namespace ui
 
     PitchCurveEditor::PitchCurveEditor()
     {
-        // Do NOT load the "default" preset here â€” the parent editor will
+        // Do NOT load the "default" preset here - the parent editor will
         // call setCurve() from the processor's pitchCurve on the first
         // timer tick (pendingCurveRestore flag). Loading "default" here
         // would flash the default preset before the real curve is synced.
@@ -39,20 +39,20 @@ namespace ui
 
         // Allocate the spectral ring buffer (recent audio samples for the FFT view).
         waveformRing.setSize (1, kWaveRingCapacity);
-        // S'assurer que l'editeur intercepte bien les clics meme s'il est desactive
-        // (l'etat editorEnabled ne bloque que la logique interne, pas les events).
+        // Make sure the editor intercepts clicks even when disabled
+        // (the editorEnabled state only blocks internal logic, not events).
         setInterceptsMouseClicks (true, true);
         setEnabled (true);
 
-        // Le piano keyboard est place a gauche, dans la zone reservee
-        // (resizee dans resized()). On l'ajoute comme enfant.
+        // The piano keyboard is placed on the left, in the reserved area
+        // (resized in resized()). We add it as a child component.
         addAndMakeVisible (pianoKeyboard);
-        // Le piano keyboard n'est qu'un affichage : il ne repond pas aux
-        // clics. On desactive l'interception des clics pour eviter qu'il
-        // ne mange les events souris destines au curve editor (le parent),
-        // ce qui empechait le drag des points (bug identifie le 2026-06-10).
+        // The piano keyboard is display-only: it does not respond to
+        // clicks. Its click interception is disabled so it does not
+        // swallow mouse events intended for the curve editor (the parent),
+        // which used to prevent dragging points (bug identified on 2026-06-10).
         pianoKeyboard.setInterceptsMouseClicks (false, false);
-        // Plage par defaut : C2 -> C7 (suffit pour les voix).
+        // Default range: C2 -> C7 (enough for vocals).
         pianoKeyboard.setRange (36, 96);
 
         // Keyboard focus for copy/paste, undo/redo
@@ -108,25 +108,25 @@ namespace ui
     {
         const auto b = getLocalBounds();
 
-        // Fond transparent pour laisser voir le gradient de PluginEditor.
+        // Transparent background to let the PluginEditor gradient show through.
         g.fillAll (juce::Colours::transparentBlack);
 
-        // La zone d'edition de courbe commence apres le piano keyboard (a gauche).
+        // The curve editing area starts after the piano keyboard (on the left).
         const int pianoW = pianoKeyboard.getWidth();
         const int rulerH = 24;
         const auto plotArea = juce::Rectangle<int> (pianoW, rulerH,
                                                     b.getWidth() - pianoW,
                                                     b.getHeight() - rulerH);
 
-        // Decoupe pour ne pas dessiner sur le piano keyboard.
+        // Clipping so we do not draw over the piano keyboard.
         g.saveState();
         g.reduceClipRegion (juce::Rectangle<int>(pianoW, 0, b.getWidth() - pianoW, b.getHeight()));
 
-        // === Fond de la regle (Ruler) ===
+        // === Ruler background ===
         g.setColour (ovt::rulerBg());
         g.fillRect (pianoW, 0, b.getWidth() - pianoW, rulerH);
         
-        // Bordure inferieure de la regle
+        // Ruler bottom border
         g.setColour (ovt::curveGrid());
         g.drawHorizontalLine (rulerH, static_cast<float> (pianoW), static_cast<float> (b.getWidth()));
 
@@ -167,7 +167,7 @@ namespace ui
             }
         }
 
-        // === Grille : lignes horizontales pour les octaves C2, C3, C4, C5, C6 ===
+        // === Grid: horizontal lines for the C2, C3, C4, C5, C6 octaves ===
         g.setColour (ovt::curveGrid());
         const float refFreqs[] = { 65.4f, 130.8f, 261.6f, 523.3f, 1046.5f };
         const char* labels[]    = { "C2",   "C3",   "C4",   "C5",   "C6" };
@@ -176,7 +176,7 @@ namespace ui
         {
             const float y = pitchToY (refFreqs[i]);
             g.drawHorizontalLine (static_cast<int> (y), static_cast<float> (pianoW), static_cast<float> (b.getWidth()));
-            // On decale le texte vers la droite pour eviter la superposition
+            // Text shifted to the right to avoid overlap
             // g.setColour (ovt::curveGrid().withAlpha (0.7f));
             // g.drawText (labels[i], pianoW + 4, static_cast<int> (y) - 7, 28, 14, juce::Justification::left);
             g.setColour (ovt::curveGrid());
@@ -207,7 +207,7 @@ namespace ui
         if (pianoRollMode)
             drawPianoRoll (g);
 
-        // === Lignes verticales (repere par Beat et Mesure) et Ruler ===
+        // === Vertical lines (bar/beat reference) and ruler ===
         const double beatUnit = 4.0 / timeSigDen;
         const double ppqPerBar = timeSigNum * beatUnit;
         const double rulerStart = scrollOffset;
@@ -223,17 +223,17 @@ namespace ui
                            || (std::abs (std::fmod (t, ppqPerBar) - ppqPerBar) < 0.001);
             bool isBeat = true;
 
-            // Ligne verticale dans la grille
+            // Vertical grid line
             g.setColour (ovt::curveGrid().withAlpha (isBarStart ? 0.6f : (isBeat ? 0.3f : 0.1f)));
             g.drawVerticalLine (static_cast<int> (x), rulerH, static_cast<float> (b.getHeight()));
 
-            // Graduations dans le ruler
+            // Tick marks in the ruler
             if (isBarStart)
             {
                 g.setColour (juce::Colours::white.withAlpha (0.8f));
                 g.drawVerticalLine (static_cast<int> (x), rulerH - 4.0f, rulerH);
 
-                // Texte du ruler : bar number (1, 2, 3...)
+                // Ruler text: bar number (1, 2, 3...)
                 double barDouble = t / ppqPerBar;
                 int bar = static_cast<int> (std::floor (barDouble)) + 1;
                 g.setFont (ovt::fontRuler());
@@ -283,14 +283,14 @@ namespace ui
             g.strokePath (ghostPath, juce::PathStrokeType (1.5f, juce::PathStrokeType::mitered, juce::PathStrokeType::rounded));
         }
 
-        // === Courbe interpolee ===
+        // === Interpolated curve ===
         if (! pianoRollMode && curve.getNumPoints() >= 2)
         {
             juce::Path p;
             
             if (curve.isStepMode())
             {
-                // Trace en "escalier" (Step mode)
+                // Staircase drawing (Step mode)
                 for (int i = 0; i < curve.getNumPoints(); ++i)
                 {
                     const auto& pt = curve.getPoint (i);
@@ -311,13 +311,13 @@ namespace ui
                     }
                 }
                 
-                // Extrapolation vers la droite
+                // Extrapolate to the right
                 const auto& last = curve.getPoint (curve.getNumPoints() - 1);
                 p.lineTo (static_cast<float> (timeToX (timeVisible)), pitchToY (last.pitch));
             }
             else
             {
-                // Trace lineaire
+                // Linear drawing
                 const int N = 200;
                 for (int i = 0; i <= N; ++i)
                 {
@@ -416,7 +416,7 @@ namespace ui
             }
         }
 
-        // === Points (cercles) et Tooltip dynamique ===
+        // === Points (circles) and dynamic Tooltip ===
         int activePointIndex = (isDragging && dragIndex >= 0) ? dragIndex : hoverIndex;
 
         if (! pianoRollMode)
@@ -426,7 +426,7 @@ namespace ui
             const float x = static_cast<float> (timeToX (pt.time));
             const float y = pitchToY (pt.pitch);
             
-            // Met en surbrillance le point survole ou en cours de drag
+            // Highlight the hovered point or the one being dragged
             bool isActive = (i == activePointIndex);
             float radius = isActive ? 8.0f : 6.0f;
             const bool isSelected = selectedIndices.contains (i);
@@ -441,12 +441,12 @@ namespace ui
                 g.drawEllipse (x - radius - 2.0f, y - radius - 2.0f, (radius + 2.0f) * 2.0f, (radius + 2.0f) * 2.0f, 1.0f);
             }
 
-            // Affichage du tooltip pour le point actif
+            // Display the tooltip for the active point
             if (isActive)
             {
                 juce::String noteStr = getNoteName(pt.pitch);
                 
-                // Formatage du temps pour correspondre au ruler (Mesure.Beat.Decimale)
+                // Format the time to match the ruler (Bar.Beat.Decimal)
                 int measure = static_cast<int>(pt.time / 4.0) + 1;
                 int beat = static_cast<int>(std::fmod(pt.time, 4.0)) + 1;
                 int decimal = static_cast<int>(std::round(std::fmod(pt.time, 1.0) * 100.0));
@@ -456,12 +456,12 @@ namespace ui
                 
                 juce::String tooltipText = noteStr + " | " + timeStr;
                 
-                // Fond du tooltip
+                // Tooltip background
                 int textW = 85;
                 int textH = 20;
                 juce::Rectangle<float> tooltipBounds (x - textW / 2.0f, y - radius - textH - 5.0f, static_cast<float>(textW), static_cast<float>(textH));
                 
-                // Empeche le tooltip de sortir du cadre superieur
+                // Keep the tooltip below the top edge
                 if (tooltipBounds.getY() < 0) tooltipBounds.setY(y + radius + 5.0f);
                 
                 g.setColour (juce::Colours::black.withAlpha(0.8f));
@@ -473,7 +473,7 @@ namespace ui
             }
         }
 
-        // === Playhead (Barre verticale de lecture) ===
+        // === Playhead (vertical playback line) ===
         double displayPlayhead = playheadTime;
         if (displayPlayhead >= scrollOffset && displayPlayhead <= scrollOffset + timeVisible)
         {
@@ -482,7 +482,7 @@ namespace ui
             g.drawVerticalLine (static_cast<int> (x), rulerH, static_cast<float> (b.getHeight()));
         }
 
-        // === Label aide (coin bas-droit) ===
+        // === Help label (bottom-right corner) ===
         g.setColour (juce::Colours::grey.withAlpha(0.6f));
         g.setFont (ovt::fontRuler());
         const juce::String modifierName =
@@ -540,11 +540,11 @@ namespace ui
             }
         }
 
-        // Separateur vertical entre le piano et la zone d'edition.
+        // Vertical separator between the piano and the editing area.
         g.setColour (ovt::isDark() ? juce::Colour (0xff2a2a36) : juce::Colour (0xff8a8a96));
         g.drawVerticalLine (pianoW, rulerH, static_cast<float> (b.getHeight()));
 
-        // === Overlay gris si l'editeur est desactive (mode Live) ===
+        // === Gray overlay when the editor is disabled (Live mode) ===
         if (!editorEnabled)
         {
             g.setColour (juce::Colours::black.withAlpha (0.55f));
@@ -623,7 +623,7 @@ namespace ui
             }
         }
 
-        // Feedback visuel du scroll horizontal (bouton milieu) : teinte + cadre.
+        // Visual feedback for horizontal scrolling (middle button): tint + border.
         if (isMiddleScrolling)
         {
             g.setColour (juce::Colours::yellow.withAlpha (0.12f));
@@ -635,7 +635,7 @@ namespace ui
 
     void PitchCurveEditor::resized()
     {
-        // Le piano keyboard prend la bande verticale a gauche (largeur 60 px).
+        // The piano keyboard takes the vertical strip on the left (60 px wide).
         const int pianoW = 60;
         const int rulerH = 24;
         pianoKeyboard.setBounds (0, rulerH, pianoW, getHeight() - rulerH);
@@ -697,9 +697,9 @@ namespace ui
         inputTracePitches.clear();
     }
 
-    // === Conversions coordonnees ===
-    // Note : l'axe X couvre uniquement la zone d'edition de la courbe
-    // (a droite du piano keyboard). On soustrait la largeur du piano.
+    // === Coordinate conversions ===
+    // Note: the X axis covers only the curve editing area
+    // (to the right of the piano keyboard). We subtract the piano width.
     double PitchCurveEditor::timeToX (double t) const
     {
         const int pianoW = pianoKeyboard.getWidth();
@@ -720,18 +720,18 @@ namespace ui
         const int rulerH = 24;
         if (pianoRollMode)
         {
-            // Geometrie de piano (identique au clavier vertical) : les notes
-            // s'alignent sur les touches du piano et ont une hauteur constante,
-            // quelle que soit la position ou le zoom.
+            // Piano geometry (same as the vertical keyboard): notes
+            // align on the piano keys and have a constant height,
+            // regardless of position or zoom.
             const int lo = pianoKeyboard.getLowestMidi();
             const int hi = pianoKeyboard.getHighestMidi();
             const int midi = static_cast<int> (std::round (ovtdsp::hzToMidiFloat (p)));
             const float t = PianoKeyboard::midiToNorm (midi, lo, hi);
             return static_cast<float> (rulerH) + (getHeight() - rulerH) * (1.0f - t);
         }
-        // Echelle log (mode courbe). PAS de clamp : un pitch hors de la fenetre
-    // visible est projete hors de la zone de tracage et ainsi recadre (clip) au
-    // lieu d'etre empile en haut/bas.
+        // Log scale (curve mode). NO clamping: a pitch outside the visible
+    // window is projected outside the plotting area and thus clipped,
+    // instead of being stacked at the top/bottom.
     const float lh = std::log (juce::jmax (p, 1.0f));
     const float lmin = std::log (minHz);
     const float lmax = std::log (maxHz);
@@ -743,8 +743,8 @@ namespace ui
         const int rulerH = 24;
         if (pianoRollMode)
         {
-            // Inverse de la geometrie de piano : on cherche la note dont la
-            // position normale est la plus proche du Y demande.
+            // Inverse of the piano geometry: find the note whose
+            // normalized position is closest to the requested Y.
             const int lo = pianoKeyboard.getLowestMidi();
             const int hi = pianoKeyboard.getHighestMidi();
             const float t = 1.0f - juce::jlimit (0.0f, 1.0f, (y - rulerH) / (getHeight() - rulerH));
@@ -776,8 +776,8 @@ namespace ui
         const int rulerH = 24;
         const int plotRight = getWidth();
 
-        // Per-note horizontal rows, aligned with the left keyboard (meme plage et
-        // meme geometrie de piano : hauteurs constantes).
+        // Per-note horizontal rows, aligned with the left keyboard (same range and
+        // same piano geometry: constant heights).
         const int lowestMidi = pianoKeyboard.getLowestMidi();
         const int highestMidi = pianoKeyboard.getHighestMidi();
         // Horizontal rows match the Curves-mode grid exactly: C notes use the
@@ -803,8 +803,8 @@ namespace ui
         const int n = curve.getNumPoints();
         if (n >= 1)
         {
-            // Hauteur constante : une hauteur de touche blanche (identique pour
-            // toutes les notes), alignee sur le clavier vertical.
+            // Constant height: one white key height (identical for
+            // all notes), aligned with the vertical keyboard.
             int numWhite = 0;
             for (int m = lowestMidi; m <= highestMidi; ++m)
                 if (! PianoKeyboard::isBlackKey (m)) ++numWhite;
@@ -854,12 +854,12 @@ namespace ui
     juce::String PitchCurveEditor::getNoteName (float hz) const
     {
         if (hz <= 0.0f) return "";
-        // Formule midi = 69 + 12 * log2(f / 440)
+        // Formula: midi = 69 + 12 * log2(f / 440)
         int midiNote = static_cast<int>(std::round(69.0f + 12.0f * std::log2(hz / 440.0f)));
         const char* noteNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
         int octave = (midiNote / 12) - 1;
         int noteIndex = midiNote % 12;
-        if (noteIndex < 0) noteIndex += 12; // Securite
+        if (noteIndex < 0) noteIndex += 12; // Safety
         return juce::String(noteNames[noteIndex]) + juce::String(octave);
     }
 
@@ -876,16 +876,16 @@ namespace ui
         return -1;
     }
 
-    // === Saisie souris ===
+    // === Mouse input ===
     void PitchCurveEditor::mouseDown (const juce::MouseEvent& e)
     {
-        grabKeyboardFocus(); // pour les raccourcis clavier
+        grabKeyboardFocus(); // for keyboard shortcuts
 
-        // Scroll horizontal a la souris (bouton milieu), uniquement si
-        // l'auto-scroll est desactive (evite tout conflit avec le suivi auto)
-        // ET le playhead n'est pas en boucle sur la fenetre Measures (la vue
-        // est alors verrouillee sur la fenetre de boucle).
-        // Fonctionne quel que soit le mode d'edition (Curve ou Live).
+        // Horizontal scrolling with the mouse (middle button), only if
+        // auto-scroll is disabled (avoids any conflict with auto-follow)
+        // AND the playhead is not looping over the Measures window (the view
+        // is then locked to the loop window).
+        // Works in either editing mode (Curve or Live).
         if (e.mods.isMiddleButtonDown())
         {
             if (!autoScrollEnabled && !loopingPlayhead)
@@ -899,23 +899,23 @@ namespace ui
             return;
         }
 
-        // Clic gauche dans la regle : deplacement instantane du playhead
-        // (quantifie a la grille du projet). Action de transport (pas
-        // d'edition) : disponible en mode Curve et Live.
+        // Left click in the ruler: instant playhead move
+        // (snapped to the project grid). Transport action (not
+        // editing): available in Curve and Live modes.
         if (e.mods.isLeftButtonDown() && e.position.y <= 24)
         {
             double t = juce::jmax (0.0, xToTime (e.position.x));
             t = snapTimeToGrid (t, snapToGridEnabled);
             if (onSeek) onSeek (t);
-            setPlayheadTime (t, false); // retour visuel immediat (+ reveal si hors ecran)
+            setPlayheadTime (t, false); // immediate visual feedback (+ reveal if off screen)
             repaint();
             return;
         }
 
-        // Si l'editeur est desactive (mode Auto/Live), on ignore l'edition.
+        // If the editor is disabled (Auto/Live mode), skip editing.
         if (!editorEnabled) return;
 
-        // Snapshot pour undo
+        // Snapshot for undo
         pendingUndoSnapshot = curve;
 
         const juce::Point<float> p (e.position.x, e.position.y);
@@ -947,10 +947,10 @@ namespace ui
 
         if (dragIndex >= 0)
         {
-            // Debut du drag : verifier si on doit supprimer (clic droit ou Alt+clic).
+            // Drag start: check whether we should delete (right click or Alt+click).
             if (e.mods.isRightButtonDown() || e.mods.isAltDown())
             {
-                curve.getPoint (dragIndex); // index valide
+                curve.getPoint (dragIndex); // valid index
                 curve.removePointNear (curve.getPoint (dragIndex).time);
                 dragIndex = -1;
                 selectedIndices.clear();
@@ -1004,7 +1004,7 @@ namespace ui
 
     void PitchCurveEditor::mouseDrag (const juce::MouseEvent& e)
     {
-        // Scroll horizontal (bouton milieu) : deplacement naturel "grab and drag".
+        // Horizontal scrolling (middle button): natural "grab and drag" movement.
         if (isMiddleScrolling)
         {
             const int pianoW = pianoKeyboard.getWidth();
@@ -1134,11 +1134,11 @@ namespace ui
             return;
         }
 
-        // Mise a jour du temps et du pitch.
+        // Update the time and pitch.
         double t = xToTime (e.position.x);
         float hz = yToPitch (e.position.y);
         
-        // Snap to grid temporel (0.5s par defaut = 8eme note)
+        // Time snap to grid (0.5s by default = eighth note)
         double gridStep = 0.5;
         double nearestGrid = std::round(t / gridStep) * gridStep;
         if (snapToGridEnabled)
@@ -1147,7 +1147,7 @@ namespace ui
         }
         else if (std::abs(t - nearestGrid) < 0.05)
         {
-            // Magnetisme leger a +/- 0.05s si pas de snap strict
+            // Light magnetism at +/- 0.05s when strict snapping is off
             t = nearestGrid;
         }
         
@@ -1158,24 +1158,24 @@ namespace ui
         }
         else
         {
-            // Snap to note (Chromatique implicite par magnetisme)
-            // L'utilisateur voulait un "snap-to-note lors du changement de pitch" meme sans la gamme.
+            // Snap to note (implicit chromatic via magnetism)
+            // The user wanted "snap-to-note on pitch change" even without a scale.
             float snappedHz = ovtdsp::PitchCurve::snapToIntervals (hz, getChromaticIntervals());
-            // Magnetisme si on est proche de la note exacte (ex: ecart de moins de 15 cents)
+            // Magnetism when close to the exact note (e.g. less than 15 cents away)
             float centsDiff = 1200.0f * std::log2(hz / snappedHz);
             if (std::abs(centsDiff) < 15.0f) {
                 hz = snappedHz;
             }
         }
         
-        // Ecriture directe via setPointTimeAndPitch pour maintenir le tri et l'index de drag
+        // Direct write via setPointTimeAndPitch to keep sorting and the drag index
         curve.setPointTimeAndPitch (dragIndex, t, hz);
         repaint();
     }
 
     void PitchCurveEditor::mouseUp (const juce::MouseEvent& /*e*/)
     {
-        // Fin du scroll horizontal (bouton milieu).
+        // End of horizontal scrolling (middle button).
         if (isMiddleScrolling)
         {
             isMiddleScrolling = false;
@@ -1184,7 +1184,7 @@ namespace ui
             return;
         }
 
-        // Verifier si une modification a eu lieu
+        // Check whether a modification occurred
         bool wasModified = isDragging || isDraggingSelection;
         bool hadPoints = (pendingUndoSnapshot.getNumPoints() > 0 || curve.getNumPoints() > 0);
 
@@ -1208,12 +1208,12 @@ namespace ui
             notifyChanged();
         }
 
-        // Enregistrer l'undo si un changement a eu lieu
+        // Register the undo if a change occurred
         if (wasModified && hadPoints)
         {
-            // On compare les snapshots (evite un undo vide si le drag n'a rien change)
-            // Utilisation d'une simple comparaison de nombre de points + serialisation
-            // comme heuristique rapide pour eviter les undo vides
+            // Compare the snapshots (avoids an empty undo when the drag changed nothing)
+            // Uses a simple point-count comparison + serialization
+            // as a fast heuristic to avoid empty undos
             auto beforeXml = pendingUndoSnapshot.toXml();
             auto afterXml = curve.toXml();
             bool changed = (beforeXml->toString() != afterXml->toString());
@@ -1266,15 +1266,15 @@ namespace ui
 
     void PitchCurveEditor::mouseDoubleClick (const juce::MouseEvent& e)
     {
-        // Si l'editeur est desactive (mode Auto), on ignore.
+        // If the editor is disabled (Auto mode), ignore.
         if (!editorEnabled) return;
 
-        // Ajoute un point a la position du curseur.
+        // Add a point at the cursor position.
         double t = xToTime (e.position.x);
         float hz = yToPitch (e.position.y);
         if (pianoRollMode) hz = snapToNearestNote (hz); // keyboard-row snap
         
-        // Snap to grid temporel
+        // Time snap to grid
         double gridStep = 0.5;
         double nearestGrid = std::round(t / gridStep) * gridStep;
         if (snapToGridEnabled)
@@ -1296,8 +1296,8 @@ namespace ui
 
     void PitchCurveEditor::applyZoom (float anchorPitch, float factor)
     {
-        // factor > 1 => zoom avant (range de pitch plus etroit), centre sur
-        // anchorPitch (le pitch sous le curseur / doigt). Borne a 1..8 octaves.
+        // factor > 1 => zoom in (narrower pitch range), centered on
+        // anchorPitch (the pitch under the cursor / finger). Clamped to 1..8 octaves.
         if (anchorPitch <= 0.0f) anchorPitch = std::sqrt (minHz * maxHz);
         float rangeCents = 1200.0f * std::log2 (maxHz / minHz) / factor;
         if (rangeCents < 1200.0f)           rangeCents = 1200.0f;
@@ -1311,8 +1311,8 @@ namespace ui
 
     void PitchCurveEditor::mouseMagnify (const juce::MouseEvent& e, float scaleFactor)
     {
-        // macOS trackpad pinch: scaleFactor > 1 => pinch out => zoom avant.
-        // On zoome autour du pitch sous le doigt (ou du centre de la vue).
+        // macOS trackpad pinch: scaleFactor > 1 => pinch out => zoom in.
+        // Zoom around the pitch under the finger (or the view center).
         const float anchor = (e.position.y >= 0 && e.position.y <= getHeight())
                                  ? yToPitch (e.position.y)
                                  : std::sqrt (minHz * maxHz);
@@ -1333,8 +1333,8 @@ namespace ui
             const float anchor = (e.position.y >= 0 && e.position.y <= getHeight())
                                      ? yToPitch (e.position.y)
                                      : std::sqrt (minHz * maxHz);
-            // Zoom multiplicatif, meme sens que le visualiseur Live : molette haut
-            // (deltaY > 0) => zoom avant (fenetre de pitch plus etroite).
+            // Multiplicative zoom, same direction as the Live visualizer: wheel up
+            // (deltaY > 0) => zoom in (narrower pitch window).
             const float factor = juce::jlimit (0.1f, 10.0f, std::exp (wheel.deltaY * 4.0f));
             applyZoom (anchor, factor);
         }
@@ -1356,27 +1356,27 @@ namespace ui
             }
         }
 
-        // Limites absolues (C0..C9).
+        // Absolute limits (C0..C9).
         if (minHz < 16.35f) { const float r = maxHz / minHz; minHz = 16.35f; maxHz = minHz * r; }
         if (maxHz > 8372.0f) { const float r = maxHz / minHz; maxHz = 8372.0f; minHz = maxHz / r; }
 
-        // Mise a jour du piano
+        // Update the piano
         pianoKeyboard.setRange (static_cast<int> (ovtdsp::hzToMidiFloat (minHz)),
                                 static_cast<int> (ovtdsp::hzToMidiFloat (maxHz)));
         repaint();
     }
 
-    // === API publique ===
+    // === Public API ===
     void PitchCurveEditor::setCurve (const ovtdsp::PitchCurve& newCurve)
     {
-        curve = newCurve; // copie (inclut stepMode, snapEnabled, snapToGridEnabled)
+        curve = newCurve; // copy (includes stepMode, snapEnabled, snapToGridEnabled)
         // In Piano Roll mode we always force Step Mode (see setPianoRollMode):
         // a preset may carry stepMode=false, but the keyboard-row layout must stay
         // discrete, otherwise the audio would glide between notes and disagree with
         // the displayed rows.
         if (pianoRollMode)
             curve.setStepMode (true);
-        // Applique les parametres d'edition stockes dans la courbe
+        // Apply the editing options stored in the curve
         snapEnabled = curve.isSnapEnabled();
         snapToGridEnabled = curve.isSnapToGridEnabled();
         repaint();
@@ -1524,14 +1524,14 @@ namespace ui
 
     bool PitchCurveEditor::exportAsImage (const juce::File& filePath)
     {
-        // Rendu de l'editeur en image haute qualite (2x), a l'identique du
-        // visualiseur Live (PitchVisualizer::exportAsImage).
+        // Render the editor to a high quality (2x) image, identical to the
+        // Live visualizer (PitchVisualizer::exportAsImage).
         const int scale = 2;
         const int w = getWidth() * scale;
         const int h = getHeight() * scale;
         if (w <= 0 || h <= 0) return false;
 
-        // Image opaque (pas d'alpha) pour eviter les problemes de transparence.
+        // Opaque image (no alpha) to avoid transparency issues.
         juce::Image image (juce::Image::RGB, w, h, true);
         {
             juce::Graphics g (image);
@@ -1591,7 +1591,7 @@ namespace ui
     void PitchCurveEditor::setEditorEnabled (bool b)
     {
         editorEnabled = b;
-        // Annule un drag en cours si on desactive.
+        // Cancel any ongoing drag when disabling.
         if (!b) isDragging = false;
         repaint();
     }
@@ -1600,7 +1600,7 @@ namespace ui
     {
         keyIdx = key;
         currentScale = scale;
-        // Re-snap tous les points si le snap est actif.
+        // Re-snap all points when snapping is active.
         if (snapEnabled)
         {
             // Snap against the authoritative interval set (same as the on-screen
@@ -1771,13 +1771,13 @@ namespace ui
     {
         if (clipboard.isEmpty()) return;
 
-        // Copie locale pour eviter les problemes de const sur membre static
+        // Local copy to avoid const issues on the static member
         auto localClip = clipboard;
 
-        // Trouver le temps de collage : playhead si disponible, sinon vue courante
+        // Find the paste time: playhead if available, otherwise current view
         double pasteTime = playheadTime;
         if (pasteTime < scrollOffset) pasteTime = scrollOffset;
-        // Utiliser le temps minimum du clipboard comme reference
+        // Use the minimum clipboard time as reference
         double minT = localClip.getFirst().time;
         for (int i = 0; i < localClip.size(); ++i)
             if (localClip[i].time < minT) minT = localClip[i].time;
@@ -1800,7 +1800,7 @@ namespace ui
     {
         if (selectedIndices.isEmpty()) return;
         auto action = new CurveEditAction (this);
-        // Collecter les temps, puis supprimer par temps (evite les decalages)
+        // Collect the times, then delete by time (avoids index shifts)
         juce::Array<double> timesToDelete;
         for (int idx : selectedIndices)
             timesToDelete.add (curve.getPoint (idx).time);
@@ -1839,7 +1839,7 @@ namespace ui
             performUndo();
             return true;
         }
-        // Ctrl/Cmd + Shift + Z ou Ctrl/Cmd + Y = Redo
+        // Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y = Redo
         if (key.getModifiers().isCommandDown() && key.getKeyCode() == 'Y')
         {
             performRedo();

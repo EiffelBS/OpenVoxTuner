@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // PitchShifterOutputTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -17,19 +17,19 @@ public:
     {
         using namespace ovtdsp;
 
-        beginTest ("Sinus 200 Hz soutenu : la sortie n'est pas nulle (regression B)");
+        beginTest ("Sustained 200 Hz sine: output is not silent (regression B)");
         {
             PitchShifter ps;
             ps.prepare (44100.0, 512);
             ps.setAttackTimeMs (30.0f);
 
             const double sr = 44100.0;
-            const float f0 = 200.0f;           // note chantee stable
-            const float ratio = 1.0f;          // pas de correction
+            const float f0 = 200.0f;           // stable sung note
+            const float ratio = 1.0f;          // no correction
             const float formantRatio = 1.0f;
 
-            // Traite ~0.5 s de sinus ; verifie la RMS de sortie sur la
-            // seconde moitie (apres la fade-in de demarrage ~20 ms).
+            // Processes ~0.5 s of sine; checks the output RMS over the
+            // second half (after the ~20 ms startup fade-in).
             const int blocks = 24;              // 24 * 512 ~ 0.28 s
             juce::AudioBuffer<float> in (1, 512);
             juce::AudioBuffer<float> out (1, 512);
@@ -48,24 +48,24 @@ public:
                 out.setSize (1, 512, false, true, false);
                 ps.process (in, out, ratio, formantRatio, f0);
 
-                // RMS sur la 2e moitie du bloc (apres fade-in locale).
+                // RMS over the 2nd half of the block (after local fade-in).
                 for (int i = 256; i < 512; ++i)
                 {
                     const float s = out.getSample (0, i);
-                    expect (std::isfinite (s), "NaN dans la sortie du PitchShifter");
+                    expect (std::isfinite (s), "NaN in the PitchShifter output");
                     sumSq += static_cast<double> (s) * s;
                     ++nRms;
                 }
             }
 
             const double rms = std::sqrt (sumSq / static_cast<double> (nRms));
-            // Un gain de grain correct donne une RMS de l'ordre de 0.5-0.7
-            // pour un sinus unitaire. On exige simplement qu'elle soit
-            // clairement non nulle (bug B donnait ~1e-4 ou moins).
+            // A proper grain gain yields an RMS around 0.5-0.7 for a unit
+            // sine. We simply require it to be clearly non-zero
+            // (bug B gave ~1e-4 or less).
             expect (rms > 0.05,
-                    "Sortie du PitchShifter quasi-nulle (silence) : "
+                    "Quasi-silent PitchShifter output: "
                     + juce::String (rms, 6)
-                    + " -> bug de gain de grain suspecte");
+                    + " -> suspected grain gain bug");
         }
     }
 };

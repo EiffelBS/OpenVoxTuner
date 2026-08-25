@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // Main.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -7,14 +7,14 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-// Inclusion des tests (les fichiers .cpp eux-memes s'enregistrent
-// automatiquement via static PitchDetectorTest...).
-#include "dsp/PitchDetectorTest.cpp"
+// Test inclusion (each .cpp file self-registers automatically
+// via static juce::UnitTest instances).
 #include "dsp/ScaleQuantizerTest.cpp"
 #include "dsp/RetargetEnvelopeTest.cpp"
 #include "dsp/FormantPreserverTest.cpp"
 #include "dsp/LpcFormantPreserverTest.cpp"
 #include "dsp/PitchCurveTest.cpp"
+#include "dsp/MidiImporterTest.cpp"
 #include "dsp/VibratoTest.cpp"
 #include "dsp/KeyDetectorTest.cpp"
 #include "dsp/KeyBridgeTest.cpp"
@@ -40,7 +40,7 @@ int main (int argc, char* argv[])
     juce::UnitTestRunner runner;
     runner.runAllTests();
 
-    // Affiche un resume dans la console.
+    // Print a summary to the console.
     int numPassed = 0, numFailed = 0;
     for (int i = 0; i < runner.getNumResults(); ++i)
     {
@@ -61,7 +61,7 @@ int main (int argc, char* argv[])
     }
 
     std::cout << "\n=========================\n";
-    std::cout << "Resultat : " << numPassed << " OK, " << numFailed << " KO\n";
+    std::cout << "Result: " << numPassed << " OK, " << numFailed << " FAILED\n";
     std::cout << "=========================\n";
 
     return numFailed == 0 ? 0 : 1;

@@ -1,4 +1,4 @@
-﻿// PitchCurve.h
+// PitchCurve.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -7,21 +7,21 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "ScaleQuantizer.h" // pour l'enum Scale et les types lies a la gamme
+#include "ScaleQuantizer.h" // for the Scale enum and scale-related types
 
-// On utilise "ovtdsp" (autotune dsp) plutot que "dsp" pour eviter toute
-// ambiguite avec le namespace "juce::dsp" apporte par JuceHeader.h.
+// We use "ovtdsp" (autotune dsp) rather than "dsp" to avoid any ambiguity
+// with the "juce::dsp" namespace brought in by JuceHeader.h.
 namespace ovtdsp
 {
     /**
-     * Un point de la pitch curve.
-     * time en secondes (relatif au playhead), pitch en Hz.
-     * Operateur == requis par juce::Array::indexOf() (JUCE 8 utilise
-     * juce::exactlyEqual qui necessite l'operateur).
+     * One point of the pitch curve.
+     * time in seconds (relative to the playhead), pitch in Hz.
+     * The == operator is required by juce::Array::indexOf() (JUCE 8 uses
+     * juce::exactlyEqual which requires the operator).
      */
     struct PitchPoint
     {
-        double time = 0.0;   // secondes
+        double time = 0.0;   // seconds
         float  pitch = 440.0f; // Hz
 
         bool operator== (const PitchPoint& other) const noexcept
@@ -35,49 +35,49 @@ namespace ovtdsp
     };
 
     /**
-     * Pitch curve = liste triee par temps de PitchPoint.
-     * Permet l'edition interactive et la serialisation.
+     * Pitch curve = list of PitchPoints sorted by time.
+     * Enables interactive editing and serialization.
      *
-     * Convention :
-     *   - Au moins 2 points (sinon on est en mode "auto")
-     *   - Les points sont stockes tries par 'time' croissant
-     *   - L'interpolation entre 2 points est lineaire
-     *   - Avant le 1er point : on extrapole en tenant la valeur du 1er point
-     *   - Apres le dernier point : idem (constante)
+     * Convention:
+     *   - At least 2 points (otherwise we are in "auto" mode)
+     *   - Points are stored sorted by ascending 'time'
+     *   - Interpolation between 2 points is linear
+     *   - Before the 1st point: extrapolate by holding the 1st point's value
+     *   - After the last point: same (constant)
      */
     class PitchCurve
     {
     public:
         PitchCurve();
 
-        // === Edition des points ===
+        // === Point editing ===
 
-        /// Ajoute ou remplace le point le plus proche du 'time' donne.
-        /// @return index du point ajoute/modifie.
+        /// Adds or replaces the point closest to the given 'time'.
+        /// @return index of the added/modified point.
         int addOrUpdatePoint (double time, float pitch);
 
-        /// Supprime le point le plus proche du 'time' (dans la tolerance).
-        /// @return true si un point a ete supprime.
+        /// Removes the point closest to 'time' (within tolerance).
+        /// @return true if a point was removed.
         bool removePointNear (double time, double toleranceSec = 0.05);
 
-        /// Supprime tous les points.
+        /// Removes all points.
         void clear() { points.clear(); }
 
-        /// Nombre de points.
+        /// Number of points.
         int getNumPoints() const { return points.size(); }
 
-        /// Acces direct.
+        /// Direct access.
         const PitchPoint& getPoint (int index) const { return points.getReference(index); }
         PitchPoint&       getPoint (int index)       { return points.getReference(index); }
 
-        /// Modifie le pitch du point a l'index donne.
-        /// Equivaut a points.getReference (index).pitch = pitch, mais garantit
-        /// une ecriture directe dans le Array (evite toute ambiguite liee a
-        /// une copie par valeur accidentelle).
+        /// Changes the pitch of the point at the given index.
+        /// Equivalent to points.getReference (index).pitch = pitch, but
+        /// guarantees a direct write into the Array (avoids any ambiguity
+        /// from an accidental copy by value).
         void setPointPitch (int index, float pitch) { points.getReference (index).pitch = pitch; }
 
-        /// Modifie le temps et le pitch d'un point, maintient le tri par temps
-        /// et met a jour l'index fourni pour qu'il pointe toujours sur le meme point.
+        /// Changes a point's time and pitch, keeps the sort by time, and
+        /// updates the provided index so it always refers to the same point.
         void setPointTimeAndPitch (int& index, double newTime, float newPitch)
         {
             if (index < 0 || index >= points.size()) return;
@@ -93,20 +93,20 @@ namespace ovtdsp
                                             const juce::Array<double>& newTimes,
                                             const juce::Array<float>& newPitches);
 
-        // === Copie ===
-        // La PitchCurve est copiee regulierement (UI -> processor), donc on
-        // autorise la copie et l'affectation par defaut.
+        // === Copying ===
+        // The PitchCurve is copied regularly (UI -> processor), so default
+        // copy and assignment are allowed.
         PitchCurve (const PitchCurve&) = default;
         PitchCurve& operator= (const PitchCurve&) = default;
 
         // === Evaluation ===
 
-        /// Donne le pitch de la courbe au temps donne.
-        /// Si la courbe est vide, retourne defaultValue.
-        /// Sinon, interpole lineairement entre les 2 points adjacents.
+        /// Returns the curve's pitch at the given time.
+        /// If the curve is empty, returns defaultValue.
+        /// Otherwise, linearly interpolates between the 2 adjacent points.
         float getPitchAt (double time, float defaultValue = 0.0f) const;
 
-        // === Gamme / snapping ===
+        // === Scale / snapping ===
 
         /// Snap a frequency to the nearest note of an explicit interval set.
         /// "intervals" holds absolute semitone offsets within [0, 11] (one octave),
@@ -115,17 +115,17 @@ namespace ovtdsp
         /// matches the visible scale.
         static float snapToIntervals (float hz, const juce::Array<int>& intervals);
 
-        // === Serialisation ===
+        // === Serialization ===
 
-        /// Serialise en XML pour sauvegarde dans l'etat du plugin.
+        /// Serializes to XML for saving in the plugin state.
         std::unique_ptr<juce::XmlElement> toXml() const;
 
-        /// Recharge depuis XML.
+        /// Reloads from XML.
         void fromXml (const juce::XmlElement& xml);
 
         // === Presets factory ===
 
-        /// Reinitialise la courbe avec un preset adapte a un cas d'usage.
+        /// Resets the curve with a preset suited to a use case.
         /// @param presetName  "default", "spoken", "lyric", "rap", "robot"
         void loadPreset (const juce::String& presetName);
 

@@ -1,4 +1,4 @@
-﻿// IPitchShifter.h
+// IPitchShifter.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -8,9 +8,9 @@
 namespace ovtdsp
 {
     /**
-     * Interface abstraite pour les moteurs de Pitch Shifting.
-     * Permet d'interchanger RubberBand, SoundTouch ou une implÃ©mentation PSOLA
-     * de maniÃ¨re transparente pour le reste du pipeline.
+     * Abstract interface for pitch shifting engines.
+     * Allows swapping RubberBand, SoundTouch or a custom PSOLA
+     * implementation transparently for the rest of the pipeline.
      */
     class IPitchShifter
     {
@@ -18,25 +18,26 @@ namespace ovtdsp
         virtual ~IPitchShifter() = default;
 
         /**
-         * Initialise le shifter avec la frequence d'echantillonnage et la taille de bloc.
+         * Prepares the shifter with the sample rate and block size.
          */
         virtual void prepare (double sampleRate, int maximumBlockSize) = 0;
 
         /**
-         * Remet a zero l'etat interne (ex: flush des FIFOs).
+         * Resets the internal state (e.g. flushes FIFOs).
          */
         virtual void reset() = 0;
 
         /**
-         * Traite un bloc audio en place.
-         * @param buffer Le buffer audio stereo a modifier.
-         * @param ratio Le ratio de transposition (ex: 1.0 = aucune, 2.0 = +1 octave).
-         * @param f0 La frequence fondamentale detectee (necessaire pour certains algos comme PSOLA).
+         * Processes an audio buffer in place.
+         * @param buffer The stereo audio buffer to modify.
+         * @param ratio The transposition ratio (e.g. 1.0 = none, 2.0 = +1 octave).
+         * @param f0 The detected fundamental frequency (required by some
+         *        algorithms such as PSOLA).
          */
         virtual void process (juce::AudioBuffer<float>& buffer, float ratio, float f0) = 0;
 
         /**
-         * Retourne la latence interne du moteur en echantillons.
+         * Returns the engine's internal latency in samples.
          */
         virtual int getLatencySamples() const = 0;
     };

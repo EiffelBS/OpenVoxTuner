@@ -1,4 +1,4 @@
-﻿// PitchShifter.h
+// PitchShifter.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -7,17 +7,15 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <cmath>
 #include "IPitchShifter.h"
 #include "BlockAwareOnePole.h"
-#include <atomic>
 
 namespace ovtdsp
 {
-    class PitchDetector; // forward decl
-
     /**
-     * PitchShifter basÃ© sur l'algorithme PSOLA (Pitch Synchronous Overlap-Add).
-     * Ancienne implÃ©mentation maison de Phase 4.
+     * PitchShifter based on the PSOLA algorithm (Pitch Synchronous Overlap-Add).
+     * Legacy in-house implementation from Phase 4.
      */
     class PitchShifter
     {
@@ -27,10 +25,10 @@ namespace ovtdsp
 
         void prepare (double sampleRate, int maximumBlockSize);        
         void reset();
-        // Reset l'etat interne SANS re-armer la fade-in de demarrage. A
-        // utiliser lors d'un seek/preset/reglage en cours de session, afin
-        // d'eviter une nouvelle fade-in sur un signal deja a pleine amplitude
-        // (qui genererait un pop). prepare() appelle reset() complet.
+        // Reset the internal state WITHOUT re-arming the startup fade-in.
+        // Use on seek/preset/setting change mid-session, to avoid a new
+        // fade-in over an already full-amplitude signal (which would
+        // generate a pop). prepare() calls the full reset().
         void resetSoft();
         void process (juce::AudioBuffer<float>& buffer, float pitchRatio, float formantRatio, float f0);
         void process (const juce::AudioBuffer<float>& input, juce::AudioBuffer<float>& output, float pitchRatio, float formantRatio, float f0);
@@ -54,16 +52,16 @@ namespace ovtdsp
         void setAttackEnvelopeEnabled (bool enabled) noexcept
         {
             attackEnvelopeEnabled = enabled;
-            // When the envelope is disabled, snap attackGain to 1.0 so the
+            // When the envelope is disabled, snap its gain to 1.0 so the
             // output is never muted.
-            if (! enabled) attackGain = 1.0f;
+            if (! enabled) attackEnvelope.forceOpen();
         }
 
         bool isAttackEnvelopeEnabled() const noexcept { return attackEnvelopeEnabled; }
 
-        // 2026-07-23: external attack-gain driver (Fix AW â€” see
+        // 2026-07-23: external attack-gain driver (Fix AW - see
         // PluginProcessor.cpp for the call site). When set, the value is
-        // used as the BLOCK-LEVEL target for `attackGain`, with a
+        // used as the BLOCK-LEVEL target for the envelope gain, with a
         // block-aware one-pole smoother (TC = externalAttackTauSeconds,
         // default 15 ms) absorbing the per-block jumps from the external
         // source. Crucially, the modulation is applied to the OUTPUT
@@ -94,7 +92,7 @@ namespace ovtdsp
             // without per-sample discontinuities. The output multiplier
             // is constant within the block, so the OLA chain's grain
             // spacing is stable across the transition.
-            attackGain = externalAttackSmoother.step (clamped, blockDurSec);
+            attackEnvelope.gain = externalAttackSmoother.step (clamped, blockDurSec);
         }
 
         // Set the time constant (in seconds) of the external attack
@@ -113,7 +111,7 @@ namespace ovtdsp
         void resetExternalAttackGain() noexcept
         {
             externalAttackSmoother.snapTo (1.0f);
-            attackGain = 1.0f;
+            attackEnvelope.forceOpen();
             externalAttackEnabled = false;
         }
 
@@ -122,11 +120,11 @@ namespace ovtdsp
         int latencySamples = 0;
         float latencyMs = 20.0f;
 
-        // Somme COLA du KBD (beta=6) a 50% d'overlap. Le gain de grain est
-        // calcule pour que la somme des fenetres vaille 2.0 (cas Hann) ;
-        // comme le KBD a une somme COLA differente, on la mesure une fois
-        // dans prepare() et on en tient compte pour eviter sur-gain/clip.
-        // Sentinel: -1.0 = pas encore calcule (calcule au premier prepare()).
+        // COLA sum of the KBD window (beta=6) at 50% overlap. The grain gain
+        // is computed so that the sum of windows equals 2.0 (Hann case);
+        // since the KBD has a different COLA sum, we measure it once in
+        // prepare() and take it into account to avoid over-gain/clip.
+        // Sentinel: -1.0 = not yet computed (computed on first prepare()).
         double kbdColaSum = -1.0;
         
         static constexpr int bufferSize = 65536; 
@@ -134,20 +132,20 @@ namespace ovtdsp
         juce::AudioBuffer<float> ringBuffer;
         
         uint64_t absoluteWritePos = 0;
-        // Nombre total d'echantillons ecrits dans le ring depuis le dernier
-        // reset. Sert a savoir si l'historique disponible couvre la latence
-        // demandee (evite de lire des zeros avant le demarrage du signal).
+        // Total number of samples written to the ring since the last
+        // reset. Used to know whether the available history covers the
+        // requested latency (avoids reading zeros before the signal starts).
         int64_t totalWritten = 0;
         
         float currentRatio = 1.0f;
         float currentFormantRatio = 1.0f;
 
-        // Pitch d'entree lisse (one-pole) utilise pour calculer
-        // targetF0 / Tin / Tout. Sans cela, un saut brutal de f0 (nouvelle
-        // note ou attaque) change la periode des grains d'un coup ->
-        // discontinuite dans l'OLA -> clic. Le lissage adoucit la
-        // transition de periode sans colorer le timbre (le ratio de
-        // correction est deja lisse par RetargetEnvelope en aval).
+        // Smoothed input pitch (one-pole) used to compute
+        // targetF0 / Tin / Tout. Without it, a brutal f0 jump (new note
+        // or attack) changes the grain periods at once -> discontinuity
+        // in the OLA -> click. Smoothing softens the period transition
+        // without coloring the timbre (the correction ratio is already
+        // smoothed by RetargetEnvelope downstream).
         //
         // 2026-07-23 (Fix BA): alpha was 0.002 per block, giving TC =
         // 1 / (0.002 * 172 blocks/sec) = ~2.9 seconds. That was way too
@@ -160,7 +158,7 @@ namespace ovtdsp
         // attack time on most instruments) within a few blocks, and slow
         // enough to remain a lowpass filter for the 5Hz vibrato (|H(5Hz)|
         // = 0.62, so the smoothedF0 follows the vibrato at 62% of its
-        // amplitude â€” sufficient because the YIN pitch detector already
+        // amplitude - sufficient because the YIN pitch detector already
         // does its own smoothing, and the VibratoPreserver does the
         // vibrato preservation on the targetRatio, not on smoothedF0).
         float smoothedF0 = 0.0f;
@@ -177,15 +175,13 @@ namespace ovtdsp
         // envelope is armed to mask the OLA re-organisation. Without
         // this, the OLA chain "snaps" to a new period every time the
         // smoother output changes by more than ~1% per block, producing
-        // the user-reported "pop/clics aux changements de pitch" with
+        // user-reported "pop/clicks at pitch changes" issue with
         // Flex>0. Note: the ONSET detection (f0 transitions to voiced
         // or >2-semitone jumps) is independent and still works.
         float lastPitchRatio = 1.0f;
 
         // Attack envelope state
         float attackMs = 30.0f;
-        double attackAlpha = 0.0;
-        float attackGain = 0.0f;
         bool attackEnvelopeEnabled = true; // Disable when an external helper (AttackAwareEnv) owns the envelope.
         bool wasVoiced = false;
         float lastF0 = 0.0f; // For detecting sudden pitch jumps (note attacks)
@@ -202,38 +198,200 @@ namespace ovtdsp
         // setExternalAttackGainTauSeconds().
         float externalAttackTauSeconds = 0.015f;
 
-        // Hysteresis + debounce pour la detection d'onset (evite les clics
-        // repetes quand le pitch frÃ©mit autour du seuil voiced/unvoiced au
-        // demarrage d'une note). Seuil montee/descente differents et N
-        // echantillons consÃ©cutifs requis avant de valider un changement.
-        static constexpr float kVoiceOnThreshold  = 45.0f;  // montee
-        static constexpr float kVoiceOffThreshold = 35.0f;  // descente
-        static constexpr int   kVoiceDebounceSamples = 256; // ~6 ms @44.1k
-        bool   hystVoiced = false;            // etat voiced filtre
-        int    voiceDebounceCounter = 0;      // compteur d'echantillons stables
-
         // Startup fade-in: ring buffer starts empty (zeros), so first N samples
         // are garbage. Fade in over first ~20ms to avoid click on plugin start.
         int startupSamplesRemaining = 0;
         float startupGain = 0.0f;
         double startupAlpha = 0.0;
 
-        // Vrai uniquement apres le 1er prepare() (demarrage du plugin). Permet
-        // de distinguer un reset de session (seek/preset) d'un vrai demarrage.
+        // True only after the first prepare() (plugin startup). Allows
+        // distinguishing a session reset (seek/preset) from a real startup.
         bool firstPrepareDone = false;
 
-        // Compteur d'attaque lente apres un saut de pitch : pendant ces N
-        // echantillons, l'enveloppe attackGain utilise un alpha plus lent
-        // (80 ms) au lieu de l'alpha normal (attackMs, defaut 30 ms). Cela
-        // garde attackGain < 0.14 a 12 ms du saut, masquant le step entre
-        // l'output pre-saut (attackGain=1) et post-saut (attackGain=0).
-        int    slowAttackSamplesRemaining = 0;
+        // -----------------------------------------------------------------
+        // Explicit state machines
+        // -----------------------------------------------------------------
 
-        // Compteur de ramp-down doux apres un saut de pitch : pendant ces N
-        // echantillons, le smoother attackGain a target=0 au lieu de 1, ce
-        // qui le fait converger exponentiellement de 1.0 vers ~0.86 au lieu
-        // d'etre reset a 0 instantanement (evite le click de step).
-        int    attackRampDownSamplesRemaining = 0;
+        // Hysteresis + debounce voice-activity detector. Converts the raw
+        // per-frame f0 (0 = unvoiced frame) into a filtered voiced flag.
+        //
+        // Why not a plain threshold: at note starts the pitch flickers
+        // around the voiced/unvoiced threshold ("vocal flutter"); without
+        // filtering, the voiced flag would toggle back and forth and re-arm
+        // the attack envelope in a loop -> repeated clicks. Two mechanisms:
+        //   - HYSTERESIS: different rise (45 Hz) / fall (35 Hz) thresholds.
+        //   - DEBOUNCE: kDebounceSamples consecutive samples (~6 ms @44.1k)
+        //     must agree before the state actually changes.
+        struct VoiceActivityDetector
+        {
+            static constexpr float kOnThreshold     = 45.0f; // rising edge
+            static constexpr float kOffThreshold    = 35.0f; // falling edge
+            static constexpr int   kDebounceSamples = 256;   // ~6 ms @44.1k
+
+            bool voiced  = false; // filtered voiced state
+            int  counter = 0;     // consecutive-agreement sample counter
+
+            // Feed one f0 sample; returns the filtered voiced state.
+            bool processSample (float f0) noexcept
+            {
+                const bool rawVoiced = (f0 > kOnThreshold);
+                if (rawVoiced && !voiced)
+                {
+                    // Rising: require kDebounceSamples consecutive samples
+                    // above the threshold before validating.
+                    if (++counter >= kDebounceSamples)
+                        voiced = true;
+                }
+                else if (! rawVoiced && voiced)
+                {
+                    // Falling: lower threshold (hysteresis) + debounce.
+                    if (f0 < kOffThreshold)
+                    {
+                        if (++counter >= kDebounceSamples)
+                            voiced = false;
+                    }
+                    else
+                    {
+                        // Between the two thresholds: keep state, reset counter.
+                        counter = 0;
+                    }
+                }
+                else
+                {
+                    // No state change in progress: do not count.
+                    counter = 0;
+                }
+                return voiced;
+            }
+
+            void reset() noexcept { voiced = false; counter = 0; }
+        };
+
+        // Explicit lifecycle of the output attack envelope.
+        //
+        // Historically this was spread over four loose members (attackGain,
+        // slowAttackSamplesRemaining, attackRampDownSamplesRemaining and
+        // attackAlpha); their interaction formed an implicit automaton that
+        // was hard to follow. The phases below make it explicit:
+        //
+        //   Open          - steady state: gain == 1, no timer pending.
+        //   RampDown      - right after an onset/jump event: the one-pole
+        //                   TARGETS 0 for ~15-20 ms so the gain dips smoothly
+        //                   (1.0 -> ~0.17-0.86) instead of being hard-reset
+        //                   to 0 (which clicked - see Fix G).
+        //   RecoverSlow   - then climbs back toward 1 with the slow ~80 ms TC,
+        //                   masking the OLA re-organisation window (20-50 ms
+        //                   after a jump, local sum fluctuates by up to 0.4 -
+        //                   see Fix K2/O).
+        //   RecoverNormal - final climb with the user-facing attackMs TC.
+        //                   This is also the note-on fade-in path after the
+        //                   block-level snapToZero().
+        //
+        // Arming entry points (guards applied at the call sites in process()):
+        //   armForOnset()     - voice onset or > 2 semitone jump: 150/20 ms.
+        //   armForRatioJump() - caller ratio changed > 3% in one block
+        //                       (FlexTune deadband etc.): 100/15 ms, NO OLA
+        //                       chain reset (would reintroduce the "trumpet"
+        //                       artifact - see Fix BB).
+        //   snapToZero()      - block-level silence->voice boundary: hard
+        //                       snap to 0, then RecoverNormal fades the note
+        //                       in over attackMs.
+        //
+        // External-driver mode (ovtdsp::AttackAwareEnv, Fix AW): the helper
+        // pushes a smoothed block-level gain through
+        // PitchShifter::setExternalAttackGain(), which stores it directly in
+        // `gain`; processSample() is NOT called in that mode, only
+        // clearTimers(), so the internal lifecycle stays inert.
+        struct AttackEnvelope
+        {
+            // Current lifecycle phase (derived from the timers + gain).
+            enum class Phase { Open, RampDown, RecoverSlow, RecoverNormal };
+
+            static constexpr double kSlowTimeConstantSec = 0.080;   // RecoverSlow TC
+            // Event arming durations.
+            static constexpr double kOnsetRecoverSec      = 0.150;
+            static constexpr double kOnsetRampDownSec     = 0.020;
+            static constexpr double kRatioJumpRecoverSec  = 0.100;
+            static constexpr double kRatioJumpRampDownSec = 0.015;
+
+            float  gain              = 0.0f; // output multiplier in [0, 1]
+            double normalAlpha       = 0.0;  // one-pole alpha from attackMs
+            double slowAlpha         = 0.0;  // one-pole alpha from kSlowTimeConstantSec
+            int    recoverRemaining  = 0;    // RecoverSlow samples left
+            int    rampDownRemaining = 0;    // RampDown samples left
+
+            // Recompute the one-pole alphas for a new sample rate / attack
+            // time. Does NOT touch the gain or the timers (matches the old
+            // setAttackTimeMs semantics).
+            void computeAlphas (double sr, float attackTimeMs)
+            {
+                normalAlpha = (attackTimeMs > 0.0f)
+                    ? (1.0 - std::exp (-1.0 / ((attackTimeMs * 0.001) * sr)))
+                    : 0.0;
+                slowAlpha = 1.0 - std::exp (-1.0 / (kSlowTimeConstantSec * sr));
+            }
+
+            // Initial gain: faded-down when an attack time is configured
+            // (the note-on fade-in will bring it back up), fully open when
+            // there is no envelope (attackMs == 0).
+            void initGain (bool hasAttackEnvelope) noexcept
+            {
+                gain = hasAttackEnvelope ? 0.0f : 1.0f;
+            }
+
+            void armForOnset (double sr) noexcept
+            {
+                recoverRemaining  = static_cast<int> (sr * kOnsetRecoverSec);
+                rampDownRemaining = static_cast<int> (sr * kOnsetRampDownSec);
+            }
+
+            void armForRatioJump (double sr) noexcept
+            {
+                recoverRemaining  = static_cast<int> (sr * kRatioJumpRecoverSec);
+                rampDownRemaining = static_cast<int> (sr * kRatioJumpRampDownSec);
+            }
+
+            // Block-level note-on: hard snap to 0 (the output was silent
+            // during the preceding gap, so no step is audible), then the
+            // normal-alpha fade-in takes over.
+            void snapToZero() noexcept { gain = 0.0f; }
+
+            // Neutralise the timers (external-driver mode keeps them inert).
+            void clearTimers() noexcept { recoverRemaining = 0; rampDownRemaining = 0; }
+
+            // Pin the gain fully open (envelope disabled / bypassed).
+            void forceOpen() noexcept { gain = 1.0f; }
+
+            Phase phase() const noexcept
+            {
+                if (rampDownRemaining > 0) return Phase::RampDown;
+                if (recoverRemaining > 0)  return Phase::RecoverSlow;
+                return (gain >= 1.0f) ? Phase::Open : Phase::RecoverNormal;
+            }
+
+            // Advance the automaton by one sample and return the gain to
+            // apply to the output. Arithmetic is identical to the original
+            // inline implementation (slowAttackSamplesRemaining /
+            // attackRampDownSamplesRemaining version).
+            float processSample() noexcept
+            {
+                const double alpha  = (recoverRemaining > 0) ? slowAlpha : normalAlpha;
+                const float  target = (rampDownRemaining > 0) ? 0.0f : 1.0f;
+                if (rampDownRemaining > 0) --rampDownRemaining;
+                if (recoverRemaining  > 0) --recoverRemaining;
+                if (gain < 1.0f || target < 1.0f)
+                    gain += (target - gain) * static_cast<float> (alpha);
+                else
+                    gain = 1.0f;
+                return gain;
+            }
+        };
+
+        // Instances of the two automata above. They drive the per-sample
+        // behaviour of process(); see the struct comments for the full
+        // lifecycle documentation.
+        AttackEnvelope attackEnvelope;
+        VoiceActivityDetector voiceDetector;
 
         struct Grain {
             double readPos = 0.0;
@@ -252,9 +410,16 @@ namespace ovtdsp
         
         double findBestOffset (double idealReadPos, double targetToMatch, double searchWindowMs, float f0, double maxOffset) const;
         float getInterpolatedSample(int channel, double readPos) const;
+
+        // Reaction of the OLA grain chain to a voice onset / large pitch
+        // jump: clamp outPhase so exactly ONE grain is created at the onset
+        // (prevents the "trumpet" grain burst - Fix J) and invalidate
+        // lastGrainCenter so the next grain re-aligns on a LOCAL pitch mark
+        // (prevents the stale-center mis-alignment click 10-30 ms after the
+        // jump - Fix K2/O). Independent of the attack envelope: this always
+        // runs, even when an external helper owns the gain.
+        void restartGrainChainOnOnset() noexcept;
     };
 }
-
-extern std::atomic<int> gPitchShifterGrainEvents;
 
 
