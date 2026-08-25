@@ -66,18 +66,18 @@ if (-not $NoBuild) {
     . (Join-Path $PSScriptRoot "init_vs_env.ps1") 2>$null | Out-Null
 
     if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
-        Write-Host "cl.exe introuvable meme apres init_vs_env.ps1" -ForegroundColor Red
+        Write-Host "cl.exe not found even after init_vs_env.ps1" -ForegroundColor Red
         exit 1
     }
 
     $cmake = (Get-Command cmake -ErrorAction SilentlyContinue).Source
     if (-not $cmake) {
-        Write-Host "CMake introuvable." -ForegroundColor Red
+        Write-Host "CMake not found." -ForegroundColor Red
         exit 1
     }
 
     if (-not (Test-Path $JucePath)) {
-        Write-Host "JUCE introuvable dans $JucePath" -ForegroundColor Red
+        Write-Host "JUCE not found in $JucePath" -ForegroundColor Red
         exit 1
     }
 
@@ -103,9 +103,9 @@ if (-not $NoBuild) {
     $buildScript = Join-Path $PSScriptRoot "build_helper.cmd"
     $cmakeExe = (Get-Command cmake -ErrorAction SilentlyContinue).Source
     
-    # Les chemins VS/SDK proviennent de init_vs_env.ps1 (sourcé ci-dessus) et
-    # sont resolus dynamiquement via vswhere : cela fonctionne pour toute edition
-    # de VS 2022 (Community en local, Enterprise sur les runners CI).
+    # VS/SDK paths come from init_vs_env.ps1 (sourced above) and are
+    # resolved dynamically via vswhere: this works with any edition
+    # of VS 2022 (Community locally, Enterprise on CI runners).
     
     $msvcBin = "$vsToolsRoot\bin\Hostx64\x64"
     $sdkBin = "$sdkRoot\bin\$sdkVersion\x64"

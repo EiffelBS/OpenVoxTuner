@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
 # install_macos_au_local.sh
-# Installe les plug-ins Audio Unit (AU) OpenVoxTuner + OpenVoxKey dans le dossier
-# utilisateur ~/Library/Audio/Plug-Ins/Components, SANS signature Developer ID.
+# Installs the OpenVoxTuner + OpenVoxKey Audio Unit (AU) plug-ins into the user
+# ~/Library/Audio/Plug-Ins/Components directory, WITHOUT Developer ID signing.
 #
-# Contexte : une AU peut etre COMPILEE sans certificat, mais macOS (Gatekeeper /
-# hardened runtime) refuse de la charger tant qu'elle n'est pas signee. En attendant
-# le Developer ID, ce script devel/tes en local :
-#   - copie les .component dans le dossier utilisateur (pas de sudo requis),
-#   - leve l'attribut de quarantaine (com.apple.quarantine) que macOS pose sur tout
-#     binaire telecharge/compile hors App Store,
-#   - force le re-scan des AU (kill des processus AU + auval).
+# Context: an AU can be COMPILED without a certificate, but macOS (Gatekeeper /
+# hardened runtime) refuses to load it as long as it is not signed. While waiting
+# for the Developer ID, this script deploys/tests locally:
+#   - copies the .component into the user directory (no sudo required),
+#   - removes the quarantine attribute (com.apple.quarantine) that macOS puts on any
+#     binary downloaded/compiled outside the App Store,
+#   - forces AU re-scan (kill of AU processes + auval).
 #
-# La signature/notarization definitive se fera plus tard via build_macos_pkg.sh
-# (--sign-identity / --sign-installer / --notarize) une fois le certificat obtenu.
+# The definitive signing/notarization will be done later via build_macos_pkg.sh
+# (--sign-identity / --sign-installer / --notarize) once the certificate is obtained.
 #
-# Pre-requis : avoir lance un build contenant l'AU (build_macos.sh, build_macos_au.sh
-# ou build_macos_pkg.sh avec --formats ...AU...).
+# Prerequisite: have run a build containing the AU (build_macos.sh, build_macos_au.sh
+# or build_macos_pkg.sh with --formats ...AU...).
 #
 # Usage:
-#   ./install_macos_au_local.sh                       # build dir par defaut
-#   ./install_macos_au_local.sh --build-dir build-mac # dossier de build specifique
+#   ./install_macos_au_local.sh                       # default build dir
+#   ./install_macos_au_local.sh --build-dir build-mac # specific build directory
 #   ./install_macos_au_local.sh --config Debug
-#   ./install_macos_au_local.sh --no-rescan           # ne pas forcer le re-scan AU
+#   ./install_macos_au_local.sh --no-rescan           # do not force AU re-scan
 
 set -euo pipefail
 
@@ -40,11 +40,11 @@ while [[ $# -gt 0 ]]; do
       cat <<'EOF'
 Usage: ./install_macos_au_local.sh [--build-dir <dir>] [--config Release|Debug] [--no-rescan]
 
-Installe les AU OpenVoxTuner + OpenVoxKey (non signees) dans
-~/Library/Audio/Plug-Ins/Components pour test local.
+Installs the OpenVoxTuner + OpenVoxKey AUs (unsigned) into
+~/Library/Audio/Plug-Ins/Components for local testing.
 EOF
       exit 0 ;;
-    *) echo "Option inconnue: $1" >&2; exit 1 ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
 
@@ -54,51 +54,51 @@ cd "$REPO_ROOT"
 DEST_DIR="$HOME/Library/Audio/Plug-Ins/Components"
 mkdir -p "$DEST_DIR"
 
-# Les artefacts AU vivent dans OpenVoxTuner_artefacts et OpenVoxKey_artefacts.
+# The AU artifacts live in OpenVoxTuner_artefacts and OpenVoxKey_artefacts.
 TUNER_AU="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/AU/OpenVoxTuner.component"
 KEY_AU="$BUILD_DIR/OpenVoxKey_artefacts/$CONFIG/AU/OpenVoxKey.component"
 
-echo "=== OpenVoxTuner — Install AU local (non signe) ==="
+echo "=== OpenVoxTuner - Local AU install (unsigned) ==="
 
 if [[ ! -d "$TUNER_AU" ]]; then
-  echo "Erreur: AU OpenVoxTuner introuvable: $TUNER_AU" >&2
-  echo "Lancez d'abord un build avec l'AU (ex: ./scripts/build_macos_au.sh)." >&2
+  echo "Error: OpenVoxTuner AU not found: $TUNER_AU" >&2
+  echo "Run a build with the AU first (e.g.: ./scripts/build_macos_au.sh)." >&2
   exit 1
 fi
 if [[ ! -d "$KEY_AU" ]]; then
-  echo "Erreur: AU OpenVoxKey introuvable: $KEY_AU" >&2
-  echo "Lancez d'abord un build avec l'AU (ex: ./scripts/build_macos_pkg.sh --formats VST3,AU,STANDALONE)." >&2
+  echo "Error: OpenVoxKey AU not found: $KEY_AU" >&2
+  echo "Run a build with the AU first (e.g.: ./scripts/build_macos_pkg.sh --formats VST3,AU,STANDALONE)." >&2
   exit 1
 fi
 
-echo "[1/3] Copie des .component vers $DEST_DIR ..."
+echo "[1/3] Copying the .component into $DEST_DIR ..."
 rsync -a --delete "$TUNER_AU" "$DEST_DIR/"
 rsync -a --delete "$KEY_AU"   "$DEST_DIR/"
 echo "  OpenVoxTuner.component -> $DEST_DIR/"
 echo "  OpenVoxKey.component   -> $DEST_DIR/"
 
-echo "[2/3] Lever la quarantaine Gatekeeper (AU non signees)..."
-# macOS marque tout binaire compile/telecharge hors App Store avec l'attribut
-# com.apple.quarantine ; sans cela, les DAW refusent de charger l'AU.
+echo "[2/3] Removing Gatekeeper quarantine (unsigned AUs)..."
+# macOS marks every binary compiled/downloaded outside the App Store with the
+# com.apple.quarantine attribute; without this, DAWs refuse to load the AU.
 xattr -dr com.apple.quarantine "$DEST_DIR/OpenVoxTuner.component" 2>/dev/null || true
 xattr -dr com.apple.quarantine "$DEST_DIR/OpenVoxKey.component"   2>/dev/null || true
-echo "  Quarantaine levee (xattr -dr com.apple.quarantine)."
+echo "  Quarantine removed (xattr -dr com.apple.quarantine)."
 
 if [[ "$RESCAN" == true ]]; then
-  echo "[3/3] Forcer le re-scan des Audio Units..."
-  # Tuer les processus qui cachent la liste des AU pour forcer un re-scan au prochain lancement.
+  echo "[3/3] Forcing Audio Units re-scan..."
+  # Kill the processes caching the AU list to force a re-scan at next launch.
   killall -9 AudioUnitHost auvaltool com.apple.audio.AudioUnitHost 2>/dev/null || true
-  # auval valide et enregistre l'AU aupres du systeme (utile meme sans signature
-  # pour verifier que le composant se charge). Non bloquant si il echoue.
+  # auval validates and registers the AU with the system (useful even without signing
+  # to verify that the component loads). Non-blocking if it fails.
   if command -v auval >/dev/null 2>&1; then
-    auval -v aufx OvtP Eiff 2>/dev/null || echo "  (auval OpenVoxTuner non valide sans signature — normal en dev local)"
-    auval -v aufx OvtK Eiff 2>/dev/null || echo "  (auval OpenVoxKey non valide sans signature — normal en dev local)"
+    auval -v aufx OvtP Eiff 2>/dev/null || echo "  (auval OpenVoxTuner not valid without signing - normal in local dev)"
+    auval -v aufx OvtK Eiff 2>/dev/null || echo "  (auval OpenVoxKey not valid without signing - normal in local dev)"
   fi
-  echo "  Re-scan demande. Relancez votre DAW pour voir les AU."
+  echo "  Re-scan requested. Relaunch your DAW to see the AUs."
 else
-  echo "[3/3] Re-scan ignore (--no-rescan)."
+  echo "[3/3] Re-scan skipped (--no-rescan)."
 fi
 
 echo ""
-echo "[OK] AU installees localement (non signees). Pour la version signee/notarisee,"
-echo "      utilisez build_macos_pkg.sh avec --sign-identity / --sign-installer / --notarize."
+echo "[OK] AUs installed locally (unsigned). For the signed/notarized version,"
+echo "      use build_macos_pkg.sh with --sign-identity / --sign-installer / --notarize."

@@ -6,15 +6,15 @@ show_help() {
 Usage: ./build_macos_au.sh --juce-path <path> [options]
 
 Options:
-  --juce-path <path>   Chemin vers le repo JUCE (ou variable JUCE_PATH)
-  --build-dir <dir>    Dossier de build (defaut: build-mac-au)
-  --config <cfg>       Configuration CMake (defaut: Release)
-  --arch <archs>       Architectures macOS (defaut: arm64;x86_64)
-  --generator <gen>    Generateur CMake (defaut: Ninja)
-  --install            Copie le .component vers ~/Library/Audio/Plug-Ins/Components
-  --help               Affiche cette aide
+  --juce-path <path>   Path to the JUCE repo (or JUCE_PATH variable)
+  --build-dir <dir>    Build directory (default: build-mac-au)
+  --config <cfg>       CMake configuration (default: Release)
+  --arch <archs>       macOS architectures (default: arm64;x86_64)
+  --generator <gen>    CMake generator (default: Ninja)
+  --install            Copies the .component into ~/Library/Audio/Plug-Ins/Components
+  --help               Show this help
 
-Exemple:
+Example:
   ./build_macos_au.sh --juce-path ~/dev/JUCE8 --install
 EOF
 }
@@ -57,7 +57,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Option inconnue: $1" >&2
+      echo "Unknown option: $1" >&2
       show_help
       exit 1
       ;;
@@ -65,24 +65,24 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$JUCE_PATH_ARG" ]]; then
-  echo "Erreur: JUCE introuvable (defaut: ~/dev/JUCE8, ou utilisez --juce-path / JUCE_PATH)." >&2
+  echo "Error: JUCE not found (default: ~/dev/JUCE8, or use --juce-path / JUCE_PATH)." >&2
   exit 1
 fi
 
 if [[ ! -d "$JUCE_PATH_ARG" ]]; then
-  echo "Erreur: JUCE_PATH introuvable: $JUCE_PATH_ARG" >&2
+  echo "Error: JUCE_PATH not found: $JUCE_PATH_ARG" >&2
   exit 1
 fi
 
 if ! command -v cmake >/dev/null 2>&1; then
-  echo "Erreur: cmake introuvable. Installer CMake." >&2
+  echo "Error: cmake not found. Install CMake." >&2
   exit 1
 fi
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-echo "[1/3] Configuration CMake (AU activé)..."
+echo "[1/3] Configuring CMake (AU enabled)..."
 cmake -S . -B "$BUILD_DIR" -G "$GENERATOR" \
   -DCMAKE_BUILD_TYPE="$CONFIG" \
   -DJUCE_PATH="$JUCE_PATH_ARG" \
@@ -97,25 +97,25 @@ cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxKey_AU
 
 PLUGIN_PATH="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/AU/OpenVoxTuner.component"
 if [[ ! -d "$PLUGIN_PATH" ]]; then
-  echo "Erreur: composant AU introuvable: $PLUGIN_PATH" >&2
+  echo "Error: AU component not found: $PLUGIN_PATH" >&2
   exit 1
 fi
 
 COMPANION_PATH="$BUILD_DIR/OpenVoxKey_artefacts/$CONFIG/AU/OpenVoxKey.component"
 if [[ ! -d "$COMPANION_PATH" ]]; then
-  echo "Erreur: composant AU compagnon introuvable: $COMPANION_PATH" >&2
+  echo "Error: companion AU component not found: $COMPANION_PATH" >&2
   exit 1
 fi
 
-echo "[OK] AU généré: $PLUGIN_PATH"
-echo "[OK] AU compagnon généré: $COMPANION_PATH"
+echo "[OK] AU generated: $PLUGIN_PATH"
+echo "[OK] Companion AU generated: $COMPANION_PATH"
 
 if [[ "$INSTALL" == true ]]; then
   DEST_DIR="/Library/Audio/Plug-Ins/Components"
-  echo "[3/3] Installation locale (sudo requis)..."
+  echo "[3/3] Local installation (sudo required)..."
   sudo mkdir -p "$DEST_DIR"
   sudo rsync -a --delete "$PLUGIN_PATH" "$DEST_DIR/"
   sudo rsync -a --delete "$COMPANION_PATH" "$DEST_DIR/"
-  echo "[OK] Installé dans: $DEST_DIR/OpenVoxTuner.component"
-  echo "[OK] Installé dans: $DEST_DIR/OpenVoxKey.component"
+  echo "[OK] Installed in: $DEST_DIR/OpenVoxTuner.component"
+  echo "[OK] Installed in: $DEST_DIR/OpenVoxKey.component"
 fi

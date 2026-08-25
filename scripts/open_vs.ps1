@@ -1,29 +1,29 @@
 # open_vs.ps1
-# Ouvre Visual Studio avec la solution OpenVoxTuner
-# Lance depuis n'importe quel dossier du projet
+# Opens Visual Studio with the OpenVoxTuner solution
+# Can be launched from any project folder
 
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path $PSScriptRoot -Parent
 $SolutionPath = Join-Path $ProjectRoot "build\OpenVoxTuner.sln"
 
-Write-Host "=== Ouverture de Visual Studio ===" -ForegroundColor Cyan
+Write-Host "=== Opening Visual Studio ===" -ForegroundColor Cyan
 
-# Verification de l'existence de la solution
+# Check that the solution exists
 if (-not (Test-Path $SolutionPath)) {
-    Write-Host "ERREUR: La solution Visual Studio n'existe pas encore !" -ForegroundColor Red
-    Write-Host "Path attendu: $SolutionPath" -ForegroundColor Yellow
+    Write-Host "ERROR: The Visual Studio solution does not exist yet!" -ForegroundColor Red
+    Write-Host "Expected path: $SolutionPath" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Generez d'abord le projet avec :" -ForegroundColor Yellow
+    Write-Host "Generate the project first with:" -ForegroundColor Yellow
     Write-Host "  .\build.ps1" -ForegroundColor White
-    Write-Host "OU" -ForegroundColor Yellow
+    Write-Host "OR" -ForegroundColor Yellow
     Write-Host "  .\rebuild_clean.ps1" -ForegroundColor White
     Write-Host ""
-    Read-Host "Appuyez sur Entree pour quitter"
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
-# Recherche de Visual Studio
+# Locate Visual Studio
 $vsPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\Common7\IDE\devenv.exe"
 $vsPathPro = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe"
 $vsPathEnterprise = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\devenv.exe"
@@ -38,18 +38,18 @@ if (Test-Path $vsPath) {
 }
 
 if (-not $vsExe) {
-    Write-Host "ERREUR: Visual Studio 2022 introuvable !" -ForegroundColor Red
-    Write-Host "Installez Visual Studio 2022 Community/Professional/Enterprise" -ForegroundColor Yellow
+    Write-Host "ERROR: Visual Studio 2022 not found!" -ForegroundColor Red
+    Write-Host "Install Visual Studio 2022 Community/Professional/Enterprise" -ForegroundColor Yellow
     Write-Host ""
-    Read-Host "Appuyez sur Entree pour quitter"
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
-# Ouverture de Visual Studio
-Write-Host "Ouverture de : $SolutionPath" -ForegroundColor Yellow
-Write-Host "Avec : $vsExe" -ForegroundColor Yellow
+# Open Visual Studio
+Write-Host "Opening: $SolutionPath" -ForegroundColor Yellow
+Write-Host "With: $vsExe" -ForegroundColor Yellow
 Write-Host ""
 
 Start-Process -FilePath $vsExe -ArgumentList "`"$SolutionPath`""
 
-Write-Host "Visual Studio lance !" -ForegroundColor Green
+Write-Host "Visual Studio launched!" -ForegroundColor Green

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # build_macos.sh
-# Script de compilation macOS pour OpenVoxTuner.
-# Utilise ~/dev/JUCE8 par defaut et integre les flags de compatibilite
-# pour SDK macOS 26.x "insider" (deployment target 11.0,
+# macOS build script for OpenVoxTuner.
+# Uses ~/dev/JUCE8 by default and integrates the compatibility flags
+# for macOS SDK 26.x "insider" (deployment target 11.0,
 # -Wno-unguarded-availability).
 #
 # Usage:
 #   ./build_macos.sh                         # build Release (VST3 + AU + Standalone)
 #   ./build_macos.sh --config Debug          # build Debug
-#   ./build_macos.sh --formats VST3          # VST3 uniquement
-#   ./build_macos.sh --install               # build + copie dans ~/Library/Audio/Plug-Ins
-#   ./build_macos.sh --juce-path /autre/chemin
+#   ./build_macos.sh --formats VST3          # VST3 only
+#   ./build_macos.sh --install               # build + copy into ~/Library/Audio/Plug-Ins
+#   ./build_macos.sh --juce-path /some/other/path
 
 set -euo pipefail
 
@@ -38,19 +38,19 @@ while [[ $# -gt 0 ]]; do
     --help|-h)
       echo "Usage: $0 [--juce-path <path>] [--config Release|Debug] [--formats VST3;AU;Standalone] [--install] [--no-ara]"
       exit 0 ;;
-    *) echo "Option inconnue: $1"; exit 1 ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
 
-# === Verifications ===
+# === Checks ===
 if [[ ! -d "$JUCE_PATH" ]]; then
-  echo "Erreur: JUCE introuvable dans $JUCE_PATH" >&2
-  echo "Indiquez le chemin avec --juce-path ou la variable JUCE_PATH" >&2
+  echo "Error: JUCE not found in $JUCE_PATH" >&2
+  echo "Specify the path with --juce-path or the JUCE_PATH variable" >&2
   exit 1
 fi
 
 if ! command -v cmake &>/dev/null; then
-  echo "Erreur: cmake introuvable. Installer CMake." >&2
+  echo "Error: cmake not found. Install CMake." >&2
   exit 1
 fi
 
@@ -67,16 +67,16 @@ echo "  INSTALL      = $INSTALL"
 echo "  ARA          = $ENABLE_ARA"
 echo ""
 
-# === Etape 1 : Configuration CMake ===
-echo "[1/3] Configuration CMake..."
+# === Step 1: CMake configuration ===
+echo "[1/3] Configuring CMake..."
 cmake -S . -B "$BUILD_DIR" -G "$GENERATOR" \
   -DCMAKE_BUILD_TYPE="$CONFIG" \
   -DJUCE_PATH="$JUCE_PATH" \
   -DCMAKE_OSX_ARCHITECTURES="$ARCHS" \
   -DOVT_ENABLE_ARA="$ENABLE_ARA"
 
-# === Etape 2 : Compilation ===
-echo "[2/3] Compilation..."
+# === Step 2: Build ===
+echo "[2/3] Building..."
 IFS=';' read -ra TARGET_LIST <<< "$FORMATS"
 for fmt in "${TARGET_LIST[@]}"; do
   # JUCE target names use the native format case (Standalone, not STANDALONE).
@@ -96,11 +96,11 @@ for fmt in "${TARGET_LIST[@]}"; do
   fi
 done
 
-echo "[OK] Compilation terminee."
+echo "[OK] Build completed."
 
-# === Etape 3 : Installation (optionnelle) ===
+# === Step 3: Installation (optional) ===
 if [[ "$INSTALL" == true ]]; then
-  echo "[3/3] Installation locale..."
+  echo "[3/3] Local installation..."
 
   IFS=';' read -ra FMT_LIST <<< "$FORMATS"
   for fmt in "${FMT_LIST[@]}"; do
@@ -108,31 +108,31 @@ if [[ "$INSTALL" == true ]]; then
       VST3)
         SRC="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/VST3/OpenVoxTuner.vst3"
         DST="/Library/Audio/Plug-Ins/VST3/"
-        echo "  VST3 -> $DST (sudo requis)"
+        echo "  VST3 -> $DST (sudo required)"
         sudo mkdir -p "$DST"
         sudo rsync -a --delete "$SRC" "$DST"
         ;;
       AU)
         SRC="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/AU/OpenVoxTuner.component"
         DST="/Library/Audio/Plug-Ins/Components/"
-        echo "  AU   -> $DST (sudo requis)"
+        echo "  AU   -> $DST (sudo required)"
         sudo mkdir -p "$DST"
         sudo rsync -a --delete "$SRC" "$DST"
         ;;
       Standalone)
         SRC="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/Standalone/OpenVoxTuner.app"
         DST="/Applications/"
-        echo "  Standalone -> $DST (sudo requis)"
+        echo "  Standalone -> $DST (sudo required)"
         sudo rsync -a --delete "$SRC" "$DST"
-        echo "  Standalone installe dans /Applications/"
+        echo "  Standalone installed in /Applications/"
         ;;
     esac
   done
 
-  echo "[OK] Installation terminee."
+  echo "[OK] Installation completed."
 fi
 
 echo ""
-echo "=== Build termine avec succes ==="
-echo "Build dir : $REPO_ROOT/$BUILD_DIR"
-echo "Artefacts : $REPO_ROOT/$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/"
+echo "=== Build completed successfully ==="
+echo "Build dir: $REPO_ROOT/$BUILD_DIR"
+echo "Artifacts: $REPO_ROOT/$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/"

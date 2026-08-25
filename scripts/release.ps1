@@ -1,7 +1,7 @@
 # release.ps1
-# Script d’automatisation de la release du plugin OpenVoxTuner.
+# Release automation script for the OpenVoxTuner plugin.
 # --------------------------------------------------------------------
-# Usage : .\release.ps1 -Version "1.2.0"
+# Usage: .\release.ps1 -Version "1.2.0"
 # --------------------------------------------------------------------
 param(
     [Parameter(Mandatory = $true)]
@@ -10,31 +10,31 @@ param(
 
 function Write-Log { param($msg) Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
 
-Write-Log "Début de la release pour la version $Version"
+Write-Log "Starting release for version $Version"
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
 
 # --------------------------------------------------------------------
-# 1️⃣ Mettre à jour BuildInfo.h.in (macro OVT_PROJECT_VERSION)
+# 1. Update BuildInfo.h.in (OVT_PROJECT_VERSION macro)
 # --------------------------------------------------------------------
 $inFile = Join-Path $repoRoot 'Source\BuildInfo.h.in'
 if (-not (Test-Path $inFile)) {
-    Write-Error "Fichier '$inFile' introuvable. Assurez‑vous que le projet est à jour."
+    Write-Error "File '$inFile' not found. Make sure the project is up to date."
     exit 1
 }
-Write-Log "Mise à jour de BuildInfo.h.in …"
+Write-Log "Updating BuildInfo.h.in ..."
 $lines = Get-Content -Path $inFile
-# Remplacer la ligne contenant @PROJECT_VERSION@
+# Replace the line containing @PROJECT_VERSION@
 $updatedLines = foreach ($line in $lines) {
     if ($line -match '@PROJECT_VERSION@') {
         '#define OVT_PROJECT_VERSION "' + $Version + '"'
     } else { $line }
 }
 Set-Content -Path $inFile -Value $updatedLines
-Write-Log "BuildInfo.h.in mis à jour"
+Write-Log "BuildInfo.h.in updated"
 
 # --------------------------------------------------------------------
-# 2️⃣ Commit & tag Git
+# 2. Commit & Git tag
 # --------------------------------------------------------------------
 # Stash local modifications before pulling
 git stash push -u -m "pre-release-stash" | Out-Null
@@ -42,10 +42,10 @@ git stash push -u -m "pre-release-stash" | Out-Null
 # Pull latest changes with rebase
 git pull --rebase --quiet
 if ($LASTEXITCODE -ne 0) {
-    Write-Warning "Pull avec rebase a échoué. Tentative de reprise après stashing." 
+    Write-Warning "Pull with rebase failed. Trying to recover after stashing." 
 }
 
-# Récupérer les modifications stashed
+# Restore the stashed changes
 git stash pop -q
 
 # Stage all changes (including BuildInfo.h.in)
@@ -53,66 +53,66 @@ git add -A
 $commitMsg = "Bump plugin version to $Version"
 git commit -m "$commitMsg" -q
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Commit échoué. Vérifiez qu’il n’y a pas de conflits ou d’autres changements non committés."
+    Write-Error "Commit failed. Check for conflicts or other uncommitted changes."
 }
-Write-Log "Commit effectué : $commitMsg"
+Write-Log "Commit done: $commitMsg"
 
-# Tag (sans l’option silencieuse)
+# Tag (without the quiet option)
 git tag -a v$Version -m "Release $Version"
-if ($LASTEXITCODE -ne 0) { Write-Error "Création du tag échouée." }
-Write-Log "Tag créé : v$Version"
+if ($LASTEXITCODE -ne 0) { Write-Error "Tag creation failed." }
+Write-Log "Tag created: v$Version"
 
 # --------------------------------------------------------------------
-# 3️⃣ Push (commit + tags)
+# 3. Push (commit + tags)
 # --------------------------------------------------------------------
-# Push avec rebase pour éviter les rejets
+# Pull with rebase before pushing to avoid rejections
 git pull --rebase --quiet
 if ($LASTEXITCODE -ne 0) {
-    Write-Warning "Échec du pull. Veuillez synchroniser votre branche avant de pousser."
+    Write-Warning "Pull failed. Please synchronize your branch before pushing."
 }
 
 git push origin main -q
 
 git push --tags -q
-Write-Log "Push terminé"
+Write-Log "Push completed"
 
 # --------------------------------------------------------------------
-# 4️⃣ Build le plugin
+# 4. Build the plugin
 # --------------------------------------------------------------------
-Write-Log "Lancement de la build …"
+Write-Log "Starting build ..."
 ./build.ps1 | Out-Null
 
 # --------------------------------------------------------------------
-# Packager les artefacts (optionnel)
+# Package the artifacts (optional)
 # --------------------------------------------------------------------
 $artifactsDir = Join-Path $repoRoot 'build\OpenVoxTuner_artefacts'
 if (Test-Path $artifactsDir) {
     $zipName = Join-Path $repoRoot "OpenVoxTuner_$Version.zip"
     Compress-Archive -Path (Join-Path $artifactsDir '*') -DestinationPath $zipName -Force
-    Write-Log "Artefacts packagés : $zipName"
-    # Eviter d'inclure le zip dans git
+    Write-Log "Artifacts packaged: $zipName"
+    # Avoid including the zip in git
     if (Test-Path $zipName) {
         git rm --cached -q "$zipName" 2>$null
     }
 } else {
-    Write-Warning "Répertoire des artefacts introuvable. La build a peut‑être échoué."
+    Write-Warning "Artifacts directory not found. The build may have failed."
 }
 
-# Créer une release GitHub et uploader l'archive (si gh CLI disponible)
+# Create a GitHub release and upload the archive (if gh CLI is available)
 try {
     if (Get-Command gh -ErrorAction SilentlyContinue) {
         $tag = "v$Version"
-        Write-Log "Création de la release GitHub pour $tag…"
+        Write-Log "Creating GitHub release for $tag..."
         gh release create $tag --title "Release $Version" --notes "" --draft | Out-Null
         if (Test-Path $zipName) {
             gh release upload $tag "$zipName" | Out-Null
-            Write-Log "Archive téléchargée dans la release."
+            Write-Log "Archive uploaded to the release."
         }
     } else {
-        Write-Warning "GitHub CLI 'gh' non trouvé - l'archive n'est pas uploadée comme asset de release."
+        Write-Warning "GitHub CLI 'gh' not found - the archive is not uploaded as a release asset."
     }
 } catch {
-    Write-Warning "Erreur lors de la création/upload de la release GitHub : $_"
+    Write-Warning "Error while creating/uploading the GitHub release: $_"
 }
 
-Write-Host "Release $Version prête."
+Write-Host "Release $Version ready."

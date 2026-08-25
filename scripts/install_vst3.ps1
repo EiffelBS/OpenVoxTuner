@@ -1,90 +1,90 @@
-# Script d'installation rapide du VST3 OpenVoxTuner (pour developpement)
-# Execute ce script en mode administrateur (clic droit > Executer en tant qu'administrateur)
+# Quick install script for the OpenVoxTuner VST3 (for development)
+# Run this script in administrator mode (right-click > Run as administrator)
 #
-# OPTION 1 (RECOMMANDEE): Utiliser l'installeur Inno Setup
+# OPTION 1 (RECOMMENDED): Use the Inno Setup installer
 #   .\build_installer.ps1
-#   Puis executer: .\build\installer\OpenVoxTuner_Windows_Installer.exe
+#   Then run: .\build\installer\OpenVoxTuner_Windows_Installer.exe
 #
-# OPTION 2: Utiliser ce script pour une installation rapide pendant le developpement
+# OPTION 2: Use this script for a quick install during development
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
 
 # Configuration
-$buildType = "Debug"  # Changez en "Release" pour la version Release
+$buildType = "Debug"  # Change to "Release" for the Release build
 $vst3Source = "$repoRoot\build\OpenVoxTuner_artefacts\$buildType\VST3\OpenVoxTuner.vst3"
 $vst3Dest = "$env:CommonProgramFiles\VST3\OpenVoxTuner.vst3"
 $clapSource = "$repoRoot\build\OpenVoxTuner_artefacts\$buildType\CLAP\OpenVoxTuner.clap"
 $clapDest = "$env:CommonProgramFiles\CLAP\OpenVoxTuner.clap"
 
-Write-Host "=== Installation rapide de OpenVoxTuner ===" -ForegroundColor Cyan
+Write-Host "=== Quick install of OpenVoxTuner ===" -ForegroundColor Cyan
 Write-Host "Configuration: $buildType" -ForegroundColor Yellow
 Write-Host "Source VST3: $vst3Source" -ForegroundColor Yellow
 Write-Host "Dest VST3  : $vst3Dest" -ForegroundColor Yellow
 Write-Host "Source CLAP: $clapSource" -ForegroundColor Yellow
 Write-Host "Dest CLAP  : $clapDest" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "NOTE: Pour une installation complete (avec installeur), utilisez plutot:" -ForegroundColor Cyan
+Write-Host "NOTE: For a full installation (with installer), use instead:" -ForegroundColor Cyan
 Write-Host "  .\build_installer.ps1" -ForegroundColor White
 Write-Host "  .\build\installer\OpenVoxTuner_Windows_Installer.exe" -ForegroundColor White
 Write-Host ""
 
-# Verification des droits admin
+# Admin rights check
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Write-Host "ERREUR: Ce script doit etre execute en tant qu'administrateur !" -ForegroundColor Red
-    Write-Host "Clic droit sur le fichier > Executer en tant qu'administrateur" -ForegroundColor Yellow
-    Read-Host "Appuyez sur Entree pour quitter"
+    Write-Host "ERROR: This script must be run as administrator!" -ForegroundColor Red
+    Write-Host "Right-click the file > Run as administrator" -ForegroundColor Yellow
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
-# Verification de l'existence du VST3 source
+# Check that the VST3 source exists
 if (-not (Test-Path $vst3Source)) {
-    Write-Host "ERREUR: Le VST3 source n'existe pas : $vst3Source" -ForegroundColor Red
-    Write-Host "Compilez d'abord le projet dans Visual Studio (configuration $buildType)" -ForegroundColor Yellow
-    Read-Host "Appuyez sur Entree pour quitter"
+    Write-Host "ERROR: The source VST3 does not exist: $vst3Source" -ForegroundColor Red
+    Write-Host "Build the project first in Visual Studio ($buildType configuration)" -ForegroundColor Yellow
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
-# Suppression de l'ancien VST3 si present
+# Remove the old VST3 if present
 if (Test-Path $vst3Dest) {
-    Write-Host "Suppression de l'ancienne version VST3..." -ForegroundColor Yellow
+    Write-Host "Removing old VST3 version..." -ForegroundColor Yellow
     Remove-Item -Path $vst3Dest -Recurse -Force
-    Write-Host "Ancienne version VST3 supprimee" -ForegroundColor Green
+    Write-Host "Old VST3 version removed" -ForegroundColor Green
 }
 
-# Copie du nouveau VST3 (bundle complet avec tous les sous-dossiers)
-Write-Host "Copie du nouveau VST3..." -ForegroundColor Yellow
+# Copy the new VST3 (full bundle with all subfolders)
+Write-Host "Copying new VST3..." -ForegroundColor Yellow
 Copy-Item -Path $vst3Source -Destination $vst3Dest -Recurse -Force
 
-# Traitement du format CLAP si disponible
+# Handle the CLAP format if available
 if (Test-Path $clapSource) {
     if (Test-Path $clapDest) {
-        Write-Host "Suppression de l'ancienne version CLAP..." -ForegroundColor Yellow
+        Write-Host "Removing old CLAP version..." -ForegroundColor Yellow
         Remove-Item -Path $clapDest -Force
-        Write-Host "Ancienne version CLAP supprimee" -ForegroundColor Green
+        Write-Host "Old CLAP version removed" -ForegroundColor Green
     }
     
-    Write-Host "Copie du nouveau CLAP..." -ForegroundColor Yellow
+    Write-Host "Copying new CLAP..." -ForegroundColor Yellow
     $clapDestDir = Split-Path -Path $clapDest -Parent
     if (-not (Test-Path $clapDestDir)) {
         New-Item -ItemType Directory -Path $clapDestDir -Force | Out-Null
     }
     Copy-Item -Path $clapSource -Destination $clapDest -Force
-    Write-Host "CLAP installe dans : $clapDest" -ForegroundColor Green
+    Write-Host "CLAP installed in: $clapDest" -ForegroundColor Green
 } else {
-    Write-Host "CLAP non trouve (cible non compilee pour $buildType), saut de l'installation CLAP" -ForegroundColor Yellow
+    Write-Host "CLAP not found (target not built for $buildType), skipping CLAP installation" -ForegroundColor Yellow
 }
 
 Write-Host ""
-Write-Host "=== Installation terminee avec succes ! ===" -ForegroundColor Green
-Write-Host "Le plugin OpenVoxTuner VST3 est installe dans : $vst3Dest" -ForegroundColor Cyan
+Write-Host "=== Installation completed successfully! ===" -ForegroundColor Green
+Write-Host "The OpenVoxTuner VST3 plugin is installed in: $vst3Dest" -ForegroundColor Cyan
 if (Test-Path $clapDest) {
-    Write-Host "Le plugin OpenVoxTuner CLAP est installe dans : $clapDest" -ForegroundColor Cyan
+    Write-Host "The OpenVoxTuner CLAP plugin is installed in: $clapDest" -ForegroundColor Cyan
 }
 Write-Host ""
-Write-Host "Relancez votre DAW pour charger la nouvelle version." -ForegroundColor Yellow
+Write-Host "Restart your DAW to load the new version." -ForegroundColor Yellow
 Write-Host ""
 
-Read-Host "Appuyez sur Entree pour quitter"
+Read-Host "Press Enter to exit"

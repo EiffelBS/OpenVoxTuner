@@ -7,32 +7,32 @@ show_help() {
   cat <<'EOF'
 Usage: ./build_macos_pkg.sh --juce-path <path> [options]
 
-Construit les formats demandés (VST3/AU/Standalone/CLAP), puis génère un installateur .pkg macOS.
+Builds the requested formats (VST3/AU/Standalone/CLAP), then generates a macOS .pkg installer.
 
 Options:
-  --juce-path <path>      Chemin vers le repo JUCE (ou variable JUCE_PATH)
-  --build-dir <dir>       Dossier de build (defaut: build-mac-pkg)
-  --config <cfg>          Configuration CMake (defaut: Release)
-  --arch <archs>          Architectures macOS (defaut: arm64;x86_64)
-  --generator <gen>       Generateur CMake (defaut: Ninja)
-  --formats <list>        Formats a inclure: VST3,AU,STANDALONE,CLAP (defaut: VST3,AU,STANDALONE)
-  --version <ver>         Version package (defaut: 0.1.1)
-  --identifier <id>       Bundle identifier package (defaut: com.eiffelbs.openvoxtuner)
-  --output <path>         Fichier pkg final (defaut: dist/OpenVoxTuner-macOS.pkg)
-  --sign-identity <id>   codesign des bundles (Developer ID Application) — requis pour notariser
-  --entitlements <path>  Fichier .entitlements (defaut: scripts/ovt.entitlements)
-  --notarize              Notarise le pkg (xcrun notarytool) + staple
-  --sign-installer <id>   Signature pkg (Developer ID Installer)
-  --companion <on|off>    Inclure le plugin compagnon OpenVoxKey (memes formats que OpenVoxTuner) (defaut: on)
-  --local                 Leve la quarantaine Gatekeeper du .pkg genere (test local, sans signature)
-  --skip-build            Ne fait pas la compilation, package depuis les artefacts existants
-  --help                  Affiche cette aide
+  --juce-path <path>      Path to the JUCE repo (or JUCE_PATH variable)
+  --build-dir <dir>       Build directory (default: build-mac-pkg)
+  --config <cfg>          CMake configuration (default: Release)
+  --arch <archs>          macOS architectures (default: arm64;x86_64)
+  --generator <gen>       CMake generator (default: Ninja)
+  --formats <list>        Formats to include: VST3,AU,STANDALONE,CLAP (default: VST3,AU,STANDALONE)
+  --version <ver>         Package version (default: 0.1.1)
+  --identifier <id>       Package bundle identifier (default: com.eiffelbs.openvoxtuner)
+  --output <path>         Final pkg file (default: dist/OpenVoxTuner-macOS.pkg)
+  --sign-identity <id>   codesign the bundles (Developer ID Application) - required for notarization
+  --entitlements <path>  .entitlements file (default: scripts/ovt.entitlements)
+  --notarize              Notarize the pkg (xcrun notarytool) + staple
+  --sign-installer <id>   pkg signing (Developer ID Installer)
+  --companion <on|off>    Include the OpenVoxKey companion plugin (same formats as OpenVoxTuner) (default: on)
+  --local                 Remove Gatekeeper quarantine from the generated .pkg (local test, without signing)
+  --skip-build            Do not build, package from existing artifacts
+  --help                  Show this help
 
-Variables d'environnement pour --notarize:
-  APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER   (cle API App Store Connect)
-  ou APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID          (compte Apple ID)
+Environment variables for --notarize:
+  APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER   (App Store Connect API key)
+  or APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID          (Apple ID account)
 
-Exemples:
+Examples:
   ./build_macos_pkg.sh --juce-path ~/dev/JUCE8
   ./build_macos_pkg.sh --juce-path ~/dev/JUCE8 --formats VST3,STANDALONE
   ./build_macos_pkg.sh --juce-path ~/dev/JUCE8 --sign-installer "Developer ID Installer: ACME (TEAMID)" --sign-identity "Developer ID Application: ACME (TEAMID)" --notarize
@@ -124,8 +124,8 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --local)
-      # Leve la quarantaine Gatekeeper du .pkg genere pour test local en
-      # double-clic, sans certificat Developer ID. Ne remplace PAS la signature.
+      # Remove the Gatekeeper quarantine from the generated .pkg for local testing by
+      # double-click, without a Developer ID certificate. Does NOT replace signing.
       LOCAL_UNSIGN=true
       shift
       ;;
@@ -134,7 +134,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Option inconnue: $1" >&2
+      echo "Unknown option: $1" >&2
       show_help
       exit 1
       ;;
@@ -143,12 +143,12 @@ done
 
 if [[ "$SKIP_BUILD" == false ]]; then
   if [[ -z "$JUCE_PATH_ARG" ]]; then
-    echo "Erreur: JUCE introuvable (defaut: ~/dev/JUCE8, ou utilisez --juce-path / JUCE_PATH)." >&2
+    echo "Error: JUCE not found (default: ~/dev/JUCE8, or use --juce-path / JUCE_PATH)." >&2
     exit 1
   fi
 
   if [[ ! -d "$JUCE_PATH_ARG" ]]; then
-    echo "Erreur: JUCE_PATH introuvable: $JUCE_PATH_ARG" >&2
+    echo "Error: JUCE_PATH not found: $JUCE_PATH_ARG" >&2
     exit 1
   fi
 fi
@@ -160,7 +160,7 @@ if [[ -n "$SIGN_IDENTITY" || "$NOTARIZE" == true ]]; then
 fi
 for cmd in "${REQUIRED_CMDS[@]}"; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "Erreur: commande manquante: $cmd" >&2
+    echo "Error: missing command: $cmd" >&2
     exit 1
   fi
 done
@@ -179,14 +179,14 @@ for item in "${ITEMS[@]}"; do
     CLAP) WANT_CLAP=true ;;
     "") ;;
     *)
-      echo "Format non supporte: $fmt (utiliser VST3,AU,STANDALONE,CLAP)" >&2
+      echo "Unsupported format: $fmt (use VST3,AU,STANDALONE,CLAP)" >&2
       exit 1
       ;;
   esac
 done
 
 if [[ "$WANT_VST3" == false && "$WANT_AU" == false && "$WANT_STANDALONE" == false && "$WANT_CLAP" == false ]]; then
-  echo "Erreur: aucun format valide demandé." >&2
+  echo "Error: no valid format requested." >&2
   exit 1
 fi
 
@@ -194,7 +194,7 @@ REPO_ROOT="$SCRIPT_DIR/.."
 cd "$REPO_ROOT"
 
 if [[ "$SKIP_BUILD" == false ]]; then
-  echo "[1/4] Configuration CMake..."
+  echo "[1/4] Configuring CMake..."
   if [[ "$WANT_AU" == true ]]; then
     ENABLE_AU=ON
   else
@@ -234,7 +234,7 @@ if [[ "$SKIP_BUILD" == false ]]; then
   fi
 
   # Companion key-detection plug-in (OpenVoxKey) is built for DAW formats only
-  # (VST3/AU/CLAP) — no Standalone. JUCE target names use the native format case
+  # (VST3/AU/CLAP) - no Standalone. JUCE target names use the native format case
   # (Standalone, not STANDALONE), but we skip Standalone entirely here.
   if [[ "$WANT_COMPANION" == true ]]; then
     for fmt in "${ITEMS[@]}"; do
@@ -246,7 +246,7 @@ if [[ "$SKIP_BUILD" == false ]]; then
   fi
 fi
 
-echo "[3/4] Préparation du contenu package..."
+echo "[3/4] Preparing package contents..."
 
 # Each format is packaged as its own component so the installer can let the user
 # choose which ones to install (Standalone / VST3 / AU / CLAP). Each component
@@ -254,9 +254,9 @@ echo "[3/4] Préparation du contenu package..."
 # CFBundleIdentifier in the loop below) a unique bundle id, so relocation/upgrade
 # stays unambiguous.
 # Entry fields: artefactDir|artefactSubdir|destRel|bundleName|pkgId|choiceId|title|description
-#   artefactDir    : dossier sous $BUILD_DIR (ex. OpenVoxTuner_artefacts ou OpenVoxKey_artefacts)
-#   artefactSubdir : sous-dossier dans artefacts/Release/ (ex. Standalone, VST3, Components, CLAP)
-#   destRel        : chemin d'installation relatif a la racine (ex. Library/Audio/Plug-Ins/VST3)
+#   artefactDir    : directory under $BUILD_DIR (e.g. OpenVoxTuner_artefacts or OpenVoxKey_artefacts)
+#   artefactSubdir : subdirectory in artefacts/Release/ (e.g. Standalone, VST3, Components, CLAP)
+#   destRel        : install path relative to the root (e.g. Library/Audio/Plug-Ins/VST3)
 # Staging dir for the per-format components. Use a fresh temp dir each run so
 # we never inherit root-owned files from a previous sudo'd build (which would
 # make rm fail with "Permission denied"). The final .pkg is written to $OUTPUT,
@@ -267,18 +267,18 @@ mkdir -p "$COMP_DIR"
 
 NL=$'\n'
 OVT_COMP_ENTRIES=()
-[[ "$WANT_STANDALONE" == true ]] && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|Standalone|Applications|OpenVoxTuner.app|com.eiffelbs.openvoxtuner.standalone|choice_standalone|Standalone (Application)|Application autonome OpenVoxTuner." )
-[[ "$WANT_VST3" == true ]]      && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|VST3|Library/Audio/Plug-Ins/VST3|OpenVoxTuner.vst3|com.eiffelbs.openvoxtuner.vst3|choice_vst3|VST3|Plug-in VST3 pour les DAW." )
-[[ "$WANT_AU" == true ]]        && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|AU|Library/Audio/Plug-Ins/Components|OpenVoxTuner.component|com.eiffelbs.openvoxtuner.au|choice_au|Audio Unit (AU)|Plug-in Audio Unit (macOS)." )
-[[ "$WANT_CLAP" == true ]]      && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|CLAP|Library/Audio/Plug-Ins/CLAP|OpenVoxTuner.clap|com.eiffelbs.openvoxtuner.clap|choice_clap|CLAP|Plug-in CLAP pour les DAW." )
+[[ "$WANT_STANDALONE" == true ]] && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|Standalone|Applications|OpenVoxTuner.app|com.eiffelbs.openvoxtuner.standalone|choice_standalone|Standalone (Application)|OpenVoxTuner standalone application." )
+[[ "$WANT_VST3" == true ]]      && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|VST3|Library/Audio/Plug-Ins/VST3|OpenVoxTuner.vst3|com.eiffelbs.openvoxtuner.vst3|choice_vst3|VST3|VST3 plug-in for DAWs." )
+[[ "$WANT_AU" == true ]]        && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|AU|Library/Audio/Plug-Ins/Components|OpenVoxTuner.component|com.eiffelbs.openvoxtuner.au|choice_au|Audio Unit (AU)|Audio Unit plug-in (macOS)." )
+[[ "$WANT_CLAP" == true ]]      && OVT_COMP_ENTRIES+=( "OpenVoxTuner_artefacts|CLAP|Library/Audio/Plug-Ins/CLAP|OpenVoxTuner.clap|com.eiffelbs.openvoxtuner.clap|choice_clap|CLAP|CLAP plug-in for DAWs." )
 
-# Companion (OpenVoxKey) is built for DAW plug-in formats only (VST3/AU/CLAP) —
+# Companion (OpenVoxKey) is built for DAW plug-in formats only (VST3/AU/CLAP) -
 # no Standalone, since it needs a host track to analyse and an OpenVoxTuner
 # instance to consume the detected key. Its format choices are grouped under a
 # single parent choice so the user sees one "OpenVoxKey" toggle.
 OVT_COMPANION_PARENT="choice_companion"
 if [[ "$WANT_COMPANION" == true ]]; then
-  OVT_COMP_ENTRIES+=( "PARENT|${OVT_COMPANION_PARENT}|OpenVoxKey (companion)|Plug-in compagnon de detection de tonalite (partage la tonalite avec OpenVoxTuner)." )
+  OVT_COMP_ENTRIES+=( "PARENT|${OVT_COMPANION_PARENT}|OpenVoxKey (companion)|Key-detection companion plug-in (shares the key with OpenVoxTuner)." )
   for fmt in "${ITEMS[@]}"; do
     case "$fmt" in
       STANDALONE) continue ;;  # companion has no Standalone format
@@ -287,7 +287,7 @@ if [[ "$WANT_COMPANION" == true ]]; then
       CLAP)       comp_subdir="CLAP";        comp_bundle="OpenVoxKey.clap"; comp_dest="Library/Audio/Plug-Ins/CLAP";        comp_pkgid="com.eiffelbs.openvoxkey.clap" ;;
     esac
     comp_choice="choice_companion_$(echo "$fmt" | tr '[:upper:]' '[:lower:]')"
-    OVT_COMP_ENTRIES+=( "OpenVoxKey_artefacts|${comp_subdir}|${comp_dest}|${comp_bundle}|${comp_pkgid}|${comp_choice}|OpenVoxKey (${fmt})|Format ${fmt} du plug-in compagnon OpenVoxKey." )
+    OVT_COMP_ENTRIES+=( "OpenVoxKey_artefacts|${comp_subdir}|${comp_dest}|${comp_bundle}|${comp_pkgid}|${comp_choice}|OpenVoxKey (${fmt})|${fmt} format of the OpenVoxKey companion plug-in." )
   done
 fi
 
@@ -310,7 +310,7 @@ for entry in "${OVT_COMP_ENTRIES[@]}"; do
   fi
 
   SRC="$BUILD_DIR/$artefact_dir/$CONFIG/$artefact_subdir/$bundle_name"
-  [[ -d "$SRC" ]] || { echo "Bundle introuvable: $SRC" >&2; exit 1; }
+  [[ -d "$SRC" ]] || { echo "Bundle not found: $SRC" >&2; exit 1; }
 
   root="$COMP_DIR/$choice_id"
   rm -rf "$root"
@@ -328,7 +328,7 @@ for entry in "${OVT_COMP_ENTRIES[@]}"; do
   if [[ -f "$PLIST" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $pkg_id" "$PLIST"
   else
-    echo "Info.plist introuvable: $PLIST" >&2
+    echo "Info.plist not found: $PLIST" >&2
     exit 1
   fi
 
@@ -385,7 +385,7 @@ POSTINSTALL
 
   if [[ "$choice_id" == choice_companion_* ]]; then
     # Companion child: track for nesting under the parent choice, and emit its
-    # own <choice> (with pkg-ref) — but NOT an outline line (it lives under the
+    # own <choice> (with pkg-ref) - but NOT an outline line (it lives under the
     # parent in the outline).
     OVT_COMPANION_CHILDREN+=("$choice_id")
     CHOICES_XML+="    <choice id=\"$choice_id\" visible=\"true\" title=\"$title\" description=\"$desc\">${NL}        <pkg-ref id=\"$pkg_id\"/>${NL}    </choice>${NL}"
@@ -439,10 +439,10 @@ if [[ -n "$SIGN_INSTALLER" ]]; then
     "$OUTPUT")
 fi
 
-echo "[4/4] Génération du .pkg..."
+echo "[4/4] Generating the .pkg..."
 "${PRODUCTBUILD_CMD[@]}"
 
-echo "[OK] Installateur généré: $OUTPUT"
+echo "[OK] Installer generated: $OUTPUT"
 
 # --- Local (un)signed test build ---
 # Without a Developer ID, Gatekeeper flags the .pkg as quarantined and the
@@ -451,32 +451,32 @@ echo "[OK] Installateur généré: $OUTPUT"
 # works regardless). This is NOT a substitute for real signing/notarization.
 if [[ "$LOCAL_UNSIGN" == true ]]; then
   if [[ -n "$SIGN_INSTALLER" || "$NOTARIZE" == true ]]; then
-    echo "Erreur: --local est incompatible avec --sign-installer/--notarize (pkg deja signe)." >&2
+    echo "Error: --local is incompatible with --sign-installer/--notarize (pkg already signed)." >&2
     exit 1
   fi
-  echo "[+] Levee de la quarantaine Gatekeeper (--local)..."
+  echo "[+] Removing Gatekeeper quarantine (--local)..."
   xattr -dr com.apple.quarantine "$OUTPUT" 2>/dev/null || true
-  echo "    Quarantaine levee sur: $OUTPUT"
-  echo "    Installation locale: sudo installer -pkg $OUTPUT -target /"
+  echo "    Quarantine removed from: $OUTPUT"
+  echo "    Local install: sudo installer -pkg $OUTPUT -target /"
 fi
 
 # --- Notarization (optional) ---
 if [[ "$NOTARIZE" == true ]]; then
   if [[ -z "$SIGN_INSTALLER" || -z "$SIGN_IDENTITY" ]]; then
-    echo "Erreur: --notarize requiert --sign-installer et --sign-identity (pkg + bundles signés)." >&2
+    echo "Error: --notarize requires --sign-installer and --sign-identity (signed pkg + bundles)." >&2
     exit 1
   fi
-  echo "[5/5] Notarisation du pkg..."
+  echo "[5/5] Notarizing the pkg..."
   NOTARY_ARGS=()
   if [[ -n "${APPLE_API_KEY:-}" && -n "${APPLE_API_KEY_ID:-}" && -n "${APPLE_API_ISSUER:-}" ]]; then
     NOTARY_ARGS+=(--key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER")
   elif [[ -n "${APPLE_ID:-}" && -n "${APPLE_PASSWORD:-}" && -n "${APPLE_TEAM_ID:-}" ]]; then
     NOTARY_ARGS+=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID")
   else
-    echo "Erreur: credentials notarytool manquants (APPLE_API_KEY* ou APPLE_ID*)." >&2
+    echo "Error: missing notarytool credentials (APPLE_API_KEY* or APPLE_ID*)." >&2
     exit 1
   fi
   xcrun notarytool submit "$OUTPUT" "${NOTARY_ARGS[@]}" --wait
   xcrun stapler staple "$OUTPUT"
-  echo "[OK] pkg notarisé et staple."
+  echo "[OK] pkg notarized and stapled."
 fi

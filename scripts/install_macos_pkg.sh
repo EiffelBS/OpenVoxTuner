@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # install_macos_pkg.sh
-# Genere un installateur .pkg macOS pour OpenVoxTuner.
+# Generates a macOS .pkg installer for OpenVoxTuner.
 #
-# Pre-requis:
-#   - Avoir lance build_macos.sh au prealable (ou --skip-build pour
-#     repackager depuis un build existant)
-#   - pkgbuild (inclus avec Xcode)
+# Prerequisites:
+#   - Have run build_macos.sh beforehand (or --skip-build to
+#     repackage from an existing build)
+#   - pkgbuild (included with Xcode)
 #
 # Usage:
 #   ./install_macos_pkg.sh                         # build + package
-#   ./install_macos_pkg.sh --skip-build            # package seulement
+#   ./install_macos_pkg.sh --skip-build            # package only
 #   ./install_macos_pkg.sh --output ~/Desktop/OpenVoxTuner.pkg
 
 set -euo pipefail
@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
     --help|-h)
       echo "Usage: $0 [--juce-path <path>] [--output <file.pkg>] [--skip-build] [--sign-installer <id>]"
       exit 0 ;;
-    *) echo "Option inconnue: $1"; exit 1 ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
 
@@ -56,15 +56,15 @@ echo "  OUTPUT     = $OUTPUT"
 echo "  SKIP_BUILD = $SKIP_BUILD"
 echo ""
 
-# === Etape 1 : Build (sauf --skip-build) ===
+# === Step 1: Build (unless --skip-build) ===
 if [[ "$SKIP_BUILD" != true ]]; then
   if [[ ! -d "$JUCE_PATH" ]]; then
-    echo "Erreur: JUCE introuvable dans $JUCE_PATH" >&2
-    echo "Passez --skip-build si les artefacts existent deja." >&2
+    echo "Error: JUCE not found in $JUCE_PATH" >&2
+    echo "Pass --skip-build if the artifacts already exist." >&2
     exit 1
   fi
 
-  echo "[1/4] Compilation..."
+  echo "[1/4] Building..."
   cmake -S . -B "$BUILD_DIR" -G "$GENERATOR" \
     -DCMAKE_BUILD_TYPE="$CONFIG" \
     -DJUCE_PATH="$JUCE_PATH" \
@@ -72,42 +72,42 @@ if [[ "$SKIP_BUILD" != true ]]; then
   cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxTuner_VST3
   cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxTuner_AU
   cmake --build "$BUILD_DIR" --config "$CONFIG" --target OpenVoxTuner_Standalone
-  echo "[OK] Compilation terminee."
+  echo "[OK] Build completed."
 else
-  echo "[1/4] Compilation ignoree (--skip-build)."
+  echo "[1/4] Build skipped (--skip-build)."
 fi
 
 ARTEFACTS="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG"
 
-# === Verification des artefacts ===
-echo "[2/4] Verification des artefacts..."
+# === Artifact verification ===
+echo "[2/4] Verifying artifacts..."
 VST3_BUNDLE="$ARTEFACTS/VST3/OpenVoxTuner.vst3"
 AU_BUNDLE="$ARTEFACTS/AU/OpenVoxTuner.component"
 STANDALONE_APP="$ARTEFACTS/Standalone/OpenVoxTuner.app"
 
 if [[ ! -d "$VST3_BUNDLE" ]]; then
-  echo "Erreur: VST3 introuvable: $VST3_BUNDLE" >&2; exit 1
+  echo "Error: VST3 not found: $VST3_BUNDLE" >&2; exit 1
 fi
 if [[ ! -d "$AU_BUNDLE" ]]; then
-  echo "Erreur: AU introuvable: $AU_BUNDLE" >&2; exit 1
+  echo "Error: AU not found: $AU_BUNDLE" >&2; exit 1
 fi
 if [[ ! -d "$STANDALONE_APP" ]]; then
-  echo "Erreur: Standalone introuvable: $STANDALONE_APP" >&2; exit 1
+  echo "Error: Standalone not found: $STANDALONE_APP" >&2; exit 1
 fi
 echo "  VST3       : $VST3_BUNDLE"
 echo "  AU         : $AU_BUNDLE"
 echo "  Standalone : $STANDALONE_APP"
-echo "[OK] Tous les artefacts presents."
+echo "[OK] All artifacts present."
 
-# === Etape 3 : Creation du dossier staging ===
-echo "[3/4] Creation du staging pkg..."
+# === Step 3: Creating the staging directory ===
+echo "[3/4] Creating pkg staging..."
 STAGING_DIR=$(mktemp -d)
 trap 'rm -rf "$STAGING_DIR"' EXIT
 
 PACKAGE_ROOT="$STAGING_DIR/root"
 mkdir -p "$PACKAGE_ROOT"
 
-# Copie des plugins dans les dossiers standards macOS
+# Copying the plugins into the standard macOS directories
 DEST_VST3="$PACKAGE_ROOT/Library/Audio/Plug-Ins/VST3"
 DEST_AU="$PACKAGE_ROOT/Library/Audio/Plug-Ins/Components"
 DEST_APP="$PACKAGE_ROOT/Applications"
@@ -122,8 +122,8 @@ echo "    - Library/Audio/Plug-Ins/VST3/OpenVoxTuner.vst3"
 echo "    - Library/Audio/Plug-Ins/Components/OpenVoxTuner.component"
 echo "    - Applications/OpenVoxTuner.app"
 
-# === Etape 4 : Generation du .pkg ===
-echo "[4/4] Generation du package..."
+# === Step 4: Generating the .pkg ===
+echo "[4/4] Generating package..."
 mkdir -p "$(dirname "$OUTPUT")"
 
 PKG_BUILD_ARGS=(
@@ -135,12 +135,12 @@ PKG_BUILD_ARGS=(
 
 if [[ -n "$SIGN_INSTALLER" ]]; then
   PKG_BUILD_ARGS+=(--sign "$SIGN_INSTALLER")
-  echo "  Signature avec: $SIGN_INSTALLER"
+  echo "  Signing with: $SIGN_INSTALLER"
 fi
 
 pkgbuild "${PKG_BUILD_ARGS[@]}" "$OUTPUT"
 
-echo "[OK] Package genere: $OUTPUT"
+echo "[OK] Package generated: $OUTPUT"
 echo ""
-echo "Pour installer : sudo installer -pkg $OUTPUT -target /"
-echo "Ou double-clic sur le .pkg dans le Finder."
+echo "To install: sudo installer -pkg $OUTPUT -target /"
+echo "Or double-click the .pkg in Finder."

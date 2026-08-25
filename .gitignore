@@ -70,8 +70,8 @@ cmake-build-*/
 Thumbs.db
 desktop.ini
 
-# --- Fichiers temporaires / de test (regle user 10) ---
-# Les scripts de test dans test/ sont versionnes, mais les artefacts non.
+# --- Temporary / test files (user rule 10) ---
+# Test scripts in test/ are versioned, but their artifacts are not.
 test/build/
 test/*.exe
 test/*.obj
@@ -94,8 +94,6 @@ dist/
 site-docs/
 .venv-mkdocs/
 
-/build/
-
 #OpenVoxTuner_1.2.1.zip
 
 # --- Debug session config files ---
@@ -105,6 +103,7 @@ site-docs/
 test/test_output.txt
 test/__pycache__/
 test/formant_benchmark_results.json
+test/dsp/click_count.txt
 
 # --- Stale / duplicate source files ---
 # (ancienne version a la racine Source/, maintenant a Source/dsp/ et trackee)
@@ -112,7 +111,7 @@ test/formant_benchmark_results.json
 # --- Temporary diagnostic documents (not for production) ---
 debug-*.md
 
-docs/changelogs/
+docs/archive/
 docs/internal/
 docs/social/
 docs/__MACOSX

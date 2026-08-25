@@ -1,17 +1,17 @@
 # ============================================================================
 # init_vs_env.ps1
-# Initialise l'environnement MSVC + Windows SDK en PowerShell pur
-# (sans cmd.exe, qui est bloque dans certains environnements).
-# A sourcer avec :  . .\init_vs_env.ps1
+# Initializes the MSVC + Windows SDK environment in pure PowerShell
+# (without cmd.exe, which is blocked in some environments).
+# Source it with:  . .\init_vs_env.ps1
 # ============================================================================
 
 $ErrorActionPreference = 'Stop'
 
-# --- Localisation dynamique de Visual Studio 2022 (edition-agnostique) ---
-# vswhere est installe avec VS (Community/Professional/Enterprise) et renvoie
-# le chemin reel d'installation, peu importe l'edition. Cela permet au meme
-# script de fonctionner aussi bien sur une machine locale (VS Community) que
-# sur un runner CI (VS Enterprise).
+# --- Dynamic location of Visual Studio 2022 (edition-agnostic) ---
+# vswhere is installed with VS (Community/Professional/Enterprise) and returns
+# the actual installation path regardless of the edition. This lets the same
+# script work both on a local machine (VS Community) and on a CI runner
+# (VS Enterprise).
 function Get-VS2022InstallPath {
     $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
     if (-not (Test-Path $vswhere)) { return $null }
@@ -20,20 +20,20 @@ function Get-VS2022InstallPath {
     return $null
 }
 
-# Chemin par defaut (fallback si vswhere indisponible, ex. VS Community local)
+# Default path (fallback if vswhere is unavailable, e.g. local VS Community)
 $vsRoot = Get-VS2022InstallPath
 if (-not $vsRoot) {
     $vsRoot = "C:\Program Files\Microsoft Visual Studio\2022\Community"
 }
 
-# MSVC : on prend la version installee la plus recente (robuste entre editions)
+# MSVC: pick the newest installed version (robust across editions)
 $msvcBase = Join-Path $vsRoot "VC\Tools\MSVC"
 $msvcVer  = (Get-ChildItem $msvcBase -Directory -ErrorAction SilentlyContinue |
              Sort-Object Name | Select-Object -Last 1).Name
 if (-not $msvcVer) { $msvcVer = "14.44.35207" }   # fallback
 $vsToolsRoot = Join-Path $msvcBase $msvcVer
 
-# Windows SDK : on prend la version 10.0.* la plus recente installee
+# Windows SDK: pick the newest installed 10.0.* version
 $sdkRoot = "C:\Program Files (x86)\Windows Kits\10"
 $sdkVersion = (Get-ChildItem "$sdkRoot\Include" -Directory -ErrorAction SilentlyContinue |
                Where-Object { $_.Name -like "10.0.*" } |
@@ -42,12 +42,12 @@ if (-not $sdkVersion) { $sdkVersion = "10.0.19041.0" }  # fallback
 
 if (-not (Test-Path $vsToolsRoot))
 {
-    Write-Error "MSVC introuvable : $vsToolsRoot"
+    Write-Error "MSVC not found: $vsToolsRoot"
     return
 }
 if (-not (Test-Path $sdkRoot))
 {
-    Write-Error "Windows SDK introuvable : $sdkRoot"
+    Write-Error "Windows SDK not found: $sdkRoot"
     return
 }
 
@@ -69,8 +69,8 @@ $env:INCLUDE = @(
 ) -join ";"
 
 # === LIB ===
-# Note : dans certaines installations, MSVC n'a que le sous-dossier "onecore".
-# On inclut les deux pour etre robuste aux deux configurations.
+# Note: in some installations, MSVC only has the "onecore" subfolder.
+# We include both to be robust across both configurations.
 $env:LIB = @(
     "$vsToolsRoot\lib\onecore\x64"
     "$vsToolsRoot\lib\x64"
@@ -78,14 +78,14 @@ $env:LIB = @(
     "$sdkRoot\Lib\$sdkVersion\um\x64"
 ) -join ";"
 
-# === LIBPATH (lieurs specifiques C++/CLI) ===
+# === LIBPATH (C++/CLI-specific linkers) ===
 $env:LIBPATH = @(
     "$vsToolsRoot\lib\onecore\x64"
     "$vsToolsRoot\lib\x64"
     "$sdkRoot\Lib\$sdkVersion\um\x64"
 ) -join ";"
 
-# === Variables standards MSVC ===
+# === Standard MSVC variables ===
 $env:VCINSTALLDIR = "$vsRoot\VC"
 $env:VCToolsInstallDir = "$vsRoot\VC\Tools\MSVC\$msvcVer"
 $env:VCToolsVersion = $msvcVer
@@ -97,17 +97,17 @@ $env:VSINSTALLDIR = $vsRoot
 $env:DevEnvDir = "$vsRoot\Common7\IDE"
 $env:VS170COMNTOOLS = "$vsRoot\Common7\Tools\"
 
-# === CMake dans le PATH (fallback, generalement deja present) ===
+# === CMake in PATH (fallback, usually already present) ===
 if (Test-Path "C:\Program Files\CMake\bin") {
     $env:Path = "C:\Program Files\CMake\bin;$env:Path"
 }
 
-# === Verifications ===
+# === Checks ===
 $cl = (Get-Command cl.exe -ErrorAction SilentlyContinue).Source
 $cmake = (Get-Command cmake -ErrorAction SilentlyContinue).Source
 $ninja = (Get-Command ninja -ErrorAction SilentlyContinue).Source
 
-Write-Host "Environnement MSVC initialise :" -ForegroundColor Green
+Write-Host "MSVC environment initialized:" -ForegroundColor Green
 Write-Host "  VS edition root : $vsRoot"
 Write-Host "  MSVC version   : $env:VCToolsVersion"
 Write-Host "  Windows SDK    : $env:WindowsSDKVersion"

@@ -1,11 +1,11 @@
 # create_dev_symlink.ps1
-# Cree un lien symbolique vers le VST3 en developpement
-# Avantage : chaque rebuild Visual Studio met automatiquement a jour le plugin dans Program Files
-# DOIT etre execute en mode Administrateur
+# Creates a symbolic link to the development VST3
+# Benefit: every Visual Studio rebuild automatically updates the plugin in Program Files
+# MUST be run in Administrator mode
 
 $ErrorActionPreference = "Stop"
 
-# Configuration : changez "Debug" en "Release" selon votre besoin
+# Configuration: change "Debug" to "Release" as needed
 $buildConfig = "Debug"
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
@@ -13,60 +13,60 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 $vst3Source = "$repoRoot\build\OpenVoxTuner_artefacts\$buildConfig\VST3\OpenVoxTuner.vst3"
 $vst3Dest = "$env:CommonProgramFiles\VST3\OpenVoxTuner.vst3"
 
-Write-Host "=== Creation d'un lien symbolique pour le developpement ===" -ForegroundColor Cyan
+Write-Host "=== Creating a symbolic link for development ===" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Configuration : $buildConfig" -ForegroundColor Yellow
+Write-Host "Configuration: $buildConfig" -ForegroundColor Yellow
 Write-Host "Source        : $vst3Source" -ForegroundColor Yellow
 Write-Host "Destination   : $vst3Dest" -ForegroundColor Yellow
 Write-Host ""
 
-# Verification des droits admin
+# Admin rights check
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Write-Host "ERREUR: Ce script doit etre execute en tant qu'administrateur !" -ForegroundColor Red
-    Write-Host "Clic droit sur le fichier > Executer en tant qu'administrateur" -ForegroundColor Yellow
+    Write-Host "ERROR: This script must be run as administrator!" -ForegroundColor Red
+    Write-Host "Right-click the file > Run as administrator" -ForegroundColor Yellow
     Write-Host ""
-    Read-Host "Appuyez sur Entree pour quitter"
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
-# Verification de l'existence du source
+# Check that the source exists
 if (-not (Test-Path $vst3Source)) {
-    Write-Host "ERREUR: Le VST3 source n'existe pas !" -ForegroundColor Red
+    Write-Host "ERROR: The source VST3 does not exist!" -ForegroundColor Red
     Write-Host "Path: $vst3Source" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Compilez d'abord le projet en configuration '$buildConfig' dans Visual Studio." -ForegroundColor Yellow
+    Write-Host "Build the project first in '$buildConfig' configuration inside Visual Studio." -ForegroundColor Yellow
     Write-Host ""
-    Read-Host "Appuyez sur Entree pour quitter"
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
-# Suppression de l'ancien (copie ou lien)
+# Remove the old one (copy or link)
 if (Test-Path $vst3Dest) {
-    Write-Host "Suppression de l'ancien plugin..." -ForegroundColor Yellow
+    Write-Host "Removing old plugin..." -ForegroundColor Yellow
 
-    # Verification si c'est deja un lien symbolique
+    # Check whether it is already a symbolic link
     $item = Get-Item $vst3Dest
     if ($item.LinkType -eq "SymbolicLink") {
-        Write-Host "  -> Ancien lien symbolique detecte (source: $($item.Target))" -ForegroundColor Cyan
+        Write-Host "  -> Old symbolic link detected (source: $($item.Target))" -ForegroundColor Cyan
     } else {
-        Write-Host "  -> Copie physique detectee (pas un lien)" -ForegroundColor Cyan
+        Write-Host "  -> Physical copy detected (not a link)" -ForegroundColor Cyan
     }
 
     Remove-Item -Path $vst3Dest -Recurse -Force
-    Write-Host "  -> Suppression terminee" -ForegroundColor Green
+    Write-Host "  -> Removal done" -ForegroundColor Green
 }
 
-# Creation du lien symbolique
+# Create the symbolic link
 Write-Host ""
-Write-Host "Creation du lien symbolique..." -ForegroundColor Cyan
+Write-Host "Creating symbolic link..." -ForegroundColor Cyan
 try {
     New-Item -ItemType SymbolicLink -Path $vst3Dest -Target $vst3Source -Force | Out-Null
-    Write-Host "  -> Lien symbolique cree avec succes !" -ForegroundColor Green
+    Write-Host "  -> Symbolic link created successfully!" -ForegroundColor Green
 } catch {
-    Write-Host "ERREUR lors de la creation du lien !" -ForegroundColor Red
+    Write-Host "ERROR while creating the link!" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Yellow
-    Read-Host "Appuyez sur Entree pour quitter"
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
@@ -75,25 +75,25 @@ Write-Host ""
 Write-Host "=== Verification ===" -ForegroundColor Cyan
 $link = Get-Item $vst3Dest
 if ($link.LinkType -eq "SymbolicLink") {
-    Write-Host "Type          : Lien symbolique" -ForegroundColor Green
-    Write-Host "Cible         : $($link.Target)" -ForegroundColor White
+    Write-Host "Type          : Symbolic link" -ForegroundColor Green
+    Write-Host "Target        : $($link.Target)" -ForegroundColor White
     Write-Host ""
     Write-Host "SUCCESS!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Le plugin OpenVoxTuner est maintenant lie a votre build $buildConfig." -ForegroundColor Cyan
-    Write-Host "Chaque fois que vous recompilez dans Visual Studio, le plugin dans" -ForegroundColor Cyan
-    Write-Host "Program Files sera automatiquement mis a jour !" -ForegroundColor Cyan
+    Write-Host "The OpenVoxTuner plugin is now linked to your $buildConfig build." -ForegroundColor Cyan
+    Write-Host "Every time you rebuild in Visual Studio, the plugin in" -ForegroundColor Cyan
+    Write-Host "Program Files is automatically updated!" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Important:" -ForegroundColor Yellow
-    Write-Host "  1. Fermez completement votre DAW" -ForegroundColor White
-    Write-Host "  2. Relancez-le pour rescanner les plugins" -ForegroundColor White
-    Write-Host "  3. Chargez OpenVoxTuner" -ForegroundColor White
+    Write-Host "  1. Fully close your DAW" -ForegroundColor White
+    Write-Host "  2. Restart it so it rescans the plugins" -ForegroundColor White
+    Write-Host "  3. Load OpenVoxTuner" -ForegroundColor White
     Write-Host ""
-    Write-Host "Logs disponibles dans: $env:UserProfile\Documents\OpenVoxTuner.log" -ForegroundColor Cyan
+    Write-Host "Logs available at: $env:UserProfile\Documents\OpenVoxTuner.log" -ForegroundColor Cyan
 } else {
-    Write-Host "AVERTISSEMENT: Le lien n'est pas de type SymbolicLink !" -ForegroundColor Yellow
-    Write-Host "Type detecte: $($link.LinkType)" -ForegroundColor Yellow
+    Write-Host "WARNING: The link is not of type SymbolicLink!" -ForegroundColor Yellow
+    Write-Host "Detected type: $($link.LinkType)" -ForegroundColor Yellow
 }
 
 Write-Host ""
-Read-Host "Appuyez sur Entree pour quitter"
+Read-Host "Press Enter to exit"
