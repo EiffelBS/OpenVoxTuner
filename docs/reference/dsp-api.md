@@ -24,10 +24,6 @@ YIN implementation (de Cheveigne & Kawahara). Extras over the interface:
 - `void setFrequencyRange(float minHz, float maxHz)` — narrows the search range
   (used by the Voice Type selector). Safe to call from the audio thread.
 
-!!! note "Legacy"
-    `ovtdsp::PitchDetector` (in `PitchDetector.h`) is a **legacy YIN detector
-    superseded by `YinPitchDetector`** and is no longer used by the pipeline.
-
 ## Quantization
 
 ### `ovtdsp::ScaleQuantizer`

@@ -15,7 +15,6 @@ components, and plugin behavior. Tests run in a console application named
 test/
 ├─ Main.cpp                          # Test runner entry point (runs all tests)
 ├─ ScaleSnapPipelineTest.cpp         # Scale snap pipeline
-├─ test_ara.cpp                      # ARA2-related tests
 ├─ formant_preservation_benchmark.py # Python benchmark (not part of the C++ suite)
 ├─ dsp/                              # DSP test suites (one file per module)
 │  ├─ BlockAwareOnePoleTest.cpp
@@ -26,9 +25,9 @@ test/
 │  ├─ KeyBridgeTest.cpp
 │  ├─ KeyDetectorTest.cpp
 │  ├─ LpcFormantPreserverTest.cpp
+│  ├─ MidiImporterTest.cpp
 │  ├─ PerformanceBudgetTest.cpp
 │  ├─ PitchCurveTest.cpp
-│  ├─ PitchDetectorTest.cpp
 │  ├─ PitchShifterClickTest.cpp
 │  ├─ PitchShifterOutputTest.cpp
 │  ├─ PitchShifterOutputRmsTest.cpp
@@ -47,9 +46,10 @@ test/
 
 The test suites found under `test/dsp/` cover pitch detection (YIN), scale
 quantization, pitch shifting (PSOLA), retarget envelope, formant preservation
-(LPC and multi-formant), harmony gain-match & attack, key detection and the
-key bridge, sidechain bus layout, speed floor, block-aware one-pole filtering,
-performance budgets, plugin preset/undo, upward compression, and vibrato.
+(LPC and multi-formant), MIDI file analysis/import into pitch curves, harmony
+gain-match & attack, key detection and the key bridge, sidechain bus layout,
+speed floor, block-aware one-pole filtering, performance budgets, plugin
+preset/undo, upward compression, and vibrato.
 
 ## Building the tests
 
@@ -84,11 +84,11 @@ The runner runs all registered tests and prints one line per suite
 (`[ OK ]` or `[FAIL]`), followed by a summary:
 
 ```text
-[ OK ] PitchDetector (43 assertions)
 [ OK ] ScaleQuantizer (28 assertions)
+[ OK ] PitchShifterOutput (12 assertions)
 ...
 =========================
-Resultat : 22 OK, 0 KO
+Result: 111 OK, 0 FAILED
 =========================
 ```
 

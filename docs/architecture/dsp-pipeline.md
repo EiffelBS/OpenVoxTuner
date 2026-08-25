@@ -5,6 +5,11 @@ audio and returns it transposed in pitch according to a chosen musical scale.
 The entire real-time signal chain lives in the `ovtdsp::` namespace and is
 driven from a single entry point, `OpenVoxTunerAudioProcessor::processBlock()`.
 
+The module map / source tree and the exposed-parameter reference live on the
+[Architecture Overview](../architecture.md) and
+[Default Parameters](../default-parameters.md) pages respectively; this page is
+the single source of truth for signal-flow details.
+
 ## Signal flow overview
 
 ```
@@ -132,6 +137,23 @@ A KBD (Kaiser-Bessel-derived) window overlap sum is measured once in
 `prepare()` to avoid over-gain/clipping. `smoothedF0` (a block-aware one-pole,
 TC ≈ 290 ms) smooths the target period so sudden note onsets don't produce a
 discontinuity in the OLA spacing (click).
+
+**Voice activity & attack envelope automaton:** two private structs
+(`VoiceActivityDetector`, `AttackEnvelope`) make the former implicit state
+machine explicit. The VAD applies hysteresis on the raw f0
+(on above 45 Hz, off below 35 Hz) with a 256-sample debounce (~6 ms at
+44.1 kHz). The attack envelope gain follows a one-pole smoother with two time
+constants: normal (the `attack_ms` setting) and slow (80 ms). Three events
+drive its cycle: a **block onset** (silence → voiced) snaps the gain to zero
+then reopens over `attack_ms`; a per-sample **onset** (voiced edge or f0 jump
+larger than ~2 semitones) ramps the gain down over 20 ms and recovers slowly
+over 150 ms; a **ratio jump** (>3 % pitch-ratio delta between blocks) does the
+same over 15 ms / 100 ms without restarting the OLA chain. An onset also
+restarts the grain chain (`outPhase = 1`, `lastGrainCenter = 0`) to prevent
+burst artifacts. When the external attack driver is active (deprecated
+Attack-aware mode), the processor pushes a block-level target gain directly
+and the internal timers are bypassed; when the envelope is disabled or
+`attack_ms == 0`, the gain is forced to 1.
 
 **Latency:** reported via `setLatencySamples()`; `PitchShifter::setLatencyMs()`
 clamps the requested latency to **8–40 ms**. The `latency_mode` parameter picks

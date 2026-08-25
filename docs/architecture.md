@@ -11,6 +11,9 @@ It is implemented in **C++** using the **JUCE 8** framework, which provides:
 - DSP tools (FFT, windowing, smoothing);
 - ARA2 (Audio Random Access) support for DAW timeline sync.
 
+The real-time signal chain (DSP stages, algorithms, latency presets) is
+detailed in the dedicated [DSP Pipeline](architecture/dsp-pipeline.md) page.
+
 ## Source Tree
 
 ```
@@ -20,7 +23,6 @@ Source/
   BuildInfo.h.in                  # CMake-generated build metadata
   dsp/
     YinPitchDetector.h / .cpp      # Pitch detection (active YIN implementation)
-    PitchDetector.h / .cpp        # Legacy YIN detector (superseded by YinPitchDetector)
     IPitchDetector.h              # Pitch detector interface
     ScaleQuantizer.h / .cpp       # Quantization to the nearest scale note
     PitchShifter.h / .cpp         # Pitch shifting (PSOLA, implements IPitchShifter)
@@ -49,98 +51,18 @@ Source/
 
 ## DSP Pipeline
 
+The real-time signal chain is:
+
 ```
-                   +----------------------+   f0_in
-   Audio In  ----> |  YinPitchDetector    | ------------+
-                   +----------------------+             |
-                                                    v
-                                          +----------------------+
-                                          |   ScaleQuantizer     |
-                                          |   (key, scale)       |
-                                          +----------------------+
-                                                    |
-                                                    v  f0_target
-                                          +----------------------+
-   Audio Out <--- |    PitchShifter     | <----------------------+
-                   |    (PSOLA)         |   ratio = f0_target/f0_in
-                   +--------------------+
+NoiseGate -> YinPitchDetector -> ScaleQuantizer -> RetargetEnvelope
+          -> PitchShifter (PSOLA) -> HarmonyEngine (optional) -> ReverbEffect (optional)
 ```
 
-## Algorithms Used
-
-### Phase 1 - Functional MVP
-
-- **Pitch detection**: YIN algorithm (by Cheveigne & Kawahara, 2002)
-  - Implemented by `YinPitchDetector` (the active implementation; the older
-    `PitchDetector` class is legacy and no longer used by the pipeline)
-  - Difference function
-  - Cumulative mean normalized difference function d'(tau)
-  - Clarity threshold (default 0.05, adjustable ~0.05-0.15)
-  - Parabolic interpolation for sub-sample precision
-
-- **Quantization**: projection onto the nearest scale note
-  - Hz -> semitones conversion (relative to A4 = 440 Hz)
-  - Search for the nearest semitone belonging to the scale
-  - Inverse conversion back to Hz
-
-- **Pitch shifting**: simplified PSOLA (Phase-Synchronous Overlap-Add)
-  - Pitch-mark detection per fundamental period (period = sr / f0)
-  - Windowed grain segmentation (Hann)
-  - Overlap-add with positions recalculated according to the ratio
-  - (No phase vocoder is used; PSOLA is the only pitch-shifting algorithm.
-    SWIPE, PYIN, RubberBand and SoundTouch were evaluated and removed.)
-
-### Phase 4 - Quality
-
-#### PSOLA (Phase 4 implementation)
-
-The PSOLA (Pitch-Synchronous Overlap-Add) algorithm is the standard technique for transposing quasi-periodic signals such as voice without altering the duration. It is the only pitch shifter in the codebase and is the sole implementation of `IPitchShifter`.
-
-**Pipeline**:
-1. **f0 detection**: call the `YinPitchDetector` (YIN) on the input buffer.
-2. **Pitch-mark detection**: for each fundamental period (sample `period = sr / f0`), advance an output phase and create a grain when the phase wraps.
-3. **PSOLA grain**: for each analysis pitch mark, extract a Hann-windowed grain centered on the mark, whose length is scaled by the formant ratio.
-4. **Re-positioning**: place this grain at the synthesis position, using correlation (`findBestOffset`) to align it with the previous grain for smooth overlap-add.
-5. **Overlap-Add (OLA)**: add the grains into the output buffer with a Hann window / 1-period hop, which satisfies the COLA condition over stationary regions.
-
-**Notes**:
-- The grain length is scaled by `2 * max(Tin / F, Tout)` so the formant ratio `F` preserves vocal-tract resonances.
-- The algorithm is O(N) where N is the number of pitch marks.
-
-#### Formant Compensation (Phase 4)
-
-When transposing a vocal signal via PSOLA, the formants (vocal tract resonances) are shifted along with the pitch. This produces an unnatural "chipmunk" effect (the voice becomes "thinner" when raised).
-
-**Implemented solution**: simplified "LP-filter + resample" technique, provided by the `FormantPreserver` module (2nd-order Butterworth low-pass whose cutoff follows the transposition ratio).
-- **Problem analysis**: formants lie in the upper part of the spectrum. Raising the pitch shifts them upward in absolute value, but their relative position with respect to f0 changes.
-- **Solution**: before PSOLA, apply a 2nd-order Butterworth low-pass filter whose cutoff frequency is inversely proportional to the transposition ratio. In the live pipeline the same formant shift is applied to the PSOLA grains via a formant ratio (`formantRatio = 2^(semitones/12)`).
-- **Why sqrt / inverse ratio**: the cutoff is moved in the opposite direction of the pitch so PSOLA restores the formants to their original position.
-- **Limitations**: we do not exactly preserve the formants; we deform them in a plausible way. Exact preservation would require a linear prediction (LPC) model and non-uniform resampling.
-
-#### Retarget Envelope (Antares "Speed" style)
-
-The `Speed` parameter controls how quickly the pitch follows the target note:
-- `Speed = 0 ms`: instant correction (T-Pain style "robotic" effect)
-- `Speed = 50 ms`: fast but smooth correction (Antares default)
-- `Speed = 200 ms`: slow and very natural correction (almost no effect)
-
-**Implementation**: a 1st-order IIR filter (exponential smoothing):
-```
-y[n] = y[n-1] + alpha * (target - y[n-1])
-alpha = 1 - exp(-dt / tau)   where  tau = speedMs / 1000
-```
-
-This gives an exponential response with time constant `tau`:
-- After `tau`: 63% of the target reached
-- After `3*tau`: 95%
-- After `5*tau`: 99%
-
-### Future Phase
-
-- Pitch detection via MPM (McLeod Pitch Method) in addition to YIN
-- Exact formant preservation via LPC + non-uniform resampling
-- Transient preservation (onset detection -> PSOLA bypass)
-- Additional YIN refinements (the legacy `PitchDetector` and other detectors were removed)
+The [DSP Pipeline](architecture/dsp-pipeline.md) page is the single source of
+truth for the stage-by-stage description: algorithm details, latency presets
+(8-40 ms), formant strategies (Current / P0 / P1 / P2) and how ARA2 augments
+the input stage without re-routing the chain. This page focuses on the module
+map, modes and UI architecture.
 
 ## "Graphic" Mode (Phase 4 - graphical curve editor)
 
@@ -200,40 +122,22 @@ The mode is saved in the plugin state via the "mode" parameter (AudioParameterCh
 
 ## Exposed Parameters
 
-| Name     | Type      | Range / Choices                                    | Default             | Description                                   |
-|----------|-----------|----------------------------------------------------|---------------------|-----------------------------------------------|
-| speed    | float ms  | 0 - 200                                            | 20                  | Correction retargeting time                   |
-| latency_mode | choice | Direct Monitoring / Low Latency / Quality / Safe  | Low Latency (1)     | Latency quality mode                          |
-| amount   | float 0-1 | 0.0 - 1.0                                          | 1.0                 | Intensity (0 = passthrough)                   |
-| formant  | float     | -5.0 - 5.0 (semitones)                             | 0.0                 | Formant shift                                 |
-| formant_enable | bool | off / on                                          | off                 | Formant shift enable                          |
-| key      | int       | 0 - 11                                             | 0 (C)               | Scale tonic                                   |
-| scale    | choice    | Chromatic, Major, Melodic Minor, Harmonic Minor, Natural Minor, Major Pentatonic, Minor Pentatonic, Blues, Dorian, Phrygian, Lydian, Mixolydian, Locrian, Custom | Chromatic (0) | Scale mode (14 types) |
-| custom0..custom11 | bool | off / on                                         | C major (C,D,E,F,G,A,B) | Active notes for the Custom scale         |
-| bypass   | bool      | off / on                                           | off                 | Processing bypass                             |
-| mode     | choice    | Live / Curve Editor                                | Live (0)            | Editor mode                                   |
-| harmony_type | choice | None + 21 harmony types | 3rd Below + Above (3) | Harmony type                          |
-| harmony_enable | bool | off / on                                         | off                 | Harmony master enable                         |
-| harmony_gain | float | 0.0 - 1.0                                        | 0.75                | Harmony volume                                |
-| harmony_blend | float | 0.0 - 1.0                                        | 0.5                 | Harmony blend (lead / harmony)                |
-| harmony_use_voice | bool | off / on                                        | on                  | Use (shifted) voice for harmony               |
-| harmony_shifted_voices | int | 1 - 4                                        | 4                   | Number of shifted voices                      |
-| harmony_tone | choice | Choir, Bright, Synth Lead, Strings, Guitar, Vocoder-like | Choir (0)    | Harmony tone                                  |
-| harmony_tone_color | float | 0.0 - 1.0                                      | 0.5                 | Harmony tone color                            |
-| midi_out_enable | bool | off / on                                        | on (plugin) / off (standalone) | MIDI out enable                  |
-| pitch_detector | choice | YIN / Reserved                                  | YIN (0)             | Pitch detector (YIN only)                     |
-| reverb_enable | bool | off / on                                         | off                 | Reverb enable                                 |
-| reverb_mix | float   | 0.0 - 1.0                                          | 0.30                | Reverb mix                                    |
-| noise_gate_enable | bool | off / on                                       | off                 | Noise gate enable                             |
-| noise_gate_threshold | float | -80.0 - 0.0 (dB)                              | -40.0               | Gate threshold                                |
-| flex_tune | float    | 0.0 - 100.0 (cents)                               | 0.0 (DEPRECATED)    | FlexTune deadband (disabled 2026-07-24)       |
-| humanize | float    | 0.0 - 50.0 (cents)                                | 40.0                | Humanize fluctuation                          |
-| correction_mode | bool | Modern (false) / Transparent (true)             | Modern (false)      | Correction mode                               |
-| ui_theme | int      | 0 - 1                                              | 0 (Dark)            | UI theme                                      |
-| ui_language | int    | 0 - 5 (EN, FR, DE, ES, JA, ZH)                     | 0 (English)         | UI language                                   |
-| dbg_test_grain | bool | off / on                                         | off                 | Debug test grain                              |
-| editor_measures | int | 1 - 32                                            | 4                   | Editor measures                               |
-| auto_scroll | bool   | off / on                                           | on                  | Auto scroll                                   |
+The complete parameter reference (IDs, types, defaults, ranges) is maintained
+in [Default Parameters](default-parameters.md), which is kept in sync with
+`Source/PluginProcessor.cpp`. In summary:
+
+- **Correction**: speed, latency_mode, amount, bypass, mode, correction_mode,
+  pitch_detector
+- **Key / Scale**: key, scale (+ custom0..custom11 for Custom mode),
+  key_detect, key_source, companion_group
+- **Formants**: formant, formant_enable, formant_strategy
+- **Harmony**: harmony_type, harmony_enable, harmony_gain, harmony_blend,
+  harmony_use_voice, harmony_shifted_voices, harmony_tone, harmony_tone_color,
+  harmony_gain_match
+- **Effects**: reverb_enable, reverb_mix, noise_gate_enable,
+  noise_gate_threshold
+- **Misc / UI**: midi_out_enable, humanize, flex_tune (deprecated), dbg_test_grain,
+  ui_theme, ui_language, editor_measures, auto_scroll
 
 ## Custom Scale (Custom mode)
 
@@ -271,20 +175,6 @@ The `ui::PianoKeyboard` is a component placed to the left of `PitchCurveEditor` 
 The Y axis is vertical: low notes at the BOTTOM, high notes at the TOP.
 Default range: C2 (MIDI 36) -> C7 (MIDI 96), sufficient for voice.
 
-## Latency
-
-Latency is reported to the host via `setLatencySamples()` and is driven by `PitchShifter::setLatencyMs()`, which clamps the requested latency to **8-40 ms**.
-The `latency_mode` parameter selects one of four presets:
-
-| latency_mode | Latency (ms) |
-|--------------|--------------|
-| Direct Monitoring | 10 |
-| Low Latency (default) | 12 |
-| Quality | 20 |
-| Safe | 30 |
-
-The `PitchShifter` default (before `latency_mode` is applied) is 20 ms.
-
 ## Multi-format
 
 | Format  | Status            | Platform      | Notes                              |
@@ -304,6 +194,16 @@ The `PitchShifter` default (before `latency_mode` is applied) is 20 ms.
 3. **No external dependency**: we use only JUCE (provided). No third-party library for DSP (no libsoxr, no rubberband) in order to keep the project simple and controlled.
 
 4. **C++17**: we target this standard, defined via **CMake** (`set(CMAKE_CXX_STANDARD 17)`), not Projucer, to benefit from `<optional>`, `if constexpr`, etc. without requiring C++20.
+
+## Future Work
+
+- **LPC formant preservation refinements**: the P0/P1/P2 cross-synthesis
+  strategies are implemented (`LpcFormantPreserver`); remaining work is
+  frame-based analysis with hop / overlap-add (formant analysis report item
+  LP.7) to remove residual block-boundary artifacts at large transposition
+  ratios, plus perceptual validation (MUSHRA harness).
+- **Pitch detection via MPM** (McLeod Pitch Method) in addition to YIN.
+- **Transient preservation** (onset detection -> PSOLA bypass).
 
 ## References
 

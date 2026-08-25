@@ -36,7 +36,7 @@ you can help. The full details live in [`CONTRIBUTING.md`](https://github.com/Ei
 
 - Use **C++17**
 - Follow the existing code style (tabs, Allman braces)
-- Add a changelog entry in `docs/changelogs/` for user-facing changes
+- Add a changelog entry in `docs/changelog/` for user-facing changes
 - Update `docs/implementation-roadmap.md` for feature additions
 - Run the test suite before submitting:
 

@@ -1,250 +1,255 @@
-# Rapport d'analyse : Préservation des formants pour un traitement audio naturel
+# Analysis report: Formant preservation for natural audio processing
 
-**Projet** : OpenVoxTuner
-**Date** : 2026-07-27
-**Portée** : Étude approfondie des méthodes de préservation des formants (LPC, lissage temporel/interpolation), comparaison au existant, lacunes, et plan d'amélioration actionnable avec critères de validation et métriques de succès.
+**Project**: OpenVoxTuner
+**Date**: 2026-07-27
+**Scope**: In-depth study of formant preservation methods (LPC, temporal smoothing/interpolation), comparison with the existing solution, gaps, and an actionable improvement plan with validation criteria and success metrics.
 
----
-
-## 1. Objectif et contexte
-
-Lors d'une transposition de hauteur (pitch-shifting), les formants — résonances du conduit vocal situées vers 300–3500 Hz (F1–F4) — sont déplacés avec le fondamental si l'on utilise une simple modification de durée ou un PSOLA naïf. Cela produit l'effet « chipmunk » (voix trop fine en montée) ou « Darth Vader » (voix trop grave en descente) : la **timbre** (couleur vowelique) est altéré même si la hauteur est correcte.
-
-La préservation des formants vise à **découpler** la hauteur fondamentale `F0` de l'enveloppe spectrale (le « filtre » du conduit vocal), afin que seule `F0` change pendant que les formants restent à leur place naturelle. C'est la clé d'un résultat « parfaitement naturel ».
-
-L'analyse ci-dessous étudie deux familles de méthodes — le **Codage Prédictif Linéaire (LPC)** et le **lissage temporel / interpolation** — les évalue, les compare aux solutions déployées dans OpenVoxTuner, et propose des améliorations concrètes.
+> **Status update (2026-08-24)**: This historical report predates the current implementation.
+> LPC cross-synthesis is now implemented via `LpcFormantPreserver` with the P0/P1/P2
+> strategies described in the [DSP Pipeline](architecture/dsp-pipeline.md). Sections 4 and 5
+> below describe the *pre-LPC* state of the codebase and are kept for reference.
 
 ---
 
-## 2. Concepts fondamentaux
+## 1. Objective and context
 
-- **Formants** : pôles du filtre de conduction vocale. Leur position définit la voyelle ; leur déplacement avec `F0` est l'artefact à corriger.
-- **Modèle source-filtre** : la parole = excitation glottale (détermine `F0`) filtrée par le conduit (détermine les formants). Préserver les formants = conserver le **filtre** tandis que l'on modifie la **source**.
-- **Pré-warp de Moulines & Charpentier (1990)** : déplacer les formants dans le sens inverse de la transposition. Compensation *partielle* `1/√r` ou *complète* `1/r` selon que l'on agit sur la fréquence ou sur le temps de lecture.
+During pitch-shifting, formants - resonances of the vocal tract located around 300-3500 Hz (F1-F4) - are shifted along with the fundamental if one uses a simple duration modification or naive PSOLA. This produces the "chipmunk" effect (voice too thin when shifting up) or the "Darth Vader" effect (voice too deep when shifting down): the **timbre** (vowel color) is altered even though the pitch is correct.
 
----
+Formant preservation aims to **decouple** the fundamental pitch `F0` from the spectral envelope (the vocal tract "filter"), so that only `F0` changes while the formants stay at their natural place. This is the key to a "perfectly natural" result.
 
-## 3. Étude détaillée des méthodes
-
-### 3.1 LPC — Codage Prédictif Linéaire
-
-**Principe.** On modélise chaque trame du signal par un filtre tout-pôle (all-pole) `H(z) = G / A(z)`, où `A(z) = 1 + a₁z⁻¹ + … + a_Pz⁻ᴾ`. L'enveloppe spectrale (donc les formants) est entièrement portée par les pôles `A(z)`.
-
-La **préservation par cross-synthèse LPC** (technique de référence) procède ainsi :
-
-1. Analyser le signal *transposé naïvement* (formants déplacés) → ses coefficients LPC `a_shifted`.
-2. **Éclaircir** (whiten) : `e[n] = A_shifted(z) · x[n]` → on retire l'enveloppe du signal transposé, ne reste que l'excitation (la source, à la nouvelle hauteur).
-3. **Re-synthétiser** en filtrant l'excitation par l'enveloppe **d'origine** `1/A_orig(z)` → les formants reviennent à leur place naturelle.
-
-> Note d'implémentation (vérifiée dans le benchmark) : l'excitation doit être `e = x + Σ aₖ·x[n−k]` (signe **plus**), sinon l'enveloppe est inversée et la cross-synthèse détruit les formants au lieu de les préserver.
-
-**Pertinence.** C'est la seule méthode qui opère un **vrai découplage source/filtre** : les formants sont extraits puis réinjectés indépendamment de `F0`. [architecture.md](../docs/architecture.md) listait déjà cette approche (« Exact formant preservation via LPC + non-uniform resampling ») comme *future work* — elle est donc connue comme la bonne solution, non encore implémentée.
-
-**Avantages.**
-- Préservation *quasi-exacte* des formants (la cross-synthèse rétablit l'enveloppe cible, pas une approximation).
-- Fonctionne pour tous les rapports de transposition, tous les types de voix.
-- Paramètre unique et physique : l'ordre LPC `P` (typiquement `2 × N_formants + 2 = 10`).
-
-**Limites.**
-- Coût de calcul (analyse LPC + filtrage par trame) supérieur au banc de biquads.
-- Artefacts de **frontière de trame** (modulation d'amplitude si le gain par trame n'est pas géré) — atténuable par normalisation d'énergie par trame et overlap-add de Hann.
-- L'ordre LPC fini ne capture pas parfaitement 4 formants + le tilt spectral ; la cross-synthèse laisse une distorsion résiduelle (voir §7).
-- Sensible au bruit si l'analyse LPC est faite sur le signal bruité (atténuable en estimant l'enveloppe cible sur le signal propre ou par pré-emphase).
-
-### 3.2 Lissage temporel et interpolation
-
-**Principe.** Les paramètres de formants (soit les coefficients de biquads du banc de filtres, soit les coefficients LPC) varient d'une trame à l'autre (le ratio de transposition lui-même fluctue : vibrato, portamento, jitter YIN). Le **lissage temporel** interpole les coefficients entre trames pour éviter :
-- des discontinuités (clics/pops) quand le ratio saute ;
-- un « warble » de timbre quand un ratio modulé (vibrato ~5 Hz) fait balayer les centres de formants.
-
-Deux déclinaisons :
-- **Lissage des biquads** (approche du projet) : on lerp les coefficients cibles vers les coefficients appliqués, à raison d'un pas `α` par bloc.
-- **Interpolation des coefficients LPC** (dans la cross-synthèse) : on moyenne les `a_k` des trames voisines avant whitening/re-synthèse, ce qui lisse l'enveloppe de formants dans le temps.
-
-**Pertinence.** Indispensable en complément de *toute* méthode (LPC ou filtre), car le signal de ratio réel n'est jamais constant. C'est un **correctif de robustesse**, non une méthode de préservation à lui seul.
-
-**Avantages.**
-- Élimine pops et warble (le projet a déjà corrigé un warble 5 Hz via `biquadSmoothAlpha`, voir §4).
-- L'interpolation LPC améliore légèrement la distorsion aux grands rapports (constaté en §7 : C1 ≤ C0).
-
-**Limites.**
-- Un lissage **trop lent** (α petit) introduit un *lag* de timbre : pendant un vibrato ou une transition rapide, les formants sont temporairement mal compensés → warble perceptible.
-- Un lissage **trop rapide** (α grand) laisse passer la modulation du ratio → AM résiduelle à la sortie et risque de clics.
-- Le lissage ne *crée* pas de préservation : il ne fait que rendre supportable une méthode sous-jacente déjà imparfaite.
-
-### 3.3 Référence : pré-warp par banc de filtres (méthode actuelle du projet)
-
-On place `N` peaking-EQ (biquads) aux fréquences de formants et on déplace leurs centres selon `1/√r` (compensation partielle) ou `1/r` (totale). Avantage : très léger (quelques biquads). Inconvénients : ce n'est qu'une *approximation* (un peaking-EQ ne remodèle pas l'enveloppe de façon exacte, et les largeurs de bande de formants sont déformées), et il faut *connaître* les fréquences de formants.
+The analysis below studies two families of methods - **Linear Predictive Coding (LPC)** and **temporal smoothing / interpolation** - evaluates them, compares them with the solutions deployed in OpenVoxTuner, and proposes concrete improvements.
 
 ---
 
-## 4. Solutions déployées dans OpenVoxTuner (état actuel)
+## 2. Fundamental concepts
 
-Le projet utilise **deux** mécanismes de formants, tous deux basés sur le *scaling de ratio* (aucun découplage source/filtre réel) :
-
-### 4.1 `FormantPreserver` — [`FormantPreserver.h`](../Source/dsp/FormantPreserver.h)
-- Mode `MultiFormant` : 4 peaking-EQ (F1–F4).
-- Compensation **partielle** `1/√r` (voir `FormantPreserver.cpp`, `compensationRatio = 1/√(r)`).
-- **Centres de formants fixés par défaut à `[500, 1500, 2500, 3500] Hz`** (défauts voix masculine, `FormantPreserver.h` ligne 121) — *identiques quel que soit le type de voix*.
-- Lissage temporel des biquads : `biquadSmoothAlpha = 0.05` (Fix AZ, ligne 116), corrigeant un warble 5 Hz hérité d'un α=0.002.
-
-### 4.2 `PitchShifter` — [`PitchShifter.cpp`](../Source/dsp/PitchShifter.cpp)
-- `formantRatio` (vitesse de lecture des grains PSOLA) découple partiellement les formants du temps *à l'intérieur* de PSOLA (ligne 666, `double F = currentFormantRatio`). Lissé par `α = 0.005`.
-- Dans `PluginProcessor.cpp`, `userFormantRatio = 2^(shiftSemitones/12)` (ligne 2093) est dérivé du *même* décalage que le pitch et passé au PitchShifter (ligne 2146), indépendamment du `FormantPreserver` (lignes 2126–2127).
-
-**Bilan.** Deux approches *approximatives* se superposent. Aucune n'extrait et ne ré-injecte l'enveloppe de formants ; toutes déplacent des centres par une loi de ratio imparfaite.
+- **Formants**: poles of the vocal tract filter. Their position defines the vowel; their shifting along with `F0` is the artifact to correct.
+- **Source-filter model**: speech = glottal excitation (which determines `F0`) filtered by the tract (which determines the formants). Preserving the formants = keeping the **filter** while modifying the **source**.
+- **Pre-warping of Moulines & Charpentier (1990)**: move the formants in the opposite direction of the transposition. *Partial* `1/sqrt(r)` or *complete* `1/r` compensation depending on whether one acts on frequency or on playback time.
 
 ---
 
-## 5. Lacunes identifiées
+## 3. Detailed study of the methods
 
-| # | Lacune | Impact |
+### 3.1 LPC - Linear Predictive Coding
+
+**Principle.** Each frame of the signal is modeled by an all-pole filter `H(z) = G / A(z)`, where `A(z) = 1 + a1 z^-1 + ... + aP z^-P`. The spectral envelope (hence the formants) is entirely carried by the poles of `A(z)`.
+
+**Preservation via LPC cross-synthesis** (the reference technique) proceeds as follows:
+
+1. Analyze the *naively transposed* signal (formants shifted) -> its LPC coefficients `a_shifted`.
+2. **Whiten**: `e[n] = A_shifted(z) * x[n]` -> the envelope of the transposed signal is removed, leaving only the excitation (the source, at the new pitch).
+3. **Re-synthesize** by filtering the excitation through the **original** envelope `1/A_orig(z)` -> the formants return to their natural place.
+
+> Implementation note (verified in the benchmark): the excitation must be `e = x + sum a_k * x[n-k]` (**plus** sign), otherwise the envelope is inverted and the cross-synthesis destroys the formants instead of preserving them.
+
+**Relevance.** This is the only method that performs a **true source/filter decoupling**: the formants are extracted then reinjected independently of `F0`. [architecture.md](architecture.md) already listed this approach ("Exact formant preservation via LPC + non-uniform resampling") as *future work* - it is therefore known to be the right solution, not yet implemented.
+
+**Advantages.**
+- *Near-exact* preservation of the formants (the cross-synthesis restores the target envelope, not an approximation).
+- Works for all transposition ratios and all voice types.
+- Single physical parameter: the LPC order `P` (typically `2 x N_formants + 2 = 10`).
+
+**Limitations.**
+- Computational cost (per-frame LPC analysis + filtering) higher than the biquad bank.
+- **Frame boundary** artifacts (amplitude modulation if the per-frame gain is not managed) - mitigable via per-frame energy normalization and Hann overlap-add.
+- Finite LPC order does not perfectly capture 4 formants plus the spectral tilt; the cross-synthesis leaves residual distortion (see Section 7).
+- Sensitive to noise if the LPC analysis is done on the noisy signal (mitigable by estimating the target envelope on the clean signal or via pre-emphasis).
+
+### 3.2 Temporal smoothing and interpolation
+
+**Principle.** The formant parameters (either the biquad coefficients of the filter bank or the LPC coefficients) vary from frame to frame (the transposition ratio itself fluctuates: vibrato, portamento, YIN jitter). **Temporal smoothing** interpolates the coefficients between frames to avoid:
+- discontinuities (clicks/pops) when the ratio jumps;
+- a timbral "warble" when a modulated ratio (vibrato around 5 Hz) makes the formant centers sweep.
+
+Two variants:
+- **Biquad smoothing** (the project's approach): the target coefficients are lerped toward the applied coefficients, at a per-block step `alpha`.
+- **Interpolation of LPC coefficients** (within the cross-synthesis): the `a_k` of neighboring frames are averaged before whitening/re-synthesis, which smooths the formant envelope over time.
+
+**Relevance.** Indispensable as a complement to *any* method (LPC or filtering), because the actual ratio signal is never constant. It is a **robustness fix**, not a preservation method on its own.
+
+**Advantages.**
+- Eliminates pops and warble (the project already fixed a 5 Hz warble via `biquadSmoothAlpha`, see Section 4).
+- LPC interpolation slightly improves the distortion at large ratios (observed in Section 7: C1 <= C0).
+
+**Limitations.**
+- **Too slow** smoothing (small alpha) introduces a timbral *lag*: during a vibrato or a fast transition, the formants are temporarily mis-compensated -> audible warble.
+- **Too fast** smoothing (large alpha) lets the ratio modulation through -> residual AM at the output and risk of clicks.
+- Smoothing does not *create* preservation: it merely makes an already imperfect underlying method tolerable.
+
+### 3.3 Reference: pre-warping via a filter bank (current project method)
+
+`N` peaking-EQ filters (biquads) are placed at the formant frequencies and their centers are moved according to `1/sqrt(r)` (partial compensation) or `1/r` (complete). Advantage: very lightweight (a few biquads). Drawbacks: it is only an *approximation* (a peaking-EQ does not reshape the envelope exactly, and the formant bandwidths get distorted), and the formant frequencies must be *known*.
+
+---
+
+## 4. Solutions deployed in OpenVoxTuner (current state)
+
+The project uses **two** formant mechanisms, both based on *ratio scaling* (no true source/filter decoupling):
+
+### 4.1 `FormantPreserver` (`Source/dsp/FormantPreserver.h`)
+- `MultiFormant` mode: 4 peaking-EQ filters (F1-F4).
+- **Partial** compensation `1/sqrt(r)` (see `FormantPreserver.cpp`, `compensationRatio = 1/sqrt(r)`).
+- **Formant centers fixed by default to `[500, 1500, 2500, 3500] Hz`** (male voice defaults, `FormantPreserver.h` line 121) - *identical regardless of voice type*.
+- Temporal smoothing of the biquads: `biquadSmoothAlpha = 0.05` (Fix AZ, line 116), fixing a 5 Hz warble inherited from alpha=0.002.
+
+### 4.2 `PitchShifter` (`Source/dsp/PitchShifter.cpp`)
+- `formantRatio` (playback speed of the PSOLA grains) partially decouples the formants from time *inside* PSOLA (line 666, `double F = currentFormantRatio`). Smoothed with `alpha = 0.005`.
+- In `PluginProcessor.cpp`, `userFormantRatio = 2^(shiftSemitones/12)` (line 2093) is derived from the *same* shift as the pitch and passed to the PitchShifter (line 2146), independently of the `FormantPreserver` (lines 2126-2127).
+
+**Assessment.** Two *approximate* approaches are superimposed. Neither extracts nor re-injects the formant envelope; both move centers via an imperfect ratio law.
+
+---
+
+## 5. Identified gaps
+
+| # | Gap | Impact |
 |---|--------|--------|
-| G1 | **Centres de formants fixes** `[500,1500,2500,3500]` quel que soit le type de voix | Les centres réels différent fortement (masculin F1≈730, féminin≈850, enfant≈900). Le pré-warp s'applique « à côté » des vrais formants → compensation partiellement inefficace. |
-| G2 | **Compensation partielle `1/√r`** au lieu de `1/r` | À grand rapport, les formants restent décalés (sous-compensation en montée, sur-compensation en descente). |
-| G3 | **Pas de découplage source/filtre** | La méthode agit par *ratio-scaling* d'une approximation d'enveloppe, pas par extraction/ré-injection de l'enveloppe réelle. |
-| G4 | **Déformation des largeurs de bande de formants** | Un peaking-EQ déplace le centre mais n'altère pas la bande de façon physique ; la forme des formants est altérée. |
-| G5 | **Double application potentielle** (FormantPreserver `1/√r` + `formantRatio` grain-speed) | Risque de sure/st sous-compensation combinée selon les réglages. |
-| G6 | **Pas de robustesse voix/type explicite** | `voice-type-feasibility-report.md` §2.3C proposait un réglage des formants par type de voix, jugé optionnel et non implémenté. |
-| G7 | **Absence de validation perceptive et métrique** | Aucune mesure objective de distorsion formantique en CI (les tests existants couvrent le warble de lissage, pas la qualité de préservation). |
+| G1 | **Fixed formant centers** `[500,1500,2500,3500]` regardless of voice type | Actual centers differ strongly (male F1~730, female~850, child~900). Pre-warping applies "next to" the true formants -> partially ineffective compensation. |
+| G2 | **Partial compensation `1/sqrt(r)`** instead of `1/r` | At large ratios, the formants remain offset (under-compensation when shifting up, over-compensation when shifting down). |
+| G3 | **No source/filter decoupling** | The method acts by *ratio-scaling* an approximate envelope, not by extraction/re-injection of the actual envelope. |
+| G4 | **Distorted formant bandwidths** | A peaking-EQ moves the center but does not physically alter the bandwidth; the shape of the formants is changed. |
+| G5 | **Potential double application** (FormantPreserver `1/sqrt(r)` + `formantRatio` grain speed) | Risk of combined over-/under-compensation depending on settings. |
+| G6 | **No explicit voice-type robustness** | `voice-type-feasibility-report.md` Section 2.3C proposed per-voice-type formant settings, deemed optional and not implemented. |
+| G7 | **No perceptual or metric validation** | No objective measure of formant distortion in CI (existing tests cover smoothing warble, not preservation quality). |
 
 ---
 
-## 6. Critères d'évaluation objectifs
+## 6. Objective evaluation criteria
 
-| Critère | Métrique | Comment mesuré |
+| Criterion | Metric | How measured |
 |---------|----------|----------------|
-| **Distorsion formantique** | LSD globale (dB) et LSD en *bandes de formants* (dB) vs référence idéale | Écart RMS des enveloppes LPC entre sortie et référence idéale (formants laissés en place). |
-| **Naturalité perçue** | Score MUSHRA (0–100) par évaluateurs humains | Protocole en §8 (non exécutable en CI automatisée). |
-| **Performance temps réel** | ms CPU par s d'audio | Benchmark relatif ; l'algorithme LPC est temps-réel viable en C++ (voir caveat §7.4). |
-| **Compatibilité voix** | LSD sur voix masculin/féminin/enfant | Mêmes métriques, 3 jeux de formants canoniques. |
-| **Robustesse au bruit** | LSD en bandes de formants à SNR 20/10 dB | Cross-synthèse LPC appliquée à un signal transposé bruité. |
+| **Formant distortion** | Global LSD (dB) and LSD over *formant bands* (dB) vs ideal reference | RMS deviation of the LPC envelopes between output and ideal reference (formants left in place). |
+| **Perceived naturalness** | MUSHRA score (0-100) by human raters | Protocol in Section 8 (not executable in automated CI). |
+| **Real-time performance** | CPU ms per s of audio | Relative benchmark; the LPC algorithm is real-time viable in C++ (see caveat Section 7.4). |
+| **Voice compatibility** | LSD on male/female/child voices | Same metrics, 3 canonical formant sets. |
+| **Noise robustness** | Formant-band LSD at SNR 20/10 dB | LPC cross-synthesis applied to a noisy transposed signal. |
 
 ---
 
-## 7. Tests comparatifs quantitatifs
+## 7. Quantitative comparative tests
 
-### 7.1 Méthodologie
+### 7.1 Methodology
 
-Un banc d'essai numpy pur (`test/formant_preservation_benchmark.py`, sans scipy) modélise des voyelles sources-filtres (banque de résonateurs parallèles Klatt, 4 formants équilibrés) pour 3 types de voix (masculin F0=120, féminin 220, enfant 300) et 4 rapports de transposition `r ∈ {0.75, 1.0, 1.5, 2.0}`. Cinq méthodes sont comparées contre une **référence idéale** (voyelle à la hauteur de sortie avec formants laissés en place) :
+A pure-numpy test bench (`test/formant_preservation_benchmark.py`, no scipy) models source-filter vowels (Klatt parallel resonator bank, 4 balanced formants) for 3 voice types (male F0=120, female 220, child 300) and 4 transposition ratios `r in {0.75, 1.0, 1.5, 2.0}`. Five methods are compared against an **ideal reference** (vowel at the output pitch with formants left in place):
 
-- **B0** : transposition naïve (formants couplés au pitch) — artefact de base.
-- **B1** : pré-warp banc de filtres `1/√r` — **modélisation optimiste du projet** (on suppose ici que le banc *connaît les vrais formants* ; le projet réel, à centres fixes, est *pire* que ce B1).
-- **B2** : pré-warp `1/r` — idéal théorique de l'approche filtre.
-- **C0** : cross-synthèse LPC (échange d'enveloppe par trame).
-- **C1** : cross-synthèse LPC + **interpolation temporelle des coefficients LPC**.
+- **B0**: naive transposition (formants coupled to the pitch) - baseline artifact.
+- **B1**: filter-bank pre-warping `1/sqrt(r)` - **optimistic model of the project** (here the bank is assumed to *know the true formants*; the actual project, with fixed centers, is *worse* than this B1).
+- **B2**: pre-warping `1/r` - theoretical ideal of the filtering approach.
+- **C0**: LPC cross-synthesis (per-frame envelope swap).
+- **C1**: LPC cross-synthesis + **temporal interpolation of the LPC coefficients**.
 
-Les enveloppes sont calculées par LPC *par trame* (moyennée), ce qui évite les pôles LPC spurieux d'une analyse globale sous-paramétrisée.
+Envelopes are computed by LPC *per frame* (then averaged), which avoids the spurious LPC poles of an under-parameterized global analysis.
 
-### 7.2 Distorsion spectrale (LSD globale, dB, vs référence idéale)
+### 7.2 Spectral distortion (global LSD, dB, vs ideal reference)
 
-| Voix | r | B0 (naïf) | B1 (projet*) | C0 (LPC) | C1 (LPC+lis.) |
+| Voice | r | B0 (naive) | B1 (project*) | C0 (LPC) | C1 (LPC+sm.) |
 |------|---|-----------|--------------|----------|---------------|
-| Masc. | 0.75 | 4.10 | 3.58 | **1.52** | **1.55** |
-| Masc. | 1.50 | 8.06 | 4.71 | **3.48** | **3.49** |
-| Masc. | 2.00 | 12.24 | 8.24 | **3.10** | **3.02** |
-| Fém. | 1.50 | 9.63 | 5.28 | **3.28** | **3.24** |
-| Fém. | 2.00 | 14.13 | 7.76 | **3.99** | **3.95** |
-| Enf. | 1.50 | 12.57 | 6.50 | **3.51** | **3.50** |
-| Enf. | 2.00 | 15.86 | 11.70 | **6.29** | **6.29** |
+| Male | 0.75 | 4.10 | 3.58 | **1.52** | **1.55** |
+| Male | 1.50 | 8.06 | 4.71 | **3.48** | **3.49** |
+| Male | 2.00 | 12.24 | 8.24 | **3.10** | **3.02** |
+| Female | 1.50 | 9.63 | 5.28 | **3.28** | **3.24** |
+| Female | 2.00 | 14.13 | 7.76 | **3.99** | **3.95** |
+| Child | 1.50 | 12.57 | 6.50 | **3.51** | **3.50** |
+| Child | 2.00 | 15.86 | 11.70 | **6.29** | **6.29** |
 
-*À r=1.0, toutes les méthodes donnent LSD≈0 (cohérence du banc).*
+*At r=1.0, all methods give LSD ~0 (bench consistency).*
 
-**Constat** : la cross-synthèse LPC (C0/C1) est systématiquement la meilleure, avec un gain de **~2.5× à ~4×** sur le pré-warp du projet (B1) et de **~3× à ~5×** sur le naïf (B0) aux grands rapports. L'interpolation temporelle (C1) est légèrement supérieure à C0 aux grandes montées (3.02 vs 3.10 à r=2.0 masculin), confirmant l'intérêt du lissage LPC.
+**Finding**: LPC cross-synthesis (C0/C1) is systematically the best, with a gain of **~2.5x to ~4x** over the project's pre-warping (B1) and of **~3x to ~5x** over naive (B0) at large ratios. Temporal interpolation (C1) is slightly better than C0 at large upward shifts (3.02 vs 3.10 at r=2.0 male), confirming the value of LPC smoothing.
 
-### 7.3 Distorsion en bandes de formants (FBAND LSD, dB)
+### 7.3 Formant-band distortion (FBAND LSD, dB)
 
-| Voix | r | B0 | B1 (projet*) | C0 (LPC) | C1 (LPC+lis.) |
+| Voice | r | B0 | B1 (project*) | C0 (LPC) | C1 (LPC+sm.) |
 |------|---|----|--------------|----------|---------------|
-| Masc. | 2.00 | 6.87 | 6.93 | **4.36** | **4.30** |
-| Fém. | 2.00 | 4.87 | **9.53** | 5.25 | 5.18 |
-| Enf. | 2.00 | 9.72 | 10.08 | **6.81** | **6.82** |
+| Male | 2.00 | 6.87 | 6.93 | **4.36** | **4.30** |
+| Female | 2.00 | 4.87 | **9.53** | 5.25 | 5.18 |
+| Child | 2.00 | 9.72 | 10.08 | **6.81** | **6.82** |
 
-**Constat critique** : à r=2.0 féminin, le pré-warp `1/√r` (B1=9.53) est **pire que la transposition naïve** (B0=4.87) dans les bandes de formants. La compensation partielle sur-compense les formants pour certaines voix/rapports — preuve que l'approche par ratio fixe est **non fiable d'un type de voix à l'autre**, ce qui motive fortement le passage au LPC.
+**Critical finding**: at r=2.0 female, `1/sqrt(r)` pre-warping (B1=9.53) is **worse than naive transposition** (B0=4.87) in the formant bands. Partial compensation over-compensates the formants for some voices/ratios - proof that the fixed-ratio approach is **unreliable across voice types**, which strongly motivates moving to LPC.
 
-### 7.4 Warble / lissage temporel (profondeur de modulation RMS, vibrato 5 Hz)
+### 7.4 Warble / temporal smoothing (RMS modulation depth, 5 Hz vibrato)
 
-| `biquadSmoothAlpha` | 0.002 (lent) | 0.050 (projet) | 0.200 (rapide) |
+| `biquadSmoothAlpha` | 0.002 (slow) | 0.050 (project) | 0.200 (fast) |
 |---------------------|--------------|----------------|----------------|
-| Modulation résiduelle | 0.0246 | 0.0559 | 0.1262 |
+| Residual modulation | 0.0246 | 0.0559 | 0.1262 |
 
-Le réglage courant du projet (0.05) est un compromis : un lissage plus lent réduit l'AM résiduelle mais introduit un *lag* de timbre (le warble historique du Fix AZ) ; un lissage rapide suit la modulation mais génère davantage d'AM et de risque de clics. **Le lissage est un paramètre à régler par écoute**, pas une solution de préservation.
+The project's current setting (0.05) is a compromise: slower smoothing reduces residual AM but introduces a timbral *lag* (the historical warble of Fix AZ); fast smoothing follows the modulation but generates more AM and more click risk. **Smoothing is a parameter to be tuned by ear**, not a preservation solution.
 
-### 7.5 Performance temps réel (ms CPU / s d'audio, meilleur de 3)
+### 7.5 Real-time performance (CPU ms / s of audio, best of 3)
 
-| Méthode | B0 | B1 (projet) | C0 (LPC) | C1 (LPC+lis.) |
+| Method | B0 | B1 (project) | C0 (LPC) | C1 (LPC+sm.) |
 |---------|----|-------------|-----------|---------------|
 | ms/s | 12.4 | 20.9 | 114.7 | 117.5 |
 
-**Caveat important** : ces chiffres proviennent d'une implémentation Python/numpy *non optimisée* (boucles d'interpréteur dominate le coût). L'algorithme LPC lui-même — Levinson-Durbin (ordre 10) + filtrage tout-pôle par trame de ~400 éch. à hop 100 → ~160 trames/s, quelques milliers d'opérations chacune — est **parfaitement temps-réel en C++/JUCE** (sous la ms par trame). Le ratio ~5–6× observé ici est une borne supérieure ; en natif il sera bien plus proche du banc de biquads (qui reste ~5× moins cher mais de qualité nettement inférieure).
+**Important caveat**: these figures come from an *unoptimized* Python/numpy implementation (interpreter loops dominate the cost). The LPC algorithm itself - Levinson-Durbin (order 10) + all-pole filtering of ~400-sample frames at hop 100 -> ~160 frames/s, a few thousand operations each - is **perfectly real-time in C++/JUCE** (well under one ms per frame). The ~5-6x ratio observed here is an upper bound; natively it will be much closer to the biquad bank (which remains ~5x cheaper but of clearly lower quality).
 
-### 7.6 Robustesse au bruit ambiant (LSD bandes de formants, cross-synthèse LPC)
+### 7.6 Robustness to ambient noise (formant-band LSD, LPC cross-synthesis)
 
-| Condition | SNR 20 dB | SNR 10 dB | Propre (plancher) |
+| Condition | SNR 20 dB | SNR 10 dB | Clean (floor) |
 |-----------|----------|-----------|-------------------|
 | FBAND LSD (dB) | 3.31 | 3.22 | 4.40 |
 
-La cross-synthèse LPC **ne se dégrade pas de façon catastrophique** sous bruit (3.3 dB à SNR 10–20 dB, comparable au plancher propre de 4.4 dB). La méthode est donc raisonnablement robuste à un signal d'entrée bruité — à condition d'estimer l'enveloppe cible sur le signal propre ou via pré-emphase. *Limite du benchmark* : la distorsion résiduelle (~4 dB) reflète aussi l'ordre LPC fini et le gain-matching par trame ; un ordre plus élevé et une meilleure gestion de trame la réduiraient.
+LPC cross-synthesis **does not degrade catastrophically** under noise (3.3 dB at SNR 10-20 dB, comparable to the clean floor of 4.4 dB). The method is therefore reasonably robust to a noisy input signal - provided the target envelope is estimated on the clean signal or via pre-emphasis. *Benchmark limitation*: the residual distortion (~4 dB) also reflects the finite LPC order and per-frame gain matching; a higher order and better frame management would reduce it.
 
 ---
 
-## 8. Tests qualitatifs — naturalité perçue (protocole d'écoute)
+## 8. Qualitative tests - perceived naturalness (listening protocol)
 
-La distorsion formantique (LSD) corrèle fortement avec la naturalité perçue : une enveloppe de formants préservée = voyelle reconnaissable et naturelle. Toutefois, seule une écoute humaine conclut. Protocole proposé (type MUSHRA) :
+Formant distortion (LSD) correlates strongly with perceived naturalness: a preserved formant envelope = recognizable, natural vowel. However, only human listening can provide a final verdict. Proposed protocol (MUSHRA type):
 
-1. **Stimuli** : pour chaque type de voix et `r ∈ {0.75, 1.25, 1.5, 2.0}`, générer 4 versions — (a) référence idéale (B2), (b) projet actuel (FormantPreserver + PitchShifter), (c) LPC cross-synthèse (C0), (d) naïf (B0, ancre « hidden reference » dégradée).
-2. **Sujets** : 8–12 évaluateurs, écoute en casque, présentation aléatoire et en double aveugle.
-3. **Échelle** : note de 0 (artificiel/chipmunk) à 100 (naturel), par paire comparée à l'ancre « référence cachée ».
-4. **Consignes** : évaluer *la naturalité de la timbre/voyelle*, indépendamment de la justesse de la hauteur.
-5. **Analyse** : moyenne et écart-type par condition ; test de Friedman + post-hoc ; seuil de significativité p<0.05.
+1. **Stimuli**: for each voice type and `r in {0.75, 1.25, 1.5, 2.0}`, generate 4 versions - (a) ideal reference (B2), (b) current project (FormantPreserver + PitchShifter), (c) LPC cross-synthesis (C0), (d) naive (B0, degraded "hidden reference" anchor).
+2. **Subjects**: 8-12 raters, headphone listening, randomized and double-blind presentation.
+3. **Scale**: score from 0 (artificial/chipmunk) to 100 (natural), each rating compared against the "hidden reference" anchor.
+4. **Instructions**: rate *the naturalness of the timbre/vowel*, independently of pitch accuracy.
+5. **Analysis**: mean and standard deviation per condition; Friedman test + post-hoc; significance threshold p<0.05.
 
-**Hypothèse attendue (à confirmer)** : LPC (C0) ≥ référence > projet actuel > naïf. Ce protocole doit être exécuté avant toute mise en production de l'approche LPC.
-
----
-
-## 9. Recommandations d'implémentation priorisées
-
-### P0 — Court terme, fort impact / faible risque
-- **P0.1 : Formants dépendants du type de voix (G1, G6).** Remplacer les centres fixes `[500,1500,2500,3500]` par un jeu de formants sélectionné selon `F0` estimé (ou un paramètre explicite masculin/féminin/enfant). Cible : `FormantPreserver::formantConfigs` + détection/paramètre de type de voix dans `PluginProcessor`.
-- **P0.2 : Passage à la compensation `1/r` (G2).** Dans `FormantPreserver.cpp::updateAllFormants`, utiliser `compensationRatio = 1/r` (au lieu de `1/√r`) sur les centres *réels* du type de voix. Amélioration immédiate sans nouveau DSP.
-
-### P1 — Moyen terme, gain qualitatif majeur
-- **P1.1 : Module LPC cross-synthèse (C0).** Nouvelle classe `ovtdsp::LpcFormantPreserver` : analyse LPC par trame (ordre 10, fenêtre de Hann, hop ~100 éch. à 44.1 kHz), éclaircissement du signal transposé, re-synthèse avec l'enveloppe de référence (extraite du signal d'entrée propre ou d'un cache d'enveloppe). Normalisation d'énergie par trame + overlap-add pour éviter le warble de frontière.
-- **P1.2 : Interpolation temporelle des coefficients LPC (C1).** Moyenner les `aₖ` des trames voisines (ou interpoler exponentiellement) avant re-synthèse — réduit la distorsion aux grands rapports (§7.2).
-- **P1.3 : Désambiguïser FormantPreserver vs formantRatio (G5).** Documenter et régler le câblage `PluginProcessor` (lignes 2126–2146) pour qu'une seule chaîne de préservation soit active par mode, évitant la double compensation.
-
-### P2 — Long terme, robustesse
-- **P2.1 : Pré-emphase + ordre LPC adaptatif** pour réduire la distorsion résiduelle (~4 dB, §7.6) et la sensibilité au bruit.
-- **P2.2 : Test MUSHRA automatisable** (§8) et intégration d'un score de distorsion formantique en CI (rejouer `test/formant_preservation_benchmark.py` sur des extraits réels).
-- **P2.3 : Mode hybride** — LPC quand le signal est stable et clair, repli sur le banc de filtres (type-voix aware) en cas de bruit fort / parole non voisée.
+**Expected hypothesis (to be confirmed)**: LPC (C0) >= reference > current project > naive. This protocol must be run before any production release of the LPC approach.
 
 ---
 
-## 10. Étapes de validation
+## 9. Prioritized implementation recommendations
 
-1. **Unitaires** : tests sur signaux synthétiques (voyelles sources-filtres) vérifiant que (a) l'enveloppe LPC de sortie rejoint l'enveloppe cible à ±1 dB de LSD, (b) aucun warble de frontière (modulation RMS < 1 %).
-2. **Régression** : rejouer le benchmark quantitatif (§7) ; exiger C0/C1 < B1 sur tous les (voix, r), et C1 ≤ C0 aux grands r.
-3. **Intégration** : vérifier l'absence de clics/pops (test de modulation 5 Hz existant `FormantPreserverModulationTest` étendu au module LPC).
-4. **Perceptif** : protocole MUSHRA (§8) ; seuil de publication : LPC significativement > projet actuel (p<0.05) et non significativement < référence idéale.
-5. **Temps réel** : vérifier la latence/CPU en C++ natif sous 1× budget temps-réel à 44.1 kHz stéréo.
+### P0 - Short term, high impact / low risk
+- **P0.1: Voice-type-dependent formants (G1, G6).** Replace the fixed centers `[500,1500,2500,3500]` with a formant set selected according to the estimated `F0` (or an explicit male/female/child parameter). Target: `FormantPreserver::formantConfigs` + voice-type detection/parameter in `PluginProcessor`.
+- **P0.2: Switch to `1/r` compensation (G2).** In `FormantPreserver.cpp::updateAllFormants`, use `compensationRatio = 1/r` (instead of `1/sqrt(r)`) on the *actual* centers of the voice type. Immediate improvement with no new DSP.
+
+### P1 - Medium term, major qualitative gain
+- **P1.1: LPC cross-synthesis module (C0).** New class `ovtdsp::LpcFormantPreserver`: per-frame LPC analysis (order 10, Hann window, hop ~100 samples at 44.1 kHz), whitening of the transposed signal, re-synthesis with the reference envelope (extracted from the clean input signal or from an envelope cache). Per-frame energy normalization + overlap-add to avoid boundary warble.
+- **P1.2: Temporal interpolation of LPC coefficients (C1).** Average the `a_k` of neighboring frames (or interpolate exponentially) before re-synthesis - reduces distortion at large ratios (Section 7.2).
+- **P1.3: Disambiguate FormantPreserver vs formantRatio (G5).** Document and settle the `PluginProcessor` wiring (lines 2126-2146) so that only one preservation chain is active per mode, avoiding double compensation.
+
+### P2 - Long term, robustness
+- **P2.1: Pre-emphasis + adaptive LPC order** to reduce residual distortion (~4 dB, Section 7.6) and noise sensitivity.
+- **P2.2: Automatable MUSHRA test** (Section 8) and integration of a formant-distortion score in CI (re-run `test/formant_preservation_benchmark.py` on real excerpts).
+- **P2.3: Hybrid mode** - LPC when the signal is stable and clean, fallback to the filter bank (voice-type-aware) under strong noise / unvoiced speech.
 
 ---
 
-## 11. Métriques de succès
+## 10. Validation steps
 
-| Métrique | État actuel (projet B1) | Cible (LPC C0/C1) | Mesure |
+1. **Unit tests**: tests on synthetic signals (source-filter vowels) verifying that (a) the output LPC envelope matches the target envelope within +/-1 dB LSD, (b) no boundary warble (RMS modulation < 1%).
+2. **Regression**: re-run the quantitative benchmark (Section 7); require C0/C1 < B1 across all (voice, r) pairs, and C1 <= C0 at large r.
+3. **Integration**: verify the absence of clicks/pops (existing 5 Hz modulation test `FormantPreserverModulationTest` extended to the LPC module).
+4. **Perceptual**: MUSHRA protocol (Section 8); release threshold: LPC significantly > current project (p<0.05) and not significantly < ideal reference.
+5. **Real-time**: verify latency/CPU in native C++ under a 1x real-time budget at 44.1 kHz stereo.
+
+---
+
+## 11. Success metrics
+
+| Metric | Current state (project B1) | Target (LPC C0/C1) | Measurement |
 |----------|--------------------------|-------------------|--------|
-| LSD globale à r=2.0 (moy. masc./fém./enf.) | ~9.2 dB | **≤ 4 dB** | benchmark §7.2 |
-| LSD bandes de formants à r=2.0 | 6.9–10.1 dB | **≤ 5 dB** | benchmark §7.3 |
-| Score MUSHRA naturalité | référence | **≥ +20 pts vs actuel** | écoute §8 |
-| Warble de frontière (RMS) | n/a (nouveau module) | **< 1 %** | test unitaire |
-| CPU natif | ~1× (biquads) | **< 2× biquads** | profilage C++ |
-| Robustesse bruit (FBAND LSD @ SNR10) | — | **≤ 4 dB** | benchmark §7.6 |
+| Global LSD at r=2.0 (male/female/child avg.) | ~9.2 dB | **<= 4 dB** | benchmark Section 7.2 |
+| Formant-band LSD at r=2.0 | 6.9-10.1 dB | **<= 5 dB** | benchmark Section 7.3 |
+| Naturalness MUSHRA score | reference | **>= +20 pts vs current** | listening Section 8 |
+| Boundary warble (RMS) | n/a (new module) | **< 1%** | unit test |
+| Native CPU | ~1x (biquads) | **< 2x biquads** | C++ profiling |
+| Noise robustness (FBAND LSD @ SNR10) | - | **<= 4 dB** | benchmark Section 7.6 |
 
-**Critère d'amélioration vs existant** : réduction d'au moins **~2.5× de la distorsion formantique** (LSD) aux grands rapports de transposition, et amplification de la naturalité perçue mesurée par écoute.
+**Improvement criterion vs existing**: reduction of at least **~2.5x in formant distortion** (LSD) at large transposition ratios, and an increase in perceived naturalness measured by listening.
 
 ---
 
-## 12. Synthèse
+## 12. Summary
 
-Le **LPC par cross-synthèse** est la méthode la plus pertinente pour une préservation des formants « parfaitement naturelle » : il opère le découplage source/filtre exact que les approximations par ratio du projet n'atteignent pas. Le **lissage temporel / interpolation** est un correctif de robustesse indispensable (et l'interpolation LPC améliore même légèrement la qualité). Les solutions déployées dans OpenVoxTuner souffrent de centres de formants fixes, d'une compensation partielle `1/√r`, et de l'absence de découplage réel — lacunes que le benchmark quantitatif quantifie (LPC ~2.5–5× meilleur que le projet aux grands rapports). Les recommandations P0 (type de voix + `1/r`) offrent un gain immédiat ; P1 (module LPC) apporte le saut qualitatif, à valider par écoute MUSHRA et profilage temps-réel avant production.
+**LPC cross-synthesis** is the most relevant method for "perfectly natural" formant preservation: it performs the exact source/filter decoupling that the project's ratio-based approximations do not achieve. **Temporal smoothing / interpolation** is an indispensable robustness fix (and LPC interpolation even slightly improves quality). The solutions deployed in OpenVoxTuner suffer from fixed formant centers, partial `1/sqrt(r)` compensation, and the absence of true decoupling - gaps quantified by the quantitative benchmark (LPC ~2.5-5x better than the project at large ratios). The P0 recommendations (voice type + `1/r`) offer an immediate gain; P1 (the LPC module) delivers the qualitative leap, to be validated by MUSHRA listening and real-time profiling before production.
