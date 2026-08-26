@@ -58,6 +58,24 @@ endif()
 # Load the JUCE CMake support.
 add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 
+# ---------------------------------------------------------------
+# eiffelbs-ui: shared EiffelBS design system (header-only INTERFACE,
+# pinned tag). Linking it carries onto every consumer:
+#   - the ABI-critical defines JUCE_STRING_UTF_TYPE=8 /
+#     JUCE_WEB_BROWSER=0 / JUCE_USE_CURL=0 (shared by BOTH plugin
+#     binaries inside one DAW process),
+#   - /std:c++20 (cxx_std_20) and MSVC /utf-8.
+# Offline builds can point at a local checkout instead of GitHub:
+#   cmake -B build -DFETCHCONTENT_SOURCE_DIR_EIFFELBS-UI=<checkout>
+# (DASH spelled exactly like this - this name keeps its hyphen.)
+# ---------------------------------------------------------------
+include(FetchContent)
+FetchContent_Declare(eiffelbs-ui
+    GIT_REPOSITORY https://github.com/EiffelBS/eiffelbs-ui.git
+    GIT_TAG        v0.3.0
+    GIT_SHALLOW    TRUE)
+FetchContent_MakeAvailable(eiffelbs-ui)
+
 # Standalone chord detection library (MIDI + audio). No JUCE / plugin dependency.
 # Used by the plugin for real-time chord-aware tuning (MIDI + sidechain sources).
 add_subdirectory(libs/ovtchord)
@@ -202,8 +220,6 @@ target_sources(OpenVoxTuner PRIVATE
     Source/ui/ScaleKeyboardComponent.h
     Source/ui/PianoKeyboard.cpp
     Source/ui/PianoKeyboard.h
-    Source/ui/LookAndFeel.cpp
-    Source/ui/LookAndFeel.h
     Source/external/presonus/ipsleditcontroller.h
 )
 
@@ -232,6 +248,7 @@ target_link_libraries(OpenVoxTuner PRIVATE
     $<$<BOOL:${OVT_ENABLE_ARA}>:juce_ara_sdk>
     OVTAssets
     ovtchord
+    eiffelbs-ui
 )
 
 # Update info URL (public JSON on GitHub raw).
@@ -345,6 +362,7 @@ target_link_libraries(OpenVoxKey PRIVATE
     juce::juce_gui_basics
     juce::juce_gui_extra
     OVTAssets
+    eiffelbs-ui
 )
 
 # === Unit test target (GTest-like console app) ===
