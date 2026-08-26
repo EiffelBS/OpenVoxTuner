@@ -17,7 +17,9 @@
 #include "ui/ScaleKeyboardComponent.h"
 #include "dsp/NoteUtils.h"
 #include "dsp/MidiImporter.h"
-#include "ui/LookAndFeel.h"
+#include <eiffelbs/eiffelbs.h>
+#include "ui/OVTTheme.h"
+#include "ui/OVTFonts.h"
 #include "dsp/PresetMorpher.h"
 
 struct OpenVoxTunerUpdateCheckState;
@@ -27,6 +29,29 @@ class PresetGallery; // defined in ui/PResetGallery.h
 class CorrectionModeSwitch; // graphic Modern/Transparent console switch (defined in PluginEditor.cpp)
 
 class TabSwitch; // iPhone-style Live/Curve Editor tab switch (defined in PluginEditor.cpp)
+
+/** Local host around the shared eiffelbs-ui LookAndFeel. Everything is
+    stock ebs:: rendering; this subclass only replays OpenVoxTuner's legacy
+    chrome through the library's theme hook so the cutover stays
+    pixel-identical:
+      - active tab = SOLID accent fill with a white caption (the shared
+        default uses the softer accent fill + accent caption),
+      - checkbox wells keep the legacy always-dark #191b1e / #555555 pair
+        regardless of theme or toggle state. */
+struct OvtLookAndFeel final : ebs::LookAndFeel
+{
+    juce::Colour widgetThemeColour (int id) override
+    {
+        switch (id)
+        {
+            case tabActiveFillColourId:   return ebs::accent();               // legacy solid-accent pill
+            case tabActiveTextColourId:   return juce::Colours::white;
+            case checkboxFillColourId:    return juce::Colour (0xff191b1e);
+            case checkboxOutlineColourId: return juce::Colour (0xff555555);
+            default:                      return {};
+        }
+    }
+};
 
 // Look and feel for the Correction block's "Advanced" handle: a centred chevron
 // (direction indicator) plus grip lines, drawn on a subtle background (square left
@@ -102,18 +127,18 @@ private:
     // LookAndFeel is deleted while components still hold a pointer/weak-ref
     // to it -> assertion / crash with
     // "refCount.value = 2" reported by Copilot.
-    ui::OVTLookAndFeel customLookAndFeel;
+    OvtLookAndFeel customLookAndFeel;
 
     // === GUI Components ===
-    juce::Slider speedSlider, amountSlider, formantSlider;
+    ebs::Knob speedSlider, amountSlider, formantSlider;
     juce::Label  speedLabel, amountLabel;
 
     // Morph slider (visible only when A and B are both filled)
-    juce::Slider morphSlider { "Morph" };
+    ebs::MorphSlider morphSlider;   // component name set to "Morph" in the ctor
     juce::Label morphSliderLabel;
 
     // Formant Toggle
-    juce::ToggleButton formantEnableButton;
+    ebs::PowerToggle formantEnableButton;
     juce::ComboBox formantModeBox;
 
     // Key and Scale are discrete values -> ComboBox.
@@ -128,7 +153,7 @@ private:
     // Key detection source + companion group (automatic key detection).
     juce::ComboBox keySourceBox, companionGroupBox;
     juce::Label    keySourceLabel, companionGroupLabel;
-    juce::ToggleButton keyDetectPowerButton;   // Key/Scale detection on/off (power-icon style)
+    ebs::PowerToggle keyDetectPowerButton;   // Key/Scale detection on/off (power-icon style)
 
     // Bypass Button (power-style)
     juce::DrawableButton bypassButton { "Bypass", juce::DrawableButton::ImageOnButtonBackground };
@@ -190,7 +215,7 @@ private:
     juce::Point<int> pendingMenuScreenPos;
 
     // Harmony controls
-    juce::ToggleButton harmonyEnableButton;
+    ebs::PowerToggle harmonyEnableButton;
     juce::ComboBox    harmonyTypeBox;
     juce::Slider      harmonyGainSlider;
     juce::Slider      harmonyBlendSlider;
@@ -205,25 +230,25 @@ private:
     juce::ComboBox    harmonyToneBox;
     juce::Slider      harmonyToneColorSlider;
     juce::Label       harmonyToneColorLabel;
-    juce::ToggleButton harmonyFollowLeadButton; // Harmony voices follow the lead correction character
-    juce::ToggleButton harmonyGainMatchButton; // Scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
+    ebs::PowerToggle harmonyFollowLeadButton; // Harmony voices follow the lead correction character
+    ebs::PowerToggle harmonyGainMatchButton; // Scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
     juce::Slider      harmonyFormantSlider;   // Formant shift for harmony voices only
     juce::Label       harmonyFormantLabel;
 
     // Reverb controls (post-processing effect)
-    juce::ToggleButton reverbEnableButton;
+    ebs::PowerToggle reverbEnableButton;
     juce::Slider       reverbMixSlider;
     juce::Label        reverbMixLabel;
 
     // Noise Gate
-    juce::ToggleButton noiseGateEnableButton;
+    ebs::PowerToggle noiseGateEnableButton;
     juce::Slider noiseGateThresholdSlider;
     juce::Label noiseGateThresholdLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> noiseGateEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> noiseGateThresholdAttachment;
 
     // Upward Compressor (input, before tuning)
-    juce::ToggleButton upwardCompEnableButton;
+    ebs::PowerToggle upwardCompEnableButton;
     juce::Slider       upwardCompAmountSlider;
     juce::Label        upwardCompAmountLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> upwardCompEnableAttachment;

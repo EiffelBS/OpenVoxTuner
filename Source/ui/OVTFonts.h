@@ -1,4 +1,4 @@
-﻿// OVTFonts.h
+// OVTFonts.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -56,12 +56,13 @@ namespace ovt
 
     // === Named font constants for common sizes ===
     // Use these throughout the plugin for maximum consistency.
+    // Generic NAMED sizes (fontTitle/fontComboBox/fontTooltip/
+    // fontToggleButton/fontPopupMenu) migrated to eiffelbs-ui (ebs::Fonts).
+    // The platform family block and the createFont/createFontRaw base stay
+    // here for the app-specific helpers below.
 
-    inline juce::Font fontTitle()       { return createFont (26.0f, true);  }
     inline juce::Font fontVersion()     { return createFont (12.0f, false); }
     inline juce::Font fontNoteLarge()   { return createFont (24.0f, true);  }
-    inline juce::Font fontTarget()      { return createFont (13.0f, true);  }
-    inline juce::Font fontCents()       { return createFont (18.0f, true);  }
     inline juce::Font fontMeter0()      { return createFont (8.0f,  false); }
     inline juce::Font fontOctaveLabel() { return createFont (9.0f,  false); }
     inline juce::Font fontYAxis()       { return createFont (8.0f,  false); }
@@ -70,23 +71,8 @@ namespace ovt
     inline juce::Font fontReadout()     { return createFont (10.0f, true);  }
     inline juce::Font fontLabel()       { return createFont (13.0f, true);  }
     inline juce::Font fontLabelSmall()  { return createFont (11.0f, true);  }
-    inline juce::Font fontComboBox()    { return createFont (14.0f, false); }
-    inline juce::Font fontTooltip()     { return createFont (13.0f, false); }
-    inline juce::Font fontPopupMenu()
-    {
-        // Popup menus (wrench, Curve Editor options, combo dropdowns) bypass
-        // the platform scale. JUCE's default menu font is 17pt and uses the
-        // system font family directly; on macOS the menu items sit in a
-        // dedicated vertical panel that already leaves enough room, and
-        // shrinking them with the 0.85 scale used elsewhere makes the items
-        // feel cramped relative to the surrounding UI. We still pick the
-        // same typeface family as the rest of the plugin for consistency.
-        return createFontRaw (17.0f, false);
-    }
-    inline juce::Font fontToggleButton(){ return createFont (14.0f, false); }
     inline juce::Font fontPianoKey()    { return createFont (11.0f, true);  }
     inline juce::Font fontRuler()       { return createFont (11.0f, false); }
-    inline juce::Font fontCurveHelp()   { return createFont (11.0f, false); }
     inline juce::Font fontMeasuresLabel(){ return createFont (11.0f, true); }
 }
 

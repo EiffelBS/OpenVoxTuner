@@ -59,7 +59,7 @@ void VerticalTextButtonLF::drawButtonText (juce::Graphics& g, juce::TextButton& 
 
     // Chevron (centred): points right when collapsed (click to expand), left when
     // expanded (click to collapse).
-    g.setColour (shouldDrawButtonAsHighlighted ? ovt::accent().brighter (0.2f) : ovt::accent());
+    g.setColour (shouldDrawButtonAsHighlighted ? ebs::accent().brighter (0.2f) : ebs::accent());
     const float cx = static_cast<float> (w) * 0.5f;
     const float cy = static_cast<float> (h) * 0.5f;
     const float s  = 5.0f;
@@ -72,7 +72,7 @@ void VerticalTextButtonLF::drawButtonText (juce::Graphics& g, juce::TextButton& 
 }
 
 // Helper: ensure a PopupMenu uses our custom LookAndFeel for correct background colours
-static void applyMenuLookAndFeel (juce::PopupMenu& m, ui::OVTLookAndFeel& lf)
+static void applyMenuLookAndFeel (juce::PopupMenu& m, OvtLookAndFeel& lf)
 {
     m.setLookAndFeel (&lf);
 }
@@ -106,9 +106,9 @@ public:
         const float radius = area.getHeight() * 0.5f;
 
         // Track background (dark, subtle border).
-        g.setColour (ovt::bgPanel());
+        g.setColour (ebs::bgPanel());
         g.fillRoundedRectangle (area, radius);
-        g.setColour (ovt::text().withAlpha (0.18f));
+        g.setColour (ebs::text().withAlpha (0.18f));
         g.drawRoundedRectangle (area, radius, 1.0f);
 
         const float half = area.getWidth() * 0.5f;
@@ -119,17 +119,17 @@ public:
         const float pillW = half - 4.0f;
         const float pillX = leftRect.getX() + 2.0f + pillPos * half;
         auto pillRect = juce::Rectangle<float> (pillX, area.getY() + 2.0f, pillW, area.getHeight() - 4.0f);
-        g.setColour (ovt::accent());
+        g.setColour (ebs::accent());
         g.fillRoundedRectangle (pillRect, pillRect.getHeight() * 0.5f);
 
         // Labels: active = white, inactive = dimmed.
         const float fontH = juce::jmax (9.0f, area.getHeight() * 0.40f);
         g.setFont (juce::Font (fontH, juce::Font::bold));
         const bool isTrans = targetPillPos > 0.5f;
-        g.setColour (isTrans ? ovt::text().withAlpha (0.55f) : juce::Colours::white);
+        g.setColour (isTrans ? ebs::text().withAlpha (0.55f) : juce::Colours::white);
         g.drawText (ovt::tr (ovt::Keys::kLabelModernBtn), leftRect,
                     juce::Justification::centred);
-        g.setColour (isTrans ? juce::Colours::white : ovt::text().withAlpha (0.55f));
+        g.setColour (isTrans ? juce::Colours::white : ebs::text().withAlpha (0.55f));
         g.drawText (ovt::tr (ovt::Keys::kLabelTransparentBtn), rightRect,
                     juce::Justification::centred);
     }
@@ -218,9 +218,9 @@ public:
         auto area = getLocalBounds().toFloat().reduced (1.0f);
         const float radius = area.getHeight() * 0.5f;
 
-        g.setColour (ovt::bgPanel());
+        g.setColour (ebs::bgPanel());
         g.fillRoundedRectangle (area, radius);
-        g.setColour (ovt::text().withAlpha (0.18f));
+        g.setColour (ebs::text().withAlpha (0.18f));
         g.drawRoundedRectangle (area, radius, 1.0f);
 
         const float half = area.getWidth() * 0.5f;
@@ -231,7 +231,7 @@ public:
         const float pillW = half - 4.0f;
         const float pillX = leftRect.getX() + 2.0f + pillPos * half;
         auto pillRect = juce::Rectangle<float> (pillX, area.getY() + 2.0f, pillW, area.getHeight() - 4.0f);
-        g.setColour (ovt::accent());
+        g.setColour (ebs::accent());
         g.fillRoundedRectangle (pillRect, pillRect.getHeight() * 0.5f);
 
         // Use ~50%-of-height font size, in the plugin typeface family.
@@ -251,9 +251,9 @@ public:
         const juce::String liveText  = ovt::tr (ovt::Keys::kTabLive);
         const juce::String curveText = ovt::tr (ovt::Keys::kTabCurveEditor);
         const bool isRight = targetPillPos > 0.5f;
-        g.setColour (isRight ? ovt::text().withAlpha (0.55f) : juce::Colours::white);
+        g.setColour (isRight ? ebs::text().withAlpha (0.55f) : juce::Colours::white);
         g.drawText (liveText, leftRect, juce::Justification::centred);
-        g.setColour (isRight ? juce::Colours::white : ovt::text().withAlpha (0.55f));
+        g.setColour (isRight ? juce::Colours::white : ebs::text().withAlpha (0.55f));
         g.drawText (curveText, rightRect, juce::Justification::centred);
     }
 
@@ -541,9 +541,9 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
     const int boxY = centerY - boxH / 2;
 
     // Panel background
-    g.setColour (ovt::bgPanel());
+    g.setColour (ebs::bgPanel());
     g.fillRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 8.0f);
-    g.setColour (ovt::accentSoft());
+    g.setColour (ebs::accentSoft());
     g.drawRoundedRectangle ((float) boxX, (float) boxY, (float) boxW, (float) boxH, 8.0f, 1.5f);
 
     // Title
@@ -555,13 +555,13 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
     // Scope subtitle: the listed shortcuts are Curve-Editor scoped (they only
     // fire when the Curve Editor has keyboard focus), so state that explicitly
     // instead of implying they are global.
-    g.setColour (ovt::textDim());
+    g.setColour (ebs::textDim());
     g.setFont (ovt::fontLegendHint());
     g.drawText (ovt::tr(ovt::Keys::kHelpScope), boxX + 16, boxY + 38, boxW - 32, 16,
                 juce::Justification::centred);
 
     // Divider
-    g.setColour (ovt::accentSoft());
+    g.setColour (ebs::accentSoft());
     g.fillRect ((float) (boxX + 16), (float) (boxY + 58), (float) (boxW - 32), 1.0f);
 
     g.setFont (legendFont);
@@ -573,15 +573,15 @@ void OpenVoxTunerAudioProcessorEditor::HelpOverlayComponent::paint (juce::Graphi
         const int x = boxX + padX + col * (colW + colGapBetween);
         const int y = sy + row * 22;
 
-        g.setColour (ovt::accent());
+        g.setColour (ebs::accent());
         g.drawText (shortcuts[i].key, x, y, maxKeyW, 18, juce::Justification::centredLeft);
-        g.setColour (ovt::text());
+        g.setColour (ebs::text());
         g.drawText (ovt::tr(shortcuts[i].descKey), x + maxKeyW + colGap, y, maxDescW, 18,
                     juce::Justification::centredLeft);
     }
 
     // Close hint
-    g.setColour (ovt::textDim());
+    g.setColour (ebs::textDim());
     g.setFont (ovt::fontLegendHint());
     g.drawText (ovt::tr(ovt::Keys::kHelpCloseHint), boxX, boxY + boxH - 24, boxW, 20,
                 juce::Justification::centred);
@@ -602,7 +602,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Restore theme preference from plugin state
     auto* themeParam = processorRef.getParameters().getParameter ("ui_theme");
     if (themeParam != nullptr)
-        ovt::currentTheme() = (themeParam->getValue() > 0.5f) ? ovt::Theme::Light : ovt::Theme::Dark;
+        ebs::currentTheme() = (themeParam->getValue() > 0.5f) ? ebs::Theme::Light : ebs::Theme::Dark;
 
     applyThemeToAllComponents();
 
@@ -651,9 +651,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             juce::URL ("https://github.com/EiffelBS/OpenVoxTuner/releases").launchInDefaultBrowser();
         }
     };
-    updateButton.setColour (juce::TextButton::buttonColourId, ovt::bgPanel());
-    updateButton.setColour (juce::TextButton::textColourOffId, ovt::text());
-    updateButton.setColour (juce::TextButton::textColourOnId, ovt::accent());
+    updateButton.setColour (juce::TextButton::buttonColourId, ebs::bgPanel());
+    updateButton.setColour (juce::TextButton::textColourOffId, ebs::text());
+    updateButton.setColour (juce::TextButton::textColourOnId, ebs::accent());
     addAndMakeVisible (updateButton);
 
     startUpdateCheck();
@@ -663,10 +663,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     {
         s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
         s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, 20);
-        s.setColour (juce::Slider::rotarySliderFillColourId,    ovt::accent());
-        s.setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
+        s.setColour (juce::Slider::rotarySliderFillColourId,    ebs::accent());
+        s.setColour (juce::Slider::rotarySliderOutlineColourId, ebs::accentSoft());
         s.setColour (juce::Slider::thumbColourId,               juce::Colours::white);
-        s.setColour (juce::Slider::textBoxTextColourId,         ovt::text());
+        s.setColour (juce::Slider::textBoxTextColourId,         ebs::text());
         s.setColour (juce::Slider::textBoxOutlineColourId,      juce::Colours::transparentBlack);
         s.setColour (juce::Slider::textBoxBackgroundColourId,   juce::Colours::transparentBlack);
         addAndMakeVisible (s);
@@ -675,7 +675,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         {
             l->setText (name, juce::dontSendNotification);
             l->setJustificationType (juce::Justification::centred);
-            l->setColour (juce::Label::textColourId, ovt::text());
+            l->setColour (juce::Label::textColourId, ebs::text());
             l->setFont (ovt::fontLabel());
             addAndMakeVisible (*l);
         }
@@ -695,10 +695,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Subtle, borderless banner: same family as the block background but a little
     // darker; the expanded/collapsed state is shown only by the direction chevron,
     // not by a strong colour change.
-    advancedButton.setColour (juce::TextButton::buttonColourId,   ovt::bgPanel().darker (0.5f));
-    advancedButton.setColour (juce::TextButton::buttonOnColourId, ovt::bgPanel().darker (0.5f));
-    advancedButton.setColour (juce::TextButton::textColourOffId,  ovt::text());
-    advancedButton.setColour (juce::TextButton::textColourOnId,   ovt::text());
+    advancedButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel().darker (0.5f));
+    advancedButton.setColour (juce::TextButton::buttonOnColourId, ebs::bgPanel().darker (0.5f));
+    advancedButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
+    advancedButton.setColour (juce::TextButton::textColourOnId,   ebs::text());
     advancedButton.setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
     advancedButton.setClickingTogglesState (true);
     // Restore the persisted expand/collapse state from the processor (saved
@@ -727,9 +727,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // === Harmony UI ===
     // Harmony enable toggle (use same visual style as Formant)
     harmonyEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyBtn));
-    harmonyEnableButton.setName ("PowerButton");
-    harmonyEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    harmonyEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    harmonyEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    harmonyEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     harmonyEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyEn));
     addAndMakeVisible (harmonyEnableButton);
 
@@ -737,9 +736,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // the lead correction character (vibrato preservation, humanize, flex, attack-aware)
     // instead of staying locked to the scale grid. Default on.
     harmonyFollowLeadButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyFollow));
-    harmonyFollowLeadButton.setName ("PowerButton");
-    harmonyFollowLeadButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    harmonyFollowLeadButton.setColour (juce::ToggleButton::tickColourId,  ovt::accent());
+    harmonyFollowLeadButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    harmonyFollowLeadButton.setColour (juce::ToggleButton::tickColourId,  ebs::accent());
     harmonyFollowLeadButton.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyFollow));
     addAndMakeVisible (harmonyFollowLeadButton);
 
@@ -750,9 +748,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // The dry signal is untouched; the user-facing harmony volume knob still
     // controls the overall harmony level (post-compensation).
     harmonyGainMatchButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyGainMatch));
-    harmonyGainMatchButton.setName ("PowerButton");
-    harmonyGainMatchButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    harmonyGainMatchButton.setColour (juce::ToggleButton::tickColourId,  ovt::accent());
+    harmonyGainMatchButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    harmonyGainMatchButton.setColour (juce::ToggleButton::tickColourId,  ebs::accent());
     harmonyGainMatchButton.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyGainMatch));
     addAndMakeVisible (harmonyGainMatchButton);
 
@@ -775,9 +772,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         "Unison (2 voices)", "Unison + Octaves (4 voices)"
     }, 1);
     harmonyTypeBox.setSelectedItemIndex (3, juce::dontSendNotification);
-    harmonyTypeBox.setColour (juce::ComboBox::backgroundColourId, ovt::bgPanel());
-    harmonyTypeBox.setColour (juce::ComboBox::textColourId, ovt::text());
-    harmonyTypeBox.setColour (juce::ComboBox::outlineColourId, ovt::accentSoft());
+    harmonyTypeBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgPanel());
+    harmonyTypeBox.setColour (juce::ComboBox::textColourId, ebs::text());
+    harmonyTypeBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
     addAndMakeVisible (harmonyTypeBox);
 
     // Harmony knobs (Volume, Blend) - use same rotary knob style as main knobs
@@ -820,7 +817,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     auto setupTitleLabel = [this] (juce::Label& l, const juce::String& name) {
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
-        l.setColour (juce::Label::textColourId, ovt::text());
+        l.setColour (juce::Label::textColourId, ebs::text());
         l.setFont (ovt::fontLabelSmall());
         addAndMakeVisible (l);
     };
@@ -831,27 +828,27 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Use Voice controls
     useVoiceButton.setButtonText (ovt::tr(ovt::Keys::kLabelUseVoice));
-    useVoiceButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    useVoiceButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    useVoiceButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    useVoiceButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     addAndMakeVisible (useVoiceButton);
 
     shiftedVoicesBox.addItemList ({ "1", "2", "3", "4" }, 1);
     shiftedVoicesBox.setSelectedId (4, juce::dontSendNotification);
-    shiftedVoicesBox.setColour (juce::ComboBox::backgroundColourId, ovt::bgPanel());
-    shiftedVoicesBox.setColour (juce::ComboBox::textColourId, ovt::text());
-    shiftedVoicesBox.setColour (juce::ComboBox::outlineColourId, ovt::accentSoft());
+    shiftedVoicesBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgPanel());
+    shiftedVoicesBox.setColour (juce::ComboBox::textColourId, ebs::text());
+    shiftedVoicesBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
     addAndMakeVisible (shiftedVoicesBox);
 
     harmonyToneBox.addItemList ({ "Choir", "Organ" }, 1);
     harmonyToneBox.setSelectedItemIndex (0, juce::dontSendNotification);
-    harmonyToneBox.setColour (juce::ComboBox::backgroundColourId, ovt::bgPanel());
-    harmonyToneBox.setColour (juce::ComboBox::textColourId, ovt::text());
-    harmonyToneBox.setColour (juce::ComboBox::outlineColourId, ovt::accentSoft());
+    harmonyToneBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgPanel());
+    harmonyToneBox.setColour (juce::ComboBox::textColourId, ebs::text());
+    harmonyToneBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
     addAndMakeVisible (harmonyToneBox);
 
     harmonyToneColorLabel.setText ("Tone", juce::dontSendNotification);
     harmonyToneColorLabel.setJustificationType (juce::Justification::centred);
-    harmonyToneColorLabel.setColour (juce::Label::textColourId, ovt::text());
+    harmonyToneColorLabel.setColour (juce::Label::textColourId, ebs::text());
     harmonyToneColorLabel.setFont (ovt::fontLabelSmall());
     addAndMakeVisible (harmonyToneColorLabel);
 
@@ -859,8 +856,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyToneColorSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     harmonyToneColorSlider.setRange (0.0, 1.0, 0.01);
     harmonyToneColorSlider.setValue (0.5, juce::dontSendNotification);
-    harmonyToneColorSlider.setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
-    harmonyToneColorSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
+    harmonyToneColorSlider.setColour (juce::Slider::rotarySliderFillColourId, ebs::accent());
+    harmonyToneColorSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ebs::accentSoft());
     harmonyToneColorSlider.setColour (juce::Slider::thumbColourId, juce::Colours::white);
     harmonyToneColorSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipToneColor));
     addAndMakeVisible (harmonyToneColorSlider);
@@ -871,17 +868,17 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     {
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
-        l.setColour (juce::Label::textColourId, ovt::text());
+        l.setColour (juce::Label::textColourId, ebs::text());
         l.setFont (ovt::fontLabel());
         addAndMakeVisible (l);
 
         for (int i = 0; i < items.size(); ++i)
             b.addItem (items[i], i + 1);
         b.setSelectedItemIndex (initialIndex, juce::dontSendNotification);
-        b.setColour (juce::ComboBox::backgroundColourId, ovt::bgPanel());
-        b.setColour (juce::ComboBox::textColourId,       ovt::text());
-        b.setColour (juce::ComboBox::outlineColourId,    ovt::accentSoft());
-        b.setColour (juce::ComboBox::arrowColourId,      ovt::accent());
+        b.setColour (juce::ComboBox::backgroundColourId, ebs::bgPanel());
+        b.setColour (juce::ComboBox::textColourId,       ebs::text());
+        b.setColour (juce::ComboBox::outlineColourId,    ebs::accentSoft());
+        b.setColour (juce::ComboBox::arrowColourId,      ebs::accent());
         addAndMakeVisible (b);
     };
 
@@ -896,17 +893,17 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // power button); the source combo has no label of its own.
     keySourceBox.addItemList (juce::StringArray { "Auto", "OpenVoxKey", "Sidechain" }, 1);
     keySourceBox.setSelectedItemIndex (0, juce::dontSendNotification);
-    keySourceBox.setColour (juce::ComboBox::backgroundColourId, ovt::bgPanel());
-    keySourceBox.setColour (juce::ComboBox::textColourId,       ovt::text());
-    keySourceBox.setColour (juce::ComboBox::outlineColourId,    ovt::accentSoft());
-    keySourceBox.setColour (juce::ComboBox::arrowColourId,      ovt::accent());
+    keySourceBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgPanel());
+    keySourceBox.setColour (juce::ComboBox::textColourId,       ebs::text());
+    keySourceBox.setColour (juce::ComboBox::outlineColourId,    ebs::accentSoft());
+    keySourceBox.setColour (juce::ComboBox::arrowColourId,      ebs::accent());
     keySourceBox.setTooltip (ovt::tr (ovt::Keys::kTooltipKeySource));
     addAndMakeVisible (keySourceBox);
 
     // Line-1 label "Key/Scale Detection", sitting next to the power button.
     keySourceLabel.setText (ovt::tr (ovt::Keys::kLabelKeyDetect), juce::dontSendNotification);
     keySourceLabel.setJustificationType (juce::Justification::centredLeft);
-    keySourceLabel.setColour (juce::Label::textColourId, ovt::text());
+    keySourceLabel.setColour (juce::Label::textColourId, ebs::text());
     keySourceLabel.setFont (ovt::fontLabel());
     addAndMakeVisible (keySourceLabel);
     // Clicking the "Key/Scale Detection" label toggles the power button, matching
@@ -922,9 +919,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Power-icon toggle for Key/Scale detection (on/off). No text: the label
     // next to it carries the "Key/Scale Detection" wording.
     keyDetectPowerButton.setButtonText (juce::String());
-    keyDetectPowerButton.setName ("PowerButton");
-    keyDetectPowerButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    keyDetectPowerButton.setColour (juce::ToggleButton::tickColourId,  ovt::accent());
+    keyDetectPowerButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    keyDetectPowerButton.setColour (juce::ToggleButton::tickColourId,  ebs::accent());
     keyDetectPowerButton.setTooltip (ovt::tr (ovt::Keys::kTooltipKeyDetect));
     addAndMakeVisible (keyDetectPowerButton);
     keyDetectAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>
@@ -942,16 +938,16 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     latencyModeLabel.setText ("", juce::dontSendNotification);
     latencyModeLabel.setJustificationType (juce::Justification::centred);
-    latencyModeLabel.setColour (juce::Label::textColourId, ovt::text());
+    latencyModeLabel.setColour (juce::Label::textColourId, ebs::text());
     latencyModeLabel.setFont (ovt::fontVersion());
     latencyModeLabel.setVisible (false);
 
     latencyModeBox.addItemList ({ "Direct Monitoring", "Low Latency", "Quality", "Safe" }, 1);
     latencyModeBox.setSelectedItemIndex (2, juce::dontSendNotification);
-    latencyModeBox.setColour (juce::ComboBox::backgroundColourId, ovt::bgPanel());
-    latencyModeBox.setColour (juce::ComboBox::textColourId, ovt::text());
-    latencyModeBox.setColour (juce::ComboBox::outlineColourId, ovt::accentSoft());
-    latencyModeBox.setColour (juce::ComboBox::arrowColourId, ovt::accent());
+    latencyModeBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgPanel());
+    latencyModeBox.setColour (juce::ComboBox::textColourId, ebs::text());
+    latencyModeBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
+    latencyModeBox.setColour (juce::ComboBox::arrowColourId, ebs::accent());
     addAndMakeVisible (latencyModeBox);
 
     // === Hamburger menu button (gear icon) ===
@@ -1009,15 +1005,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             // Theme toggle
             {
                 juce::PopupMenu themeMenu;
-                const bool isDark = ovt::isDark();
+                const bool isDark = ebs::isDark();
                 themeMenu.addItem (ovt::tr(ovt::Keys::kMenuDarkTheme), true, isDark, [this] {
-                    ovt::currentTheme() = ovt::Theme::Dark;
+                    ebs::currentTheme() = ebs::Theme::Dark;
                     if (auto* p = processorRef.getParameters().getParameter ("ui_theme"))
                         p->setValueNotifyingHost (0.0f);
                     applyThemeToAllComponents();
     });
                 themeMenu.addItem (ovt::tr(ovt::Keys::kMenuLightTheme), true, !isDark, [this] {
-                    ovt::currentTheme() = ovt::Theme::Light;
+                    ebs::currentTheme() = ebs::Theme::Light;
                     if (auto* p = processorRef.getParameters().getParameter ("ui_theme"))
                         p->setValueNotifyingHost (1.0f);
                     applyThemeToAllComponents();
@@ -1378,12 +1374,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     buttonA.isActive = true;
 
     // === Morph Slider ===
+    morphSlider.setName ("Morph");   // kept for component identification/debugging
     morphSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     morphSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     morphSlider.setRange (0.0, 1.0, 0.01);
-    morphSlider.setColour (juce::Slider::thumbColourId, ovt::accent());
-    morphSlider.setColour (juce::Slider::trackColourId, ovt::accent().withAlpha (0.7f));
-    morphSlider.setColour (juce::Slider::backgroundColourId, ovt::bgPanel());
+    morphSlider.setColour (juce::Slider::thumbColourId, ebs::accent());
+    morphSlider.setColour (juce::Slider::trackColourId, ebs::accent().withAlpha (0.7f));
+    morphSlider.setColour (juce::Slider::backgroundColourId, ebs::bgPanel());
     morphSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipMorphDrag));
     // Morph is now a host-automatable parameter ("morph_amount"). The slider is
     // bound to it via this attachment, so DAW automation and the slider stay in
@@ -1395,7 +1392,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     morphSliderLabel.setText (ovt::tr(ovt::Keys::kLabelMorph), juce::dontSendNotification);
     morphSliderLabel.setFont (ovt::fontLegendHint());
-    morphSliderLabel.setColour (juce::Label::textColourId, ovt::textDim());
+    morphSliderLabel.setColour (juce::Label::textColourId, ebs::textDim());
     morphSliderLabel.setTooltip (ovt::tr(ovt::Keys::kTooltipMorphLabel));
     morphSliderLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (morphSliderLabel);
@@ -1582,8 +1579,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         auto down     = createDrawableSVG(svgXml, juce::Colours::white);
 
         if (isToggle) {
-            auto normalOn = createDrawableSVG(svgXml, ovt::accent());
-            auto overOn   = createDrawableSVG(svgXml, ovt::accent().brighter(0.2f));
+            auto normalOn = createDrawableSVG(svgXml, ebs::accent());
+            auto overOn   = createDrawableSVG(svgXml, ebs::accent().brighter(0.2f));
             auto downOn   = createDrawableSVG(svgXml, juce::Colours::white);
             btn.setImages(normal.get(), over.get(), down.get(), nullptr,
                           normalOn.get(), overOn.get(), downOn.get(), nullptr);
@@ -1594,7 +1591,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
         btn.setTooltip(tooltip);
         btn.setColour(juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        btn.setColour(juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha(0.2f));
+        btn.setColour(juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha(0.2f));
         btn.setColour(juce::DrawableButton::textColourId, juce::Colours::white);
         btn.setColour(juce::DrawableButton::textColourOnId, juce::Colours::white);
         addAndMakeVisible(btn);
@@ -1653,11 +1650,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // snap buttons in this section.
 {
     auto optsNormal = createDrawableSVG (svgHamburger, juce::Colours::white);
-    auto optsOver   = createDrawableSVG (svgHamburger, ovt::accent());
+    auto optsOver   = createDrawableSVG (svgHamburger, ebs::accent());
     auto optsDown   = createDrawableSVG (svgHamburger, juce::Colours::white);
     optionsButton.setImages (optsNormal.get(), optsOver.get(), optsDown.get());
-    optionsButton.setColour (juce::DrawableButton::backgroundColourId, ovt::accent().withAlpha (0.22f));
-    optionsButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.4f));
+    optionsButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
+    optionsButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
     optionsButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
     optionsButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
     addAndMakeVisible (optionsButton);
@@ -1668,11 +1665,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Preset Gallery toolbar button: icon-only grid, opens the browsable gallery.
     {
         auto galNormal = createDrawableSVG (svgPresetGrid, juce::Colours::white);
-        auto galOver   = createDrawableSVG (svgPresetGrid, ovt::accent());
+        auto galOver   = createDrawableSVG (svgPresetGrid, ebs::accent());
         auto galDown   = createDrawableSVG (svgPresetGrid, juce::Colours::white);
         presetGalleryButton.setImages (galNormal.get(), galOver.get(), galDown.get());
-        presetGalleryButton.setColour (juce::DrawableButton::backgroundColourId, ovt::accent().withAlpha (0.22f));
-        presetGalleryButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.4f));
+        presetGalleryButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
+        presetGalleryButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
         presetGalleryButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
         presetGalleryButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
         addAndMakeVisible (presetGalleryButton);
@@ -1749,11 +1746,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // They sit in the header between button B and the Options gear.
     {
         auto undoNorm = createDrawableSVG (svgUndo, juce::Colours::white);
-        auto undoOver = createDrawableSVG (svgUndo, ovt::accent());
+        auto undoOver = createDrawableSVG (svgUndo, ebs::accent());
         auto undoDown = createDrawableSVG (svgUndo, juce::Colours::white);
         undoButton.setImages (undoNorm.get(), undoOver.get(), undoDown.get());
         undoButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        undoButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        undoButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         undoButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
         undoButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
         undoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUndo));
@@ -1761,11 +1758,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         addAndMakeVisible (undoButton);
 
         auto redoNorm = createDrawableSVG (svgRedo, juce::Colours::white);
-        auto redoOver = createDrawableSVG (svgRedo, ovt::accent());
+        auto redoOver = createDrawableSVG (svgRedo, ebs::accent());
         auto redoDown = createDrawableSVG (svgRedo, juce::Colours::white);
         redoButton.setImages (redoNorm.get(), redoOver.get(), redoDown.get());
         redoButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        redoButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        redoButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         redoButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
         redoButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
         redoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipRedo));
@@ -1779,11 +1776,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // curve) via the processor's global-undo-aware apply.
     {
         auto prevNorm = createDrawableSVG (svgPresetPrev, juce::Colours::white);
-        auto prevOver = createDrawableSVG (svgPresetPrev, ovt::accent());
+        auto prevOver = createDrawableSVG (svgPresetPrev, ebs::accent());
         auto prevDown = createDrawableSVG (svgPresetPrev, juce::Colours::white);
         presetPrevButton.setImages (prevNorm.get(), prevOver.get(), prevDown.get());
         presetPrevButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        presetPrevButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        presetPrevButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         presetPrevButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
         presetPrevButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
         presetPrevButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPluginPresetPrev));
@@ -1797,11 +1794,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         addAndMakeVisible (presetPrevButton);
 
         auto nextNorm = createDrawableSVG (svgPresetNext, juce::Colours::white);
-        auto nextOver = createDrawableSVG (svgPresetNext, ovt::accent());
+        auto nextOver = createDrawableSVG (svgPresetNext, ebs::accent());
         auto nextDown = createDrawableSVG (svgPresetNext, juce::Colours::white);
         presetNextButton.setImages (nextNorm.get(), nextOver.get(), nextDown.get());
         presetNextButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        presetNextButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        presetNextButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         presetNextButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
         presetNextButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
         presetNextButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPluginPresetNext));
@@ -1815,11 +1812,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         addAndMakeVisible (presetNextButton);
 
         auto saveNorm = createDrawableSVG (svgPresetSave, juce::Colours::white);
-        auto saveOver = createDrawableSVG (svgPresetSave, ovt::accent());
+        auto saveOver = createDrawableSVG (svgPresetSave, ebs::accent());
         auto saveDown = createDrawableSVG (svgPresetSave, juce::Colours::white);
         presetSaveButton.setImages (saveNorm.get(), saveOver.get(), saveDown.get());
         presetSaveButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        presetSaveButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        presetSaveButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         presetSaveButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
         presetSaveButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
         presetSaveButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPluginPresetSave));
@@ -1849,15 +1846,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         auto playNorm = createDrawableSVG (svgPlay,  juce::Colours::grey);
         auto playOver = createDrawableSVG (svgPlay,  juce::Colours::lightgrey);
         auto playDown = createDrawableSVG (svgPlay,  juce::Colours::white);
-        auto stopNorm = createDrawableSVG (svgStop,  ovt::accent());
-        auto stopOver = createDrawableSVG (svgStop,  ovt::accent().brighter (0.2f));
+        auto stopNorm = createDrawableSVG (svgStop,  ebs::accent());
+        auto stopOver = createDrawableSVG (svgStop,  ebs::accent().brighter (0.2f));
         auto stopDown = createDrawableSVG (svgStop,  juce::Colours::white);
         // Normal images = Play, "on" images = Stop. Clicking does NOT auto-toggle
         // (we drive the displayed state from the processor in syncTransportButtons).
         playButton.setImages (playNorm.get(), playOver.get(), playDown.get(), nullptr,
                               stopNorm.get(), stopOver.get(), stopDown.get(), nullptr);
         playButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        playButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
+        playButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         playButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
         playButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
         playButton.onClick = [this] {
@@ -1890,14 +1887,14 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Toggle buttons with text (attached to parameters)
     bypassToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelBypassBtn));
-    bypassToggleButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    bypassToggleButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    bypassToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    bypassToggleButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     bypassToggleButton.setTooltip (ovt::tr(ovt::Keys::kTooltipBypass));
     addAndMakeVisible (bypassToggleButton);
 
     midiToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelMidiOutBtn));
-    midiToggleButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    midiToggleButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    midiToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    midiToggleButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     midiToggleButton.setTooltip (ovt::tr(ovt::Keys::kTooltipMidiOutIcon));
     addAndMakeVisible (midiToggleButton);
 
@@ -2036,9 +2033,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
    #endif
 
     formantEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelFormantBtn));
-    formantEnableButton.setName ("PowerButton");
-    formantEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    formantEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    formantEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    formantEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     addAndMakeVisible (formantEnableButton);
 
     // Reverb controls (post-processing effect, same style as Formant)
@@ -2051,18 +2047,16 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     reverbMixSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
 
     reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
-    reverbEnableButton.setName ("PowerButton");
-    reverbEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    reverbEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    reverbEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    reverbEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     reverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbEn));
     addAndMakeVisible (reverbEnableButton);
 
     // Noise Gate
     noiseGateEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelNoiseGate));
-    noiseGateEnableButton.setName ("PowerButton");
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
-    noiseGateEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    noiseGateEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    noiseGateEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    noiseGateEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     addAndMakeVisible (noiseGateEnableButton);
 
     noiseGateThresholdSlider.setSliderStyle (juce::Slider::RotaryVerticalDrag);
@@ -2070,17 +2064,17 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     noiseGateThresholdSlider.setPopupDisplayEnabled (true, false, this);
     noiseGateThresholdSlider.textFromValueFunction = [] (double v) { return juce::String (v, 0) + " dB"; };
     noiseGateThresholdSlider.setRange (-80.0, 0.0, 1.0);
-    noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
-    noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
+    noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderFillColourId, ebs::accent());
+    noiseGateThresholdSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ebs::accentSoft());
     noiseGateThresholdSlider.setColour (juce::Slider::thumbColourId, juce::Colours::white);
-    noiseGateThresholdSlider.setColour (juce::Slider::textBoxTextColourId, ovt::text());
+    noiseGateThresholdSlider.setColour (juce::Slider::textBoxTextColourId, ebs::text());
     noiseGateThresholdSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     noiseGateThresholdSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
     addAndMakeVisible (noiseGateThresholdSlider);
 
     noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
-    noiseGateThresholdLabel.setColour (juce::Label::textColourId, ovt::text());
+    noiseGateThresholdLabel.setColour (juce::Label::textColourId, ebs::text());
     noiseGateThresholdLabel.setJustificationType (juce::Justification::centred);
     noiseGateThresholdLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
     noiseGateThresholdLabel.setVisible (false); // Hidden - same style as Formant/Reverb (no label)
@@ -2089,9 +2083,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Same visual style as the other effect knobs: power toggle on top, a single
     // "amount" knob with no visible value (only JUCE's drag popup shows it).
     upwardCompEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelUpwardComp));
-    upwardCompEnableButton.setName ("PowerButton");
-    upwardCompEnableButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    upwardCompEnableButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    upwardCompEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    upwardCompEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     upwardCompEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUpwardCompEn));
     addAndMakeVisible (upwardCompEnableButton);
 
@@ -2102,10 +2095,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     upwardCompAmountSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     upwardCompAmountSlider.setPopupDisplayEnabled (true, false, this);
     upwardCompAmountSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
-    upwardCompAmountSlider.setColour (juce::Slider::rotarySliderFillColourId, ovt::accent());
-    upwardCompAmountSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
+    upwardCompAmountSlider.setColour (juce::Slider::rotarySliderFillColourId, ebs::accent());
+    upwardCompAmountSlider.setColour (juce::Slider::rotarySliderOutlineColourId, ebs::accentSoft());
     upwardCompAmountSlider.setColour (juce::Slider::thumbColourId, juce::Colours::white);
-    upwardCompAmountSlider.setColour (juce::Slider::textBoxTextColourId, ovt::text());
+    upwardCompAmountSlider.setColour (juce::Slider::textBoxTextColourId, ebs::text());
     upwardCompAmountSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     upwardCompAmountSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
     upwardCompAmountSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipUpwardCompAmount));
@@ -2163,9 +2156,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Correction Mode toggle button
     correctionModeButton.setButtonText (ovt::tr(ovt::Keys::kLabelModernBtn));
     correctionModeButton.setClickingTogglesState (true);
-    correctionModeButton.setColour (juce::TextButton::buttonColourId, ovt::accentSoft());
-    correctionModeButton.setColour (juce::TextButton::buttonOnColourId, ovt::accent());
-    correctionModeButton.setColour (juce::TextButton::textColourOffId, ovt::text());
+    correctionModeButton.setColour (juce::TextButton::buttonColourId, ebs::accentSoft());
+    correctionModeButton.setColour (juce::TextButton::buttonOnColourId, ebs::accent());
+    correctionModeButton.setColour (juce::TextButton::textColourOffId, ebs::text());
     correctionModeButton.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
     correctionModeButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCorrection));
     correctionModeButton.onClick = [this] {
@@ -2182,9 +2175,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Attack-Aware correction toggle button - power-icon style like Gate / Reverb / Formant.
     // 2026-07-24 (Deprecation): Attack-Aware button setup is disabled.
     // attackAwareButton.setButtonText (ovt::tr(ovt::Keys::kLabelAttackBtn));
-    // attackAwareButton.setName ("PowerButton");
-    // attackAwareButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    // attackAwareButton.setColour (juce::ToggleButton::tickColourId, ovt::accent());
+    // attackAwareButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     // attackAwareButton.setTooltip (ovt::tr(ovt::Keys::kTooltipAttack));
     // addAndMakeVisible (attackAwareButton);
 
@@ -2330,8 +2321,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
       tabbedComponent.addTab(ovt::tr(ovt::Keys::kTabLive), tabContentColour, pitchVisualizer.get(), false);
       tabbedComponent.addTab(ovt::tr(ovt::Keys::kTabCurveEditor), tabContentColour, curveEditor.get(), false);
     addAndMakeVisible(tabbedComponent);
-    tabbedComponent.setColour (juce::TabbedComponent::backgroundColourId, ovt::bgDark());
-    tabbedComponent.setColour (juce::TabbedComponent::outlineColourId, ovt::accentSoft());
+    tabbedComponent.setColour (juce::TabbedComponent::backgroundColourId, ebs::bgDark());
+    tabbedComponent.setColour (juce::TabbedComponent::outlineColourId, ebs::accentSoft());
 
     // Replace the standard tab bar with an iPhone-style animated pill switch.
     tabbedComponent.getTabbedButtonBar().setVisible (false);
@@ -2536,24 +2527,24 @@ OpenVoxTunerAudioProcessorEditor::~OpenVoxTunerAudioProcessorEditor()
 void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // Main background (flat, no gradient)
-    g.setColour (ovt::bgDark());
+    g.setColour (ebs::bgDark());
     g.fillAll();
 
     // Draw the bottom blocks backgrounds (left = scale, middle = knobs, right = harmony)
-    g.setColour (ovt::bgPanel());
+    g.setColour (ebs::bgPanel());
     g.fillRoundedRectangle (block1Bounds.toFloat(), 6.0f);
     g.fillRoundedRectangle (block2Bounds.toFloat(), 6.0f);
     g.fillRoundedRectangle (block3Bounds.toFloat(), 6.0f);
     g.fillRoundedRectangle (block4Bounds.toFloat(), 6.0f);
 
-    g.setColour (ovt::accentSoft().withAlpha(0.3f));
+    g.setColour (ebs::accentSoft().withAlpha(0.3f));
     g.drawRoundedRectangle (block1Bounds.toFloat(), 6.0f, 1.0f);
     g.drawRoundedRectangle (block2Bounds.toFloat(), 6.0f, 1.0f);
     g.drawRoundedRectangle (block3Bounds.toFloat(), 6.0f, 1.0f);
     g.drawRoundedRectangle (block4Bounds.toFloat(), 6.0f, 1.0f);
 
     // Top banner with title (opaque, matches tab bar background).
-    g.setColour (ovt::bgDark());
+    g.setColour (ebs::bgDark());
     g.fillRect (0, 0, getWidth(), 50);
 
     // --- LOGO DRAWING (assets/icon.svg) ---
@@ -2566,7 +2557,7 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     // flush together with no measurement/truncation mismatch. The previous code
     // measured each word's width, cast it to int, and passed it to drawText, which
     // then added an ellipsis ("OpenV...Tun...") because the box was 1px too narrow.
-    const juce::Font titleFont = ovt::fontTitle();
+    const juce::Font titleFont = ebs::fontTitle();
     const float titleY = 8.0f;
     // Vertically centre the title against the logo (logoArea centre Y).
     const float baseline = logoArea.getCentreY()
@@ -2575,19 +2566,19 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
 
     juce::GlyphArrangement ga;
     ga.addLineOfText (titleFont, "OpenVox", x, baseline);
-    g.setColour (ovt::accent());
+    g.setColour (ebs::accent());
     ga.draw (g);
     x += juce::GlyphArrangement::getStringWidth (titleFont, "OpenVox");
 
     ga.clear();
     ga.addLineOfText (titleFont, "Tuner", x, baseline);
-    g.setColour (ovt::text());
+    g.setColour (ebs::text());
     ga.draw (g);
     x += juce::GlyphArrangement::getStringWidth (titleFont, "Tuner");
 
     // Version string (debug builds only - hides the version number in release).
 #if defined (JUCE_DEBUG)
-    g.setColour (ovt::textDim());
+    g.setColour (ebs::textDim());
     g.setFont (ovt::fontVersion());
 #  if defined (JucePlugin_VersionString)
     g.drawText (juce::String ("v") + JucePlugin_VersionString, x + 8, titleY, 160, 36, juce::Justification::left);
@@ -2615,7 +2606,7 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
         const juce::String cpuText = ovt::tr(ovt::Keys::kLabelCpu) + juce::String (cpuPct) + "%";
 
         // Background
-        g.setColour (ovt::cpuBg());
+        g.setColour (ebs::cpuBg());
         g.fillRoundedRectangle ((float) cpuX, (float) cpuY, (float) cpuW, (float) cpuH, 4.0f);
 
         // Colour based on usage
@@ -2630,7 +2621,7 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
         g.fillRoundedRectangle ((float) (cpuX + 4), (float) (cpuY + cpuH - 4),
                                 (float) barW, 2.0f, 1.0f);
 
-        g.setColour (ovt::cpuText());
+        g.setColour (ebs::cpuText());
         g.setFont (ovt::fontLegendHint());
         g.drawText (cpuText, cpuX, cpuY, cpuW, cpuH, juce::Justification::centred);
     }
@@ -2679,7 +2670,7 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
         // with a warning colour instead of the normal accent.
         if (showBadge && presetSaveButton.getRight() > 0)
         {
-            const juce::Colour badgeColour = outOfScale ? juce::Colour (0xffffb300) : ovt::accent();
+            const juce::Colour badgeColour = outOfScale ? juce::Colour (0xffffb300) : ebs::accent();
 
             const juce::Font badgeFont = ovt::fontLegendHint();
             const int badgeH = 22;
@@ -3078,7 +3069,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
             const float iconWidth = radius * 2.0f;
             float textW = 0.0f;
             if (b.getButtonText().isNotEmpty())
-                textW = juce::GlyphArrangement::getStringWidth (ovt::fontComboBox(), b.getButtonText()) + 8.0f;
+                textW = juce::GlyphArrangement::getStringWidth (ebs::fontComboBox(), b.getButtonText()) + 8.0f;
             return static_cast<int> (std::ceil (iconWidth + textW + 4.0f));
         };
 
@@ -3412,13 +3403,13 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
             if (updateCheckState->updateAvailable.load())
             {
                 updateButton.setButtonText (ovt::tr(ovt::Keys::kStatusUpdatePrefix) + updateCheckState->latestVersion);
-                updateButton.setColour (juce::TextButton::buttonColourId, ovt::accent().darker (0.2f));
+                updateButton.setColour (juce::TextButton::buttonColourId, ebs::accent().darker (0.2f));
                 updateButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUpdateAvailable));
             }
             else
             {
                 updateButton.setButtonText (ovt::tr(ovt::Keys::kStatusUpToDate));
-                updateButton.setColour (juce::TextButton::buttonColourId, ovt::bgPanel());
+                updateButton.setColour (juce::TextButton::buttonColourId, ebs::bgPanel());
                 updateButton.setTooltip (updateCheckState->statusText.isNotEmpty() ? updateCheckState->statusText : ovt::tr(ovt::Keys::kTooltipUpdateReleases));
             }
         }
@@ -5495,7 +5486,7 @@ void OpenVoxTunerAudioProcessorEditor::showPresetGallery()
     };
 
     auto* w = new ClosableGalleryWindow ("OpenVoxTuner - Preset Gallery",
-                                           ovt::bgDark(),
+                                           ebs::bgDark(),
                                            juce::DocumentWindow::closeButton);
 
     auto* gallery = new PresetGallery (
@@ -5544,11 +5535,11 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
 
     // Re-apply colours to ALL sliders (knobs)
     auto applySliderColours = [] (juce::Slider& s) {
-        s.setColour (juce::Slider::textBoxTextColourId,       ovt::text());
+        s.setColour (juce::Slider::textBoxTextColourId,       ebs::text());
         s.setColour (juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
         s.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
-        s.setColour (juce::Slider::rotarySliderFillColourId,  ovt::accent());
-        s.setColour (juce::Slider::rotarySliderOutlineColourId, ovt::accentSoft());
+        s.setColour (juce::Slider::rotarySliderFillColourId,  ebs::accent());
+        s.setColour (juce::Slider::rotarySliderOutlineColourId, ebs::accentSoft());
         s.setColour (juce::Slider::thumbColourId,             juce::Colours::white);
     };
     applySliderColours (speedSlider);
@@ -5566,7 +5557,7 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
 
     // Re-apply colours to ALL labels
     auto applyLabelColours = [] (juce::Label& l) {
-        l.setColour (juce::Label::textColourId, ovt::text());
+        l.setColour (juce::Label::textColourId, ebs::text());
     };
     applyLabelColours (speedLabel);
     applyLabelColours (amountLabel);
@@ -5587,14 +5578,14 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     // Re-apply colours to ALL combo boxes
     auto applyComboColours = [] (juce::ComboBox& c) {
         // Closed combo state: use darkest plugin background
-        c.setColour (juce::ComboBox::backgroundColourId, ovt::bgDark());
-        c.setColour (juce::ComboBox::textColourId,       ovt::text());
-        c.setColour (juce::ComboBox::outlineColourId,    ovt::accentSoft());
-        c.setColour (juce::ComboBox::arrowColourId,      ovt::accent());
+        c.setColour (juce::ComboBox::backgroundColourId, ebs::bgDark());
+        c.setColour (juce::ComboBox::textColourId,       ebs::text());
+        c.setColour (juce::ComboBox::outlineColourId,    ebs::accentSoft());
+        c.setColour (juce::ComboBox::arrowColourId,      ebs::accent());
         // Dropdown popup: same dark background
-        c.setColour (juce::PopupMenu::backgroundColourId, ovt::bgDark());
-        c.setColour (juce::PopupMenu::textColourId,       ovt::text());
-        c.setColour (juce::PopupMenu::highlightedBackgroundColourId, ovt::accentSoft());
+        c.setColour (juce::PopupMenu::backgroundColourId, ebs::bgDark());
+        c.setColour (juce::PopupMenu::textColourId,       ebs::text());
+        c.setColour (juce::PopupMenu::highlightedBackgroundColourId, ebs::accentSoft());
     };
     applyComboColours (keyBox);
     applyComboColours (scaleBox);
@@ -5607,7 +5598,7 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
 
     // Re-apply colours to toggle buttons
     auto applyToggleColours = [] (juce::ToggleButton& b) {
-        b.setColour (juce::ToggleButton::textColourId, ovt::text());
+        b.setColour (juce::ToggleButton::textColourId, ebs::text());
     };
     applyToggleColours (harmonyEnableButton);
     applyToggleColours (harmonyFollowLeadButton);
@@ -5617,32 +5608,32 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyToggleColours (noiseGateEnableButton);
 
     // Re-apply to other buttons
-    updateButton.setColour (juce::TextButton::buttonColourId,   ovt::bgPanel());
-    updateButton.setColour (juce::TextButton::textColourOffId,  ovt::text());
-    bypassToggleButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    midiToggleButton.setColour (juce::ToggleButton::textColourId, ovt::text());
-    correctionModeButton.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
-    correctionModeButton.setColour (juce::TextButton::textColourOffId, ovt::text());
+    updateButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel());
+    updateButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
+    bypassToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    midiToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    correctionModeButton.setColour (juce::TextButton::buttonColourId,  ebs::bgPanel());
+    correctionModeButton.setColour (juce::TextButton::textColourOffId, ebs::text());
     applyToggleColours (attackAwareButton);
     applyToggleColours (keyDetectPowerButton);
-    buttonA.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
-    buttonA.setColour (juce::TextButton::textColourOffId, ovt::text());
-    buttonB.setColour (juce::TextButton::buttonColourId,  ovt::bgPanel());
-    buttonB.setColour (juce::TextButton::textColourOffId, ovt::text());
+    buttonA.setColour (juce::TextButton::buttonColourId,  ebs::bgPanel());
+    buttonA.setColour (juce::TextButton::textColourOffId, ebs::text());
+    buttonB.setColour (juce::TextButton::buttonColourId,  ebs::bgPanel());
+    buttonB.setColour (juce::TextButton::textColourOffId, ebs::text());
 
     // Re-apply to the Curve Editor "Options" button: keep its distinct
     // accent-tinted background and bright icon (it is a DrawableButton, not a
     // TextButton like the other re-applied buttons above).
-    optionsButton.setColour (juce::DrawableButton::backgroundColourId, ovt::accent().withAlpha (0.22f));
-    optionsButton.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.4f));
+    optionsButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
+    optionsButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
     optionsButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
     optionsButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
 
     // Re-apply DrawableButton colours (background and text)
     auto applyDrawableBtnColours = [] (juce::DrawableButton& btn) {
         btn.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        btn.setColour (juce::DrawableButton::backgroundOnColourId, ovt::accent().withAlpha (0.2f));
-        btn.setColour (juce::DrawableButton::textColourId, ovt::text());
+        btn.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
+        btn.setColour (juce::DrawableButton::textColourId, ebs::text());
     };
     applyDrawableBtnColours (snapButton);
     applyDrawableBtnColours (snapGridButton);
@@ -5654,8 +5645,8 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyDrawableBtnColours (resetViewButton);
 
     // Re-apply to tabbed component
-    tabbedComponent.setColour (juce::TabbedComponent::backgroundColourId, ovt::bgDark());
-    tabbedComponent.setColour (juce::TabbedComponent::outlineColourId,   ovt::accentSoft());
+    tabbedComponent.setColour (juce::TabbedComponent::backgroundColourId, ebs::bgDark());
+    tabbedComponent.setColour (juce::TabbedComponent::outlineColourId,   ebs::accentSoft());
 
     // Force repaint of tab content components
     tabbedComponent.repaint();

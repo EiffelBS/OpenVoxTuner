@@ -123,11 +123,11 @@ namespace ui
         g.reduceClipRegion (juce::Rectangle<int>(pianoW, 0, b.getWidth() - pianoW, b.getHeight()));
 
         // === Ruler background ===
-        g.setColour (ovt::rulerBg());
+        g.setColour (ebs::rulerBg());
         g.fillRect (pianoW, 0, b.getWidth() - pianoW, rulerH);
         
         // Ruler bottom border
-        g.setColour (ovt::curveGrid());
+        g.setColour (ebs::curveGrid());
         g.drawHorizontalLine (rulerH, static_cast<float> (pianoW), static_cast<float> (b.getWidth()));
 
         // === Waveform overlay ===
@@ -168,7 +168,7 @@ namespace ui
         }
 
         // === Grid: horizontal lines for the C2, C3, C4, C5, C6 octaves ===
-        g.setColour (ovt::curveGrid());
+        g.setColour (ebs::curveGrid());
         const float refFreqs[] = { 65.4f, 130.8f, 261.6f, 523.3f, 1046.5f };
         const char* labels[]    = { "C2",   "C3",   "C4",   "C5",   "C6" };
         if (! pianoRollMode)
@@ -177,15 +177,15 @@ namespace ui
             const float y = pitchToY (refFreqs[i]);
             g.drawHorizontalLine (static_cast<int> (y), static_cast<float> (pianoW), static_cast<float> (b.getWidth()));
             // Text shifted to the right to avoid overlap
-            // g.setColour (ovt::curveGrid().withAlpha (0.7f));
+            // g.setColour (ebs::curveGrid().withAlpha (0.7f));
             // g.drawText (labels[i], pianoW + 4, static_cast<int> (y) - 7, 28, 14, juce::Justification::left);
-            g.setColour (ovt::curveGrid());
+            g.setColour (ebs::curveGrid());
         }
 
         // === Scale note lines (horizontal lines for notes in the current scale) ===
         if (! pianoRollMode && ! scaleIntervals.isEmpty())
         {
-            g.setColour (ovt::scaleLine());
+            g.setColour (ebs::scaleLine());
             const float lowestHz = minHz;
             const float highestHz = maxHz;
             const int lowestMidi = static_cast<int> (std::ceil (ovtdsp::hzToMidiFloat (lowestHz)));
@@ -224,7 +224,7 @@ namespace ui
             bool isBeat = true;
 
             // Vertical grid line
-            g.setColour (ovt::curveGrid().withAlpha (isBarStart ? 0.6f : (isBeat ? 0.3f : 0.1f)));
+            g.setColour (ebs::curveGrid().withAlpha (isBarStart ? 0.6f : (isBeat ? 0.3f : 0.1f)));
             g.drawVerticalLine (static_cast<int> (x), rulerH, static_cast<float> (b.getHeight()));
 
             // Tick marks in the ruler
@@ -541,7 +541,7 @@ namespace ui
         }
 
         // Vertical separator between the piano and the editing area.
-        g.setColour (ovt::isDark() ? juce::Colour (0xff2a2a36) : juce::Colour (0xff8a8a96));
+        g.setColour (ebs::isDark() ? juce::Colour (0xff2a2a36) : juce::Colour (0xff8a8a96));
         g.drawVerticalLine (pianoW, rulerH, static_cast<float> (b.getHeight()));
 
         // === Gray overlay when the editor is disabled (Live mode) ===
@@ -550,7 +550,7 @@ namespace ui
             g.setColour (juce::Colours::black.withAlpha (0.55f));
             g.fillRect (plotArea);
             g.setColour (juce::Colours::white.withAlpha (0.7f));
-            g.setFont (ovt::fontComboBox());
+            g.setFont (ebs::fontComboBox());
             g.drawText (ovt::tr(ovt::Keys::kHintLiveMode),
                         plotArea.getX(), plotArea.getY(), plotArea.getWidth(), plotArea.getHeight(),
                         juce::Justification::centred);
@@ -789,9 +789,9 @@ namespace ui
             const int noteInOct = ovtdsp::midiToNoteInOctave (midi);
             const float y = pitchToY (ovtdsp::midiToHz (static_cast<float> (midi)));
             if (noteInOct == 0)
-                g.setColour (ovt::curveGrid());
+                g.setColour (ebs::curveGrid());
             else if (scaleIntervals.contains (noteInOct))
-                g.setColour (ovt::scaleLine());
+                g.setColour (ebs::scaleLine());
             else
                 continue;   // off-scale: no line, matching Curves mode
             g.drawHorizontalLine (static_cast<int> (y),

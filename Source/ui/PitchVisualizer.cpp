@@ -268,13 +268,13 @@ namespace ui
         const auto plotArea = juce::Rectangle<int> (pianoW, headerH, W - pianoW, H - headerH);
 
         // === Background ===
-        g.fillAll (ovt::vizBg());
+        g.fillAll (ebs::vizBg());
 
         // === Modern header strip ===
         {
-            g.setColour (ovt::vizHeaderBg());
+            g.setColour (ebs::vizHeaderBg());
             g.fillRect (0, 0, W, headerH);
-            g.setColour (ovt::vizHeaderAccent());
+            g.setColour (ebs::vizHeaderAccent());
             g.fillRect (0, headerH - 2, W, 2);
 
             const int badgeH = headerH - 12;
@@ -526,14 +526,14 @@ namespace ui
                 const int oct = ovtdsp::midiToOctave (midi);
                 const juce::String label = "C" + juce::String (oct);
                 g.setFont (ovt::fontOctaveLabel());
-                g.setColour (ovt::isDark() ? juce::Colour (0x55ffffff) : juce::Colour (0x55000000));
+                g.setColour (ebs::isDark() ? juce::Colour (0x55ffffff) : juce::Colour (0x55000000));
                 g.drawText (label, plotArea.getX() + 2, yi - 10, 28, 12,
                             juce::Justification::centredLeft);
                 g.setColour (kGrid.brighter (0.15f));
             }
 
             // Scale note lines
-            g.setColour (ovt::scaleLine());
+            g.setColour (ebs::scaleLine());
             for (int midi = lowestMidi; midi <= highestMidi; ++midi)
             {
                 const int noteInOct = ovtdsp::midiToNoteInOctave (midi);
@@ -685,7 +685,7 @@ namespace ui
             const int panelY = plotArea.getBottom() - panelH - 4;
 
             // Background (semi-translucent)
-            g.setColour (ovt::vizLegendBg().withAlpha (0.85f));
+            g.setColour (ebs::vizLegendBg().withAlpha (0.85f));
             g.fillRoundedRectangle ((float) panelX, (float) panelY,
                                     (float) panelW, (float) panelH, 4.0f);
 

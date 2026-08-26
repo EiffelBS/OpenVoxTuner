@@ -1,194 +1,23 @@
-﻿// OVTTheme.h
+// OVTTheme.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
 
+// Theme state and the shared colour palette migrated to the eiffelbs-ui
+// design system (ebs:: namespace). This header keeps ONLY the app-specific
+// waveform overlay renderer, which depends on juce_dsp's FFT and is too
+// heavy-weight for the shared library. It still includes <eiffelbs/eiffelbs.h>
+// so translation units including it keep seeing the ebs:: palette after the
+// cutover.
 
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>   // juce::FFT (Spectral waveform display)
+#include <eiffelbs/eiffelbs.h>
 
 namespace ovt
 {
-    /** Theme mode enumeration. */
-    enum class Theme { Dark, Light };
-
-    /** Get/set the current active theme (thread-safe for UI thread). */
-    inline Theme& currentTheme()
-    {
-        static Theme theme = Theme::Dark;
-        return theme;
-    }
-
-    /** Check if the current theme is dark. */
-    inline bool isDark() { return currentTheme() == Theme::Dark; }
-
-    // === Theme colour palette ===
-    // Index 0 = Dark, Index 1 = Light
-
-    // Main background (deepest layer)
-    inline juce::Colour bgDark()
-    {
-        return isDark() ? juce::Colour::fromString("#FF26282B")
-                        : juce::Colour::fromString("#FFF0F1F5");
-    }
-
-    // Panel background (cards, blocks)
-    inline juce::Colour bgPanel()
-    {
-        return isDark() ? juce::Colour::fromString("#FF373A3E")
-                        : juce::Colour::fromString("#FFE8E9ED");
-    }
-
-    // Accent colour (primary interactive elements)
-    inline juce::Colour accent()
-    {
-        return isDark() ? juce::Colour::fromString("#FF1A9AF0")
-                        : juce::Colour::fromString("#FF1565C0");
-    }
-
-    // Soft accent (backgrounds, subtle highlights)
-    inline juce::Colour accentSoft()
-    {
-        return isDark() ? juce::Colour::fromString("#401A9AF0")
-                        : juce::Colour::fromString("#301565C0");
-    }
-
-    // Primary text colour
-    inline juce::Colour text()
-    {
-        return isDark() ? juce::Colour::fromString("#FFE1E1E6")
-                        : juce::Colour::fromString("#FF2C2C34");
-    }
-
-    // Secondary/dimmed text
-    inline juce::Colour textDim()
-    {
-        return isDark() ? juce::Colour (0xff868686)
-                        : juce::Colour (0xff666666);
-    }
-
-    // Visualizer/curve editor always use dark mode - must be opaque to cover light tab background
-    inline juce::Colour vizBg()
-    {
-        return juce::Colour (0xff15151b);
-    }
-
-    // Grid lines (always dark: used inside visualizer/curve editor which are forced dark)
-    inline juce::Colour grid()
-    {
-        return juce::Colour (0x20ffffff);
-    }
-
-    // Scale note lines (always dark: used inside visualizer/curve editor which are forced dark)
-    inline juce::Colour scaleLine()
-    {
-        return juce::Colour (0x10ffffff);
-    }
-
-    // Input curve colour (pink)
-    inline juce::Colour inputColour()
-    {
-        return isDark() ? juce::Colour (0xffe91e63).withAlpha (0.4f)
-                        : juce::Colour (0xffc2185b).withAlpha (0.5f);
-    }
-
-    // Output curve colour (green)
-    inline juce::Colour outputColour()
-    {
-        return juce::Colour (0xff00e676);
-    }
-
-    // Harmony curve colour (blue)
-    inline juce::Colour harmonyColour()
-    {
-        return juce::Colour (0xff1A9AF0).withAlpha (0.7f);
-    }
-
-    // Piano white key
-    inline juce::Colour pianoWhite()
-    {
-        return isDark() ? juce::Colour (0xffffffff)
-                        : juce::Colour (0xffffffff);
-    }
-
-    // Piano black key
-    inline juce::Colour pianoBlack()
-    {
-        return isDark() ? juce::Colour (0xff1a1a1a)
-                        : juce::Colour (0xff2a2a2a);
-    }
-
-    // Piano key border
-    inline juce::Colour pianoBorder()
-    {
-        return isDark() ? juce::Colour (0xff333333)
-                        : juce::Colour (0xffbbbbbb);
-    }
-
-    // Piano key text
-    inline juce::Colour pianoText()
-    {
-        return isDark() ? juce::Colour (0xff000000)
-                        : juce::Colour (0xff000000);
-    }
-
-    // Header background
-    inline juce::Colour headerBg()
-    {
-        return isDark() ? juce::Colour::fromString("#FF373A3E")
-                        : juce::Colour (0xffe0e1e6);
-    }
-
-    // Header accent line
-    inline juce::Colour headerAccent()
-    {
-        return isDark() ? juce::Colour (0x331A9AF0)
-                        : juce::Colour (0x331565C0);
-    }
-
-    // Visualizer header always dark
-    inline juce::Colour vizHeaderBg()
-    {
-        return juce::Colour (0xff191b1e);
-    }
-
-    // PitchVisualizer header accent line
-    inline juce::Colour vizHeaderAccent()
-    {
-        return juce::Colour (0x331A9AF0);
-    }
-
-    // Visualizer legend block background
-    inline juce::Colour vizLegendBg()
-    {
-        return juce::Colour (0xff191b1e);
-    }
-
-    // Curve editor ruler always dark
-    inline juce::Colour rulerBg()
-    {
-        return juce::Colour (0xff1a1a1a);
-    }
-
-    // Curve editor grid always light-on-dark
-    inline juce::Colour curveGrid()
-    {
-        return juce::Colour (0x40ffffff);
-    }
-
-    // CPU meter always uses dark mode (visible on any theme)
-    inline juce::Colour cpuBg()
-    {
-        return juce::Colour (0xff222230);
-    }
-
-    inline juce::Colour cpuText()
-    {
-        return juce::Colours::white.withAlpha (0.9f);
-    }
-
     /** Waveform rendering display mode for the visualizer and curve editor. */
     enum class WaveformDisplayType
     {
@@ -335,6 +164,3 @@ namespace ovt
         }
     }
 }
-
-
-

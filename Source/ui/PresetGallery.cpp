@@ -1,4 +1,4 @@
-﻿// PresetGallery.cpp
+// PresetGallery.cpp
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -24,18 +24,18 @@ PresetGallery::PresetGallery (LoadFactoryFn   loadFactory,
 
     factoryHeader.setText ("Factory", juce::dontSendNotification);
     factoryHeader.setFont (ovt::fontLabel());
-    factoryHeader.setColour (juce::Label::textColourId, ovt::text());
+    factoryHeader.setColour (juce::Label::textColourId, ebs::text());
     content.addAndMakeVisible (factoryHeader);
 
     customHeader.setText ("Custom", juce::dontSendNotification);
     customHeader.setFont (ovt::fontLabel());
-    customHeader.setColour (juce::Label::textColourId, ovt::text());
+    customHeader.setColour (juce::Label::textColourId, ebs::text());
     content.addAndMakeVisible (customHeader);
 
     emptyLabel.setText ("No custom presets yet.\nSave one from the Curve Editor \"Options\" menu.", juce::dontSendNotification);
     emptyLabel.setFont (ovt::fontLabelSmall());
     emptyLabel.setJustificationType (juce::Justification::centredLeft);
-    emptyLabel.setColour (juce::Label::textColourId, ovt::textDim());
+    emptyLabel.setColour (juce::Label::textColourId, ebs::textDim());
     content.addAndMakeVisible (emptyLabel);
 
     refresh();
@@ -49,10 +49,10 @@ juce::Image PresetGallery::renderCurveThumb (const ovtdsp::PitchCurve& curve, in
 {
     juce::Image img (juce::Image::RGB, juce::jmax (1, w), juce::jmax (1, h), true);
     juce::Graphics g (img);
-    g.fillAll (ovt::vizBg());
+    g.fillAll (ebs::vizBg());
 
     // Faint horizontal reference lines.
-    g.setColour (ovt::grid());
+    g.setColour (ebs::grid());
     for (int i = 1; i < 4; ++i)
     {
         const float y = (float) (h * i / 4);
@@ -107,7 +107,7 @@ juce::Image PresetGallery::renderCurveThumb (const ovtdsp::PitchCurve& curve, in
             path.lineTo (X, Y);
     }
 
-    g.setColour (ovt::outputColour());
+    g.setColour (ebs::outputColour());
     g.strokePath (path, juce::PathStrokeType (2.0f));
     return img;
 }
@@ -137,7 +137,7 @@ PresetGallery::PresetCard::PresetCard (const juce::String& name,
 
     nameLabel.setText (name, juce::dontSendNotification);
     nameLabel.setFont (ovt::fontLabel());
-    nameLabel.setColour (juce::Label::textColourId, ovt::text());
+    nameLabel.setColour (juce::Label::textColourId, ebs::text());
     nameLabel.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (nameLabel);
 
@@ -146,7 +146,7 @@ PresetGallery::PresetCard::PresetCard (const juce::String& name,
         : category;
     metaLabel.setText (meta, juce::dontSendNotification);
     metaLabel.setFont (ovt::fontLabelSmall());
-    metaLabel.setColour (juce::Label::textColourId, ovt::textDim());
+    metaLabel.setColour (juce::Label::textColourId, ebs::textDim());
     metaLabel.setMinimumHorizontalScale (0.5f);
     metaLabel.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (metaLabel);
@@ -154,8 +154,8 @@ PresetGallery::PresetCard::PresetCard (const juce::String& name,
     if (custom)
     {
         deleteButton.setButtonText ("x");
-        deleteButton.setColour (juce::TextButton::textColourOffId, ovt::textDim());
-        deleteButton.setColour (juce::TextButton::textColourOnId, ovt::text());
+        deleteButton.setColour (juce::TextButton::textColourOffId, ebs::textDim());
+        deleteButton.setColour (juce::TextButton::textColourOnId, ebs::text());
         deleteButton.setTooltip ("Delete this custom preset");
         deleteButton.onClick = [this] { if (deleteCb) deleteCb(); };
         addAndMakeVisible (deleteButton);
@@ -164,12 +164,12 @@ PresetGallery::PresetCard::PresetCard (const juce::String& name,
 
 void PresetGallery::PresetCard::paint (juce::Graphics& g)
 {
-    g.fillAll (ovt::bgPanel());
-    g.setColour (ovt::accent().withAlpha (0.35f));
+    g.fillAll (ebs::bgPanel());
+    g.setColour (ebs::accent().withAlpha (0.35f));
     g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 6.0f, 1.0f);
     if (isMouseOver (true))
     {
-        g.setColour (ovt::accent().withAlpha (0.5f));
+        g.setColour (ebs::accent().withAlpha (0.5f));
         g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 6.0f, 2.0f);
     }
 }
@@ -327,7 +327,7 @@ void PresetGallery::layoutContent()
 
 void PresetGallery::paint (juce::Graphics& g)
 {
-    g.fillAll (ovt::bgDark());
+    g.fillAll (ebs::bgDark());
 }
 
 void PresetGallery::resized()
