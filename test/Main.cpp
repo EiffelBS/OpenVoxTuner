@@ -33,6 +33,7 @@
 #include "dsp/UpwardCompressorTest.cpp"
 #include "ui/PitchCurveEditorTest.cpp"
 #include "ui/ScaleKeyboardComponentTest.cpp"
+#include "ui/LookAndFeelToggleTest.cpp"
 #include "ScaleSnapPipelineTest.cpp"
 
 int main (int argc, char* argv[])

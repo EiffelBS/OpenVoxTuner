@@ -92,6 +92,8 @@ namespace ui
         // Piano Roll mode toggle (second editing metaphor for the same curve).
         pianoRollButton.setColour (juce::TextButton::buttonColourId, ebs::accentSoft());
         pianoRollButton.setColour (juce::TextButton::textColourOffId, juce::Colours::white.withAlpha (0.92f));
+        // Active mode signal: solid green body + white label (drawButtonText
+        // paints white whenever the button is toggled).
         pianoRollButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff4caf50));
         pianoRollButton.setButtonText (ovt::tr (ovt::Keys::kButtonPianoRoll));
         pianoRollButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPianoRoll));
