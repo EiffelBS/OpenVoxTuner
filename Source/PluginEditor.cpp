@@ -606,6 +606,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     applyThemeToAllComponents();
 
+    // Theme broadcast plumbing: one ebs::setTheme() call now re-applies the
+    // shared L&F AND every per-instance colour through themeChanged().
+    ebs::subscribeTheme (this);
+
     // Restore language preference from plugin state
     auto* langParam = processorRef.getParameters().getParameter ("ui_language");
     if (langParam != nullptr)
@@ -1007,16 +1011,14 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 juce::PopupMenu themeMenu;
                 const bool isDark = ebs::isDark();
                 themeMenu.addItem (ovt::tr(ovt::Keys::kMenuDarkTheme), true, isDark, [this] {
-                    ebs::currentTheme() = ebs::Theme::Dark;
                     if (auto* p = processorRef.getParameters().getParameter ("ui_theme"))
                         p->setValueNotifyingHost (0.0f);
-                    applyThemeToAllComponents();
+                    ebs::setTheme (ebs::Theme::Dark);   // broadcast re-applies everything
     });
                 themeMenu.addItem (ovt::tr(ovt::Keys::kMenuLightTheme), true, !isDark, [this] {
-                    ebs::currentTheme() = ebs::Theme::Light;
                     if (auto* p = processorRef.getParameters().getParameter ("ui_theme"))
                         p->setValueNotifyingHost (1.0f);
-                    applyThemeToAllComponents();
+                    ebs::setTheme (ebs::Theme::Light);
     });
                 interfaceMenu.addSubMenu (ovt::tr(ovt::Keys::kMenuTheme), themeMenu);
             }
@@ -1507,12 +1509,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Same visual style as the other dropdowns (Scale, Key, etc.).
     voiceTypeBox.addItemList ({ "Universal", "Bass", "Baritone", "Tenor", "Alto", "Soprano" }, 1);
     voiceTypeBox.setSelectedItemIndex (0, juce::dontSendNotification);
-    voiceTypeBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
-    voiceTypeBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
-    voiceTypeBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
-    voiceTypeBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
-    voiceTypeBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
-    voiceTypeBox.setColour (juce::PopupMenu::textColourId, juce::Colour (0xffcccccc));
+    voiceTypeBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgDark());
+    voiceTypeBox.setColour (juce::ComboBox::textColourId, ebs::text());
+    voiceTypeBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
+    voiceTypeBox.setColour (juce::ComboBox::arrowColourId, ebs::accent());
+    voiceTypeBox.setColour (juce::PopupMenu::backgroundColourId, ebs::bgDark());
+    voiceTypeBox.setColour (juce::PopupMenu::textColourId, ebs::text());
     voiceTypeBox.setTooltip ("Constrain pitch detection to a vocal register. Universal (default) covers the full voice range. Select Bass / Baritone / Tenor / Alto / Soprano to reduce octave errors and CPU for that register.");
     voiceTypeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "voice_type", voiceTypeBox);
@@ -1520,7 +1522,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     voiceTypeLabel.setText (ovt::tr (ovt::Keys::kVoiceTypeLabel), juce::dontSendNotification);
     voiceTypeLabel.setJustificationType (juce::Justification::left);
-    voiceTypeLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
+    voiceTypeLabel.setColour (juce::Label::textColourId, ebs::textDim());
     voiceTypeLabel.setFont (ovt::fontLegendHint());
     voiceTypeLabel.setTooltip (ovt::tr (ovt::Keys::kTooltipVoiceType));
     addAndMakeVisible (voiceTypeLabel);
@@ -1538,12 +1540,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         ovt::tr (ovt::Keys::kFormantStrategyReactive),
         ovt::tr (ovt::Keys::kFormantStrategyPrecise) }, 1);
     formantStrategyBox.setSelectedItemIndex (4, juce::dontSendNotification);  // Precise is default
-    formantStrategyBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
-    formantStrategyBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
-    formantStrategyBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
-    formantStrategyBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
-    formantStrategyBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
-    formantStrategyBox.setColour (juce::PopupMenu::textColourId, juce::Colour (0xffcccccc));
+    formantStrategyBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgDark());
+    formantStrategyBox.setColour (juce::ComboBox::textColourId, ebs::text());
+    formantStrategyBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
+    formantStrategyBox.setColour (juce::ComboBox::arrowColourId, ebs::accent());
+    formantStrategyBox.setColour (juce::PopupMenu::backgroundColourId, ebs::bgDark());
+    formantStrategyBox.setColour (juce::PopupMenu::textColourId, ebs::text());
     formantStrategyBox.setTooltip (ovt::tr (ovt::Keys::kTooltipFormantStrategy));
     formantStrategyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "formant_strategy", formantStrategyBox);
@@ -1551,7 +1553,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     formantStrategyLabel.setText (ovt::tr (ovt::Keys::kLabelFormantStrategy), juce::dontSendNotification);
     formantStrategyLabel.setJustificationType (juce::Justification::left);
-    formantStrategyLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
+    formantStrategyLabel.setColour (juce::Label::textColourId, ebs::textDim());
     formantStrategyLabel.setFont (ovt::fontLegendHint());
     formantStrategyLabel.setTooltip (ovt::tr (ovt::Keys::kLabelFormantStrategy));
     addAndMakeVisible (formantStrategyLabel);
@@ -1563,8 +1565,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Helper for creating Drawables from full SVG XML (with viewBox).
     // Uses a placeholder color (#010101) that gets replaced by the desired state color.
-    auto createDrawableSVG = [](const juce::String& svgXml, juce::Colour strokeColor) -> std::unique_ptr<juce::Drawable> {
-        auto baseXml = juce::XmlDocument::parse(svgXml);
+    auto createDrawableSVG = [](const char* svgChars, juce::Colour strokeColor) -> std::unique_ptr<juce::Drawable> {
+        auto baseXml = juce::XmlDocument::parse(svgChars);
         if (baseXml == nullptr) return std::make_unique<juce::DrawablePath>();
         auto d = juce::Drawable::createFromSVG(*baseXml);
         if (d == nullptr) return std::make_unique<juce::DrawablePath>();
@@ -1573,21 +1575,28 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         return d;
     };
 
-    auto setupIconButton = [&](juce::DrawableButton& btn, const juce::String& svgXml, bool isToggle, const juce::String& tooltip) {
-        auto normal   = createDrawableSVG(svgXml, juce::Colours::grey);
-        auto over     = createDrawableSVG(svgXml, juce::Colours::lightgrey);
-        auto down     = createDrawableSVG(svgXml, juce::Colours::white);
+    // Theme-aware icon states: strokes track ebs::text() instead of the old
+    // fixed grey/lightgrey/white ramp so toolbar icons stay readable on
+    // Light backgrounds too. Registered skins are regenerated on every
+    // ebs::setTheme() through restyleIconButtons().
+    auto setupIconButton = [&] (juce::DrawableButton& btn, const char* svgChars,
+                                bool isToggle, const juce::String& tooltip)
+    {
+        auto normal   = createDrawableSVG(svgChars, ebs::text().withAlpha(0.75f));
+        auto over     = createDrawableSVG(svgChars, ebs::text());
+        auto down     = createDrawableSVG(svgChars, ebs::accent());
 
         if (isToggle) {
-            auto normalOn = createDrawableSVG(svgXml, ebs::accent());
-            auto overOn   = createDrawableSVG(svgXml, ebs::accent().brighter(0.2f));
-            auto downOn   = createDrawableSVG(svgXml, juce::Colours::white);
+            auto normalOn = createDrawableSVG(svgChars, ebs::accent());
+            auto overOn   = createDrawableSVG(svgChars, ebs::accent().brighter(0.2f));
+            auto downOn   = createDrawableSVG(svgChars, ebs::accent().darker(0.25f));
             btn.setImages(normal.get(), over.get(), down.get(), nullptr,
                           normalOn.get(), overOn.get(), downOn.get(), nullptr);
             btn.setClickingTogglesState(true);
         } else {
             btn.setImages(normal.get(), over.get(), down.get());
         }
+        iconSkins.push_back ({ &btn, svgChars });
 
         btn.setTooltip(tooltip);
         btn.setColour(juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
@@ -1649,10 +1658,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // accent-tinted background so it stands out from the neutral zoom/scroll/
     // snap buttons in this section.
 {
-    auto optsNormal = createDrawableSVG (svgHamburger, juce::Colours::white);
+    auto optsNormal = createDrawableSVG (svgHamburger, ebs::text());
     auto optsOver   = createDrawableSVG (svgHamburger, ebs::accent());
-    auto optsDown   = createDrawableSVG (svgHamburger, juce::Colours::white);
+    auto optsDown   = createDrawableSVG (svgHamburger, ebs::accent());;
     optionsButton.setImages (optsNormal.get(), optsOver.get(), optsDown.get());
+    iconSkins.push_back ({ &optionsButton, svgHamburger });
     optionsButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
     optionsButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
     optionsButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -1664,10 +1674,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Preset Gallery toolbar button: icon-only grid, opens the browsable gallery.
     {
-        auto galNormal = createDrawableSVG (svgPresetGrid, juce::Colours::white);
+        auto galNormal = createDrawableSVG (svgPresetGrid, ebs::text());
         auto galOver   = createDrawableSVG (svgPresetGrid, ebs::accent());
-        auto galDown   = createDrawableSVG (svgPresetGrid, juce::Colours::white);
+        auto galDown   = createDrawableSVG (svgPresetGrid, ebs::accent());;
         presetGalleryButton.setImages (galNormal.get(), galOver.get(), galDown.get());
+        iconSkins.push_back ({ &presetGalleryButton, svgPresetGrid });
         presetGalleryButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
         presetGalleryButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
         presetGalleryButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -1720,18 +1731,18 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Moved here from the embedded editor controls so it does not cover the ruler.
     measuresLabel.setText (ovt::tr(ovt::Keys::kLabelMeasures), juce::dontSendNotification);
     measuresLabel.setJustificationType (juce::Justification::left);
-    measuresLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcccccc));
+    measuresLabel.setColour (juce::Label::textColourId, ebs::textDim());
     measuresLabel.setFont (ovt::fontMeasuresLabel());
     addAndMakeVisible (measuresLabel);
 
     measuresComboBox.addItemList ({ "1", "2", "4", "8", "16", "32" }, 1);
     measuresComboBox.setSelectedItemIndex (2, juce::dontSendNotification); // default "4"
-    measuresComboBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
-    measuresComboBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffcccccc));
-    measuresComboBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
-    measuresComboBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
-    measuresComboBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
-    measuresComboBox.setColour (juce::PopupMenu::textColourId, juce::Colour (0xffcccccc));
+    measuresComboBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgDark());
+    measuresComboBox.setColour (juce::ComboBox::textColourId, ebs::text());
+    measuresComboBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
+    measuresComboBox.setColour (juce::ComboBox::arrowColourId, ebs::accent());
+    measuresComboBox.setColour (juce::PopupMenu::backgroundColourId, ebs::bgDark());
+    measuresComboBox.setColour (juce::PopupMenu::textColourId, ebs::text());
     measuresComboBox.onChange = [this] {
         if (curveEditor != nullptr)
             curveEditor->setMeasuresVisible (measuresComboBox.getText().getIntValue());
@@ -1745,10 +1756,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z do the same (see keyPressed()).
     // They sit in the header between button B and the Options gear.
     {
-        auto undoNorm = createDrawableSVG (svgUndo, juce::Colours::white);
+        auto undoNorm = createDrawableSVG (svgUndo, ebs::text().withAlpha (0.75f));
         auto undoOver = createDrawableSVG (svgUndo, ebs::accent());
-        auto undoDown = createDrawableSVG (svgUndo, juce::Colours::white);
+        auto undoDown = createDrawableSVG (svgUndo, ebs::accent());;
         undoButton.setImages (undoNorm.get(), undoOver.get(), undoDown.get());
+        iconSkins.push_back ({ &undoButton, svgUndo });
         undoButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
         undoButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         undoButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -1757,10 +1769,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         undoButton.onClick = [this] { performGlobalUndo(); };
         addAndMakeVisible (undoButton);
 
-        auto redoNorm = createDrawableSVG (svgRedo, juce::Colours::white);
+        auto redoNorm = createDrawableSVG (svgRedo, ebs::text().withAlpha (0.75f));
         auto redoOver = createDrawableSVG (svgRedo, ebs::accent());
-        auto redoDown = createDrawableSVG (svgRedo, juce::Colours::white);
+        auto redoDown = createDrawableSVG (svgRedo, ebs::accent());;
         redoButton.setImages (redoNorm.get(), redoOver.get(), redoDown.get());
+        iconSkins.push_back ({ &redoButton, svgRedo });
         redoButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
         redoButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         redoButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -1775,10 +1788,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // standard plugin-preset bar. Applies the full parameter state (no
     // curve) via the processor's global-undo-aware apply.
     {
-        auto prevNorm = createDrawableSVG (svgPresetPrev, juce::Colours::white);
+        auto prevNorm = createDrawableSVG (svgPresetPrev, ebs::text().withAlpha (0.75f));
         auto prevOver = createDrawableSVG (svgPresetPrev, ebs::accent());
-        auto prevDown = createDrawableSVG (svgPresetPrev, juce::Colours::white);
+        auto prevDown = createDrawableSVG (svgPresetPrev, ebs::accent());;
         presetPrevButton.setImages (prevNorm.get(), prevOver.get(), prevDown.get());
+        iconSkins.push_back ({ &presetPrevButton, svgPresetPrev });
         presetPrevButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
         presetPrevButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         presetPrevButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -1793,10 +1807,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         };
         addAndMakeVisible (presetPrevButton);
 
-        auto nextNorm = createDrawableSVG (svgPresetNext, juce::Colours::white);
+        auto nextNorm = createDrawableSVG (svgPresetNext, ebs::text().withAlpha (0.75f));
         auto nextOver = createDrawableSVG (svgPresetNext, ebs::accent());
-        auto nextDown = createDrawableSVG (svgPresetNext, juce::Colours::white);
+        auto nextDown = createDrawableSVG (svgPresetNext, ebs::accent());;
         presetNextButton.setImages (nextNorm.get(), nextOver.get(), nextDown.get());
+        iconSkins.push_back ({ &presetNextButton, svgPresetNext });
         presetNextButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
         presetNextButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         presetNextButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -1811,10 +1826,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         };
         addAndMakeVisible (presetNextButton);
 
-        auto saveNorm = createDrawableSVG (svgPresetSave, juce::Colours::white);
+        auto saveNorm = createDrawableSVG (svgPresetSave, ebs::text().withAlpha (0.75f));
         auto saveOver = createDrawableSVG (svgPresetSave, ebs::accent());
-        auto saveDown = createDrawableSVG (svgPresetSave, juce::Colours::white);
+        auto saveDown = createDrawableSVG (svgPresetSave, ebs::accent());;
         presetSaveButton.setImages (saveNorm.get(), saveOver.get(), saveDown.get());
+        iconSkins.push_back ({ &presetSaveButton, svgPresetSave });
         presetSaveButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
         presetSaveButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         presetSaveButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -1823,11 +1839,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         presetSaveButton.onClick = [this] { promptSavePluginPreset(); };
         addAndMakeVisible (presetSaveButton);
 
-        presetComboBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a36));
-        presetComboBox.setColour (juce::ComboBox::textColourId, juce::Colours::white);
-        presetComboBox.setColour (juce::ComboBox::outlineColourId, juce::Colour (0x441A9AF0));
-        presetComboBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff1A9AF0));
-        presetComboBox.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff191b1e));
+        presetComboBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgDark());
+        presetComboBox.setColour (juce::ComboBox::textColourId, ebs::text());
+        presetComboBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
+        presetComboBox.setColour (juce::ComboBox::arrowColourId, ebs::accent());
+        presetComboBox.setColour (juce::PopupMenu::backgroundColourId, ebs::bgDark());
         presetComboBox.setColour (juce::PopupMenu::textColourId, juce::Colours::white);
         presetComboBox.onChange = [this] {
             const int idx = presetComboBox.getSelectedItemIndex();
@@ -1843,9 +1859,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // (rewind) button. The toggle shows the Play glyph when stopped and the Stop
     // glyph when playing (see syncTransportButtons).
     {
-        auto playNorm = createDrawableSVG (svgPlay,  juce::Colours::grey);
-        auto playOver = createDrawableSVG (svgPlay,  juce::Colours::lightgrey);
-        auto playDown = createDrawableSVG (svgPlay,  juce::Colours::white);
+        auto playNorm = createDrawableSVG (svgPlay, ebs::text().withAlpha (0.75f));
+        auto playOver = createDrawableSVG (svgPlay, ebs::text());
+        auto playDown = createDrawableSVG (svgPlay, ebs::accent());
         auto stopNorm = createDrawableSVG (svgStop,  ebs::accent());
         auto stopOver = createDrawableSVG (svgStop,  ebs::accent().brighter (0.2f));
         auto stopDown = createDrawableSVG (svgStop,  juce::Colours::white);
@@ -1853,6 +1869,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         // (we drive the displayed state from the processor in syncTransportButtons).
         playButton.setImages (playNorm.get(), playOver.get(), playDown.get(), nullptr,
                               stopNorm.get(), stopOver.get(), stopDown.get(), nullptr);
+        iconSkins.push_back ({ &playButton, svgPlay, svgStop });
         playButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
         playButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
         playButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -2442,6 +2459,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
 OpenVoxTunerAudioProcessorEditor::~OpenVoxTunerAudioProcessorEditor()
 {
+    // Theme broadcast teardown must precede member destruction.
+    ebs::unsubscribeTheme (this);
+
     if (updateCheckState != nullptr)
         updateCheckState->cancelled.store (true);
 
@@ -5528,6 +5548,48 @@ void OpenVoxTunerAudioProcessorEditor::syncTransportButtons()
                                    : ovt::tr (ovt::Keys::kTooltipPlay));
 }
 
+// File-scope twin of the constructor's inline SVG factory; used when a
+// theme switch regenerates icon drawables outside the constructor scope.
+static std::unique_ptr<juce::Drawable> makeStateDrawable (const char* svgChars, juce::Colour strokeColor)
+{
+    auto baseXml = juce::XmlDocument::parse (svgChars);
+    if (baseXml == nullptr) return std::make_unique<juce::DrawablePath>();
+    auto d = juce::Drawable::createFromSVG (*baseXml);
+    if (d == nullptr) return std::make_unique<juce::DrawablePath>();
+    d->replaceColour (juce::Colour (0xff010101), strokeColor);
+    return d;
+}
+
+void OpenVoxTunerAudioProcessorEditor::themeChanged()
+{
+    applyThemeToAllComponents();
+}
+
+void OpenVoxTunerAudioProcessorEditor::restyleIconButtons()
+{
+    for (auto& skin : iconSkins)
+    {
+        auto* b = skin.button;
+        auto normal = makeStateDrawable (skin.svgNormal, ebs::text().withAlpha (0.75f));
+        auto over   = makeStateDrawable (skin.svgNormal, ebs::text());
+        auto down   = makeStateDrawable (skin.svgNormal, ebs::accent());
+        if (skin.svgOn != nullptr)
+        {
+            // Transport-style pair: "normal" states show the first glyph,
+            // the On images swap to the alternate glyph in accent tones.
+            auto normalOn = makeStateDrawable (skin.svgOn, ebs::accent());
+            auto overOn   = makeStateDrawable (skin.svgOn, ebs::accent().brighter (0.2f));
+            auto downOn   = makeStateDrawable (skin.svgOn, ebs::accent().darker (0.25f));
+            b->setImages (normal.get(), over.get(), down.get(), nullptr,
+                          normalOn.get(), overOn.get(), downOn.get(), nullptr);
+        }
+        else
+        {
+            b->setImages (normal.get(), over.get(), down.get());
+        }
+    }
+}
+
 void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
 {
     // Refresh LookAndFeel colours
@@ -5574,6 +5636,9 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (companionGroupLabel);
     applyLabelColours (latencyModeLabel);
     applyLabelColours (harmonyTypeLabel);
+    applyLabelColours (voiceTypeLabel);
+    applyLabelColours (formantStrategyLabel);
+    applyLabelColours (measuresLabel);
 
     // Re-apply colours to ALL combo boxes
     auto applyComboColours = [] (juce::ComboBox& c) {
@@ -5595,6 +5660,15 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyComboColours (harmonyTypeBox);
     applyComboColours (shiftedVoicesBox);
     applyComboColours (harmonyToneBox);
+    // Light-theme completion (2026-08): previously styled once with dark literals at creation.
+    applyComboColours (voiceTypeBox);
+    applyComboColours (formantStrategyBox);
+    applyComboColours (measuresComboBox);
+    applyComboColours (presetComboBox);
+
+    // Toolbar icon glyphs are baked SVG strokes; regenerate them under the
+    // active palette (they used fixed grey/lightgrey/white ramps).
+    restyleIconButtons();
 
     // Re-apply colours to toggle buttons
     auto applyToggleColours = [] (juce::ToggleButton& b) {

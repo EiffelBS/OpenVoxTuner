@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <functional>
+#include <vector>
 #include "PluginProcessor.h"
 #include "ui/PitchVisualizer.h"
 #include "ui/PitchCurveEditor.h"
@@ -46,8 +47,14 @@ struct OvtLookAndFeel final : ebs::LookAndFeel
         {
             case tabActiveFillColourId:   return ebs::accent();               // legacy solid-accent pill
             case tabActiveTextColourId:   return juce::Colours::white;
-            case checkboxFillColourId:    return juce::Colour (0xff191b1e);
-            case checkboxOutlineColourId: return juce::Colour (0xff555555);
+            case checkboxFillColourId:
+                // Legacy dark wells on Dark; light-friendly wells on Light
+                // (accent tick stays library-driven in both).
+                return ebs::isDark() ? juce::Colour (0xff191b1e)
+                                     : juce::Colour (0xffffffff);
+            case checkboxOutlineColourId:
+                return ebs::isDark() ? juce::Colour (0xff555555)
+                                     : juce::Colour (0xffb4b8c0);
             default:                      return {};
         }
     }
@@ -73,7 +80,8 @@ class OpenVoxTunerAudioProcessorEditor : public juce::AudioProcessorEditor,
                                          public juce::Slider::Listener,
                                          public juce::Button::Listener,
                                          public juce::ComboBox::Listener,
-                                         public juce::Timer
+                                         public juce::Timer,
+                                         private ebs::ThemeSubscriber
 {
 public:
     explicit OpenVoxTunerAudioProcessorEditor (OpenVoxTunerAudioProcessor&);
@@ -127,6 +135,15 @@ private:
     // LookAndFeel is deleted while components still hold a pointer/weak-ref
     // to it -> assertion / crash with
     // "refCount.value = 2" reported by Copilot.
+    /** Theme broadcast (v0.4): the editor subscribes to ebs::setTheme() and
+        re-applies every per-instance colour here, including regenerating the
+        toolbar icon drawables whose stroke tints are baked at creation. */
+    void themeChanged() override;
+
+    struct IconSkin { juce::DrawableButton* button; const char* svgNormal; const char* svgOn = nullptr; };
+    void restyleIconButtons();
+    std::vector<IconSkin> iconSkins;
+
     OvtLookAndFeel customLookAndFeel;
 
     // === GUI Components ===

@@ -92,20 +92,49 @@ namespace ui
         startTimerHz (30);
     }
 
-    PitchVisualizer::~PitchVisualizer() { stopTimer(); }
+    PitchVisualizer::~PitchVisualizer()
+    {
+        // Theme broadcast teardown must precede member destruction.
+        ebs::unsubscribeTheme (this);
+        stopTimer();
+    }
 
     void PitchVisualizer::setupIconBtn (juce::DrawableButton& btn, const char* svgXml,
                                          const juce::String& tooltip, bool /*isToggle*/)
     {
-        auto normal = createDrawableFromSVG (svgXml, juce::Colour (0xffcccccc));
-        auto over   = createDrawableFromSVG (svgXml, juce::Colours::white);
-        auto down   = createDrawableFromSVG (svgXml, juce::Colour (0xff1A9AF0));
+        // Strokes follow the active palette instead of fixed grey/white so
+        // the toolbar stays readable on Light backgrounds too.
+        auto normal = createDrawableFromSVG (svgXml, ebs::text().withAlpha (0.75f));
+        auto over   = createDrawableFromSVG (svgXml, ebs::text());
+        auto down   = createDrawableFromSVG (svgXml, ebs::accent());
         btn.setImages (normal.get(), over.get(), down.get());
         btn.setTooltip (tooltip);
         btn.setColour (juce::DrawableButton::backgroundColourId,     juce::Colour (0x331A9AF0));
         btn.setColour (juce::DrawableButton::backgroundOnColourId,   juce::Colour (0x661A9AF0));
         btn.setColour (juce::DrawableButton::textColourId,           juce::Colours::white);
         addAndMakeVisible (btn);
+        ebs::subscribeTheme (this);   // idempotent; one subscription suffices
+    }
+
+    void PitchVisualizer::themeChanged() { restyleToolbarIcons(); }
+
+    void PitchVisualizer::restyleToolbarIcons()
+    {
+        const std::pair<juce::DrawableButton*, const char*> skins[] =
+        {
+            { &zoomInButton,     svgZoomIn },
+            { &zoomOutButton,    svgZoomOut },
+            { &scrollUpButton,   svgScrollUp },
+            { &scrollDownButton, svgScrollDown },
+            { &resetViewButton,  svgReset }
+        };
+        for (auto& s : skins)
+        {
+            auto normal = createDrawableFromSVG (s.second, ebs::text().withAlpha (0.75f));
+            auto over   = createDrawableFromSVG (s.second, ebs::text());
+            auto down   = createDrawableFromSVG (s.second, ebs::accent());
+            s.first->setImages (normal.get(), over.get(), down.get());
+        }
     }
 
     void PitchVisualizer::pushInputPitch (float hz)

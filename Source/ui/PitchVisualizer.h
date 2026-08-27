@@ -7,6 +7,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <eiffelbs/eiffelbs.h>
 #include "../dsp/NoteUtils.h"
 #include "PianoKeyboard.h"
 
@@ -21,7 +22,8 @@ namespace ui
      *   - horizontal lines for the notes of the selected scale
      */
     class PitchVisualizer : public juce::Component,
-                            public juce::Timer
+                            public juce::Timer,
+                            private ebs::ThemeSubscriber
     {
     public:
         PitchVisualizer();
@@ -30,6 +32,14 @@ namespace ui
         void paint (juce::Graphics&) override;
         void resized() override;
         void timerCallback() override;
+
+    private:
+        /** ebs::setTheme() broadcast: re-bake toolbar icon strokes under the
+            active palette (they are SVG drawables with fixed stroke colours). */
+        void themeChanged() override;
+        void restyleToolbarIcons();
+
+    public:
         void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
         /// Trackpad pinch-to-zoom (macOS delivers a pinch as mouseMagnify;
         /// the Ctrl/Cmd + wheel equivalent is handled in mouseWheelMove).
