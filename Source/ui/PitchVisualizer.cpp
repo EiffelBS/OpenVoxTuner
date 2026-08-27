@@ -102,10 +102,11 @@ namespace ui
     void PitchVisualizer::setupIconBtn (juce::DrawableButton& btn, const char* svgXml,
                                          const juce::String& tooltip, bool /*isToggle*/)
     {
-        // Strokes stay bright-fixed: this toolbar floats over the
-        // theme-invariant vizBg canvas.
-        auto normal = createDrawableFromSVG (svgXml, juce::Colours::white.withAlpha (0.75f));
-        auto over   = createDrawableFromSVG (svgXml, juce::Colours::white);
+        // Strokes follow the active palette: unlike the inner plot, this
+        // toolbar's backdrop is themed, so fixed-bright glyphs vanish on
+        // the Light background.
+        auto normal = createDrawableFromSVG (svgXml, ebs::text().withAlpha (0.75f));
+        auto over   = createDrawableFromSVG (svgXml, ebs::text());
         auto down   = createDrawableFromSVG (svgXml, ebs::accent());
         btn.setImages (normal.get(), over.get(), down.get());
         btn.setTooltip (tooltip);
@@ -130,8 +131,8 @@ namespace ui
         };
         for (auto& s : skins)
         {
-            auto normal = createDrawableFromSVG (s.second, juce::Colours::white.withAlpha (0.75f));
-            auto over   = createDrawableFromSVG (s.second, juce::Colours::white);
+            auto normal = createDrawableFromSVG (s.second, ebs::text().withAlpha (0.75f));
+            auto over   = createDrawableFromSVG (s.second, ebs::text());
             auto down   = createDrawableFromSVG (s.second, ebs::accent());
             s.first->setImages (normal.get(), over.get(), down.get());
         }

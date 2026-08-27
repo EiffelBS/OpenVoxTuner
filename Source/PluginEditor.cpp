@@ -1865,16 +1865,20 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         auto playNorm = createDrawableSVG (svgPlay, ebs::text().withAlpha (0.75f));
         auto playOver = createDrawableSVG (svgPlay, ebs::text());
         auto playDown = createDrawableSVG (svgPlay, ebs::accent());
-        auto stopNorm = createDrawableSVG (svgStop,  ebs::accent());
-        auto stopOver = createDrawableSVG (svgStop,  ebs::accent().brighter (0.2f));
-        auto stopDown = createDrawableSVG (svgStop,  juce::Colours::white);
+        // Active state: solid accent pill -> the stop square must be
+        // bright white to read against it (both themes).
+        auto stopNorm = createDrawableSVG (svgStop,  juce::Colours::white);
+        auto stopOver = createDrawableSVG (svgStop,  juce::Colours::white);
+        auto stopDown = createDrawableSVG (svgStop,  juce::Colours::white.withAlpha (0.85f));
         // Normal images = Play, "on" images = Stop. Clicking does NOT auto-toggle
         // (we drive the displayed state from the processor in syncTransportButtons).
         playButton.setImages (playNorm.get(), playOver.get(), playDown.get(), nullptr,
                               stopNorm.get(), stopOver.get(), stopDown.get(), nullptr);
-        iconSkins.push_back ({ &playButton, svgPlay, svgStop });
+        iconSkins.push_back ({ &playButton, svgPlay, svgStop, true });
+        // Active (playing): unmistakable solid accent pill with a bright
+        // white stop square - blue-on-blue-tint was invisible.
         playButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        playButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
+        playButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent());
         playButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
         playButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
         playButton.onClick = [this] {
@@ -5559,11 +5563,14 @@ void OpenVoxTunerAudioProcessorEditor::restyleIconButtons()
         auto down   = makeStateDrawable (skin.svgNormal, ebs::accent());
         if (skin.svgOn != nullptr)
         {
-            // Transport-style pair: "normal" states show the first glyph,
-            // the On images swap to the alternate glyph in accent tones.
-            auto normalOn = makeStateDrawable (skin.svgOn, ebs::accent());
-            auto overOn   = makeStateDrawable (skin.svgOn, ebs::accent().brighter (0.2f));
-            auto downOn   = makeStateDrawable (skin.svgOn, ebs::accent().darker (0.25f));
+            // Transport-style pair: "normal" states show the first glyph;
+            // the On images draw bright white over the SOLID accent pill
+            // (see backgroundOnColourId below) so active playback is
+            // unmistakable under both themes.
+            auto normalOn = makeStateDrawable (skin.svgOn, juce::Colours::white);
+            auto overOn   = makeStateDrawable (skin.svgOn, juce::Colours::white);
+            auto downOn   = makeStateDrawable (skin.svgOn, juce::Colours::white.withAlpha (0.85f));
+            b->setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent());
             b->setImages (normal.get(), over.get(), down.get(), nullptr,
                           normalOn.get(), overOn.get(), downOn.get(), nullptr);
         }
