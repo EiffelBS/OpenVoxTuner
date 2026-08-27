@@ -176,8 +176,6 @@ namespace ovt
         static const char* kLabelTone           = "label.tone";
         static const char* kLabelModernBtn      = "label.modern_btn";
         static const char* kLabelTransparentBtn = "label.transparent_btn";
-        static const char* kLabelBypassBtn      = "label.bypass_btn";
-        static const char* kLabelMidiOutBtn     = "label.midi_out_btn";
         static const char* kLabelMidiTargetBtn  = "label.midi_target_btn";
         static const char* kLabelMidiFollowBadge = "label.midi_follow_badge";
         static const char* kLabelDebug          = "label.debug";
@@ -260,7 +258,6 @@ namespace ovt
         static const char* kTooltipStepMode    = "tooltip.step_mode";
         static const char* kTooltipClearAll    = "tooltip.clear_all";
         static const char* kTooltipPresets     = "tooltip.presets";
-        static const char* kTooltipBypass      = "tooltip.bypass";
         static const char* kTooltipMidiOut     = "tooltip.midi_out";
         static const char* kTooltipCorrection  = "tooltip.correction";
         static const char* kTooltipHarmonyEn   = "tooltip.harmony_enable";
@@ -290,7 +287,7 @@ namespace ovt
         static const char* kTooltipMorphDrag         = "tooltip.morph_drag";
         static const char* kTooltipMorphLabel        = "tooltip.morph_label";
         static const char* kTooltipResetTransportDetail = "tooltip.reset_transport_detail";
-        static const char* kTooltipBypassIcon        = "tooltip.bypass_icon";
+        static const char* kTooltipBypassIcon   = "tooltip.bypass_icon";
         static const char* kTooltipMidiOutIcon    = "tooltip.midi_out_icon";
         static const char* kTooltipMidiTarget    = "tooltip.midi_target";
         static const char* kTooltipMidiTargetIcon = "tooltip.midi_target_icon";
@@ -538,8 +535,6 @@ namespace ovt
             { kLabelTone,           "Tone" },
             { kLabelModernBtn,      "Modern" },
             { kLabelTransparentBtn, "Transparent" },
-            { kLabelBypassBtn,      "ByPass" },
-            { kLabelMidiOutBtn,     "MIDI OUT" },
             { kLabelMidiTargetBtn,  "MIDI TGT" },
             { kLabelMidiFollowBadge, "FOLLOWS MIDI IN" },
             { kLabelDebug,          "Debug" },
@@ -609,7 +604,6 @@ namespace ovt
             { kTooltipStepMode,       "Staircase interpolation between notes" },
             { kTooltipClearAll,       "Clear all curve points" },
             { kTooltipPresets,        "Manage curve presets" },
-            { kTooltipBypass,         "Bypass audio processing." },
             { kTooltipMidiOut,        "Enable MIDI Out" },
             { kTooltipCorrection,     "Modern = aggressive correction. Transparent = gentler, preserves transitions." },
             { kTooltipHarmonyEn,      "Enable/disable harmony generation." },
@@ -865,8 +859,6 @@ namespace ovt
             { kLabelTone,           "Timbre" },
             { kLabelModernBtn,      "Moderne" },
             { kLabelTransparentBtn, "Transparent" },
-            { kLabelBypassBtn,      "Bypass" },
-            { kLabelMidiOutBtn,     "MIDI OUT" },
             { kLabelMidiTargetBtn,  "CIB. MIDI" },
             { kLabelMidiFollowBadge, "SUIT ENTREE MIDI" },
             { kLabelDebug,          "Debug" },
@@ -936,7 +928,6 @@ namespace ovt
             { kTooltipStepMode,       "Interpolation en escalier entre les notes" },
             { kTooltipClearAll,       "Effacer tous les points de courbe" },
             { kTooltipPresets,        "Gerer les presets de courbe" },
-            { kTooltipBypass,         "Bypass du traitement audio." },
             { kTooltipMidiOut,        "Activer la sortie MIDI" },
             { kTooltipCorrection,     "Moderne = correction agressive. Transparent = plus doux, preserve les transitions." },
             { kTooltipHarmonyEn,      "Activer/desactiver la generation d'harmonie." },
@@ -1192,8 +1183,6 @@ namespace ovt
             { kLabelTone,           "Klangfarbe" },
             { kLabelModernBtn,      "Modern" },
             { kLabelTransparentBtn, "Transparent" },
-            { kLabelBypassBtn,      "Bypass" },
-            { kLabelMidiOutBtn,     "MIDI OUT" },
             { kLabelMidiTargetBtn,  "MIDI ZIEL" },
             { kLabelMidiFollowBadge, "FOLGT MIDI-EINGANG" },
             { kLabelDebug,          "Debug" },
@@ -1263,7 +1252,6 @@ namespace ovt
             { kTooltipStepMode,       "Treppen-Interpolation" },
             { kTooltipClearAll,       "Alle Kurvenpunkte loeschen" },
             { kTooltipPresets,        "Kurven-Presets verwalten" },
-            { kTooltipBypass,         "Audioverarbeitung umgehen." },
             { kTooltipMidiOut,        "MIDI-Ausgabe aktivieren" },
             { kTooltipMidiTarget,    "MIDI-Ziel aktivieren (Follow): Eine gehaltene MIDI-Note steuert das Korrekturziel (die Stimme wird zum Ton gezielt)." },
             { kTooltipMidiTargetIcon, "MIDI-Ziel aktivieren (Follow)" },
@@ -1519,8 +1507,6 @@ namespace ovt
             { kLabelTone,           "Tono" },
             { kLabelModernBtn,      "Moderno" },
             { kLabelTransparentBtn, "Transparente" },
-            { kLabelBypassBtn,      "Bypass" },
-            { kLabelMidiOutBtn,     "MIDI OUT" },
             { kLabelMidiTargetBtn,  "OBJ. MIDI" },
             { kLabelMidiFollowBadge, "SIGUE ENTRADA MIDI" },
             { kLabelDebug,          "Debug" },
@@ -1590,7 +1576,6 @@ namespace ovt
             { kTooltipStepMode,       "Interpolacion escalonada" },
             { kTooltipClearAll,       "Borrar todos los puntos" },
             { kTooltipPresets,        "Gestionar presets" },
-            { kTooltipBypass,         "Omitir procesamiento de audio." },
             { kTooltipMidiOut,        "Activar salida MIDI" },
             { kTooltipMidiTarget,    "Activar objetivo MIDI (seguimiento): una nota MIDI mantenida conduce el objetivo de correccion (la voz se ajusta a la nota)." },
             { kTooltipMidiTargetIcon, "Activar objetivo MIDI (seguimiento)" },
@@ -1846,8 +1831,6 @@ namespace ovt
             { kLabelTone,           "音色" },
             { kLabelModernBtn,      "モダン" },
             { kLabelTransparentBtn, "トランスペアレント" },
-            { kLabelBypassBtn,      "バイパス" },
-            { kLabelMidiOutBtn,     "MIDI OUT" },
             { kLabelMidiTargetBtn,  "MIDIターゲット" },
             { kLabelDebug,          "デバッグ" },
             { kLabelAutoScroll,     "自動スクロール" },
@@ -1916,7 +1899,6 @@ namespace ovt
             { kTooltipStepMode,       "ステップモード" },
             { kTooltipClearAll,       "すべてクリア" },
             { kTooltipPresets,        "プリセット管理" },
-            { kTooltipBypass,         "オーディオ処理をバイパス。" },
             { kTooltipMidiOut,        "MIDI出力を有効にする" },
             { kTooltipMidiTarget,    "MIDIターゲットを有効にする（フォロー）: ホールドされたMIDIノートが補正ターゲットを駆動します（声がノートにチューニングされます）。" },
             { kTooltipMidiTargetIcon, "MIDIターゲットを有効にする（フォロー）" },
@@ -2172,8 +2154,6 @@ namespace ovt
             { kLabelTone,           "音色" },
             { kLabelModernBtn,      "现代" },
             { kLabelTransparentBtn, "透明" },
-            { kLabelBypassBtn,      "旁路" },
-            { kLabelMidiOutBtn,     "MIDI 输出" },
             { kLabelMidiTargetBtn,  "MIDI 目标" },
             { kLabelDebug,          "调试" },
             { kLabelAutoScroll,     "自动滚动" },
@@ -2242,7 +2222,6 @@ namespace ovt
             { kTooltipStepMode,       "音符之间的阶梯插值" },
             { kTooltipClearAll,       "清除所有曲线点" },
             { kTooltipPresets,        "管理曲线预设" },
-            { kTooltipBypass,         "旁路音频处理。" },
             { kTooltipMidiOut,        "启用 MIDI 输出" },
             { kTooltipMidiTarget,    "启用 MIDI 目标（跟随）：一个被按下的 MIDI 音符将驱动校正目标（声音调到该音符）。" },
             { kTooltipMidiTargetIcon, "启用 MIDI 目标（跟随）" },

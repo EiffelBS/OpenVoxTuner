@@ -1903,17 +1903,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     setupIconButton (menuButton, svgGear, false, "OpenVoxTuner options");
 
     // Toggle buttons with text (attached to parameters)
-    bypassToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelBypassBtn));
-    bypassToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
-    bypassToggleButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
-    bypassToggleButton.setTooltip (ovt::tr(ovt::Keys::kTooltipBypass));
-    addAndMakeVisible (bypassToggleButton);
+    // Bypass lives only in the Advanced menu now (direct parameter write);
+    // the old textual mirror button and its ghost attachment were removed.
 
-    midiToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelMidiOutBtn));
-    midiToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
-    midiToggleButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
-    midiToggleButton.setTooltip (ovt::tr(ovt::Keys::kTooltipMidiOutIcon));
-    addAndMakeVisible (midiToggleButton);
 
     // Hide legacy icon buttons from top bar (kept for backward compatibility)
     bypassButton.setVisible (false);
@@ -2204,9 +2196,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     amountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "amount", amountSlider);
     formantAttachment= std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "formant", formantSlider);
     formantEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "formant_enable", formantEnableButton);
-    // Attach the textual toggle buttons to parameters
-    bypassToggleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "bypass", bypassToggleButton);
-    midiToggleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "midi_out_enable", midiToggleButton);
     // also keep legacy names for backward compatibility
     bypassAttachment = nullptr;
     midiOutAttachment = nullptr;
@@ -2771,8 +2760,6 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     latencyModeBox.setBounds (0, 0, 0, 0);
     detectorLabel.setBounds (0, 0, 0, 0);
     detectorBox.setBounds (0, 0, 0, 0);
-    midiToggleButton.setBounds (0, 0, 0, 0);
-    bypassToggleButton.setBounds (0, 0, 0, 0);
     bypassButton.setBounds (0, 0, 0, 0);
     midiOutButton.setBounds (0, 0, 0, 0);
     updateButton.setBounds (0, 0, 0, 0);
@@ -3500,9 +3487,6 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     shiftedVoicesBox.setEnabled (isHarmonyEnabled && useVoice);
     harmonyToneBox.setEnabled (isHarmonyEnabled && !useVoice);
     harmonyToneColorSlider.setEnabled (isHarmonyEnabled && !useVoice);
-
-    // Show bypass only in standalone wrapper (DAW has host bypass)
-    bypassToggleButton.setVisible (processorRef.isStandaloneWrapper());
 
     // Show only the relevant selector to keep the UI compact and readable
     shiftedVoicesBox.setVisible (isHarmonyEnabled && useVoice);
@@ -4279,8 +4263,6 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     // Toggles + combo boxes: commit on change using the last pre-change
     // snapshot (the live baseline captured by the timer).
     formantEnableButton.addListener (this);
-    bypassToggleButton.addListener (this);
-    midiToggleButton.addListener (this);
     reverbEnableButton.addListener (this);
     noiseGateEnableButton.addListener (this);
     // 2026-07-24 (Deprecation): Attack-Aware button listener disabled.
@@ -4460,8 +4442,6 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     harmonyGainMatchButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyGainMatch));
     formantEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelFormantBtn));
     reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
-    bypassToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelBypassBtn));
-    midiToggleButton.setButtonText (ovt::tr(ovt::Keys::kLabelMidiOutBtn));
     correctionModeButton.setButtonText (correctionModeButton.getToggleState() ? ovt::tr(ovt::Keys::kLabelTransparentBtn) : ovt::tr(ovt::Keys::kLabelModernBtn));
     harmonyToneColorLabel.setText (ovt::tr(ovt::Keys::kLabelTone), juce::dontSendNotification);
     noiseGateEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelNoiseGate));
@@ -4479,8 +4459,6 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     menuButton.setTooltip (ovt::tr(ovt::Keys::kTooltipMenuOptions));
     bypassButton.setTooltip (ovt::tr (ovt::Keys::kTooltipBypassIcon));
     midiOutButton.setTooltip (ovt::tr(ovt::Keys::kTooltipMidiOutIcon));
-    bypassToggleButton.setTooltip (ovt::tr (ovt::Keys::kTooltipBypass));
-    midiToggleButton.setTooltip (ovt::tr (ovt::Keys::kTooltipMidiOutIcon));
     correctionModeButton.setTooltip (ovt::tr (ovt::Keys::kTooltipCorrection));
     harmonyEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyEn));
     reverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn));
@@ -5689,8 +5667,6 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     advancedButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel().darker (0.5f));
     advancedButton.setColour (juce::TextButton::buttonOnColourId, ebs::bgPanel().darker (0.5f));
     advancedButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
-    bypassToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
-    midiToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
     correctionModeButton.setColour (juce::TextButton::buttonColourId,  ebs::bgPanel());
     correctionModeButton.setColour (juce::TextButton::textColourOffId, ebs::text());
     applyToggleColours (attackAwareButton);
