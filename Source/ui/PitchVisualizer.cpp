@@ -109,8 +109,8 @@ namespace ui
         auto down   = createDrawableFromSVG (svgXml, ebs::accent());
         btn.setImages (normal.get(), over.get(), down.get());
         btn.setTooltip (tooltip);
-        btn.setColour (juce::DrawableButton::backgroundColourId,     juce::Colour (0x331A9AF0));
-        btn.setColour (juce::DrawableButton::backgroundOnColourId,   juce::Colour (0x661A9AF0));
+        btn.setColour (juce::DrawableButton::backgroundColourId,     ebs::accent().withAlpha (0.2f));
+        btn.setColour (juce::DrawableButton::backgroundOnColourId,   ebs::accent().withAlpha (0.4f));
         btn.setColour (juce::DrawableButton::textColourId,           juce::Colours::white);
         addAndMakeVisible (btn);
         ebs::subscribeTheme (this);   // idempotent; one subscription suffices

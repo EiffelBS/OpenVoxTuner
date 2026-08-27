@@ -76,8 +76,8 @@ namespace ui
         // Undo/Redo buttons
         auto setupUndoBtn = [this] (juce::TextButton& btn, const juce::String& tip)
         {
-            btn.setColour (juce::TextButton::buttonColourId, juce::Colour (0x331A9AF0));
-            btn.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffcccccc));
+            btn.setColour (juce::TextButton::buttonColourId, ebs::accentSoft());
+            btn.setColour (juce::TextButton::textColourOffId, ebs::text());
             btn.setTooltip (tip);
             addAndMakeVisible (btn);
         };
@@ -88,8 +88,8 @@ namespace ui
         redoButton.onClick = [this] { performRedo(); };
 
         // Piano Roll mode toggle (second editing metaphor for the same curve).
-        pianoRollButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0x331A9AF0));
-        pianoRollButton.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffcccccc));
+        pianoRollButton.setColour (juce::TextButton::buttonColourId, ebs::accentSoft());
+        pianoRollButton.setColour (juce::TextButton::textColourOffId, ebs::text());
         pianoRollButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff4caf50));
         pianoRollButton.setButtonText (ovt::tr (ovt::Keys::kButtonPianoRoll));
         pianoRollButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPianoRoll));
@@ -100,9 +100,33 @@ namespace ui
             setPianoRollMode (pianoRollButton.getToggleState());
         };
         addAndMakeVisible (pianoRollButton);
+
+        // Theme broadcast: keep the chip toolbar palette-current on switches.
+        ebs::subscribeTheme (this);
     }
 
-    PitchCurveEditor::~PitchCurveEditor() { stopTimer(); }
+    PitchCurveEditor::~PitchCurveEditor()
+    {
+        // Theme broadcast teardown must precede member destruction.
+        ebs::unsubscribeTheme (this);
+        stopTimer();
+    }
+
+    void PitchCurveEditor::themeChanged() { restyleChipButtons(); }
+
+    void PitchCurveEditor::restyleChipButtons()
+    {
+        juce::TextButton* chips[] = { &undoButton, &redoButton, &pianoRollButton };
+        for (auto* c : chips)
+        {
+            // Same tokens as construction: soft-accent body, readable text.
+            c->setColour (juce::TextButton::buttonColourId,  ebs::accentSoft());
+            c->setColour (juce::TextButton::textColourOffId, ebs::text());
+            c->repaint();
+        }
+        // The toggled "Piano Roll" state keeps its solid green + default
+        // white text: readable on both palettes by design.
+    }
 
     void PitchCurveEditor::paint (juce::Graphics& g)
     {

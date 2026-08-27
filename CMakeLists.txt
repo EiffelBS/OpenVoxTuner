@@ -386,6 +386,7 @@ target_sources(OpenVoxTunerTests PRIVATE
     Source/ui/ScaleKeyboardComponent.cpp
 )
 target_link_libraries(OpenVoxTunerTests PRIVATE
+    eiffelbs-ui                       # PitchCurveEditor.h consumes the theme API
     juce::juce_audio_basics
     juce::juce_audio_processors
     juce::juce_data_structures

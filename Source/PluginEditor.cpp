@@ -1281,8 +1281,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     addAndMakeVisible (menuButton);
 
     // === A/B Comparison buttons ===
+    // Colours come from ABTextButton::paint tokens directly; a repaint on
+    // theme switches keeps them current (see applyThemeToAllComponents).
     auto setupABButton = [this] (ABTextButton& btn, const juce::String& label, int slotIdx) {
-        btn.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffcccccc));
         btn.setTooltip (label == "A" ? ovt::tr(ovt::Keys::kTooltipAbSlotA) : ovt::tr(ovt::Keys::kTooltipAbSlotB));
         btn.onClick = [this, slotIdx] {
             auto& clickedSlot = (slotIdx == 0) ? slotA : slotB;
@@ -5667,6 +5668,10 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     advancedButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel().darker (0.5f));
     advancedButton.setColour (juce::TextButton::buttonOnColourId, ebs::bgPanel().darker (0.5f));
     advancedButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
+    // A/B slots read palette tokens directly inside their custom paint;
+    // a repaint keeps them current after a theme switch.
+    buttonA.repaint();
+    buttonB.repaint();
     correctionModeButton.setColour (juce::TextButton::buttonColourId,  ebs::bgPanel());
     correctionModeButton.setColour (juce::TextButton::textColourOffId, ebs::text());
     applyToggleColours (attackAwareButton);

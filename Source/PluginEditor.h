@@ -574,19 +574,19 @@ private:
             auto bounds = getLocalBounds().toFloat();
             if (isActive)
             {
-                // Active slot: solid accent background + bright text
-                g.setColour (juce::Colour (0xff1A9AF0));
+                // Active slot: solid theme accent background + bright text.
+                g.setColour (ebs::accent());
                 g.fillRoundedRectangle (bounds.reduced (1.0f), 3.0f);
                 g.setColour (juce::Colours::white);
             }
             else
             {
-                // Inactive slot: dark background + green border if filled
-                g.setColour (juce::Colour (0xff2a2a36));
+                // Inactive slot: panel background + green border if filled.
+                g.setColour (ebs::bgPanel());
                 g.fillRoundedRectangle (bounds.reduced (1.0f), 3.0f);
-                g.setColour (hasValidData ? juce::Colour (0xff4CAF50) : juce::Colour (0xff555555));
+                g.setColour (hasValidData ? juce::Colour (0xff4CAF50) : ebs::panelBorder());
                 g.drawRoundedRectangle (bounds.reduced (0.5f), 3.0f, 1.5f);
-                g.setColour (juce::Colour (0xffaaaaaa));
+                g.setColour (ebs::textDim());
             }
             // Text
             g.setFont (getHeight() * 0.55f);

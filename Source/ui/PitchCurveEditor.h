@@ -9,6 +9,7 @@
 #include <functional>
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <eiffelbs/eiffelbs.h>
 #include "../dsp/PitchCurve.h"
 #include "../dsp/ScaleQuantizer.h"
 #include "PianoKeyboard.h"
@@ -20,7 +21,8 @@ namespace ui
      * Communicates with the processor via a listener (curve changes).
      */
     class PitchCurveEditor : public juce::Component,
-                             public juce::Timer
+                             public juce::Timer,
+                             private ebs::ThemeSubscriber
     {
     public:
         /** Notifies the processor of a curve change. */
@@ -273,6 +275,11 @@ namespace ui
         std::function<void(const juce::MouseEvent&)> onRightClick;
 
     private:
+        /** ebs::setTheme() broadcast: re-tint the chip toolbar (undo/redo/
+            Piano Roll) whose body/text colours were otherwise baked once. */
+        void themeChanged() override;
+        void restyleChipButtons();
+
         // === Data ===
         ovtdsp::PitchCurve curve;
         ovtdsp::PitchCurve ghostCurve;   // owned copy of the morph-target overlay
