@@ -140,7 +140,13 @@ private:
         toolbar icon drawables whose stroke tints are baked at creation. */
     void themeChanged() override;
 
-    struct IconSkin { juce::DrawableButton* button; const char* svgNormal; const char* svgOn = nullptr; };
+    struct IconSkin
+    {
+        juce::DrawableButton* button;
+        const char* svgNormal;
+        const char* svgOn = nullptr;
+        bool onCanvas = false;  ///< canvas-overlay icons stay bright-fixed under both themes
+    };
     void restyleIconButtons();
     std::vector<IconSkin> iconSkins;
 

@@ -77,7 +77,9 @@ namespace ui
         auto setupUndoBtn = [this] (juce::TextButton& btn, const juce::String& tip)
         {
             btn.setColour (juce::TextButton::buttonColourId, ebs::accentSoft());
-            btn.setColour (juce::TextButton::textColourOffId, ebs::text());
+                        // These chips float over the theme-invariant dark canvas
+            // (vizBg), so their label stays bright under both themes.
+            btn.setColour (juce::TextButton::textColourOffId, juce::Colours::white.withAlpha (0.92f));
             btn.setTooltip (tip);
             addAndMakeVisible (btn);
         };
@@ -89,7 +91,7 @@ namespace ui
 
         // Piano Roll mode toggle (second editing metaphor for the same curve).
         pianoRollButton.setColour (juce::TextButton::buttonColourId, ebs::accentSoft());
-        pianoRollButton.setColour (juce::TextButton::textColourOffId, ebs::text());
+        pianoRollButton.setColour (juce::TextButton::textColourOffId, juce::Colours::white.withAlpha (0.92f));
         pianoRollButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff4caf50));
         pianoRollButton.setButtonText (ovt::tr (ovt::Keys::kButtonPianoRoll));
         pianoRollButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPianoRoll));
@@ -119,13 +121,11 @@ namespace ui
         juce::TextButton* chips[] = { &undoButton, &redoButton, &pianoRollButton };
         for (auto* c : chips)
         {
-            // Same tokens as construction: soft-accent body, readable text.
+            // Canvas-overlay tokens: soft-accent body, bright fixed text.
             c->setColour (juce::TextButton::buttonColourId,  ebs::accentSoft());
-            c->setColour (juce::TextButton::textColourOffId, ebs::text());
+            c->setColour (juce::TextButton::textColourOffId, juce::Colours::white.withAlpha (0.92f));
             c->repaint();
         }
-        // The toggled "Piano Roll" state keeps its solid green + default
-        // white text: readable on both palettes by design.
     }
 
     void PitchCurveEditor::paint (juce::Graphics& g)

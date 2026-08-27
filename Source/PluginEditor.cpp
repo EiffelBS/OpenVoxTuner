@@ -1583,8 +1583,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     auto setupIconButton = [&] (juce::DrawableButton& btn, const char* svgChars,
                                 bool isToggle, const juce::String& tooltip)
     {
-        auto normal   = createDrawableSVG(svgChars, ebs::text().withAlpha(0.75f));
-        auto over     = createDrawableSVG(svgChars, ebs::text());
+        // Canvas-overlay family: these buttons sit on the always-dark
+        // vizBg canvas (theme-invariant), so strokes stay bright-fixed.
+        auto normal   = createDrawableSVG(svgChars, juce::Colours::white.withAlpha(0.75f));
+        auto over     = createDrawableSVG(svgChars, juce::Colours::white);
         auto down     = createDrawableSVG(svgChars, ebs::accent());
 
         if (isToggle) {
@@ -1679,7 +1681,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         auto galOver   = createDrawableSVG (svgPresetGrid, ebs::accent());
         auto galDown   = createDrawableSVG (svgPresetGrid, ebs::accent());;
         presetGalleryButton.setImages (galNormal.get(), galOver.get(), galDown.get());
-        iconSkins.push_back ({ &presetGalleryButton, svgPresetGrid });
+        iconSkins.push_back ({ &presetGalleryButton, svgPresetGrid, nullptr, true });  // floats on the canvas
         presetGalleryButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
         presetGalleryButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
         presetGalleryButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -2422,7 +2424,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Initialize tab from processor parameter
     float initialMode = processorRef.getParameters().getParameter("mode")->getValue();
     tabbedComponent.setCurrentTabIndex(initialMode > 0.5f ? 1 : 0);
-    
+
     // Tab change callback
     // Parameter update is done in timerCallback() to avoid complex loops.
 
@@ -5549,8 +5551,11 @@ void OpenVoxTunerAudioProcessorEditor::restyleIconButtons()
     for (auto& skin : iconSkins)
     {
         auto* b = skin.button;
-        auto normal = makeStateDrawable (skin.svgNormal, ebs::text().withAlpha (0.75f));
-        auto over   = makeStateDrawable (skin.svgNormal, ebs::text());
+        // Chrome overlays follow the palette; canvas overlays stay bright
+        // on the theme-invariant vizBg island.
+        const juce::Colour baseText = skin.onCanvas ? juce::Colours::white : ebs::text();
+        auto normal = makeStateDrawable (skin.svgNormal, baseText.withAlpha (0.75f));
+        auto over   = makeStateDrawable (skin.svgNormal, baseText);
         auto down   = makeStateDrawable (skin.svgNormal, ebs::accent());
         if (skin.svgOn != nullptr)
         {
