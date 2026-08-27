@@ -1583,14 +1583,16 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     auto setupIconButton = [&] (juce::DrawableButton& btn, const char* svgChars,
                                 bool isToggle, const juce::String& tooltip)
     {
-        // Canvas-overlay family: these buttons sit on the always-dark
-        // vizBg canvas (theme-invariant), so strokes stay bright-fixed.
-        auto normal   = createDrawableSVG(svgChars, juce::Colours::white.withAlpha(0.75f));
-        auto over     = createDrawableSVG(svgChars, juce::Colours::white);
+        // Toolstrip icons sit on THEMED page backgrounds under both
+        // palettes, so rest strokes follow the palette text token.
+        // Only ACTIVE toggle states flip to bright white over the
+        // accent-tinted pill, which reads on any backdrop.
+        auto normal   = createDrawableSVG(svgChars, ebs::text().withAlpha(0.75f));
+        auto over     = createDrawableSVG(svgChars, ebs::text());
         auto down     = createDrawableSVG(svgChars, ebs::accent());
 
         // Active state must read against the accent-tinted ON pill under
-        // BOTH themes: bright white square, never palette/accent strokes.
+        // BOTH themes: bright white glyphs, never palette/accent strokes.
         if (isToggle) {
             auto normalOn = createDrawableSVG(svgChars, juce::Colours::white);
             auto overOn   = createDrawableSVG(svgChars, juce::Colours::white);
@@ -1601,11 +1603,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         } else {
             btn.setImages(normal.get(), over.get(), down.get());
         }
-        iconSkins.push_back ({ &btn, svgChars, nullptr, true, isToggle });
+        iconSkins.push_back ({ &btn, svgChars, nullptr, isToggle });
 
         btn.setTooltip(tooltip);
         btn.setColour(juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        btn.setColour(juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha(0.2f));
+        // Solid accent when toggled so the bright-white ON glyphs keep
+        // contrast over themed strips under BOTH palettes.
+        btn.setColour(juce::DrawableButton::backgroundOnColourId, ebs::accent());
         btn.setColour(juce::DrawableButton::textColourId, juce::Colours::white);
         btn.setColour(juce::DrawableButton::textColourOnId, juce::Colours::white);
         addAndMakeVisible(btn);
@@ -1683,7 +1687,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         auto galOver   = createDrawableSVG (svgPresetGrid, ebs::accent());
         auto galDown   = createDrawableSVG (svgPresetGrid, ebs::accent());;
         presetGalleryButton.setImages (galNormal.get(), galOver.get(), galDown.get());
-        iconSkins.push_back ({ &presetGalleryButton, svgPresetGrid, nullptr, true });  // floats on the canvas
+        iconSkins.push_back ({ &presetGalleryButton, svgPresetGrid, nullptr, false });
         presetGalleryButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
         presetGalleryButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
         presetGalleryButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
@@ -1867,8 +1871,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         auto playNorm = createDrawableSVG (svgPlay, ebs::text().withAlpha (0.75f));
         auto playOver = createDrawableSVG (svgPlay, ebs::text());
         auto playDown = createDrawableSVG (svgPlay, ebs::accent());
-        // Active state: solid accent pill -> the stop square must be
-        // bright white to read against it (both themes).
+        // Active state: solid accent pill -> bright white stop square,
+        // readable over the themed toolstrip in both palettes.
         auto stopNorm = createDrawableSVG (svgStop,  juce::Colours::white);
         auto stopOver = createDrawableSVG (svgStop,  juce::Colours::white);
         auto stopDown = createDrawableSVG (svgStop,  juce::Colours::white.withAlpha (0.85f));
@@ -1876,7 +1880,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         // (we drive the displayed state from the processor in syncTransportButtons).
         playButton.setImages (playNorm.get(), playOver.get(), playDown.get(), nullptr,
                               stopNorm.get(), stopOver.get(), stopDown.get(), nullptr);
-        iconSkins.push_back ({ &playButton, svgPlay, svgStop, true });
+        iconSkins.push_back ({ &playButton, svgPlay, svgStop });
         // Active (playing): unmistakable solid accent pill with a bright
         // white stop square - blue-on-blue-tint was invisible.
         playButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
@@ -5557,11 +5561,11 @@ void OpenVoxTunerAudioProcessorEditor::restyleIconButtons()
     for (auto& skin : iconSkins)
     {
         auto* b = skin.button;
-        // Chrome overlays follow the palette; canvas overlays stay bright
-        // on the theme-invariant vizBg island.
-        const juce::Colour baseText = skin.onCanvas ? juce::Colours::white : ebs::text();
-        auto normal = makeStateDrawable (skin.svgNormal, baseText.withAlpha (0.75f));
-        auto over   = makeStateDrawable (skin.svgNormal, baseText);
+        // Toolstrip icons rest on themed backgrounds: strokes follow the
+        // palette text token. Active (toggle/transport) states regenerate
+        // bright white so they read over their accent pills anywhere.
+        auto normal = makeStateDrawable (skin.svgNormal, ebs::text().withAlpha (0.75f));
+        auto over   = makeStateDrawable (skin.svgNormal, ebs::text());
         auto down   = makeStateDrawable (skin.svgNormal, ebs::accent());
         if (skin.svgOn != nullptr)
         {
