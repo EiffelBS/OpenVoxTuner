@@ -34,27 +34,18 @@ class TabSwitch; // iPhone-style Live/Curve Editor tab switch (defined in Plugin
 /** Local host around the shared eiffelbs-ui LookAndFeel. Everything is
     stock ebs:: rendering; this subclass only replays OpenVoxTuner's legacy
     chrome through the library's theme hook so the cutover stays
-    pixel-identical:
-      - active tab = SOLID accent fill with a white caption (the shared
-        default uses the softer accent fill + accent caption),
-      - checkbox wells keep the legacy always-dark #191b1e / #555555 pair
-        regardless of theme or toggle state. */
+    pixel-identical: the active tab uses a SOLID accent fill with a white
+    caption (the shared default is a softer accent fill + accent caption). */
 struct OvtLookAndFeel final : ebs::LookAndFeel
 {
     juce::Colour widgetThemeColour (int id) override
     {
         switch (id)
         {
-            case tabActiveFillColourId:   return ebs::accent();               // legacy solid-accent pill
+            // Only the legacy solid-accent tab pill stays app-specific;
+            // checkbox wells now come from the library default (v0.4.1+).
+            case tabActiveFillColourId:   return ebs::accent();
             case tabActiveTextColourId:   return juce::Colours::white;
-            case checkboxFillColourId:
-                // Legacy dark wells on Dark; light-friendly wells on Light
-                // (accent tick stays library-driven in both).
-                return ebs::isDark() ? juce::Colour (0xff191b1e)
-                                     : juce::Colour (0xffffffff);
-            case checkboxOutlineColourId:
-                return ebs::isDark() ? juce::Colour (0xff555555)
-                                     : juce::Colour (0xffb4b8c0);
             default:                      return {};
         }
     }
