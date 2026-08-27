@@ -146,6 +146,7 @@ private:
         const char* svgNormal;
         const char* svgOn = nullptr;
         bool onCanvas = false;  ///< canvas-overlay icons stay bright-fixed under both themes
+        bool isToggle = false;  ///< toggling icon: ON-state drawables must be regenerated too
     };
     void restyleIconButtons();
     std::vector<IconSkin> iconSkins;

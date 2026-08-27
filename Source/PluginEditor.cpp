@@ -1589,17 +1589,19 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         auto over     = createDrawableSVG(svgChars, juce::Colours::white);
         auto down     = createDrawableSVG(svgChars, ebs::accent());
 
+        // Active state must read against the accent-tinted ON pill under
+        // BOTH themes: bright white square, never palette/accent strokes.
         if (isToggle) {
-            auto normalOn = createDrawableSVG(svgChars, ebs::accent());
-            auto overOn   = createDrawableSVG(svgChars, ebs::accent().brighter(0.2f));
-            auto downOn   = createDrawableSVG(svgChars, ebs::accent().darker(0.25f));
+            auto normalOn = createDrawableSVG(svgChars, juce::Colours::white);
+            auto overOn   = createDrawableSVG(svgChars, juce::Colours::white);
+            auto downOn   = createDrawableSVG(svgChars, juce::Colours::white.withAlpha(0.85f));
             btn.setImages(normal.get(), over.get(), down.get(), nullptr,
                           normalOn.get(), overOn.get(), downOn.get(), nullptr);
             btn.setClickingTogglesState(true);
         } else {
             btn.setImages(normal.get(), over.get(), down.get());
         }
-        iconSkins.push_back ({ &btn, svgChars });
+        iconSkins.push_back ({ &btn, svgChars, nullptr, true, isToggle });
 
         btn.setTooltip(tooltip);
         btn.setColour(juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
@@ -5571,6 +5573,17 @@ void OpenVoxTunerAudioProcessorEditor::restyleIconButtons()
             auto overOn   = makeStateDrawable (skin.svgOn, juce::Colours::white);
             auto downOn   = makeStateDrawable (skin.svgOn, juce::Colours::white.withAlpha (0.85f));
             b->setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent());
+            b->setImages (normal.get(), over.get(), down.get(), nullptr,
+                          normalOn.get(), overOn.get(), downOn.get(), nullptr);
+        }
+        else if (skin.isToggle)
+        {
+            // Toggling canvas icons keep a full 6-slot set across theme
+            // switches: white glyphs over the accent-tinted ON pill,
+            // identical to the constructor wiring.
+            auto normalOn = makeStateDrawable (skin.svgNormal, juce::Colours::white);
+            auto overOn   = makeStateDrawable (skin.svgNormal, juce::Colours::white);
+            auto downOn   = makeStateDrawable (skin.svgNormal, juce::Colours::white.withAlpha (0.85f));
             b->setImages (normal.get(), over.get(), down.get(), nullptr,
                           normalOn.get(), overOn.get(), downOn.get(), nullptr);
         }
