@@ -5684,6 +5684,11 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     // Re-apply to other buttons
     updateButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel());
     updateButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
+    // "Advanced" correction-block expander: live tokens were correct at
+    // construction but went stale on later switches - re-apply them too.
+    advancedButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel().darker (0.5f));
+    advancedButton.setColour (juce::TextButton::buttonOnColourId, ebs::bgPanel().darker (0.5f));
+    advancedButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
     bypassToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
     midiToggleButton.setColour (juce::ToggleButton::textColourId, ebs::text());
     correctionModeButton.setColour (juce::TextButton::buttonColourId,  ebs::bgPanel());
