@@ -133,6 +133,15 @@ state: more than 400 green pixels through the real painting path).
 - Unit tests: `OpenVoxTunerTests` **112/112 PASS** (the gate was 111/111 at
   the v0.4.2 pin; the extra one is `LookAndFeelToggleTest`, the Piano Roll
   contrast regression that shipped with the library's toggle contract).
+- **The pin is now public and proven resolvable.** `v0.12.7` (`f263048`) was
+  published to `origin` on 2026-10-09; `git clone --depth 1 --branch v0.12.7`
+  returns exactly the tree that was compiled here (the only difference is the
+  clone's own `.git/` directory). A second configure of this repository was
+  then run **without** `FETCHCONTENT_SOURCE_DIR_EIFFELBS-UI`, so that
+  FetchContent cloned the tag from GitHub like any external rebuilder would:
+  configure 24 s, `OpenVoxTunerTests` build 78 s, and the same **112/112
+  PASS** (exit 0). The promise the public pin makes is therefore verified, not
+  assumed.
 - Active-tab colour `#FF1A9AF0`: proven by construction and by pixels, not
   by an OS screenshot - `Theme.h` is byte-identical between v0.4.2 and
   v0.12.7 (`git diff` empty), the two overrides above are unchanged, and the
@@ -154,7 +163,7 @@ state: more than 400 green pixels through the real painting path).
 | Date | Pin | Notes |
 | --- | --- | --- |
 | 2026-08-27 | v0.4.2 | Cutover pin; note drifted (announced v0.3.0). |
-| 2026-10-08 | v0.12.7 | Tag resolved with `git ls-remote` unavailable (`SEC_E_NO_CREDENTIALS`) via the GitHub tags API: v0.12.6 (`2615cb9`) was the last published tag; v0.12.7 was the next local release. README of the library refreshed first (it had not been updated for several versions), then the Windows `min`/`max` macro fix (`f263048`) was folded into the same release and the tag re-pointed. Offline builds used `-DFETCHCONTENT_SOURCE_DIR_EIFFELBS-UI=.dbg\eiffelbs-ui-v0127` (a clean `git archive` export of the tag). Build cost: 118 s + 113 s incremental Release (Visual Studio 17 2022; MSBuild had skipped the two largest TUs on the first pass - `PluginEditor.obj`, `PluginProcessor.obj` - so their objects were deleted and forced). The bump needs **no** OVT code change beyond the pin itself: see the toggle constat above. |
+| 2026-10-08 | v0.12.7 | Tag resolved with `git ls-remote` unavailable (`SEC_E_NO_CREDENTIALS`) via the GitHub tags API: v0.12.6 (`2615cb9`) was the last published tag; v0.12.7 was the next local release. README of the library refreshed first (it had not been updated for several versions), then the Windows `min`/`max` macro fix (`f263048`) was folded into the same release and the tag re-pointed. Offline builds used `-DFETCHCONTENT_SOURCE_DIR_EIFFELBS-UI=.dbg\eiffelbs-ui-v0127` (a clean `git archive` export of the tag). Build cost: 118 s + 113 s incremental Release (Visual Studio 17 2022; MSBuild had skipped the two largest TUs on the first pass - `PluginEditor.obj`, `PluginProcessor.obj` - so their objects were deleted and forced). The bump needs **no** OVT code change beyond the pin itself: see the toggle constat above. Published 2026-10-09: `git push origin v0.12.7` (tag only - the remote `main` deliberately stayed at `2615cb9`, an untagged later commit by another session was NOT carried). Costs of the published-pin proof: 24 s configure + 78 s test build, 112/112 again. |
 
 ### Running the test suite in this environment
 
