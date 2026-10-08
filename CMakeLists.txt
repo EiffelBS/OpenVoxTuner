@@ -64,7 +64,12 @@ add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 #   - the ABI-critical defines JUCE_STRING_UTF_TYPE=8 /
 #     JUCE_WEB_BROWSER=0 / JUCE_USE_CURL=0 (shared by BOTH plugin
 #     binaries inside one DAW process),
-#   - /std:c++20 (cxx_std_20) and MSVC /utf-8.
+#   - /std:c++20 (cxx_std_20) and MSVC /utf-8,
+#   - since v0.12.7, juce::juce_gui_extra (the library's LogWindow
+#     lives there). Every target linking eiffelbs-ui must therefore
+#     list juce_gui_extra itself - do NOT drop it from the module
+#     lists below, the failure is "target juce::juce_gui_extra not
+#     found" at configure time.
 # Offline builds can point at a local checkout instead of GitHub:
 #   cmake -B build -DFETCHCONTENT_SOURCE_DIR_EIFFELBS-UI=<checkout>
 # (DASH spelled exactly like this - this name keeps its hyphen.)
@@ -72,7 +77,7 @@ add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 include(FetchContent)
 FetchContent_Declare(eiffelbs-ui
     GIT_REPOSITORY https://github.com/EiffelBS/eiffelbs-ui.git
-    GIT_TAG        v0.4.2
+    GIT_TAG        v0.12.7
     GIT_SHALLOW    TRUE)
 FetchContent_MakeAvailable(eiffelbs-ui)
 
@@ -244,7 +249,7 @@ target_link_libraries(OpenVoxTuner PRIVATE
     juce::juce_events
     juce::juce_graphics
     juce::juce_gui_basics
-    juce::juce_gui_extra
+    juce::juce_gui_extra              # required by eiffelbs-ui >= v0.12.7 (its LogWindow); keep
     $<$<BOOL:${OVT_ENABLE_ARA}>:juce_ara_sdk>
     OVTAssets
     ovtchord
@@ -360,7 +365,7 @@ target_link_libraries(OpenVoxKey PRIVATE
     juce::juce_events
     juce::juce_graphics
     juce::juce_gui_basics
-    juce::juce_gui_extra
+    juce::juce_gui_extra              # required by eiffelbs-ui >= v0.12.7 (its LogWindow); keep
     OVTAssets
     eiffelbs-ui
 )
@@ -392,4 +397,5 @@ target_link_libraries(OpenVoxTunerTests PRIVATE
     juce::juce_data_structures
     juce::juce_events
     juce::juce_graphics
+    juce::juce_gui_extra              # eiffelbs-ui >= v0.12.7 links it INTERFACE
 )
