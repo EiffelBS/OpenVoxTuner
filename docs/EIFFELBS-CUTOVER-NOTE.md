@@ -142,14 +142,29 @@ state: more than 400 green pixels through the real painting path).
   configure 24 s, `OpenVoxTunerTests` build 78 s, and the same **112/112
   PASS** (exit 0). The promise the public pin makes is therefore verified, not
   assumed.
-- Active-tab colour `#FF1A9AF0`: proven by construction and by pixels, not
-  by an OS screenshot - `Theme.h` is byte-identical between v0.4.2 and
-  v0.12.7 (`git diff` empty), the two overrides above are unchanged, and the
-  library smoke asserts the exact accent hexes in both themes. An OS-level
-  capture of the standalone was attempted (`PrintWindow` and ffmpeg
-  `gdigrab`) and is not usable in this environment: the plugin window lives
-  on an absent display and the sandbox blocks the tooling. The check stays
-  open for a human eye on a real monitor.
+- Active-tab colour `#FF1A9AF0`: **captured on the real widget, dark theme**
+  (2026-10-09). The standalone was launched with
+  `Invoke-CimMethod Win32_Process.Create` (`Start-Process` hangs for a
+  workspace binary), located through UIA (`AutomationElement.FromHandle` -
+  no tree walk, `RootElement.FindFirst` also hangs), brought in front by
+  minimising the maximised browser for a few seconds with `WScript.Shell`
+  (`AppActivate`, `SendKeys("% n")` then `"n"`, then `AppActivate` back to
+  restore it), and grabbed with `Graphics.CopyFromScreen`. The full-screen
+  PNG holds **6624 exactly `#FF1A9AF0` pixels** and **0 `#FF1565C0`** pixels,
+  and the zoomed crop of the tab strip shows the active "Live" pill filled
+  with that exact accent while "Curve Editor" stays unlit - the button is
+  solid accent, no gradient, no local `brighter()` hack. Evidence stays out
+  of git in `.dbg/`: `ovt-standalone-dark.png` (2056x1290) and
+  `ovt-tab-pill-crop.png`. The user's `OpenVoxTuner.settings` was backed up
+  before the captures and verified byte-identical afterwards (the standalone
+  was terminated, so it never rewrote it).
+  The **light** theme was not re-photographed: the theme is the `ui_theme`
+  parameter inside the base64 `filterState` blob of the user's settings, and
+  switching it needs the right-click theme menu - there is no input injection
+  available in this sandbox. The light accent is pinned by the smoke's exact
+  hex assertion (`#FF1565C0`) and by the byte-identical `Theme.h` proven
+  above; a screenshot would show that same value, so the residual here is the
+  human eye on a real monitor, not an open colour question.
 - Consumer-context bug found while bumping (see the library fix in the bump
   log): OpenVoxTuner's translation units include `<windows.h>` **without**
   `NOMINMAX` (the ARA SDK and the VST3 plugin-client chain), so `std::max`
