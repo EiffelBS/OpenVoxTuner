@@ -158,13 +158,14 @@ state: more than 400 green pixels through the real painting path).
   `ovt-tab-pill-crop.png`. The user's `OpenVoxTuner.settings` was backed up
   before the captures and verified byte-identical afterwards (the standalone
   was terminated, so it never rewrote it).
-  The **light** theme was not re-photographed: the theme is the `ui_theme`
-  parameter inside the base64 `filterState` blob of the user's settings, and
-  switching it needs the right-click theme menu - there is no input injection
-  available in this sandbox. The light accent is pinned by the smoke's exact
-  hex assertion (`#FF1565C0`) and by the byte-identical `Theme.h` proven
-  above; a screenshot would show that same value, so the residual here is the
-  human eye on a real monitor, not an open colour question.
+  The **light** theme was then verified by the author on his own screen, which
+  closes the only step that needed a human eye: on 2026-10-09 the agent
+  relaunched the standalone for that purpose and he opened the gear menu ->
+  Interface -> Theme -> Light himself. The active tab read the light accent
+  `#FF1565C0` correctly and he reported the test OK. The light value is pinned
+  twice over independently of that look - the smoke asserts that exact hex and
+  `Theme.h` is byte-identical between the two pins - so this step confirms with
+  the eye a value already measured, rather than measuring a new one.
 - Consumer-context bug found while bumping (see the library fix in the bump
   log): OpenVoxTuner's translation units include `<windows.h>` **without**
   `NOMINMAX` (the ARA SDK and the VST3 plugin-client chain), so `std::max`
