@@ -13,6 +13,7 @@
 #include "dsp/RetargetEnvelopeTest.cpp"
 #include "dsp/FormantPreserverTest.cpp"
 #include "dsp/LpcFormantPreserverTest.cpp"
+#include "dsp/LpcFramingTest.cpp"
 #include "dsp/PitchCurveTest.cpp"
 #include "dsp/MidiImporterTest.cpp"
 #include "dsp/VibratoTest.cpp"
@@ -38,8 +39,19 @@
 
 int main (int argc, char* argv[])
 {
+    std::cout << "main start\n" << std::endl;
+
     juce::UnitTestRunner runner;
-    runner.runAllTests();
+
+    // Command-line names select which registered suites to run, in the given
+    // order, so a crash can be localized to a suite pair without rebuilding.
+    if (argc > 1)
+    {
+        for (int a = 1; a < argc; ++a)
+            runner.runTestsWithName (juce::String (argv[a]));
+    }
+    else
+        runner.runAllTests();
 
     // Print a summary to the console.
     int numPassed = 0, numFailed = 0;
@@ -64,6 +76,7 @@ int main (int argc, char* argv[])
     std::cout << "\n=========================\n";
     std::cout << "Result: " << numPassed << " OK, " << numFailed << " FAILED\n";
     std::cout << "=========================\n";
+    std::cout.flush();
 
     return numFailed == 0 ? 0 : 1;
 }

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // LpcFormantPreserverTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.

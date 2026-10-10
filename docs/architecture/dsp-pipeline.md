@@ -182,6 +182,16 @@ shift along with the pitch (the "chipmunk" effect).
   (LPC cross-synthesis) are handled by `LpcFormantPreserver`.
 - Biquad coefficient smoothing is **buffer-size independent** (`biquadSmoothAlpha
   = 0.05`, ~115 ms TC) so formant tracking stays stable across block sizes.
+- `LpcFormantPreserver` analysis framing is **buffer-size independent**: a fixed
+  24 ms Hann analysis frame (1058 samples at 44.1 kHz) held in a per-channel
+  circular accumulator, with the LPC coefficients recomputed only every hop
+  (10 ms default, 20 ms for harmony voices). The cross-synthesis itself is applied
+  causally per sample (whitening `e = A_shifted(z)·x`, re-coloring `1/A_orig(z)`),
+  so **no latency is added** and `setLatencySamples` stays 0. Measured: the output
+  is identical for DAW block sizes 64 to 1024, and the RMS ratio at ratio 1.0 is
+  0.999998. The module is currently disabled in the plugin (`useLpc` falls back to
+  P0); see `docs/internal/plans/lpc-hop-overlap-add.md` for the measured status
+  and the open cross-synthesis quality issue at ratio != 1.
 
 ### 7. HarmonyEngine (`ovtdsp::HarmonyEngine`)
 

@@ -399,3 +399,23 @@ target_link_libraries(OpenVoxTunerTests PRIVATE
     juce::juce_graphics
     juce::juce_gui_extra              # eiffelbs-ui >= v0.12.7 links it INTERFACE
 )
+
+# === LPC formant framing benchmark (console app) ===
+# tools/bench_formant_lsd.cpp — log-spectral distortion (LSD) of the LPC
+# cross-synthesis on synthetic vowels at r = 0.5/1.5/2.0, across DAW block
+# sizes 64..1024, plus the CPU cost per audio second. Runs in CI next to the
+# unit tests (see .github/workflows/ci.yml, test job).
+juce_add_console_app(bench_formant_lsd
+    PRODUCT_NAME "bench_formant_lsd"
+    VERSION 0.1.0)
+
+target_sources(bench_formant_lsd PRIVATE
+    tools/bench_formant_lsd.cpp
+    Source/dsp/LpcFormantPreserver.cpp
+)
+target_link_libraries(bench_formant_lsd PRIVATE
+    juce::juce_audio_basics
+    juce::juce_audio_processors
+    juce::juce_data_structures
+    juce::juce_events
+)

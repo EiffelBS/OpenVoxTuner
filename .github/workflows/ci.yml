@@ -7,6 +7,7 @@ on:
     paths:
       - 'Source/**'
       - 'test/**'
+      - 'tools/**'
       - 'libs/**'
       - 'CMakeLists.txt'
       - 'external/**'
@@ -95,3 +96,11 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: ./build-ci-test/OpenVoxTunerTests_artefacts/Release/OpenVoxTunerTests.exe
+
+      - name: Build formant LSD/CPU bench
+        shell: pwsh
+        run: cmake --build build-ci-test --config Release --target bench_formant_lsd
+
+      - name: Run formant LSD/CPU bench
+        shell: pwsh
+        run: ./build-ci-test/bench_formant_lsd_artefacts/Release/bench_formant_lsd.exe
