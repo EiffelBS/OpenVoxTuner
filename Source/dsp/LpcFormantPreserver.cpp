@@ -133,6 +133,14 @@ namespace ovtdsp
         // output measured 7x too quiet (region voiced in = 129.84, out = 18.62 at
         // r=1.5). A one-hop average makes scale(k) = sqrt(sumIn(k-1)/sumChain(k-1)),
         // the exact per-hop energy match with a single 10 ms delay.
+        // One-hop loudness window: the fastest measured convergence of the AGC loop.
+        // A 0.5 s window measured WORSE (RMS ratio 0.634/0.636 against 0.656/0.663),
+        // and damping the step to 0.3 was worse still (0.591/0.597): over the 3 s test
+        // signal the loop is under-converged, not oscillating, so the response must be
+        // as fast as the statistic allows. The residual deficit (applied energy-weighted
+        // scale 0.110 against the ideal 0.173) is NOT a clamp: the peak clamp and the
+        // headroom limiter both measure non-binding, so the all-pole re-color gain is
+        // the term that cannot be matched by any level law on this architecture.
         emaBeta = 1.0f / static_cast<float> (hopSamples);
 
         hann.resize (static_cast<size_t> (frameSamples));
@@ -504,6 +512,11 @@ namespace ovtdsp
         const double agcRatio = (s.emaOut > 1.0e-12)
                     ? s.emaIn / s.emaOut
                     : 1.0;
+        // Undamped step: the fixed point is exact (scale^2 * emaChain = emaIn, i.e.
+        // RMS(out) = RMS(in)) and a transient moves the gain by one factor. Damping
+        // the step to 0.3 was measured WORSE (RMS ratio 0.591/0.597 against
+        // 0.656/0.663 undamped): the loop was under-converged over the 3 s test
+        // signal, not oscillating, so the step must be full.
         float scale = s.scaleTo * std::sqrt (juce::jmax (0.0, agcRatio));
 
         const float outRms = static_cast<float> (std::sqrt (juce::jmax (0.0, s.sumOut2) / static_cast<double> (F)));
