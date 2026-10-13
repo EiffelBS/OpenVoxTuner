@@ -543,11 +543,6 @@ namespace ovtdsp
         std::vector<float> kOrig;    // reflection coefficients of the reference frame
         std::vector<float> kShifted; // reflection coefficients of the input frame
 
-        // xBackup holds the raw input at processChannel entry so the block
-        // can be restored verbatim if the LPC chain explodes (instability
-        // guard). Sized to the DAW block size.
-        std::vector<float> xBackup;
-
         // Reset one channel's circular history, ramp state and sliding sums.
         // Shared by prepare() and reset() so the two paths cannot drift apart.
         void initChannel (ChannelState& s);

@@ -155,9 +155,6 @@ namespace ovtdsp
         simX.assign (static_cast<size_t> (frameSamples + order), 0.0f);
         simY.assign (static_cast<size_t> (frameSamples + order), 0.0f);
 
-        // Only the instability-guard snapshot is sized on the block.
-        xBackup.resize (static_cast<size_t> (juce::jmax (1, maxBlockSize)));
-
         channels.clear();
         channels.resize (2);
         for (auto& s : channels)
