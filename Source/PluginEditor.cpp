@@ -2880,7 +2880,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // knobs (Flex / Humanize / Vibrato / Attack-Aware) on the right.
     const int knobBlockWidth   = 220;  // Speed + Amount (prominent big knobs)
     const int advancedWidth    = 160;  // revealed correction knobs when expanded
-    const int effectBlockWidth = 200;
+    const int effectBlockWidth = 230;  // 3 columns of toggles + full-size knobs
     const int scaleBlockWidth  = 236;  // narrowed to fit the Root combo (see Block 1)
     const int blockSpacing     = 10;
     const int bannerW          = 22;   // vertical "Advanced" banner width
@@ -3035,20 +3035,23 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         formantStrategyLabel.setBounds (0, 0, 0, 0);
     }
 
-    // --- Block 4 : Effects - 3 rows of two cells ---
-    // Row 1 Noise Gate + Upward Comp, row 2 Reverb + Formant, row 3 Doubler + a
-    // free slot for the next effect. Every cell is a power toggle (or a caption
-    // label, for effects with no on/off switch) on top and a knob below. The knob
-    // size is DERIVED from the row height so adding a row never overflows the
-    // block. The value is shown in the popup display while dragging (no textbox).
+    // --- Block 4 : Effects - 2 rows of three cells ---
+    // Row 1 Noise Gate + Upward Comp + Reverb, row 2 Formant + Doubler + a free
+    // slot for the next effect. Every cell is a power toggle (or a caption label,
+    // for effects with no on/off switch) on top and a knob below. The knob size is
+    // derived from the row height, so it stays at its full 54 px: adding a COLUMN
+    // is how this block grows, never a row (a third row would shrink every knob).
+    // The value is shown in the popup display while dragging (no textbox).
     auto b4 = block4Bounds.reduced (10);
     const int effectPowerH  = 18;
     const int effectLabelH  = 14;
     const int rowGap        = 8;
-    const int numEffectRows = 3;
+    const int colGap        = 8;
+    const int numEffectRows = 2;
+    const int numEffectCols = 3;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
-    const int effectColW    = (b4.getWidth() - 8) / 2;
+    const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * colGap) / numEffectCols;
 
     // Cell with a power toggle: toggle on top, knob centred below.
     auto placeToggledKnob = [&] (juce::Rectangle<int> cell, auto& toggle, auto& knob)
@@ -3066,26 +3069,23 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         knob.setBounds (kx, cell.getY() + effectLabelH + 2, effKnobD, effKnobD);
     };
 
-    // Row 1 : Noise Gate (column 1) + Upward Comp (column 2)
+    // Row 1 : Noise Gate + Upward Comp + Reverb
     auto row1 = b4.removeFromTop (rowH);
     b4.removeFromTop (rowGap);
     placeToggledKnob (row1.removeFromLeft (effectColW), noiseGateEnableButton, noiseGateThresholdSlider);
-    row1.removeFromLeft (8);
-    placeToggledKnob (row1, upwardCompEnableButton, upwardCompAmountSlider);
+    row1.removeFromLeft (colGap);
+    placeToggledKnob (row1.removeFromLeft (effectColW), upwardCompEnableButton, upwardCompAmountSlider);
+    row1.removeFromLeft (colGap);
+    placeToggledKnob (row1, reverbEnableButton, reverbMixSlider);
 
-    // Row 2 : Reverb (column 1) + Formant (column 2)
-    auto row2 = b4.removeFromTop (rowH);
-    b4.removeFromTop (rowGap);
-    placeToggledKnob (row2.removeFromLeft (effectColW), reverbEnableButton, reverbMixSlider);
-    row2.removeFromLeft (8);
-    placeToggledKnob (row2, formantEnableButton, formantSlider);
-
-    // Row 3 : Doubler (column 1) + the free column-2 slot for the next effect.
+    // Row 2 : Formant + Doubler + the free slot for the next effect.
     // The Doubler has no power toggle: 0 % IS its off state, so the caption label
     // carries the name. It lives here because it is an effect of the processed
     // signal, not a harmony voice; refreshLabels() keeps it live when Harmony is off.
-    auto row3 = b4;
-    placeLabelledKnob (row3.removeFromLeft (effectColW), doubleAmountLabel, doubleAmountSlider);
+    auto row2 = b4;
+    placeToggledKnob (row2.removeFromLeft (effectColW), formantEnableButton, formantSlider);
+    row2.removeFromLeft (colGap);
+    placeLabelledKnob (row2.removeFromLeft (effectColW), doubleAmountLabel, doubleAmountSlider);
 
     // Harmony controls block (rightmost block)
     // Split into left/right columns FIRST, then fill each column.
@@ -3139,7 +3139,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // --- Right column: Volume + Blend side-by-side, Formant + Attack below.
         // The knob size is derived from the block height so both rows always fit;
         // the bottom strip is a fixed 190 px and the Harmony block has no room to
-        // grow. The Doubler knob lives in the Effects block (row 3), not here: it
+        // grow. The Doubler knob lives in the Effects block (row 2), not here: it
         // doubles the dry lead, not the harmony voices.
         const int harmLabelH = 14;
         const int harmRowGap = 6;

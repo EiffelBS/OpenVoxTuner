@@ -101,7 +101,7 @@ This mode is great when you want a smooth, pad-like backing that doesn't need to
 
 ## Stereo Doubler
 
-The **Double Amount** knob thickens the *corrected lead itself* — it is not a harmony voice, and it keeps working when Harmony is switched off. The knob lives in the **Effects** block (third row), because it processes the corrected lead signal rather than the harmony voices; it has no on/off switch, since 0 % *is* the off state.
+The **Double Amount** knob thickens the *corrected lead itself* — it is not a harmony voice, and it keeps working when Harmony is switched off. The knob lives in the **Effects** block, second row next to **Formant**, because it processes the corrected lead signal rather than the harmony voices; it has no on/off switch, since 0 % *is* the off state.
 
 It blends in one copy of the lead that combines three classic doubling ingredients:
 

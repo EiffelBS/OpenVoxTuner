@@ -160,22 +160,27 @@ reads as needing Harmony on. The decision (with the author) is to put it in the
 Effects block, which is also where more effects will land.
 
 ### Changes
-- **Effects block is now 3 rows of two cells** (`Source/PluginEditor.cpp`): row 1
-  Noise Gate + Upward Comp, row 2 Reverb + Formant, row 3 Doubler + a free slot
-  for the next effect. The row height and the knob size are **derived from the
-  block height** (`rowH = (h − 2·gap) / 3`, `knob = jlimit(30, 54, rowH − 20)`),
-  so adding a row never overflows; effect knobs render at ~35 px instead of the
-  fixed 54 px. Two placement helpers (`placeToggledKnob`, `placeLabelledKnob`)
-  replace the four hand-written cell blocks.
+- **Effects block is now 2 rows of three cells** (`Source/PluginEditor.cpp`): row 1
+  Noise Gate + Upward Comp + Reverb, row 2 Formant + Doubler + a free slot for the
+  next effect. The block width grows from 200 to 230 px (taken from the Harmony
+  block, which has slack), so every effect knob keeps its **full 54 px** size and
+  the toggle labels stay readable. Two placement helpers (`placeToggledKnob`,
+  `placeLabelledKnob`) replace the hand-written cell blocks; the next effect is one
+  line of layout code.
+- **The block grows by columns, never by rows.** A first version added a third row
+  and derived the knob size from the row height (`knob = jlimit(30, 54, rowH − 20)`),
+  which rendered every effect knob at ~35 px; rejected by the author as too small.
+  The comment in the layout now states the rule: adding a COLUMN is how this block
+  grows.
 - **Doubler cell has a caption label, not a power toggle**: 0 % IS its off state.
   `refreshLabels()` never touches it (comment rewritten to say so).
-- **Harmony right column back to 2 rows** (`Volume`/`Blend`, `Formant`/`Attack`):
-  the knob size formula returns to `numKnobRows = 2`, restoring the 44 px knobs
-  that the third row had shrunk.
+- **Harmony right column stays at 2 rows** (`Volume`/`Blend`, `Formant`/`Attack`)
+  with the 44 px knobs, and its combos keep their width after the 30 px transfer.
 
 ### Tests
 No unit test asserts UI geometry, so this is verified on screen: the rebuilt
-standalone (1102 × 628) shows Gate/Compress, Reverb/Formant and **Double** in the
-Effects block with no overlap, and the Harmony block with full-size knobs and no
-Doubler. Suite unchanged: **124 groups OK / 0 FAILED**, exit 0; SharedCode, VST3
-and Standalone rebuilt green.
+standalone (1102 × 628) shows Gate/Compress/Reverb, Formant/**Double** plus a free
+slot in the Effects block at full knob size with no overlap and no clipped label,
+and the Harmony block unchanged with full-size knobs and no Doubler. Suite
+unchanged: **124 groups OK / 0 FAILED**, exit 0; SharedCode, VST3 and Standalone
+rebuilt green.
