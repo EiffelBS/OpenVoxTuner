@@ -3035,58 +3035,57 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         formantStrategyLabel.setBounds (0, 0, 0, 0);
     }
 
-    // --- Block 4 : Effects - 2 rows (Gate + Reverb on top, Formant below) ---
-    // The effect knobs use a FIXED, modest size (they are secondary controls, not
-    // the primary Speed / Amount knobs) so they no longer stretch to fill the row
-    // height. The value is shown in the popup display while dragging (no textbox).
+    // --- Block 4 : Effects - 3 rows of two cells ---
+    // Row 1 Noise Gate + Upward Comp, row 2 Reverb + Formant, row 3 Doubler + a
+    // free slot for the next effect. Every cell is a power toggle (or a caption
+    // label, for effects with no on/off switch) on top and a knob below. The knob
+    // size is DERIVED from the row height so adding a row never overflows the
+    // block. The value is shown in the popup display while dragging (no textbox).
     auto b4 = block4Bounds.reduced (10);
-    const int effectPowerH = 18;
-    const int effKnobD     = 54;
-    const int rowGap       = 8;
-    const int rowH         = (b4.getHeight() - rowGap) / 2;
+    const int effectPowerH  = 18;
+    const int effectLabelH  = 14;
+    const int rowGap        = 8;
+    const int numEffectRows = 3;
+    const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
+    const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
+    const int effectColW    = (b4.getWidth() - 8) / 2;
 
-    // Row 1 : Noise Gate + Upward Comp (two columns)
+    // Cell with a power toggle: toggle on top, knob centred below.
+    auto placeToggledKnob = [&] (juce::Rectangle<int> cell, auto& toggle, auto& knob)
+    {
+        toggle.setBounds (cell.removeFromTop (effectPowerH));
+        const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - effKnobD) / 2);
+        knob.setBounds (kx, cell.getY() + 2, effKnobD, effKnobD);
+    };
+
+    // Cell without a power toggle: caption label on top, knob centred below.
+    auto placeLabelledKnob = [&] (juce::Rectangle<int> cell, auto& label, auto& knob)
+    {
+        const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - effKnobD) / 2);
+        label.setBounds (kx, cell.getY(), effKnobD, effectLabelH);
+        knob.setBounds (kx, cell.getY() + effectLabelH + 2, effKnobD, effKnobD);
+    };
+
+    // Row 1 : Noise Gate (column 1) + Upward Comp (column 2)
     auto row1 = b4.removeFromTop (rowH);
     b4.removeFromTop (rowGap);
-    const int effectColW = (row1.getWidth() - 8) / 2;
-
-    // Noise Gate (column 1): power toggle on top, fixed-size knob below
-    auto gateCol = row1.removeFromLeft (effectColW);
-    noiseGateEnableButton.setBounds (gateCol.removeFromTop (effectPowerH));
-    {
-        const int kx = gateCol.getX() + juce::jmax (0, (gateCol.getWidth() - effKnobD) / 2);
-        noiseGateThresholdSlider.setBounds (kx, gateCol.getY() + 2, effKnobD, effKnobD);
-    }
+    placeToggledKnob (row1.removeFromLeft (effectColW), noiseGateEnableButton, noiseGateThresholdSlider);
     row1.removeFromLeft (8);
+    placeToggledKnob (row1, upwardCompEnableButton, upwardCompAmountSlider);
 
-    // Upward Comp (column 2): power toggle on top, fixed-size knob below
-    auto ucCol = row1;
-    upwardCompEnableButton.setBounds (ucCol.removeFromTop (effectPowerH));
-    {
-        const int kx = ucCol.getX() + juce::jmax (0, (ucCol.getWidth() - effKnobD) / 2);
-        upwardCompAmountSlider.setBounds (kx, ucCol.getY() + 2, effKnobD, effKnobD);
-    }
-
-    // Row 2 : Reverb + Formant (two columns)
-    auto row2 = b4;
-    const int effectColW2 = (row2.getWidth() - 8) / 2;
-
-    // Reverb (column 1): power toggle on top, fixed-size knob below
-    auto reverbCol = row2.removeFromLeft (effectColW2);
-    reverbEnableButton.setBounds (reverbCol.removeFromTop (effectPowerH));
-    {
-        const int kx = reverbCol.getX() + juce::jmax (0, (reverbCol.getWidth() - effKnobD) / 2);
-        reverbMixSlider.setBounds (kx, reverbCol.getY() + 2, effKnobD, effKnobD);
-    }
+    // Row 2 : Reverb (column 1) + Formant (column 2)
+    auto row2 = b4.removeFromTop (rowH);
+    b4.removeFromTop (rowGap);
+    placeToggledKnob (row2.removeFromLeft (effectColW), reverbEnableButton, reverbMixSlider);
     row2.removeFromLeft (8);
+    placeToggledKnob (row2, formantEnableButton, formantSlider);
 
-    // Formant (column 2): power toggle on top, fixed-size knob below
-    auto formantCol = row2;
-    formantEnableButton.setBounds (formantCol.removeFromTop (effectPowerH));
-    {
-        const int kx = formantCol.getX() + juce::jmax (0, (formantCol.getWidth() - effKnobD) / 2);
-        formantSlider.setBounds (kx, formantCol.getY() + 2, effKnobD, effKnobD);
-    }
+    // Row 3 : Doubler (column 1) + the free column-2 slot for the next effect.
+    // The Doubler has no power toggle: 0 % IS its off state, so the caption label
+    // carries the name. It lives here because it is an effect of the processed
+    // signal, not a harmony voice; refreshLabels() keeps it live when Harmony is off.
+    auto row3 = b4;
+    placeLabelledKnob (row3.removeFromLeft (effectColW), doubleAmountLabel, doubleAmountSlider);
 
     // Harmony controls block (rightmost block)
     // Split into left/right columns FIRST, then fill each column.
@@ -3137,14 +3136,15 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         const int gmW = powerButtonWidth (harmonyGainMatchButton);
         harmonyGainMatchButton.setBounds (gmRow.removeFromLeft (gmW).reduced (0, 1));
 
-        // --- Right column: Volume + Blend side-by-side, Formant + Attack below,
-        //     Doubler on the third row. The knob size is derived from the block
-        //     height so the three rows always fit; the bottom strip is a fixed
-        //     190 px and the Harmony block has no room to grow.
+        // --- Right column: Volume + Blend side-by-side, Formant + Attack below.
+        // The knob size is derived from the block height so both rows always fit;
+        // the bottom strip is a fixed 190 px and the Harmony block has no room to
+        // grow. The Doubler knob lives in the Effects block (row 3), not here: it
+        // doubles the dry lead, not the harmony voices.
         const int harmLabelH = 14;
         const int harmRowGap = 6;
         const int harmKnobGap = 8;
-        const int numKnobRows = 3;
+        const int numKnobRows = 2;
         int harmKnobD = (h.getHeight() - numKnobRows * (harmLabelH + 2) - (numKnobRows - 1) * harmRowGap) / numKnobRows;
         harmKnobD = juce::jmin (44, juce::jmax (30, harmKnobD));
         const int harmRowH = harmLabelH + harmKnobD + 2;
@@ -3178,16 +3178,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
             harmonyAttackSlider.setBounds (kxR, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
         }
 
-        rightCol.removeFromTop (harmRowGap);
-        auto knobRow3 = rightCol.removeFromTop (harmRowH);
-        {
-            // Doubler on its own row, under Harmony Attack. It doubles the dry
-            // lead, not the harmony voices, so it is NOT tied to harmony_enable:
-            // refreshLabels() deliberately leaves it live when Harmony is off.
-            const int kxR = knobRow3.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
-            doubleAmountLabel.setBounds (kxR, knobRow3.getY(), harmKnobD, harmLabelH);
-            doubleAmountSlider.setBounds (kxR, knobRow3.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
-        }
+
     }
 
     // --- Block 1 : Key, Scale, Keyboard (middle) ---
@@ -3508,9 +3499,10 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     harmonyBlendSlider.setEnabled (isHarmonyEnabled);
     harmonyAttackSlider.setEnabled (isHarmonyEnabled);
     harmonyFormantSlider.setEnabled (isHarmonyEnabled);
-    // Deliberate exception: the Doubler knob is NOT disabled here. It doubles the
-    // dry lead voice, not the harmony voices, so it must stay live when Harmony
-    // is switched off (a user can dial a stereo double on a plain lead).
+    // The Doubler knob lives in the Effects block and has no enable toggle of its
+    // own (0 % IS its off state), so nothing here touches it: it stays live
+    // whatever Harmony does, because it doubles the dry lead voice, not the
+    // harmony voices.
     // Use Voice is a sub-toggle of Harmony: it must be disabled whenever
     // Harmony is off (otherwise its state is silently read on re-enable).
     useVoiceButton.setEnabled (isHarmonyEnabled);
