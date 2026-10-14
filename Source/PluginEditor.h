@@ -248,8 +248,11 @@ private:
     juce::Label       harmonyFormantLabel;
     // Doubler knob: stereo doubling of the corrected lead (detune + Haas offset
     // + spread). Independent of harmony_enable, so it is never greyed out.
+    // The power toggle is a UI mirror of double_amount > 0 (no extra parameter):
+    // clicking it writes 0 % / the last used amount, exactly like the sibling
+    // effects' enable buttons in this block.
     juce::Slider      doubleAmountSlider;
-    juce::Label       doubleAmountLabel;
+    ebs::PowerToggle  doubleEnableButton;
 
     // Reverb controls (post-processing effect)
     ebs::PowerToggle reverbEnableButton;
@@ -465,6 +468,10 @@ private:
     // Use Voice sub-toggles) when Harmony changes via preset load or DAW
     // automation - paths that bypass the button's onStateChange callback.
     bool lastHarmonyEnabled = true;
+    // Doubler power-toggle mirror: the last non-zero double_amount, so switching
+    // the toggle back on re-arms the effect at the level the user last heard.
+    float lastDoubleAmount = 40.0f;
+    bool  lastDoublerOn    = false;
 
     // === Global plugin Undo/Redo (Option 1) ===
     // Snapshot bookkeeping for the processor-owned UndoManager. We do NOT

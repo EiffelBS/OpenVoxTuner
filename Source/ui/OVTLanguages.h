@@ -173,6 +173,7 @@ namespace ovt
         static const char* kTooltipUpwardCompEn = "tooltip.upward_comp_enable";
         static const char* kTooltipUpwardCompAmount = "tooltip.upward_comp_amount";
         static const char* kLabelReverbBtn      = "label.reverb_btn";
+        static const char* kLabelDouble         = "label.double";
         static const char* kLabelTone           = "label.tone";
         static const char* kLabelModernBtn      = "label.modern_btn";
         static const char* kLabelTransparentBtn = "label.transparent_btn";
@@ -533,6 +534,7 @@ namespace ovt
             { kLabelThreshold,   "Threshold" },
             { kTooltipThreshold, "Noise gate threshold in dB. Signals below this level are muted." },
             { kLabelReverbBtn,      "Reverb" },
+            { kLabelDouble,         "Double" },
             { kLabelTone,           "Tone" },
             { kLabelModernBtn,      "Modern" },
             { kLabelTransparentBtn, "Transparent" },
@@ -858,6 +860,7 @@ namespace ovt
             { kLabelThreshold,   "Seuil" },
             { kTooltipThreshold, "Seuil du noise gate en dB. Les signaux en dessous sont coupes." },
             { kLabelReverbBtn,      "Reverb" },
+            { kLabelDouble,         "Double" },
             { kLabelTone,           "Timbre" },
             { kLabelModernBtn,      "Moderne" },
             { kLabelTransparentBtn, "Transparent" },
@@ -1183,6 +1186,7 @@ namespace ovt
             { kLabelThreshold,   "Schwelle" },
             { kTooltipThreshold, "Rauschtor-Schwelle in dB. Signale unter diesem Wert werden unterdrueckt." },
             { kLabelReverbBtn,      "Reverb" },
+            { kLabelDouble,         "Double" },
             { kLabelTone,           "Klangfarbe" },
             { kLabelModernBtn,      "Modern" },
             { kLabelTransparentBtn, "Transparent" },
@@ -1508,6 +1512,7 @@ namespace ovt
             { kLabelThreshold,   "Umbral" },
             { kTooltipThreshold, "Umbral de la puerta de ruido en dB. Las senales por debajo se silencian." },
             { kLabelReverbBtn,      "Reverb" },
+            { kLabelDouble,         "Doble" },
             { kLabelTone,           "Tono" },
             { kLabelModernBtn,      "Moderno" },
             { kLabelTransparentBtn, "Transparente" },
@@ -1833,6 +1838,7 @@ namespace ovt
             { kLabelThreshold,   "しきい値" },
             { kTooltipThreshold, "ノイズゲートのしきい値（dB）。このレベル以下の信号はミュートされます。" },
             { kLabelReverbBtn,      "リバーブ" },
+            { kLabelDouble,         "ダブル" },
             { kLabelTone,           "音色" },
             { kLabelModernBtn,      "モダン" },
             { kLabelTransparentBtn, "トランスペアレント" },
@@ -2157,6 +2163,7 @@ namespace ovt
             { kLabelThreshold,      "阈值" },
             { kTooltipThreshold,    "噪声门阈值（dB）。低于此电平的信号将被静音。" },
             { kLabelReverbBtn,      "混响" },
+            { kLabelDouble,         "双倍" },
             { kLabelTone,           "音色" },
             { kLabelModernBtn,      "现代" },
             { kLabelTransparentBtn, "透明" },

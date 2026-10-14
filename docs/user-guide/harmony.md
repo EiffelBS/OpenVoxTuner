@@ -92,7 +92,7 @@ This mode is great when you want a smooth, pad-like backing that doesn't need to
 | **Harmony Formant Shift** | -5 – +5 st | 0 | Vocal-tract character of harmony. |
 | **Harmony Follow Lead** | off / on | on | Harmony follows the lead pitch. |
 | **Harmony Gain Match** | off / on | on | Auto RMS level matching of harmony voices. |
-| **Double Amount** | 0 – 100 % | 0 | Stereo doubler of the corrected lead. Knob in the **Effects** block, independent of Harmony Enable. |
+| **Double Amount** | 0 – 100 % | 0 | Stereo doubler of the corrected lead. Power button + knob in the **Effects** block, independent of Harmony Enable. |
 
 !!! tip
     **Gain Match** automatically balances the harmony level against the lead, so you don't have to chase volume levels manually. **Follow Lead** keeps the harmony glued to the lead's pitch/timing.
@@ -101,7 +101,7 @@ This mode is great when you want a smooth, pad-like backing that doesn't need to
 
 ## Stereo Doubler
 
-The **Double Amount** knob thickens the *corrected lead itself* — it is not a harmony voice, and it keeps working when Harmony is switched off. The knob lives in the **Effects** block, second row next to **Formant**, because it processes the corrected lead signal rather than the harmony voices; it has no on/off switch, since 0 % *is* the off state.
+The **Double Amount** knob thickens the *corrected lead itself* — it is not a harmony voice, and it keeps working when Harmony is switched off. It lives in the **Effects** block, second row next to **Formant**, with a power button of its own like every other effect in that block: switching it off sets 0 %, switching it back on restores the level you last had. The button is only a mirror of the knob — there is one parameter, `Double Amount`.
 
 It blends in one copy of the lead that combines three classic doubling ingredients:
 

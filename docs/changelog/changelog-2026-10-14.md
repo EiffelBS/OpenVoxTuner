@@ -172,15 +172,26 @@ Effects block, which is also where more effects will land.
   which rendered every effect knob at ~35 px; rejected by the author as too small.
   The comment in the layout now states the rule: adding a COLUMN is how this block
   grows.
-- **Doubler cell has a caption label, not a power toggle**: 0 % IS its off state.
-  `refreshLabels()` never touches it (comment rewritten to say so).
+- **Doubler cell carries a power toggle like its siblings** (`ebs::PowerToggle
+  doubleEnableButton` + knob, same `placeToggledKnob` cell as Gate/Compress/Reverb/
+  Formant). The label lives inside the toggle (power glyph + name in the combo font),
+  so the caption `juce::Label` and the `placeLabelledKnob` helper were removed. The
+  toggle is **not a parameter**: it mirrors `double_amount > 0`, clicking off writes
+  0 % and clicking on restores the last non-zero amount (40 % at start), written
+  through the slider so the APVTS attachment, undo, presets and morph stay on the
+  single existing path. The mirror runs in the 30 fps timer with
+  `dontSendNotification`, and `onClick` fires on user clicks only, so there is no
+  feedback loop. `refreshLabels()` never touches it: the doubler doubles the dry lead,
+  so it stays live when Harmony is off.
 - **Harmony right column stays at 2 rows** (`Volume`/`Blend`, `Formant`/`Attack`)
   with the 44 px knobs, and its combos keep their width after the 30 px transfer.
 
 ### Tests
 No unit test asserts UI geometry, so this is verified on screen: the rebuilt
 standalone (1102 × 628) shows Gate/Compress/Reverb, Formant/**Double** plus a free
-slot in the Effects block at full knob size with no overlap and no clipped label,
-and the Harmony block unchanged with full-size knobs and no Doubler. Suite
-unchanged: **124 groups OK / 0 FAILED**, exit 0; SharedCode, VST3 and Standalone
-rebuilt green.
+slot in the Effects block at full knob size, each cell with the same power glyph +
+label and no overlap or clipped caption; the Harmony block is unchanged with
+full-size knobs and no Doubler. Suite unchanged: **124 groups OK / 0 FAILED**, exit
+0; SharedCode, VST3 and Standalone rebuilt green. The knob gesture itself (drag,
+toggle click) belongs to the author's listening session — synthetic input is blocked
+on this machine, so the mirror logic is verified by code reading, not by assertions.
