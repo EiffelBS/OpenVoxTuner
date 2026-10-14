@@ -453,6 +453,7 @@ private:
     std::atomic<float>* harmonyGainMatchParam = nullptr; // gain match on/off: scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
     std::atomic<float>* harmonyFormantParam = nullptr; // Harmony formant shift (-5 to +5 st)
     std::atomic<float>* doubleAmountParam = nullptr; // Doubler amount (0..100 %): detune + Haas offset + stereo spread
+    std::atomic<float>* doubleEnableParam = nullptr; // Doubler on/off: amount is kept, the copy is not applied
     std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
     std::atomic<float>* midiTargetEnableParam = nullptr; // MIDI target / follow enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        

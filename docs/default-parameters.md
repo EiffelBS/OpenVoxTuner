@@ -80,7 +80,6 @@
 | Harmony Tone Color | `harmony_tone_color` | Float | **0.5** | 0 – 1 |
 | Harmony Follow Lead | `harmony_follow_lead` | Bool | **true** | false / true |
 | Harmony Gain Match | `harmony_gain_match` | Bool | **true** | false / true |
-| Double Amount | `double_amount` | Float | **0.0** | 0 – 100 % |
 
 ## Effects
 
@@ -92,6 +91,8 @@
 | Reverb Mix | `reverb_mix` | Float | **0.30** | 0 – 1 |
 | Upward Comp Enable | `upward_comp_enable` | Bool | **false** | false / true |
 | Upward Comp Amount | `upward_comp_amount` | Float | **0.25** | 0 – 1 |
+| Doubler Enable | `double_enable` | Bool | **false** | false / true |
+| Double Amount | `double_amount` | Float | **0.0** | 0 – 100 % |
 
 ## Vibrato
 

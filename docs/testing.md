@@ -95,7 +95,7 @@ The runner runs all registered tests and prints one line per suite
 [ OK ] PitchShifterOutput (12 assertions)
 ...
 =========================
-Result: 120 OK, 0 FAILED
+Result: 125 OK, 0 FAILED
 =========================
 ```
 

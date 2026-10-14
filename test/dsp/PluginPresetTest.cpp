@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // PluginPresetTest.cpp
 // Unit test
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
@@ -78,7 +78,8 @@ public:
             { "amount", 1.0f }, { "flex_tune", 10.0f }, { "humanize", 40.0f },
             { "harmony_enable", 0.0f }, { "harmony_type", 3.0f },
             { "latency_mode", 1.0f }, { "ui_language", 0.0f }, { "ui_theme", 0.0f },
-            { "morph_amount", 0.0f }, { "mode", 0.0f }, { "reverb_enable", 0.0f }
+            { "morph_amount", 0.0f }, { "mode", 0.0f }, { "reverb_enable", 0.0f },
+            { "double_enable", 0.0f }, { "double_amount", 0.0f }
         };
         const ValueTree defaultState = makeState (defaults);
 
@@ -190,6 +191,65 @@ public:
                     "morph position must be preserved");
             expect (approximatelyEqual (getParam (live, "mode"), 1.0f),
                     "Live/Curve mode must be preserved");
+        }
+
+        beginTest ("doubler power switch keeps its amount");
+        {
+            // double_enable is a real parameter, not a mirror of the knob: the
+            // power switch gates the effect, the amount keeps its value. Same
+            // shape as reverb_enable / noise_gate_enable / formant_enable.
+            ValueTree live = defaultState.createCopy();
+            setParam (live, "double_enable", 1.0f);
+            setParam (live, "double_amount", 40.0f);
+
+            // Power off: the enable flag drops, the amount is untouched.
+            setParam (live, "double_enable", 0.0f);
+            expect (approximatelyEqual (getParam (live, "double_enable"), 0.0f),
+                    "power off must clear the enable flag");
+            expect (approximatelyEqual (getParam (live, "double_amount"), 40.0f),
+                    "power off must NOT clear the amount");
+
+            // The processor gate mirrors production: the effective amount is the
+            // parameter value only while the enable flag is on.
+            auto effective = [] (const ValueTree& s)
+            {
+                return (getParam (s, "double_enable") > 0.5f)
+                     ? getParam (s, "double_amount") : 0.0f;
+            };
+            expect (approximatelyEqual (effective (live), 0.0f),
+                    "effect must be silent while the power switch is off");
+
+            // Power back on at the same level: no re-dial needed.
+            setParam (live, "double_enable", 1.0f);
+            expect (approximatelyEqual (effective (live), 40.0f),
+                    "power on must restore the exact previous level");
+
+            // A custom preset round-trip carries both values independently.
+            XmlElement root ("OVT_PLUGIN_PRESET");
+            ValueTree saved = live.createCopy();
+            setParam (saved, "double_enable", 0.0f);
+            std::unique_ptr<XmlElement> stateXml = saved.createXml();
+            root.addChildElement (stateXml.release());
+            ValueTree loaded = loadFromPresetXml (root);
+            expect (approximatelyEqual (getParam (loaded, "double_enable"), 0.0f),
+                    "a preset must restore the power switch as stored");
+            expect (approximatelyEqual (getParam (loaded, "double_amount"), 40.0f),
+                    "a preset must restore the amount as stored");
+
+            // A factory preset that does not mention the doubler resets both to
+            // their factory values (built from the default tree + overrides).
+            ValueTree factory = buildFactoryPreset (defaultState, { { "amount", 0.9f } });
+            expect (approximatelyEqual (getParam (factory, "double_enable"), 0.0f),
+                    "a preset without doubler overrides must leave it off");
+            expect (approximatelyEqual (getParam (factory, "double_amount"), 0.0f),
+                    "a preset without doubler overrides must leave the amount at 0");
+
+            // The transparentDub preset declares both: the amount is useless
+            // without the power switch, so the preset ships them together.
+            ValueTree dub = buildFactoryPreset (defaultState,
+                { { "double_enable", 1.0f }, { "double_amount", 35.0f } });
+            expect (approximatelyEqual (effective (dub), 35.0f),
+                    "transparentDub must deliver an audible doubler out of the box");
         }
     }
 

@@ -24,6 +24,7 @@ namespace ovtdsp
         float harmonyFormant = 0.0f;
         float harmonyToneColor = 0.5f;
         float doubleAmount = 0.0f;   // normalized "double_amount" (0..100 %)
+        bool doubleEnable = false;   // "double_enable": power switch, amount is kept
         float reverbMix = 0.0f;
         float flexTune = 0.0f;
         float humanize = 0.0f;
@@ -82,6 +83,7 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("harmony_formant"))    s.harmonyFormant = p->getValue();
         if (auto* p = params.getParameter ("harmony_tone_color")) s.harmonyToneColor = p->getValue();
         if (auto* p = params.getParameter ("double_amount"))      s.doubleAmount = p->getValue();
+        if (auto* p = params.getParameter ("double_enable"))      s.doubleEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("reverb_mix"))         s.reverbMix = p->getValue();
         if (auto* p = params.getParameter ("flex_tune"))          s.flexTune = p->getValue();
         if (auto* p = params.getParameter ("humanize"))           s.humanize = p->getValue();
@@ -130,7 +132,7 @@ namespace ovtdsp
     {
         juce::StringArray ids;
         ids.addArray ({ "speed", "amount", "formant", "harmony_gain", "harmony_blend",
-                        "harmony_formant", "harmony_tone_color", "double_amount", "reverb_mix", "flex_tune", "humanize",
+                        "harmony_formant", "harmony_tone_color", "double_amount", "double_enable", "reverb_mix", "flex_tune", "humanize",
                         "vibrato_preserve",
                         "attack_aware", "attack_release",
                         "key_source", "companion_group", "key_detect",
@@ -219,6 +221,7 @@ namespace ovtdsp
         setParam ("harmony_use_voice", lerpOrStep (source.harmonyUseVoice ? 1.0f : 0.0f, target.harmonyUseVoice ? 1.0f : 0.0f, t));
         setParam ("harmony_follow_lead", lerpOrStep (source.harmonyFollowLead ? 1.0f : 0.0f, target.harmonyFollowLead ? 1.0f : 0.0f, t));
         setParam ("reverb_enable",     lerpOrStep (source.reverbEnable ? 1.0f : 0.0f, target.reverbEnable ? 1.0f : 0.0f, t));
+        setParam ("double_enable",     lerpOrStep (source.doubleEnable ? 1.0f : 0.0f, target.doubleEnable ? 1.0f : 0.0f, t));
         setParam ("noise_gate_enable", lerpOrStep ((float) source.noiseGateEnable, (float) target.noiseGateEnable, t) > 0.5f ? 1.0f : 0.0f);
         setParam ("upward_comp_enable", lerpOrStep (source.upwardCompEnable ? 1.0f : 0.0f, target.upwardCompEnable ? 1.0f : 0.0f, t));
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));

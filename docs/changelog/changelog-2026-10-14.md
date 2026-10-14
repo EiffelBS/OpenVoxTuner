@@ -195,3 +195,52 @@ full-size knobs and no Doubler. Suite unchanged: **124 groups OK / 0 FAILED**, e
 0; SharedCode, VST3 and Standalone rebuilt green. The knob gesture itself (drag,
 toggle click) belongs to the author's listening session — synthetic input is blocked
 on this machine, so the mirror logic is verified by code reading, not by assertions.
+
+## UI — Doubler power switch becomes a real parameter, label reads "Doubler"
+
+### Context
+Recette on the rebuilt standalone: switching the Doubler off with its power icon
+**set the knob to 0 %**. That is not how any sibling effect behaves — Gate, Upward
+Comp, Reverb and Formant keep their value, grey out the knob and simply stop
+processing. The author asked for that behaviour, and for the label to read
+**Doubler** rather than **Double**.
+
+### Changes
+- **`double_enable` is a real APVTS bool parameter** (default `false`), declared next
+  to `double_amount` in `Source/PluginProcessor.cpp`, with raw pointer
+  `doubleEnableParam`. The processor gate reads
+  `doublerEnabled ? doubleAmountParam->load() : 0.0f`, so off means the copy is not
+  applied and **the amount keeps its value**; switching back on re-arms the effect at
+  the same level, no re-dial.
+- **`ButtonAttachment` on `doubleEnableButton`**, exactly like `reverb_enable`; the
+  mirror code (slider writes from the toggle, `onClick`, the timer sync and the
+  `lastDoubleAmount` / `lastDoublerOn` members) is deleted. Greying is one line in the
+  30 fps timer block that already greys the sibling effects:
+  `doubleAmountSlider.setEnabled (doubleEnableButton.getToggleState())`. The knob stays
+  enabled as a control, only dimmed, so it can be dragged while off.
+- **Preset and morph coverage extended to the new parameter**: preset restore
+  (`setChoice ("double_enable", saved.doubleEnable …)`), A/B slot XML
+  (`doubleEnable` write + read), `MorphState` field, capture, whitelist entry and
+  `lerpOrStep` in the boolean block. Factory presets start from the default tree, so
+  every preset resets the switch to off; `transparentDub` now ships
+  `{ "double_enable", 1.0f }` next to its 35 % amount — an amount is useless without
+  the switch.
+- **Label renamed to "Doubler"** in all six locales (en/fr/de **Doubler**, es
+  **Doblador**, ja **ダブラー**, zh **加倍器**), plus a new tooltip key
+  `tooltip.double_enable` in the same six locales, wired on the toggle at setup and in
+  the language-change refresh.
+- Docs updated: `docs/default-parameters.md` gains the `double_enable` row and moves
+  both Double rows into the **Effects** section (the UI home); `harmony.md` describes
+  the power button as on/off with the value kept; roadmap bullet DB.4 rewritten and
+  DB.7 added.
+
+### Tests
+The `PluginPreset` suite gains the group **"doubler power switch keeps its amount"**
+(6 assertions): powering off clears the flag and leaves `double_amount` at 40 %; the
+production-shaped gate yields silence while off and the exact previous level back on;
+a preset round-trip restores both values independently; a factory preset without
+doubler overrides resets both to 0; `transparentDub` delivers an audible 35 % out of
+the box. Full suite in one process: **125 groups OK / 0 FAILED**, exit 0. SharedCode,
+VST3 and Standalone rebuilt green; the captured standalone shows the Effects block with
+**Doubler** labelled, its power glyph greyed (off) and the knob dimmed at full size,
+while the Harmony block is unchanged. The click itself remains the author's gesture.

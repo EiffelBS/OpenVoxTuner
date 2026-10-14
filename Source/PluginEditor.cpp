@@ -819,6 +819,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Doubler knob: 0..100 % stereo doubling of the corrected lead. Independent
     // of harmony_enable, so it stays live when the Harmony block is switched off.
+    // Greyed (not disabled as a control) while double_enable is off; the value is
+    // kept, exactly like reverb_mix behind reverb_enable.
     setupKnob (doubleAmountSlider, nullptr, "");
     doubleAmountSlider.setRange (0.0, 100.0, 1.0);
     doubleAmountSlider.setValue (0.0);
@@ -827,13 +829,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     doubleAmountSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
     doubleAmountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleAmount));
 
-    // Doubler power toggle: same look as the sibling effects in this block (power
-    // glyph + label in the combo font, accent tick). It is NOT a parameter - it is
-    // a mirror of double_amount > 0, so the cell reads like Gate / Compress / Reverb.
+    // Doubler power toggle: a real parameter (double_enable), attached to the button
+    // like every sibling effect in this block (Gate / Compress / Reverb / Formant).
+    // Switching off does not clear the amount, it only stops applying the copy.
     doubleEnableButton.setButtonText (ovt::tr (ovt::Keys::kLabelDouble));
     doubleEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
     doubleEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
-    doubleEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleAmount));
+    doubleEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleEn));
     addAndMakeVisible (doubleEnableButton);
 
     // Title labels above the Harmony knobs (no value display, just names).
@@ -2242,16 +2244,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyGainMatchAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_gain_match", harmonyGainMatchButton);
     harmonyFormantAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_formant", harmonyFormantSlider);
     doubleAmountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "double_amount", doubleAmountSlider);
-    // The Doubler power toggle is a UI mirror of double_amount, not a parameter of
-    // its own: off writes 0 %, on restores the last non-zero amount (40 % at
-    // start). Writing through the slider keeps the APVTS attachment, undo, preset
-    // save and morph on the single existing path. onClick fires on a user click
-    // only, so the timer mirror (dontSendNotification) never loops back here.
-    doubleEnableButton.onClick = [this]
-    {
-        const float target = doubleEnableButton.getToggleState() ? lastDoubleAmount : 0.0f;
-        doubleAmountSlider.setValue (target);
-    };
+    // Doubler power: a real parameter attached to the button, exactly like
+    // reverb_enable. The knob keeps its value when switched off; refreshLabels()
+    // greys it and the processor stops applying the copy.
+    doubleEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "double_enable", doubleEnableButton);
     // Keep the Follow Lead and Gain Match sub-toggles in sync with the parent
     // Harmony switch. onStateChange fires on a direct click, so we re-run
     // refreshLabels() (which now also disables those two sub-toggles based on
@@ -3089,10 +3085,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // Row 2 : Formant + Doubler + the free slot for the next effect.
     // The Doubler cell is built exactly like its siblings (power toggle carrying
-    // the name, knob below): the toggle mirrors double_amount > 0, so 0 % is off
-    // and clicking re-arms the last used amount. It lives here because it is an
-    // effect of the processed signal, not a harmony voice; refreshLabels() keeps
-    // it live when Harmony is off.
+    // the name, knob below): double_enable is a real parameter, so switching off
+    // greys the knob and stops the copy without clearing double_amount. It lives
+    // here because it is an effect of the processed signal, not a harmony voice;
+    // nothing Harmony does touches this cell.
     auto row2 = b4;
     placeToggledKnob (row2.removeFromLeft (effectColW), formantEnableButton, formantSlider);
     row2.removeFromLeft (colGap);
@@ -3440,20 +3436,6 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         }
     }
 
-    // Doubler power toggle mirror. The knob is the source of truth (drag, preset
-    // restore, morph, DAW automation all land on the slider through the APVTS
-    // attachment), so the toggle follows double_amount > 0 and remembers the last
-    // non-zero amount for the next switch-on. dontSendNotification keeps this
-    // write from firing onClick, which is the user-only path back to the slider.
-    const bool doublerOn = doubleAmountSlider.getValue() > 0.0;
-    if (doublerOn != lastDoublerOn)
-    {
-        lastDoublerOn = doublerOn;
-        doubleEnableButton.setToggleState (doublerOn, juce::dontSendNotification);
-    }
-    if (doublerOn)
-        lastDoubleAmount = static_cast<float> (doubleAmountSlider.getValue());
-
     if (updateCheckState != nullptr)
     {
         if (! updateCheckState->finished.load())
@@ -3517,6 +3499,11 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     bool isUpwardCompEnabled = upwardCompEnableButton.getToggleState();
     upwardCompAmountSlider.setEnabled (isUpwardCompEnabled);
 
+    // Gray out Doubler knob if disabled: double_enable gates the copy, the amount
+    // itself is kept so switching back on re-arms the effect at the same level.
+    bool isDoublerEnabled = doubleEnableButton.getToggleState();
+    doubleAmountSlider.setEnabled (isDoublerEnabled);
+
     // Harmony controls enable/disable
     bool isHarmonyEnabled = harmonyEnableButton.getToggleState();
     harmonyTypeBox.setEnabled (isHarmonyEnabled);
@@ -3524,10 +3511,9 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     harmonyBlendSlider.setEnabled (isHarmonyEnabled);
     harmonyAttackSlider.setEnabled (isHarmonyEnabled);
     harmonyFormantSlider.setEnabled (isHarmonyEnabled);
-    // The Doubler lives in the Effects block with its own power toggle, which is a
-    // mirror of double_amount and not tied to Harmony. Nothing here touches the
-    // toggle or the knob: the doubler doubles the dry lead voice, so it stays live
-    // (and clickable) whatever Harmony does.
+    // The Doubler lives in the Effects block with its own power toggle, so nothing
+    // Harmony does touches it: its greyed state is driven by double_enable above.
+    // The doubler doubles the dry lead voice, so it stays live whatever Harmony does.
     // Use Voice is a sub-toggle of Harmony: it must be disabled whenever
     // Harmony is off (otherwise its state is silently read on re-enable).
     useVoiceButton.setEnabled (isHarmonyEnabled);
@@ -4326,6 +4312,7 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     // snapshot (the live baseline captured by the timer).
     formantEnableButton.addListener (this);
     reverbEnableButton.addListener (this);
+    doubleEnableButton.addListener (this);
     noiseGateEnableButton.addListener (this);
     // 2026-07-24 (Deprecation): Attack-Aware button listener disabled.
     // attackAwareButton.addListener (this);
@@ -4545,7 +4532,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     harmonyAttackSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyAttack));
     harmonyFormantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyFormant));
     doubleAmountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleAmount));
-    doubleEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleAmount));
+    doubleEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleEn));
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
     buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
     buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));
@@ -4911,6 +4898,7 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("harmony_use_voice", saved.harmonyUseVoice ? 1.0f : 0.0f);
     setChoice ("harmony_follow_lead", saved.harmonyFollowLead ? 1.0f : 0.0f);
     setChoice ("reverb_enable",     saved.reverbEnable ? 1.0f : 0.0f);
+    setChoice ("double_enable",     saved.doubleEnable ? 1.0f : 0.0f);
     setChoice ("noise_gate_enable", saved.noiseGateEnable ? 1.0f : 0.0f);
     setChoice ("upward_comp_enable", saved.upwardCompEnable ? 1.0f : 0.0f);
     setChoice ("correction_mode",   saved.correctionMode ? 1.0f : 0.0f);
@@ -4985,8 +4973,9 @@ namespace
             // The preset's name promises a double track: the stereo doubler
             // delivers it on the lead alone, with Harmony off (the doubler is
             // independent of harmony_enable). 35 % = ~3.5 cents detune, ~9 ms
-            // Haas offset and a light right-side spread.
-            { "double_amount", 35.0f }
+            // Haas offset and a light right-side spread; the power switch must be
+            // on for that amount to be heard.
+            { "double_enable", 1.0f }, { "double_amount", 35.0f }
         };
         static const std::map<juce::String, float> studioStack = {
             { "amount", 0.9f }, { "flex_tune", 15.0f }, { "humanize", 20.0f },

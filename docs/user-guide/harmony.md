@@ -92,7 +92,7 @@ This mode is great when you want a smooth, pad-like backing that doesn't need to
 | **Harmony Formant Shift** | -5 – +5 st | 0 | Vocal-tract character of harmony. |
 | **Harmony Follow Lead** | off / on | on | Harmony follows the lead pitch. |
 | **Harmony Gain Match** | off / on | on | Auto RMS level matching of harmony voices. |
-| **Double Amount** | 0 – 100 % | 0 | Stereo doubler of the corrected lead. Power button + knob in the **Effects** block, independent of Harmony Enable. |
+| **Double Amount** | 0 – 100 % | 0 | Stereo doubler of the corrected lead. Power button labelled **Doubler** + knob in the **Effects** block, independent of Harmony Enable. |
 
 !!! tip
     **Gain Match** automatically balances the harmony level against the lead, so you don't have to chase volume levels manually. **Follow Lead** keeps the harmony glued to the lead's pitch/timing.
@@ -101,7 +101,7 @@ This mode is great when you want a smooth, pad-like backing that doesn't need to
 
 ## Stereo Doubler
 
-The **Double Amount** knob thickens the *corrected lead itself* — it is not a harmony voice, and it keeps working when Harmony is switched off. It lives in the **Effects** block, second row next to **Formant**, with a power button of its own like every other effect in that block: switching it off sets 0 %, switching it back on restores the level you last had. The button is only a mirror of the knob — there is one parameter, `Double Amount`.
+The **Double Amount** knob thickens the *corrected lead itself* — it is not a harmony voice, and it keeps working when Harmony is switched off. It lives in the **Effects** block, second row next to **Formant**, built exactly like its neighbours: a power button carrying the name **Doubler**, and the knob below it. Switching the power button off greys the knob and stops the copy; **the amount keeps its value**, so switching back on re-arms the effect at the same level. There are two parameters, `Double Enable` (on/off) and `Double Amount` (0 – 100 %), just like Reverb has `Reverb Enable` + `Reverb Mix`.
 
 It blends in one copy of the lead that combines three classic doubling ingredients:
 
@@ -111,7 +111,7 @@ It blends in one copy of the lead that combines three classic doubling ingredien
 
 The copy always sits **below** the lead (max −4.4 dB at 100 %), and its level is compensated automatically: the perceived loudness stays constant from 0 % to 100 %, so the knob never makes your vocal louder. Summing the output to mono keeps the level — no phase hole.
 
-At **0 %** the doubler is completely bypassed: no extra processing is used and the output is bit-identical, so existing projects sound exactly as before.
+At **0 %**, or with the power button off, the doubler is completely bypassed: no extra processing is used and the output is bit-identical, so existing projects sound exactly as before.
 
 !!! note
     The doubler doubles the lead *after* correction, so it follows your corrected pitch and timbre. It does not double the harmony voices.
@@ -130,7 +130,7 @@ When harmony is enabled, the generated voices are shown as **traces** in the [Cu
 - **Rock power** — **Power Chord**, tight gain, low attack.
 - **Ethereal pad** — **Synth** mode with **Choir** tone and a high tone color.
 - **Classic 3rds** — **3rd Below + Above**, blend ~0.5, natural attack.
-- **Studio double track** — Harmony off, **Double Amount** ~40 %: a detuned, widened copy of the lead with no extra voices.
+- **Studio double track** — Harmony off, **Doubler** power on, **Double Amount** ~40 %: a detuned, widened copy of the lead with no extra voices.
 
 ---
 

@@ -387,6 +387,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                            "double_amount", "Double Amount",
                            juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f),
 
+                       // Doubler power switch, same shape as the sibling effects'
+                       // enable flags (reverb_enable, noise_gate_enable, ...): the
+                       // amount keeps its value when switched off, the knob is
+                       // greyed and the copy is simply not applied.
+                       std::make_unique<juce::AudioParameterBool> (
+                           "double_enable", "Double Enable", false),
+
                       // Formant Shift Enable
                       std::make_unique<juce::AudioParameterBool> (
                           "formant_enable", "Formant Enable", false),
@@ -692,6 +699,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     harmonyGainMatchParam = parameters.getRawParameterValue ("harmony_gain_match");
     harmonyFormantParam = parameters.getRawParameterValue ("harmony_formant");
     doubleAmountParam = parameters.getRawParameterValue ("double_amount");
+    doubleEnableParam = parameters.getRawParameterValue ("double_enable");
     midiOutEnableParam = parameters.getRawParameterValue ("midi_out_enable");
     midiTargetEnableParam = parameters.getRawParameterValue ("midi_target_enable");
     dbgTestGrainParam = parameters.getRawParameterValue ("dbg_test_grain");
@@ -2481,7 +2489,12 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // compensation is applied here, independently of harmony_gain_match, because
     // the doubler adds to the dry signal and can exceed unity when Harmony is off.
     {
-        const float doubleAmount = (doubleAmountParam != nullptr) ? doubleAmountParam->load() : 0.0f;
+        // Same power semantics as the sibling effects: switching off does NOT clear
+        // double_amount, it simply stops applying the copy. The amount is read only
+        // when enabled, so the bypass path below keeps the lead bit-identical and
+        // the value is waiting for the next switch-on.
+        const bool doublerEnabled = (doubleEnableParam != nullptr) && (doubleEnableParam->load() > 0.5f);
+        const float doubleAmount = (doublerEnabled && doubleAmountParam != nullptr) ? doubleAmountParam->load() : 0.0f;
         doubler.setAmount (doubleAmount);
 
         if (doubler.isActive() && doublerPitchShifter != nullptr)
@@ -4647,6 +4660,7 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("harmonyBlend",     (double) ms.harmonyBlend);
         slotXml->setAttribute ("harmonyToneColor", (double) ms.harmonyToneColor);
         slotXml->setAttribute ("doubleAmount",     (double) ms.doubleAmount);
+        slotXml->setAttribute ("doubleEnable",     ms.doubleEnable);
         slotXml->setAttribute ("reverbMix",        (double) ms.reverbMix);
         slotXml->setAttribute ("flexTune",         (double) ms.flexTune);
         slotXml->setAttribute ("humanize",         (double) ms.humanize);
@@ -4734,6 +4748,7 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.harmonyBlend       = (float) slotXml->getDoubleAttribute ("harmonyBlend", 0.5);
             ms.harmonyToneColor   = (float) slotXml->getDoubleAttribute ("harmonyToneColor", 0.5);
             ms.doubleAmount       = (float) slotXml->getDoubleAttribute ("doubleAmount", 0.0);
+            ms.doubleEnable       = slotXml->getBoolAttribute ("doubleEnable", false);
             ms.reverbMix          = (float) slotXml->getDoubleAttribute ("reverbMix", 0.3);
             ms.flexTune           = (float) slotXml->getDoubleAttribute ("flexTune", 0.25);
             ms.humanize           = (float) slotXml->getDoubleAttribute ("humanize", 0.0);

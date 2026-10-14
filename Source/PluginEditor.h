@@ -362,6 +362,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> harmonyGainMatchAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyFormantAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> doubleAmountAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> doubleEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;
@@ -468,10 +469,6 @@ private:
     // Use Voice sub-toggles) when Harmony changes via preset load or DAW
     // automation - paths that bypass the button's onStateChange callback.
     bool lastHarmonyEnabled = true;
-    // Doubler power-toggle mirror: the last non-zero double_amount, so switching
-    // the toggle back on re-arms the effect at the level the user last heard.
-    float lastDoubleAmount = 40.0f;
-    bool  lastDoublerOn    = false;
 
     // === Global plugin Undo/Redo (Option 1) ===
     // Snapshot bookkeeping for the processor-owned UndoManager. We do NOT
