@@ -25,6 +25,15 @@ OpenVoxTuner provides **22 harmony types** (None plus 21 harmony options):
 - **Power Chord** — a fifth-based power chord for rockier textures.
 - **Drone** — a sustained drone note.
 - **Unison** — thickening via closely spaced voices.
+
+!!! note
+    The Unison types (`Unison 2` and `Unison Octaves 4`) spread their two unison
+    voices by **±5 cents** — one slightly sharp, one slightly flat. Two identical
+    copies add in level (+6 dB) and only sound louder; the detuned pair adds in
+    power (+3 dB) and produces a slow ~1.2 Hz shimmer, which is the thickening
+    effect. There is no knob for it: it is part of those types. The octave voices
+    are not detuned. For a thicker lead (independent of Harmony), use **Double
+    Amount** — see [Stereo Doubler](harmony.md#stereo-doubler).
 - And more.
 
 Each type defines which intervals and voice configuration are generated relative to the lead.

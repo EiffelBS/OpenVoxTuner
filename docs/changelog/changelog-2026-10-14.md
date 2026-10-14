@@ -109,6 +109,43 @@ memory dump required.
 - The first stereo implementation applied the pan gains without the copy
   level, so the copy exceeded the lead (+2.8 dB at 25 % and 50 %); multiplying
   `g · gL` / `g · gR` fixed it and made the compensation formula exact.
-- Deferred by design: detuning the Unison voices through
-  `shiftedVoiceRatioSmoothers`, and a stereo width parameter on the harmony
-  bus gains. Both belong to the 3-bus architecture work.
+- Deferred by design: a stereo width parameter on the harmony bus gains, which
+  belongs to the 3-bus architecture work. The Unison detune that was listed here
+  is implemented in the next section.
+
+## Feature — Harmony: fixed Unison detune (±5 cents)
+
+### Context
+`Unison2` and `UnisonOctaves4` generate **identical** frequencies for voices 0
+and 1 (`HarmonyEngine.cpp` L77-78), so the two copies are fully correlated: they
+add coherently (+6.02 dB over one voice) and what the user hears is a louder
+voice, not a thicker one. The envelope stagger (40/46/52/58 ms) decorrelates the
+attack only; the sustained part stays in phase. This is the same physics the
+doubler solves on the lead path, so it was solved the same way — with a fixed
+detune, not a knob.
+
+### Changes
+- **`HarmonyEngine::unisonDetuneCents (voiceIndex, type)`** (`Source/dsp/HarmonyEngine.h`):
+  +5 cents for voice 0, −5 for voice 1, 0 for the octave voices of
+  `UnisonOctaves4` (already decorrelated by their octave ratio) and 0 for every
+  non-Unison type. No parameter, no UI, no morph, no preset: it is a property of
+  the Unison types, and the lead path is covered by `double_amount`.
+- **Applied to `ratioH` in the harmony voice loop** (`Source/PluginProcessor.cpp`,
+  right after `ratioH` is computed): before the >12 % glide gate, so `snapTo`
+  stores the detuned ratio and a re-activating voice never starts from an
+  undetuned value. The offset is constant per voice index, so it never crosses
+  the glide gate (10 cents = 0.6 % of the ratio) — no zipper noise when the
+  knob-free feature is on. `pitchDevOct` rises to ~0.0084, which leaves the
+  per-voice formant blend essentially unchanged.
+
+### Tests
+New `test/dsp/UnisonDetuneTest.cpp`, registered in `test/Main.cpp`: 4 groups /
+21 assertions — Unison layout (voices 0-1 identical, voices 2-3 exact octaves,
+compared as ratios because the engine quantizes the base to the scale); mapping
+(+5 / −5 / 0, the 10-cent spread, beat ≈ 1.2 Hz at 200 Hz); sum level (the
+correlated pair measures +6.02 dB, the detuned pair drops to 2.7–3.4 dB, and a
+50 ms short-window RMS shows the beat shimmer on the detuned pair while the
+correlated pair stays flat); mono L+R sum keeps its level, no phase hole.
+
+Full suite in one process: **124 groups OK / 0 FAILED**, exit 0. SharedCode,
+`OpenVoxTuner_VST3` and `OpenVoxTuner_Standalone` all build in Release.

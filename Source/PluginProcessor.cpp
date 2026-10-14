@@ -2701,6 +2701,22 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     if (refF0 > 0.0f) ratioDenom = refF0;
                 }
                 float ratioH = juce::jmax(0.25f, juce::jmin(4.0f, targetHz / ratioDenom));
+
+                // Unison detune (2026-10-14). HarmonyEngine generates identical
+                // notes for voices 0 and 1 of Unison2 / UnisonOctaves4, so those
+                // copies are fully correlated: the sum is +6 dB and the audible
+                // result is a level boost, not thickening. The fixed +/-5 cent
+                // spread from HarmonyEngine::unisonDetuneCents decorrelates them
+                // spectrally (~1.2 Hz beat at 200 Hz). Applied BEFORE the glide
+                // block below so snapTo stores the detuned ratio and a voice
+                // re-activating never starts from an undetuned value. The octave
+                // voices (v >= 2) get 0 cents and are untouched.
+                const float unisonCents = ovtdsp::HarmonyEngine::unisonDetuneCents (
+                    v, static_cast<ovtdsp::HarmonyType> (renderHarmonyType));
+                if (unisonCents != 0.0f)
+                    ratioH = juce::jlimit (0.25f, 4.0f,
+                        ratioH * static_cast<float> (std::pow (2.0, unisonCents / 1200.0)));
+
                 // Per-voice ratio glide to mask harmony TYPE changes (note jumps)
                 // WITHOUT muting the harmony bus. It glides only on LARGE ratio
                 // changes (>12%, ~a minor 3rd — i.e. a harmony note / type change);

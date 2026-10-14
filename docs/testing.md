@@ -26,6 +26,7 @@ test/
 │  ├─ KeyBridgeTest.cpp
 │  ├─ KeyDetectorTest.cpp
 │  ├─ LpcFormantPreserverTest.cpp
+│  ├─ LpcFramingTest.cpp
 │  ├─ MidiImporterTest.cpp
 │  ├─ PerformanceBudgetTest.cpp
 │  ├─ PitchCurveTest.cpp
@@ -39,8 +40,10 @@ test/
 │  ├─ SidechainBusLayoutTest.cpp
 │  ├─ SpeedFloorTest.cpp
 │  ├─ UpwardCompressorTest.cpp
+│  ├─ UnisonDetuneTest.cpp
 │  └─ VibratoTest.cpp
 └─ ui/                               # UI component tests
+   ├─ LookAndFeelToggleTest.cpp
    ├─ PitchCurveEditorTest.cpp
    └─ ScaleKeyboardComponentTest.cpp
 ```
@@ -49,7 +52,9 @@ The test suites found under `test/dsp/` cover pitch detection (YIN), scale
 quantization, pitch shifting (PSOLA), retarget envelope, formant preservation
 (LPC and multi-formant), MIDI file analysis/import into pitch curves, harmony
 gain-match & attack, the stereo doubler (detune ratio, Haas offset, constant
-perceived RMS, mono compatibility, amount-0 bypass), key detection and the key
+perceived RMS, mono compatibility, amount-0 bypass), the fixed Unison detune
+(identical voice pair, correlated +6 dB sum decorrelated to +3 dB, beat rate,
+mono L+R sum), key detection and the key
 bridge, sidechain bus layout, speed floor, block-aware one-pole filtering,
 performance budgets, plugin preset/undo, upward compression, and vibrato.
 

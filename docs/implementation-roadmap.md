@@ -558,6 +558,22 @@ also installs a stdout logger: JUCE sends `Logger::writeToLog` to
 a crashing suite is localized to its last printed group from the command line,
 with no memory dump.
 
+### 8u. Harmony: fixed Unison detune (±5 cents) (2026-10-14)
+
+`Unison2` and `UnisonOctaves4` generate IDENTICAL frequencies for voices 0 and 1
+(`HarmonyEngine.cpp` L77-78), so the pair is fully correlated: +6.02 dB over one
+voice, i.e. a level boost, not thickening. The envelope stagger (40/46/52/58 ms)
+decorrelates the attack only. A fixed per-voice spread decorrelates the sustained
+part spectrally. No parameter: it is a property of the Unison types; the lead path
+is `double_amount` (section 8t).
+
+- [x] **UD.1 (`HarmonyEngine::unisonDetuneCents`, 2026-10-14)** — `Source/dsp/HarmonyEngine.h`. +5 cents for voice 0, −5 for voice 1, 0 for the octave voices (v ≥ 2, already decorrelated by their octave ratio) and 0 for every non-Unison type.
+- [x] **UD.2 (Applied to `ratioH` before the glide gate, 2026-10-14)** — `Source/PluginProcessor.cpp`, in the harmony voice loop right after `ratioH`. Applied before the >12 % glide so `snapTo` stores the detuned ratio and a re-activating voice never starts undetuned; the offset is constant per voice index, so it never crosses the gate (10 cents = 0.6 %) → no zipper. `pitchDevOct` ≈ 0.0084 leaves the formant blend essentially unchanged.
+- [x] **UD.3 (`test/dsp/UnisonDetuneTest.cpp`, 2026-10-14)** — 4 groups / 21 assertions: Unison layout (voices 0-1 identical, voices 2-3 exact octaves, compared as ratios); mapping (+5/−5/0, 10-cent spread, beat ≈ 1.2 Hz at 200 Hz); sum level (correlated +6.02 dB → detuned 2.7–3.4 dB, beat shimmer present on the detuned pair, flat on the correlated one); mono L+R sum without a phase hole.
+
+Validation: full suite **124 groups OK / 0 FAILED** in one process; SharedCode,
+`OpenVoxTuner_VST3` and `OpenVoxTuner_Standalone` all build in Release.
+
 ## 9. Documentation
 
 - [x] Architecture overview

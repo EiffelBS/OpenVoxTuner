@@ -143,6 +143,29 @@ namespace ovtdsp
             }
         }
 
+        /**
+         * Fixed per-voice detune for the Unison types, in cents (2026-10-14).
+         *
+         * getHarmonyNotes generates IDENTICAL frequencies for voices 0 and 1 of
+         * Unison2 / UnisonOctaves4 (see HarmonyEngine.cpp L77-78), so those two
+         * copies are fully correlated: their sum is +6 dB (roadmap section N)
+         * and what the user hears is a level boost, not thickening. This helper
+         * returns the spread that decorrelates them spectrally: +5 cents for
+         * voice 0, -5 for voice 1, and 0 for the octave voices (already
+         * decorrelated by their octave ratio) and for every non-Unison type.
+         * A 10-cent spread at 200 Hz is a ~1.2 Hz beat: slow shimmer, not a
+         * metallic comb. There is no parameter for this: it is a property of
+         * the Unison types, and the lead path is covered by double_amount.
+         */
+        static float unisonDetuneCents (int voiceIndex, HarmonyType type)
+        {
+            if (type != HarmonyType::Unison2 && type != HarmonyType::UnisonOctaves4)
+                return 0.0f;
+            if (voiceIndex == 0) return 5.0f;
+            if (voiceIndex == 1) return -5.0f;
+            return 0.0f;
+        }
+
     private:
         /**
          * Calcule la frequence d'une note a partir d'un degre dans la gamme.
