@@ -16,6 +16,7 @@
 #include "dsp/YinPitchDetector.h"
 #include "dsp/ScaleQuantizer.h"
 #include "dsp/HarmonyEngine.h"
+#include "dsp/Doubler.h"
 #include "dsp/PitchShifter.h"
 #include "dsp/RetargetEnvelope.h"
 #include "dsp/PitchCurve.h"
@@ -451,6 +452,7 @@ private:
     std::atomic<float>* harmonyFollowLeadParam = nullptr; // harmonies follow lead character (bool)
     std::atomic<float>* harmonyGainMatchParam = nullptr; // gain match on/off: scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
     std::atomic<float>* harmonyFormantParam = nullptr; // Harmony formant shift (-5 to +5 st)
+    std::atomic<float>* doubleAmountParam = nullptr; // Doubler amount (0..100 %): detune + Haas offset + stereo spread
     std::atomic<float>* midiOutEnableParam = nullptr; // MIDI out enable
     std::atomic<float>* midiTargetEnableParam = nullptr; // MIDI target / follow enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
@@ -509,6 +511,12 @@ private:
     std::array<std::atomic<int>, 12> scaleIntervalSnapshot {};
     std::atomic<int> scaleIntervalSnapshotSize { 0 };
     std::unique_ptr<ovtdsp::PitchShifter>      pitchShifter;
+    // Dedicated shifter for the stereo doubler copy. It MUST be a separate
+    // instance: the main pitchShifter forbids re-entry inside one audio block
+    // (a second process() corrupts its grain scheduler state -> scratchs / NaN,
+    // see the comment in processBlock). Same latency clamp as the lead so the
+    // copy is time-aligned with it and only the Haas offset is audible.
+    std::unique_ptr<ovtdsp::PitchShifter>      doublerPitchShifter;
     std::unique_ptr<ovtdsp::HarmonyEngine>     harmonyEngine;
     ovtdsp::NoiseGate                           noiseGate;
     ovtdsp::FormantPreserver                    formantPreserver;
@@ -761,6 +769,12 @@ private:
     float harmonyAttackGain = 0.0f;
     // Temporary buffers to hold pitch-shifted voices (preallocated)
     std::vector<juce::AudioBuffer<float>> shiftedVoiceBuffers;
+    // Stereo doubler: Haas delay line + equal-power spread + constant-gain
+    // compensation, fed by the CORRECTED lead (see processBlock).
+    ovtdsp::Doubler doubler;
+    juce::AudioBuffer<float> doublerInputBuffer;   // snapshot of the corrected lead
+    juce::AudioBuffer<float> doublerOutputBuffer;  // shifted copy, pre-allocated
+    bool doublerRunning = false;                   // CPU short-circuit bookkeeping
     // Dedicated pitch shifters per shifted voice (separate state from main pitchShifter)
     std::vector<std::unique_ptr<ovtdsp::PitchShifter>> shiftedVoicePitchShifters;
     static constexpr int maxShiftedVoices = 4;

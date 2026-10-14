@@ -80,6 +80,7 @@
 | Harmony Tone Color | `harmony_tone_color` | Float | **0.5** | 0 – 1 |
 | Harmony Follow Lead | `harmony_follow_lead` | Bool | **true** | false / true |
 | Harmony Gain Match | `harmony_gain_match` | Bool | **true** | false / true |
+| Double Amount | `double_amount` | Float | **0.0** | 0 – 100 % |
 
 ## Effects
 

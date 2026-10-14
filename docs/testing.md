@@ -18,6 +18,7 @@ test/
 ├─ formant_preservation_benchmark.py # Python benchmark (not part of the C++ suite)
 ├─ dsp/                              # DSP test suites (one file per module)
 │  ├─ BlockAwareOnePoleTest.cpp
+│  ├─ DoublerTest.cpp
 │  ├─ FormantPreserverTest.cpp
 │  ├─ FormantPreserverModulationTest.cpp
 │  ├─ HarmonyAttackTest.cpp
@@ -47,9 +48,10 @@ test/
 The test suites found under `test/dsp/` cover pitch detection (YIN), scale
 quantization, pitch shifting (PSOLA), retarget envelope, formant preservation
 (LPC and multi-formant), MIDI file analysis/import into pitch curves, harmony
-gain-match & attack, key detection and the key bridge, sidechain bus layout,
-speed floor, block-aware one-pole filtering, performance budgets, plugin
-preset/undo, upward compression, and vibrato.
+gain-match & attack, the stereo doubler (detune ratio, Haas offset, constant
+perceived RMS, mono compatibility, amount-0 bypass), key detection and the key
+bridge, sidechain bus layout, speed floor, block-aware one-pole filtering,
+performance budgets, plugin preset/undo, upward compression, and vibrato.
 
 ## Building the tests
 
@@ -88,12 +90,42 @@ The runner runs all registered tests and prints one line per suite
 [ OK ] PitchShifterOutput (12 assertions)
 ...
 =========================
-Result: 111 OK, 0 FAILED
+Result: 120 OK, 0 FAILED
 =========================
 ```
 
 The process exits with code **0** when all tests pass, and **1** if any test fails,
 so it can be used in CI.
+
+### Running one suite, and localizing a crash
+
+Passing suite names on the command line runs them in order:
+
+```powershell
+.\build\OpenVoxTunerTests_artefacts\Release\OpenVoxTunerTests.exe Doubler HarmonyGainMatch
+```
+
+Two runner quirks matter when a suite crashes (an access violation kills the
+process, and no memory dump is readable):
+
+- **One name per run.** `UnitTestRunner::runTests()` clears its results at the
+  start of every call, so a multi-name run prints only the **last** suite's
+  results. Multi-name runs detect crashes (the process dies) but hide assertion
+  failures of the earlier suites — verify each suite individually and check the
+  exit code.
+- **The name filter is per test object.** A file with one `UnitTest` subclass
+  containing many `beginTest(...)` groups cannot be split by name, so `Main.cpp`
+  installs a stdout logger: JUCE sends `Logger::writeToLog` to
+  `OutputDebugString` when no logger is set, which hides the runner's per-group
+  "Starting tests in: Suite / group..." lines. With the logger, the last line
+  printed before the process dies **is** the crashing group.
+
+### Writing files from a confined test run
+
+A binary whose image lives inside the workspace runs at **Low integrity**
+(`S-1-16-4096`), so it cannot write to `%TEMP%` (Medium integrity). Suites that
+generate files — `MidiImporterTest` writes temporary `.mid` files — must write
+next to the executable, inside the build tree, not to the system temp folder.
 
 ## CI
 

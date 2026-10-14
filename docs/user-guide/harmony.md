@@ -83,9 +83,29 @@ This mode is great when you want a smooth, pad-like backing that doesn't need to
 | **Harmony Formant Shift** | -5 – +5 st | 0 | Vocal-tract character of harmony. |
 | **Harmony Follow Lead** | off / on | on | Harmony follows the lead pitch. |
 | **Harmony Gain Match** | off / on | on | Auto RMS level matching of harmony voices. |
+| **Double Amount** | 0 – 100 % | 0 | Stereo doubler of the corrected lead (independent of Harmony Enable). |
 
 !!! tip
     **Gain Match** automatically balances the harmony level against the lead, so you don't have to chase volume levels manually. **Follow Lead** keeps the harmony glued to the lead's pitch/timing.
+
+---
+
+## Stereo Doubler
+
+The **Double Amount** knob thickens the *corrected lead itself* — it is not a harmony voice, and it keeps working when Harmony is switched off.
+
+It blends in one copy of the lead that combines three classic doubling ingredients:
+
+- **Detune** — the copy is shifted up to **10 cents** sharp (0 at 0 %). The cap stays below the comb-filtering threshold documented for stacked voices.
+- **Haas offset** — the copy arrives late, up to **25 ms** (floored at 5 ms once the knob is above zero), so the ear localises the image on the dry lead and hears the copy as width, not as an echo.
+- **Stereo spread** — the copy is panned to the opposite side of the stereo field from the centred lead, up to full right.
+
+The copy always sits **below** the lead (max −4.4 dB at 100 %), and its level is compensated automatically: the perceived loudness stays constant from 0 % to 100 %, so the knob never makes your vocal louder. Summing the output to mono keeps the level — no phase hole.
+
+At **0 %** the doubler is completely bypassed: no extra processing is used and the output is bit-identical, so existing projects sound exactly as before.
+
+!!! note
+    The doubler doubles the lead *after* correction, so it follows your corrected pitch and timbre. It does not double the harmony voices.
 
 ---
 
@@ -101,6 +121,7 @@ When harmony is enabled, the generated voices are shown as **traces** in the [Cu
 - **Rock power** — **Power Chord**, tight gain, low attack.
 - **Ethereal pad** — **Synth** mode with **Choir** tone and a high tone color.
 - **Classic 3rds** — **3rd Below + Above**, blend ~0.5, natural attack.
+- **Studio double track** — Harmony off, **Double Amount** ~40 %: a detuned, widened copy of the lead with no extra voices.
 
 ---
 

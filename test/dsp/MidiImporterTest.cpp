@@ -8,6 +8,21 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../../Source/dsp/MidiImporter.h"
 
+/** Sandbox-safe scratch folder for the generated MIDI files.
+ *  A test binary whose image lives inside the workspace runs at Low integrity
+ *  (S-1-16-4096) and cannot write to %TEMP%, which is Medium-integrity: every
+ *  group that needs a temp .mid then fails on "Cannot open file", and the
+ *  suite crashes when it later indexes the empty curve. The scratch folder sits
+ *  next to the executable, inside the build tree, where the confined process is
+ *  allowed to write. */
+static juce::File midiScratchDir()
+{
+    juce::File dir = juce::File::getSpecialLocation (juce::File::currentExecutableFile)
+                         .getParentDirectory().getChildFile ("ovt_midi_scratch");
+    dir.createDirectory();
+    return dir;
+}
+
 /** RAII wrapper: writes a MidiFile to a temp file, deletes it on scope exit. */
 class TempMidiFile
 {
@@ -15,10 +30,9 @@ public:
     /** Build the temp file from the given MidiFile content.
      *  The file is deleted automatically when this object goes out of scope. */
     explicit TempMidiFile (const juce::MidiFile& mf)
-        : file (juce::File::getSpecialLocation (juce::File::tempDirectory)
-                    .getChildFile ("ovt_midi_importer_test_"
-                                  + juce::String (juce::Random::getSystemRandom().nextInt (1 << 30))
-                                  + ".mid"))
+        : file (midiScratchDir().getChildFile ("ovt_midi_importer_test_"
+                                             + juce::String (juce::Random::getSystemRandom().nextInt (1 << 30))
+                                             + ".mid"))
     {
         juce::FileOutputStream out (file);
         mf.writeTo (out);
@@ -155,8 +169,7 @@ public:
 
         beginTest ("analyzeFile: garbage bytes rejected");
         {
-            auto junk = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                            .getChildFile ("ovt_midi_junk.mid");
+            auto junk = midiScratchDir().getChildFile ("ovt_midi_junk.mid");
             junk.replaceWithText ("this is definitely not a MIDI file");
             auto info = MidiImporter::analyzeFile (junk);
             junk.deleteFile();
@@ -167,8 +180,7 @@ public:
 
         beginTest ("analyzeFile: nonexistent path rejected");
         {
-            auto missing = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                               .getChildFile ("ovt_midi_does_not_exist.mid");
+            auto missing = midiScratchDir().getChildFile ("ovt_midi_does_not_exist.mid");
             auto info = MidiImporter::analyzeFile (missing);
 
             expect (! info.isValid);
@@ -203,13 +215,18 @@ public:
             auto curve = MidiImporter::importFrom (tmp.getFile(), Strategy::HighestNote);
             expectEquals (curve.getNumPoints(), 4, "one emitted point per note change");
 
-            const double expectedTimes[] = { 0.0, 0.5, 1.0, 1.5 };
-            const int expectedNotes[] = { 60, 64, 67, 72 };
-            for (int i = 0; i < 4; ++i)
+            // Guard the indexing: getPoint past the end of an empty curve reads
+            // out of the array allocation and crashes the whole test process.
+            if (curve.getNumPoints() == 4)
             {
-                expectWithinAbsoluteError (curve.getPoint (i).time, expectedTimes[i], 0.001);
-                expectWithinAbsoluteError ((double) curve.getPoint (i).pitch,
-                                           hzOf (expectedNotes[i]), 0.5);
+                const double expectedTimes[] = { 0.0, 0.5, 1.0, 1.5 };
+                const int expectedNotes[] = { 60, 64, 67, 72 };
+                for (int i = 0; i < 4; ++i)
+                {
+                    expectWithinAbsoluteError (curve.getPoint (i).time, expectedTimes[i], 0.001);
+                    expectWithinAbsoluteError ((double) curve.getPoint (i).pitch,
+                                               hzOf (expectedNotes[i]), 0.5);
+                }
             }
         }
 
@@ -226,14 +243,18 @@ public:
             // Highest: C@0 -> E@0.25 -> back to C when E ends @0.75.
             auto highest = MidiImporter::importFrom (tmp.getFile(), Strategy::HighestNote);
             expectEquals (highest.getNumPoints(), 3);
-            expectWithinAbsoluteError ((double) highest.getPoint (0).pitch, hzOf (60), 0.5);
-            expectWithinAbsoluteError ((double) highest.getPoint (1).pitch, hzOf (76), 0.5);
-            expectWithinAbsoluteError ((double) highest.getPoint (2).pitch, hzOf (60), 0.5);
+            if (highest.getNumPoints() == 3)
+            {
+                expectWithinAbsoluteError ((double) highest.getPoint (0).pitch, hzOf (60), 0.5);
+                expectWithinAbsoluteError ((double) highest.getPoint (1).pitch, hzOf (76), 0.5);
+                expectWithinAbsoluteError ((double) highest.getPoint (2).pitch, hzOf (60), 0.5);
+            }
 
             // Lowest: C4 always wins while it sustains -> single point.
             auto lowest = MidiImporter::importFrom (tmp.getFile(), Strategy::LowestNote);
             expectEquals (lowest.getNumPoints(), 1);
-            expectWithinAbsoluteError ((double) lowest.getPoint (0).pitch, hzOf (60), 0.5);
+            if (lowest.getNumPoints() >= 1)
+                expectWithinAbsoluteError ((double) lowest.getPoint (0).pitch, hzOf (60), 0.5);
         }
 
         beginTest ("importFrom: loudest note wins on overlap");
@@ -246,9 +267,12 @@ public:
             // C@0 -> G@0.25 (louder) -> back to C@0.75 when G ends.
             auto curve = MidiImporter::importFrom (tmp.getFile(), Strategy::LoudestNote);
             expectEquals (curve.getNumPoints(), 3);
-            expectWithinAbsoluteError ((double) curve.getPoint (0).pitch, hzOf (60), 0.5);
-            expectWithinAbsoluteError ((double) curve.getPoint (1).pitch, hzOf (67), 0.5);
-            expectWithinAbsoluteError ((double) curve.getPoint (2).pitch, hzOf (60), 0.5);
+            if (curve.getNumPoints() == 3)
+            {
+                expectWithinAbsoluteError ((double) curve.getPoint (0).pitch, hzOf (60), 0.5);
+                expectWithinAbsoluteError ((double) curve.getPoint (1).pitch, hzOf (67), 0.5);
+                expectWithinAbsoluteError ((double) curve.getPoint (2).pitch, hzOf (60), 0.5);
+            }
         }
 
         beginTest ("importFrom: SpecificChannel keeps only the requested channel");
@@ -260,7 +284,8 @@ public:
 
             auto curve = MidiImporter::importFrom (tmp.getFile(), Strategy::SpecificChannel, 2);
             expectEquals (curve.getNumPoints(), 1, "channel 1 notes must be dropped");
-            expectWithinAbsoluteError ((double) curve.getPoint (0).pitch, hzOf (76), 0.5);
+            if (curve.getNumPoints() >= 1)
+                expectWithinAbsoluteError ((double) curve.getPoint (0).pitch, hzOf (76), 0.5);
         }
 
         beginTest ("importFrom: percussion-only file yields an empty curve");
@@ -283,7 +308,8 @@ public:
 
             auto curve = MidiImporter::importFrom (tmp.getFile(), Strategy::HighestNote);
             expectEquals (curve.getNumPoints(), 1, "the blip must not appear in the curve");
-            expectWithinAbsoluteError ((double) curve.getPoint (0).pitch, hzOf (60), 0.5);
+            if (curve.getNumPoints() >= 1)
+                expectWithinAbsoluteError ((double) curve.getPoint (0).pitch, hzOf (60), 0.5);
         }
 
         beginTest ("importFrom: dangling note-on (no note-off) ignored");
@@ -304,8 +330,7 @@ public:
 
         beginTest ("importFrom: garbage file yields an empty curve");
         {
-            auto junk = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                            .getChildFile ("ovt_midi_junk2.mid");
+            auto junk = midiScratchDir().getChildFile ("ovt_midi_junk2.mid");
             junk.replaceWithText ("\x00\x01\x02 still not midi \xff\xfe");
             auto curve = MidiImporter::importFrom (junk, Strategy::HighestNote);
             junk.deleteFile();

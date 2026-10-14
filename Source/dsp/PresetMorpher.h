@@ -23,6 +23,7 @@ namespace ovtdsp
         float harmonyAttack = 0.1137f; // normalized value of "harmony_attack" (35 ms in 1..300 ms range)
         float harmonyFormant = 0.0f;
         float harmonyToneColor = 0.5f;
+        float doubleAmount = 0.0f;   // normalized "double_amount" (0..100 %)
         float reverbMix = 0.0f;
         float flexTune = 0.0f;
         float humanize = 0.0f;
@@ -80,6 +81,7 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("harmony_attack"))     s.harmonyAttack = p->getValue();
         if (auto* p = params.getParameter ("harmony_formant"))    s.harmonyFormant = p->getValue();
         if (auto* p = params.getParameter ("harmony_tone_color")) s.harmonyToneColor = p->getValue();
+        if (auto* p = params.getParameter ("double_amount"))      s.doubleAmount = p->getValue();
         if (auto* p = params.getParameter ("reverb_mix"))         s.reverbMix = p->getValue();
         if (auto* p = params.getParameter ("flex_tune"))          s.flexTune = p->getValue();
         if (auto* p = params.getParameter ("humanize"))           s.humanize = p->getValue();
@@ -128,7 +130,7 @@ namespace ovtdsp
     {
         juce::StringArray ids;
         ids.addArray ({ "speed", "amount", "formant", "harmony_gain", "harmony_blend",
-                        "harmony_formant", "harmony_tone_color", "reverb_mix", "flex_tune", "humanize",
+                        "harmony_formant", "harmony_tone_color", "double_amount", "reverb_mix", "flex_tune", "humanize",
                         "vibrato_preserve",
                         "attack_aware", "attack_release",
                         "key_source", "companion_group", "key_detect",
@@ -187,6 +189,7 @@ namespace ovtdsp
         setParam ("harmony_blend",      source.harmonyBlend + (target.harmonyBlend - source.harmonyBlend) * t);
         setParam ("harmony_formant",    source.harmonyFormant + (target.harmonyFormant - source.harmonyFormant) * t);
         setParam ("harmony_tone_color", source.harmonyToneColor + (target.harmonyToneColor - source.harmonyToneColor) * t);
+        setParam ("double_amount",      source.doubleAmount + (target.doubleAmount - source.doubleAmount) * t);
         setParam ("reverb_mix",         source.reverbMix + (target.reverbMix - source.reverbMix) * t);
         setParam ("flex_tune",          source.flexTune + (target.flexTune - source.flexTune) * t);
         setParam ("humanize",           source.humanize + (target.humanize - source.humanize) * t);

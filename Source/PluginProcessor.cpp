@@ -377,6 +377,16 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             "formant", "Formant Shift",
                             juce::NormalisableRange<float> (-5.0f, 5.0f, 0.1f), 0.0f),
 
+                        // Doubler amount (0..100 %). Stereo doubling of the CORRECTED
+                        // lead: detune 0 -> 10 cents, Haas time offset 0 -> 25 ms,
+                        // L/R spread opposite to the lead. Independent of
+                        // harmony_enable — the doubler works on the dry voice alone.
+                        // At 0 % the copy is skipped entirely (no pitch-shifter call)
+                        // and the output is bit-identical, so old presets are unchanged.
+                        std::make_unique<juce::AudioParameterFloat> (
+                           "double_amount", "Double Amount",
+                           juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f),
+
                       // Formant Shift Enable
                       std::make_unique<juce::AudioParameterBool> (
                           "formant_enable", "Formant Enable", false),
@@ -681,6 +691,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     harmonyFollowLeadParam = parameters.getRawParameterValue ("harmony_follow_lead");
     harmonyGainMatchParam = parameters.getRawParameterValue ("harmony_gain_match");
     harmonyFormantParam = parameters.getRawParameterValue ("harmony_formant");
+    doubleAmountParam = parameters.getRawParameterValue ("double_amount");
     midiOutEnableParam = parameters.getRawParameterValue ("midi_out_enable");
     midiTargetEnableParam = parameters.getRawParameterValue ("midi_target_enable");
     dbgTestGrainParam = parameters.getRawParameterValue ("dbg_test_grain");
@@ -1080,6 +1091,25 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     if (pitchShifter != nullptr)
         pitchShifter->setAttackTimeMs (30.0f);
 
+    // Dedicated pitch shifter for the stereo doubler copy. Created once and
+    // prepared with the same block layout as the lead; applyLatencyMode() below
+    // gives it the SAME latency as the lead, so the only relative delay between
+    // lead and copy is the Haas offset. It must be prepared BEFORE
+    // applyLatencyMode(), exactly like the main shifter.
+    if (doublerPitchShifter == nullptr)
+        doublerPitchShifter = std::make_unique<ovtdsp::PitchShifter>();
+    doublerPitchShifter->prepare (sampleRate, samplesPerBlock);
+    doublerPitchShifter->setAttackTimeMs (30.0f);
+
+    // Doubler: Haas delay line + spread + gain compensation.
+    doubler.prepare (sampleRate, samplesPerBlock);
+    doublerRunning = false;
+    const int doublerCh = juce::jmax (1, getMainBusNumOutputChannels());
+    doublerInputBuffer.setSize (doublerCh, samplesPerBlock, false, true, true);
+    doublerInputBuffer.clear();
+    doublerOutputBuffer.setSize (doublerCh, samplesPerBlock, false, true, true);
+    doublerOutputBuffer.clear();
+
 
     // Prepare the analysis FIFO for pitch detection.
     analysisFifo.setSize (1, analysisWindow, false, true, false);
@@ -1197,6 +1227,12 @@ void OpenVoxTunerAudioProcessor::reset()
     shiftedVoiceLevelSmoother.reset (1.0f);
     if (pitchShifter != nullptr)
         pitchShifter->reset();
+    if (doublerPitchShifter != nullptr)
+        doublerPitchShifter->reset();
+    doubler.reset();
+    doublerRunning = false;
+    doublerInputBuffer.clear();
+    doublerOutputBuffer.clear();
     harmonyBuffer.clear();
     synthWorkBuffer.clear();
     lastMixedHarmonyBuffer.clear();
@@ -2435,6 +2471,57 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         formantPreserver.setFormantShift (shiftSemitones);
         formantPreserver.process (buffer, ratio);
         pitchShifter->process (buffer, ratio, userFormantRatio, f0_in);
+    }
+
+    // === STEREO DOUBLER (Haas doubling of the CORRECTED lead) ===
+    // The copy is fed from the lead AFTER correction, so it is a detuned twin of
+    // what the user hears, not of the raw input. It runs on its OWN
+    // PitchShifter instance: the main pitchShifter must never be re-entered in
+    // the same block (see the harmony note below). The constant-gain
+    // compensation is applied here, independently of harmony_gain_match, because
+    // the doubler adds to the dry signal and can exceed unity when Harmony is off.
+    {
+        const float doubleAmount = (doubleAmountParam != nullptr) ? doubleAmountParam->load() : 0.0f;
+        doubler.setAmount (doubleAmount);
+
+        if (doubler.isActive() && doublerPitchShifter != nullptr)
+        {
+            if (! doublerRunning)
+            {
+                // Re-entry after a bypass: drop the stale ring-buffer state so the
+                // copy starts from the current block, not from audio written
+                // seconds ago (which would be an audible scratch burst).
+                doublerPitchShifter->resetSoft();
+                doublerRunning = true;
+            }
+
+            const int nDoubler = buffer.getNumSamples();
+            if (doublerInputBuffer.getNumChannels() != buffer.getNumChannels()
+                || doublerInputBuffer.getNumSamples() != nDoubler)
+                doublerInputBuffer.setSize (buffer.getNumChannels(), nDoubler, false, true, true);
+            if (doublerOutputBuffer.getNumChannels() != buffer.getNumChannels()
+                || doublerOutputBuffer.getNumSamples() != nDoubler)
+                doublerOutputBuffer.setSize (buffer.getNumChannels(), nDoubler, false, true, true);
+
+            doublerInputBuffer.copyFrom (0, 0, buffer, 0, 0, nDoubler);
+            if (buffer.getNumChannels() > 1)
+                doublerInputBuffer.copyFrom (1, 0, buffer, 1, 0, nDoubler);
+
+            // Detune = lead ratio * 2^(cents/1200), capped at 10 cents
+            // (docs/harmony-pad-prerequisites-analysis.md "Keep detunes < 10 cents").
+            const float copyRatio = juce::jlimit (0.25f, 4.0f,
+                ratio * ovtdsp::Doubler::detuneRatio (doubleAmount));
+            doublerPitchShifter->process (doublerInputBuffer, doublerOutputBuffer,
+                                           copyRatio, userFormantRatio, f0_in);
+            doubler.process (doublerOutputBuffer, buffer);
+        }
+        else
+        {
+            // CPU short-circuit at 0 %: no shifter call, and the mix is a no-op
+            // that leaves the lead bit-identical.
+            doublerRunning = false;
+            doubler.process (doublerOutputBuffer, buffer);
+        }
     }
 
     // Harmony voices: formant preservation follows the same strategy as the
@@ -3887,6 +3974,11 @@ void OpenVoxTunerAudioProcessor::applyLatencyMode()
             ps->setLatencyMs (latencyMs);
     }
 
+    // The doubler copy must share the lead's latency: the Haas offset is the
+    // ONLY relative delay between them, so the shifter latencies cancel out.
+    if (doublerPitchShifter != nullptr)
+        doublerPitchShifter->setLatencyMs (latencyMs);
+
     setLatencySamples (pitchShifter->getLatencySamples());
     appliedLatencyMode = mode;
 
@@ -4538,6 +4630,7 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("harmonyGain",      (double) ms.harmonyGain);
         slotXml->setAttribute ("harmonyBlend",     (double) ms.harmonyBlend);
         slotXml->setAttribute ("harmonyToneColor", (double) ms.harmonyToneColor);
+        slotXml->setAttribute ("doubleAmount",     (double) ms.doubleAmount);
         slotXml->setAttribute ("reverbMix",        (double) ms.reverbMix);
         slotXml->setAttribute ("flexTune",         (double) ms.flexTune);
         slotXml->setAttribute ("humanize",         (double) ms.humanize);
@@ -4624,6 +4717,7 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.harmonyGain        = (float) slotXml->getDoubleAttribute ("harmonyGain", 0.5);
             ms.harmonyBlend       = (float) slotXml->getDoubleAttribute ("harmonyBlend", 0.5);
             ms.harmonyToneColor   = (float) slotXml->getDoubleAttribute ("harmonyToneColor", 0.5);
+            ms.doubleAmount       = (float) slotXml->getDoubleAttribute ("doubleAmount", 0.0);
             ms.reverbMix          = (float) slotXml->getDoubleAttribute ("reverbMix", 0.3);
             ms.flexTune           = (float) slotXml->getDoubleAttribute ("flexTune", 0.25);
             ms.humanize           = (float) slotXml->getDoubleAttribute ("humanize", 0.0);

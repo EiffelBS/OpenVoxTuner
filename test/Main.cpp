@@ -36,10 +36,28 @@
 #include "ui/ScaleKeyboardComponentTest.cpp"
 #include "ui/LookAndFeelToggleTest.cpp"
 #include "ScaleSnapPipelineTest.cpp"
+#include "dsp/DoublerTest.cpp"
+
+/** Console logger for the test runner.
+ *  With no logger installed, JUCE sends Logger::writeToLog to OutputDebugString,
+ *  so the runner's per-group "Starting tests in: Suite / group..." lines never
+ *  reach the console. When a suite crashes with an access violation and no
+ *  memory dump can be read, the last line printed IS the crashing group: this
+ *  logger makes that observable from the command line alone. */
+struct ConsoleTestLogger : public juce::Logger
+{
+    void logMessage (const juce::String& message) override
+    {
+        std::cout << message << "\n" << std::flush;
+    }
+};
 
 int main (int argc, char* argv[])
 {
     std::cout << "main start\n" << std::endl;
+
+    ConsoleTestLogger consoleLogger;
+    juce::Logger::setCurrentLogger (&consoleLogger);
 
     juce::UnitTestRunner runner;
 
@@ -78,6 +96,7 @@ int main (int argc, char* argv[])
     std::cout << "=========================\n";
     std::cout.flush();
 
+    juce::Logger::setCurrentLogger (nullptr);
     return numFailed == 0 ? 0 : 1;
 }
 

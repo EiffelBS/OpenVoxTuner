@@ -265,6 +265,7 @@ namespace ovt
         static const char* kTooltipHarmonyGainMatch = "tooltip.harmony_gain_match";
         static const char* kTooltipHarmonyAttack = "tooltip.harmony_attack";
         static const char* kTooltipHarmonyFormant = "tooltip.harmony_formant";
+        static const char* kTooltipDoubleAmount = "tooltip.double_amount";
         static const char* kTooltipReverbEn    = "tooltip.reverb_enable";
         static const char* kTooltipFormant     = "tooltip.formant_enable";
         static const char* kTooltipFlexTune    = "tooltip.flex_tune";
@@ -611,6 +612,7 @@ namespace ovt
             { kTooltipHarmonyGainMatch, "When on (default), the harmony mix is scaled by 1/sqrt(1+N) (N = number of active harmony voices) so the total output RMS is roughly equal to the dry input RMS. Compensates for the additive volume boost on Unison / Unison+Octaves. The dry signal is untouched." },
             { kTooltipHarmonyAttack,  "Harmony Attack: per-voice fade-in duration. Smoother, more progressive harmony onsets. When the Noise Gate is on, the attack follows the gate." },
             { kTooltipHarmonyFormant, "Formant shift for harmony voices (semitones)" },
+            { kTooltipDoubleAmount, "Stereo doubler of the lead: detune up to 10 cents, Haas delay up to 25 ms, spread opposite to the lead. Works even when Harmony is off." },
             { kTooltipReverbEn,       "Enable/disable reverb effect." },
             { kTooltipFormant,        "Enable/disable formant shifting." },
             { kTooltipFlexTune,       "Deadband in cents: input pitch within this range is left uncorrected." },
@@ -935,6 +937,7 @@ namespace ovt
             { kTooltipHarmonyGainMatch, "Quand elle est active (defaut), le mix d'harmonie est reduit par 1/sqrt(1+N) (N = nombre de voix d'harmonie actives) pour que le RMS total en sortie soit proche du RMS de l'entree seche. Compense le boost de volume additif sur Unison / Unison+Octaves. Le signal sec n'est pas touche." },
             { kTooltipHarmonyAttack,  "Attaque d'harmonie : duree de fondu en entree par voix. Attaques d'harmonie plus douces et progressives. Quand la Noise Gate est active, l'attaque suit le gate." },
             { kTooltipHarmonyFormant, "Decalage de formant pour les voix d'harmonie (demi-tons)" },
+            { kTooltipDoubleAmount, "Double stéréo de la voix principale : désaccord jusqu'à 10 cents, délai de Haas jusqu'à 25 ms, épanouissement opposé à la voix principale. Fonctionne même sans harmonie." },
             { kTooltipReverbEn,       "Activer/desactiver l'effet de reverberation." },
             { kTooltipFormant,        "Activer/desactiger le deplacement de formant." },
             { kTooltipFlexTune,       "Deadband en cents : les entrees dans cette plage ne sont pas corrigees." },
@@ -1261,6 +1264,7 @@ namespace ovt
             { kTooltipHarmonyGainMatch, "Wenn aktiv (Standard), wird der Harmoniemix mit 1/sqrt(1+N) skaliert (N = Anzahl aktiver Harmoniestimmen), so dass der Gesamt-Ausgangs-RMS ungefahr dem RMS des trockenen Eingangssignals entspricht. Kompensiert den additiven Lautstarkeboost bei Unison / Unison+Octaves. Das trockene Signal wird nicht verandert." },
             { kTooltipHarmonyAttack,  "Harmonie-Attack: Einblendedauer pro Stimme. Sanfter, progressiverer Harmonieeinsatz. Wenn die Noise Gate aktiv ist, folgt der Attack dem Gate." },
             { kTooltipHarmonyFormant, "Formantverschiebung fuer Harmoniestimmen (Halbtoene)" },
+            { kTooltipDoubleAmount, "Stereo-Doubler der Hauptstimme: Verstimmung bis 10 Cent, Haas-Verzoegerung bis 25 ms, Verbreiterung gegenueber der Hauptstimme. Funktioniert auch ohne Harmonie." },
             { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
             { kTooltipFormant,        "Formantenverschiebung aktivieren/deaktivieren." },
             { kTooltipFlexTune,       "Deadband in Cents: Eingaenge in diesem Bereich werden nicht korrigiert." },
@@ -1585,6 +1589,7 @@ namespace ovt
             { kTooltipHarmonyGainMatch, "Cuando esta activo (por defecto), la mezcla de armonia se escala por 1/sqrt(1+N) (N = numero de voces de armonia activas) para que el RMS total de salida sea aproximadamente igual al RMS de la entrada seca. Compensa el aumento aditivo de volumen en Unison / Unison+Octavas. La senal seca no se toca." },
             { kTooltipHarmonyAttack,  "Ataque de armonia: duracion de fundido de entrada por voz. Ataques de armonia mas suaves y progresivos. Cuando la Noise Gate esta activa, el ataque sigue el gate." },
             { kTooltipHarmonyFormant, "Desplazamiento de formante para voces de armonia (semitonos)" },
+            { kTooltipDoubleAmount, "Doblador estereo de la voz principal: desafinacion hasta 10 centimos, retardo de Haas hasta 25 ms, apertura opuesta a la voz principal. Funciona incluso sin harmonia." },
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberacion." },
             { kTooltipFormant,        "Activar/desactivar desplazamiento de formante." },
             { kTooltipFlexTune,       "Deadband en cents: las entradas en este rango no se corrigen." },
@@ -1908,6 +1913,7 @@ namespace ovt
             { kTooltipHarmonyGainMatch, "オン（デフォルト）のとき、ハーモニーミックスは 1/sqrt(1+N) でスケールされます（N = アクティブなハーモニーボイスの数）。これにより、出力全体の RMS が生入力の RMS とほぼ等しくなります。Unison / Unison+Octaves での加算的な音量ブーストを補正します。ドライ信号には影響しません。" },
             { kTooltipHarmonyAttack,  "ハーモニーアタック：ボイスごとのフェードイン持続時間。より滑らかで段階的なハーモニーの立ち上がり。ノイズゲートがオンのとき、アタックはゲートに追従します。" },
             { kTooltipHarmonyFormant, "ハーモニーボイスのフォルマントシフト（半音）" },
+            { kTooltipDoubleAmount, "リードのステレオダブラー：最大10セントのデチューン、最大25msのハース・オフセット、リードと反対方向の広がり。ハーモニー OFF でも動作します。" },
             { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
             { kTooltipFormant,        "フォルマントシフトの有効/無効。" },
             { kTooltipFlexTune,       "デッドバンド(セント): この範囲内のピッチは補正されません。" },
@@ -2231,6 +2237,7 @@ namespace ovt
             { kTooltipHarmonyGainMatch, "开启时（默认），和声混音按 1/sqrt(1+N) 缩放（N = 活动和声声部的数量），使总输出 RMS 接近干声输入 RMS。补偿 Unison / Unison+Octaves 上的加性音量提升。干信号不受影响。" },
             { kTooltipHarmonyAttack,  "和声起音：每个声部的淡入持续时间。更柔和、渐进的和声起始。噪声门开启时，起音跟随门控。" },
             { kTooltipHarmonyFormant, "和声声部的共振峰偏移（半音）" },
+            { kTooltipDoubleAmount, "主声部的立体声加倍：最大 10 音分失谐，最大 25 毫秒 Haas 延迟，与主声部相反的展开。关闭和声时同样有效。" },
             { kTooltipReverbEn,       "启用/禁用混响效果。" },
             { kTooltipFormant,        "启用/禁用共振峰偏移。" },
             { kTooltipFlexTune,       "死区（音分）：此范围内的输入音高保持不校正。" },

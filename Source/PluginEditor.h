@@ -246,6 +246,10 @@ private:
     ebs::PowerToggle harmonyGainMatchButton; // Scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
     juce::Slider      harmonyFormantSlider;   // Formant shift for harmony voices only
     juce::Label       harmonyFormantLabel;
+    // Doubler knob: stereo doubling of the corrected lead (detune + Haas offset
+    // + spread). Independent of harmony_enable, so it is never greyed out.
+    juce::Slider      doubleAmountSlider;
+    juce::Label       doubleAmountLabel;
 
     // Reverb controls (post-processing effect)
     ebs::PowerToggle reverbEnableButton;
@@ -354,6 +358,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> harmonyFollowLeadAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> harmonyGainMatchAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyFormantAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> doubleAmountAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;

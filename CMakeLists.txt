@@ -200,6 +200,8 @@ target_sources(OpenVoxTuner PRIVATE
     Source/dsp/PitchShifter.h
     Source/dsp/HarmonyEngine.cpp
     Source/dsp/HarmonyEngine.h
+    Source/dsp/Doubler.cpp
+    Source/dsp/Doubler.h
     Source/dsp/RetargetEnvelope.cpp
     Source/dsp/RetargetEnvelope.h
     Source/dsp/FormantPreserver.cpp
@@ -388,6 +390,7 @@ target_sources(OpenVoxTunerTests PRIVATE
     Source/dsp/MidiImporter.cpp
     Source/dsp/PitchShifter.cpp
     Source/dsp/HarmonyEngine.cpp
+    Source/dsp/Doubler.cpp
     Source/ui/ScaleKeyboardComponent.cpp
 )
 target_link_libraries(OpenVoxTunerTests PRIVATE

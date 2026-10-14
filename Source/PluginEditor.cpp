@@ -817,6 +817,16 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyFormantSlider.textFromValueFunction = [] (double v) { return juce::String (v, 1) + " st"; };
     harmonyFormantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyFormant));
 
+    // Doubler knob: 0..100 % stereo doubling of the corrected lead. Independent
+    // of harmony_enable, so it stays live when the Harmony block is switched off.
+    setupKnob (doubleAmountSlider, nullptr, "");
+    doubleAmountSlider.setRange (0.0, 100.0, 1.0);
+    doubleAmountSlider.setValue (0.0);
+    doubleAmountSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    doubleAmountSlider.setPopupDisplayEnabled (true, false, this);
+    doubleAmountSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    doubleAmountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleAmount));
+
     // Title labels above the Harmony knobs (no value display, just names).
     auto setupTitleLabel = [this] (juce::Label& l, const juce::String& name) {
         l.setText (name, juce::dontSendNotification);
@@ -829,6 +839,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     setupTitleLabel (harmonyBlendLabel, "Blend");
     setupTitleLabel (harmonyAttackLabel, "Attack");
     setupTitleLabel (harmonyFormantLabel, "Formant");
+    setupTitleLabel (doubleAmountLabel, "Double");
 
     // Use Voice controls
     useVoiceButton.setButtonText (ovt::tr(ovt::Keys::kLabelUseVoice));
@@ -2222,6 +2233,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyFollowLeadAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_follow_lead", harmonyFollowLeadButton);
     harmonyGainMatchAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "harmony_gain_match", harmonyGainMatchButton);
     harmonyFormantAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_formant", harmonyFormantSlider);
+    doubleAmountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "double_amount", doubleAmountSlider);
     // Keep the Follow Lead and Gain Match sub-toggles in sync with the parent
     // Harmony switch. onStateChange fires on a direct click, so we re-run
     // refreshLabels() (which now also disables those two sub-toggles based on
@@ -3125,12 +3137,17 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         const int gmW = powerButtonWidth (harmonyGainMatchButton);
         harmonyGainMatchButton.setBounds (gmRow.removeFromLeft (gmW).reduced (0, 1));
 
-        // --- Right column: Volume + Blend side-by-side, Formant below ---
+        // --- Right column: Volume + Blend side-by-side, Formant + Attack below,
+        //     Doubler on the third row. The knob size is derived from the block
+        //     height so the three rows always fit; the bottom strip is a fixed
+        //     190 px and the Harmony block has no room to grow.
         const int harmLabelH = 14;
-        const int harmKnobD  = 44;
-        const int harmRowH   = harmLabelH + harmKnobD + 2;
-        const int harmRowGap = 8;
+        const int harmRowGap = 6;
         const int harmKnobGap = 8;
+        const int numKnobRows = 3;
+        int harmKnobD = (h.getHeight() - numKnobRows * (harmLabelH + 2) - (numKnobRows - 1) * harmRowGap) / numKnobRows;
+        harmKnobD = juce::jmin (44, juce::jmax (30, harmKnobD));
+        const int harmRowH = harmLabelH + harmKnobD + 2;
         auto knobColW = (rightCol.getWidth() - harmKnobGap) / 2;
 
         auto knobRow1 = rightCol.removeFromTop (harmRowH);
@@ -3159,6 +3176,17 @@ void OpenVoxTunerAudioProcessorEditor::resized()
             const int kxR = knobRow2.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
             harmonyAttackLabel.setBounds (kxR, knobRow2.getY(), harmKnobD, harmLabelH);
             harmonyAttackSlider.setBounds (kxR, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+        }
+
+        rightCol.removeFromTop (harmRowGap);
+        auto knobRow3 = rightCol.removeFromTop (harmRowH);
+        {
+            // Doubler on its own row, under Harmony Attack. It doubles the dry
+            // lead, not the harmony voices, so it is NOT tied to harmony_enable:
+            // refreshLabels() deliberately leaves it live when Harmony is off.
+            const int kxR = knobRow3.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
+            doubleAmountLabel.setBounds (kxR, knobRow3.getY(), harmKnobD, harmLabelH);
+            doubleAmountSlider.setBounds (kxR, knobRow3.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
         }
     }
 
@@ -3480,6 +3508,9 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     harmonyBlendSlider.setEnabled (isHarmonyEnabled);
     harmonyAttackSlider.setEnabled (isHarmonyEnabled);
     harmonyFormantSlider.setEnabled (isHarmonyEnabled);
+    // Deliberate exception: the Doubler knob is NOT disabled here. It doubles the
+    // dry lead voice, not the harmony voices, so it must stay live when Harmony
+    // is switched off (a user can dial a stereo double on a plain lead).
     // Use Voice is a sub-toggle of Harmony: it must be disabled whenever
     // Harmony is off (otherwise its state is silently read on re-enable).
     useVoiceButton.setEnabled (isHarmonyEnabled);
@@ -4271,6 +4302,7 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     harmonyBlendSlider.addListener (this);
     harmonyAttackSlider.addListener (this);
     harmonyToneColorSlider.addListener (this);
+    doubleAmountSlider.addListener (this);
     noiseGateThresholdSlider.addListener (this);
 
     // Toggles + combo boxes: commit on change using the last pre-change
@@ -4494,6 +4526,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     harmonyBlendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipBlend));
     harmonyAttackSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyAttack));
     harmonyFormantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyFormant));
+    doubleAmountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleAmount));
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
     buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
     buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));
@@ -4814,6 +4847,7 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("harmony_attack",     saved.harmonyAttack,      harmonyAttackSlider);
     setSlider ("harmony_formant",    saved.harmonyFormant,     harmonyFormantSlider);
     setSlider ("harmony_tone_color", saved.harmonyToneColor,   harmonyToneColorSlider);
+    setSlider ("double_amount",      saved.doubleAmount,       doubleAmountSlider);
     setSlider ("reverb_mix",         saved.reverbMix,          reverbMixSlider);
     setSlider ("noise_gate_threshold", saved.noiseGateThreshold, noiseGateThresholdSlider);
     setSlider ("upward_comp_amount",   saved.upwardCompAmount,   upwardCompAmountSlider);
@@ -4928,7 +4962,12 @@ namespace
         static const std::map<juce::String, float> transparentDub = {
             { "amount", 0.85f }, { "flex_tune", 25.0f }, { "humanize", 15.0f },
             { "harmony_enable", 0.0f }, { "formant_enable", false },
-            { "reverb_enable", 0.0f }, { "correction_mode", 0.0f }
+            { "reverb_enable", 0.0f }, { "correction_mode", 0.0f },
+            // The preset's name promises a double track: the stereo doubler
+            // delivers it on the lead alone, with Harmony off (the doubler is
+            // independent of harmony_enable). 35 % = ~3.5 cents detune, ~9 ms
+            // Haas offset and a light right-side spread.
+            { "double_amount", 35.0f }
         };
         static const std::map<juce::String, float> studioStack = {
             { "amount", 0.9f }, { "flex_tune", 15.0f }, { "humanize", 20.0f },
@@ -5624,6 +5663,7 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applySliderColours (harmonyGainSlider);
     applySliderColours (harmonyBlendSlider);
     applySliderColours (harmonyFormantSlider);
+    applySliderColours (doubleAmountSlider);
 
     // Re-apply colours to ALL labels
     auto applyLabelColours = [] (juce::Label& l) {
