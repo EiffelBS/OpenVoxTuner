@@ -2662,8 +2662,8 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
 }
 
 // The single source of truth for every bottom-row block width. Each frame states the
-// width its content asks for and the floor below which its widgets collide; the band
-// gives spare room only to blocks marked growable and scrolls below the total floor.
+// width its content asks for and the floor below which its widgets collide. The band
+// lays every frame at that width: spare room is left empty and nothing is stretched.
 void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
 {
     const int chevron = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
@@ -2674,15 +2674,20 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
                       + (effectsFrame.expanded() ? 3 : 2) * kEffectsColW
                       + (effectsFrame.expanded() ? 2 : 1) * kEffectsColGap;
 
-    // Correction grows: the advanced zone is revealed as WIDTH, so spare room lands here.
+    // Correction re-states its width when the advanced zone opens. The width comes from
+    // the content, so the closed block is never squeezed and an open block never shrinks:
+    // a squeezed block is exactly why the advanced row looked like it never opened.
     bottomBand.setFrameWidths (&correctionFrame,
                              corrClosedW + (correctionFrame.expanded() ? kAdvancedW : 0),
-                             corrClosedW, true);
-    // Effects is content-driven: its width IS the cell count, so it never absorbs slack.
+                             corrClosedW, false);
+    // Effects: its width IS the cell count, so it is fixed in both directions.
     bottomBand.setFrameWidths (&effectsFrame, effectW, effectW, false);
-    // Root/Scale has a hard floor set by the 180 px keyboard strip; nothing to stretch.
+    // Root/Scale: pref is the keyboard strip plus padding, the floor is the strip itself.
     bottomBand.setFrameWidths (&scaleFrame, kScalePrefW, kScaleMinW, false);
-    // Harmony stretches its right column of knobs, so it takes the spare room.
+    // Harmony is never stretched: its knob columns are laid out inside the frame, so
+    // widening them would move every knob away from its own label. It is the only block
+    // that can give, because its knobs survive at the 300 px floor, so it shrinks
+    // before the row ever starts to scroll.
     bottomBand.setFrameWidths (&harmonyFrame, kHarmonyPrefW, kHarmonyMinW, true);
 }
 

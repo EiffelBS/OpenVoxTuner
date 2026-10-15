@@ -117,7 +117,7 @@ English so the whole source tree follows the project convention.
   `UpwardCompressorTest` (`â‰ˆ` -> `~`). `beginTest(...)` titles and
   `expect(...)` messages (display text) were translated too.
 - **Mojibake repair** (`FormantPreserverTest.cpp`): double-encoded fragments
-  (`empÃªche`, `tolÃ¨re`, `inÃ©vitable`, `alternÃ©`, `â€”`, `Ã—`, `Qâ‰¤`)
+  (`empÃªche`, `tolÃ¨re`, `inÃ©vitable`, `alternÃ©`, `—`, `Ã—`, `Qâ‰¤`)
   rewritten as clean ASCII English prose.
 - **Test console output internationalized** (`test/Main.cpp`):
   `Resultat : X OK, Y KO` -> `Result: X OK, Y FAILED`.

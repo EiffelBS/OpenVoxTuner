@@ -208,31 +208,31 @@ it drives the raw setters, so the mapping change does not touch it.
   hysteresis), ~1.5 day extra.
 
 
-## Refactor â€” Shared UI widgets: five project-local widgets retired to eiffelbs-ui (v0.12.28)
+## Refactor — Shared UI widgets: five project-local widgets retired to eiffelbs-ui (v0.12.28)
 
 ### Context
 The shared design library already owned most of this plugin's surface (theme, knobs,
 morph slider, power toggles), but five widgets were still drawn locally: the tab pill,
 the toolbar icon buttons, the Advanced chevron, the Use Voice switch and the Debug
-window log. The blocker was a gap in the library â€” `ebs::IconButton` had no glyph for
+window log. The blocker was a gap in the library — `ebs::IconButton` had no glyph for
 zoom, chevrons, grid, step, power, trash or save, so the toolbar could not move. The
 gap was closed **upstream first** (the no-fork rule), then the consumer swaps followed.
 
 ### Changes
 - **Upstream, library commit `7c374e9` / tag `v0.12.28`**: 11 shapes added to
-  `ebs::IconButton` â€” `zoomIn`, `zoomOut`, `chevronUp`, `chevronDown`, `chevronLeft`,
+  `ebs::IconButton` — `zoomIn`, `zoomOut`, `chevronUp`, `chevronDown`, `chevronLeft`,
   `chevronRight`, `grid`, `step`, `power`, `trash`, `save`. The Feather SVG strings are
   verbatim from this project's drawable table, so the glyphs the plugin already drew are
-  now shared. `IconButton.h` 540 â†’ 558 lines; `tests/Smoke.cpp` renders **the whole
+  now shared. `IconButton.h` 540 → 558 lines; `tests/Smoke.cpp` renders **the whole
   39-shape enum** and asserts every shape paints visible ink.
 - **`ebs::PillTabSwitch`** replaces the local tab pill (Live / Curve Editor). The pill
   self-measures its width and scrolls on wheel; its label font is fixed at 17 px, so the
-  text is slightly larger than the old widget â€” verified on screen that it does not push
+  text is slightly larger than the old widget — verified on screen that it does not push
   the toolbar icons out of `toolsArea`.
    Slots carry glyphs through the library provider `onTabIcon` (`mic` for Live,
    `activity` for Curve Editor): the strip measures icon + gap + label itself, and the
    glyph colour follows the label (white on the active slot, dim elsewhere).
-- **14 buttons â†’ `ebs::IconButton`**: zoom in / out, scroll up / down, reset view, global
+- **14 buttons → `ebs::IconButton`**: zoom in / out, scroll up / down, reset view, global
   undo / redo, preset prev / next / save, Options, Preset Gallery, hamburger menu,
   rewind, and the Curve Editor undo / redo chips. Two local setup lambdas
   (`setupEbsIcon`, `setupFramedIcon`) carry the tooltip and framed-body language; the
@@ -246,7 +246,7 @@ gap was closed **upstream first** (the no-fork rule), then the consumer swaps fo
   active-state signal.
 - **`ebs::DisclosureChevron`** replaces the `VerticalTextButtonLF` triangle that painted
   the Advanced chevron from `getToggleState()`; the host keeps owning `advancedExpanded`.
-- **`ebs::ToggleSwitch`** on `useVoiceButton` â€” a drop-in typing replacement for
+- **`ebs::ToggleSwitch`** on `useVoiceButton` — a drop-in typing replacement for
   `juce::ToggleButton`, knob glides ~120 ms, disabled state dims by multiplying alpha.
 - **`ebs::LogView`** for the Debug window's MIDI log half: tail-follow + drop counter,
   fed by the same 10 Hz refresh from `proc.getLastSentMidiNoteForChannel(1..9)`.
@@ -257,7 +257,7 @@ gap was closed **upstream first** (the no-fork rule), then the consumer swaps fo
 
 ### Tests
 - `OpenVoxTuner` SharedCode target: **0 errors** in Release.
-- `OpenVoxTunerTests`: rebuilt and run â€” **136 OK / 0 FAILED**, exit 0.
+- `OpenVoxTunerTests`: rebuilt and run — **136 OK / 0 FAILED**, exit 0.
 - Library smoke on the new tag: **PASS, 0 failures**, including the new gate "every
   IconButton shape paints visible ink" over all 39 shapes (receipt
   `%TEMP%\eiffelbs-ui-smoke.png`, 18738 bytes).
@@ -352,11 +352,11 @@ dialog, so that entry needed a home in the plugin's own menu.
 - The Audio/MIDI dialog opens on a click, so it is verified by compile + code review here;
   the author confirms it in his session.
 
-## Feature â€” Preset Gallery icon gated to Curve Editor, Effects block as an ExpansibleFrame
+## Feature — Preset Gallery icon gated to Curve Editor, Effects block as an ExpansibleFrame
 
 ### Context
 The author checked the pill band and found one leak: the "Preset gallery" toolbar icon was
-visible on the Live tab, where the gallery has nothing to act on â€” it opens the curve notes,
+visible on the Live tab, where the gallery has nothing to act on — it opens the curve notes,
 so it belongs to the Curve Editor tab only. He also asked to adopt `ebs::ExpansibleFrame` for
 the Effects frame (the second block of the bottom row): two columns of two cells visible
 directly, Gate over Reverb in column 1, Compress over Doubler in column 2, and Formant over
@@ -372,16 +372,16 @@ De-Esser in a third column that only shows when the panel is open.
   by it, so a folded column vanishes with the frame. The frame paints its own body through
   `drawFramePlain`, so the two block4 fill/outline calls in `paint()` were deleted, and the
   `block4Bounds` member is gone.
-- **Host layout**: `effectsFrame.onExpandedChanged = [this] { resized(); }` â€” the frame owns the
+- **Host layout**: `effectsFrame.onExpandedChanged = [this] { resized(); }` — the frame owns the
   open flag, the editor re-lays out when it flips. The width is computed from the flag:
   `effectsChevron (28) + 2 * effectsPad (10) + (open ? 3 : 2) * effectsColW (74) + (open ? 2 : 1) * effectsColGap (8)`
-  â†’ **204 px closed, 286 px open** (the block was a fixed 292 px), so closing frees ~88 px for the
+  → **204 px closed, 286 px open** (the block was a fixed 292 px), so closing frees ~88 px for the
   Harmony block. Cells are laid out in `effectsFrame.interior().reduced (10)`, two rows per column;
   `effKnobD = jlimit (30, 54, rowH - 18 - 2)` keeps knobs at their full 54 px because adding a
   COLUMN is how this block grows, never a third row.
 - **Folded cells**: Formant and De-Esser widgets are `setVisible (effectsOpen)`, so an invisible
   cell takes no clicks and leaves its slot empty.
-- **Chevron tooltip**: `ebs::DisclosureChevron` sets no default tooltip, so the host supplies one â€”
+- **Chevron tooltip**: `ebs::DisclosureChevron` sets no default tooltip, so the host supplies one —
   new key `tooltip.effects_more` in all six locales (en, fr, de, es, ja, zh).
 
 ### Tests
@@ -389,7 +389,7 @@ De-Esser in a third column that only shows when the panel is open.
 - Standalone captured twice with `PrintWindow` flag 2 (1116x639): `.dbg/ui_check_frame_closed.png`
   and `.dbg/ui_check_frame_open.png`. Pixel scan of the closed row: Effects frame outer edges
   x 249..449 (200 px measured, chevron glyph at x 438..441), Root/Scale block 466..696, Harmony
-  712..1096 â€” the Harmony block took the freed width. The open capture shows three columns with
+  712..1096 — the Harmony block took the freed width. The open capture shows three columns with
   Formant over De-Esser and the chevron pointing left.
 - **Preset Gallery icon is absent from the Live capture** (the toolbar row shows zoom, scroll up,
   confirm, reset only).
@@ -507,3 +507,33 @@ At the narrowest legal window (`setResizeLimits (1100, 600, …)` → bottom are
 - Scroll is unreachable at today's minimum window width: the four floors add to 976 px against a 1080 px view. That is the intended state — the valve exists for the frames that will be added later, exactly as designed.
 - Cue tooltips were deliberately not added: `PillTabSwitch` cues have none, and adding them would mean two new i18n keys across six locales with no user request.
 - Runtime checks owed to real clicks: wheel over a knob changes the knob and does not pan; wheel or drag on a frame body pans; a cue tap glides one frame width.
+
+
+## Fix — FrameBand frames keep their content width (v0.14.0)
+
+### Context
+The band distributed spare room to blocks marked growable, so Harmony absorbed every free pixel at a wide window and Correction was shrunk below its open preference at a narrow one: the advanced zone's widgets were clipped, which read as "the advanced part does not open". A stretched frame is a frame whose internal layout no longer matches its content — the row was sizing blocks by arithmetic instead of by what they hold.
+
+The rule now stated in the header: **frames are content-sized, spare room is never handed to a block.** "Growable" means only "may be shrunk toward the floor when the row runs out of room, before it scrolls".
+
+### Changes
+- `eiffelbs-ui` `FrameBand::relayout()` lays every frame at `preferredW` and leaves the leftover empty at the right edge; the deficit below the view is shared among growable blocks in proportion to how much each can give, and once every block sits at its floor the row scrolls. Commit `606828b`, tag `v0.14.0` (behaviour change of an existing component → minor), pushed.
+- The header comment was rewritten: the band keeps each frame at the width its own content asks for, so a stretched frame can no longer make that block's layout lie about what it holds.
+- `updateBottomBandWidths()` passes `growable = false` for Correction, Effects and Scale — their widths are set by their own content (the fold, the columns, the 180 px keyboard) — and `true` for Harmony, the only block whose knob columns survive at its 300 px floor, so it gives before the row starts to scroll.
+- `CMakeLists.txt` FetchContent pin `v0.13.1` → `v0.14.0`; the fetched source verified `v0.14.0` / `606828b` with `git describe --tags` and `git log -1`.
+
+### Tests
+- Library smoke PASS (0 failures) with the FrameBand block rewritten for fixed widths: at view 500 each frame keeps exactly its preferred width (100 / 120 / 140); a non-growable block keeps its preference when the row shrinks and the scroll span counts the widths that were kept (`maxScroll() == 90`); back at view 500 no block absorbs the spare room.
+- OVT Release rebuild 0 errors, exit 0; tests **136 OK / 0 FAILED**, exit 0.
+- The fold was driven from a temporary probe in `timerCallback()` that opened the expandable blocks and wrote the band's own numbers to a file on every tick (synthetic input is blocked here); the probe was removed and rebuilt before the shipped capture.
+
+Measured at the minimum legal window (`setResizeLimits (1100, 600, → )` — band view 1080 px):
+- Everything closed: 226 + 204 + 236 + 384 + 30 gaps = 1080, `maxScroll() == 0`. All four blocks render with no clipping and no cue chevrons: `.dbg/b10_shipped.png` + crop `.dbg/b10_row.png` is **byte-identical** to the accepted closed reference (sha256 `9d0f27dc7a6bde242a50e8323f24d77aa42864ec72c9dbde566811d7ab55adbb`), with Harmony's Volume/Blend/Formant/Attack knobs fully inside the frame.
+- Advanced open, Effects closed: `view=1080 corr=386 eff=204 scale=236 harm=300 maxScroll=76`. Speed/Amount/Vibrato/Humanize and the Modern/Transparent switch render inside the widened Correction frame (`.dbg/b8_open.png`, crop `.dbg/b8_open_row.png`).
+- Advanced open, Effects expanded: `view=1080 corr=386 eff=286 scale=236 harm=300 maxScroll=158` (`.dbg/b11_all_open.png`, crop `.dbg/b11_row.png`).
+- Wide window 1500x650 (view 1464): `corr=386 eff=204 scale=236 harm=384 maxScroll=0` — Harmony keeps its 384 px preference, the row ends with empty space at the right edge and nothing is stretched (`.dbg/b9_wide.png`, crop `.dbg/b9_wide_row.png`).
+
+### Notes
+- Both reported symptoms are closed: Harmony never stretches, and the advanced zone opens at the minimum window width.
+- Scroll is now reachable at the minimum window when the foldable blocks are open (76 px / 158 px hidden); widening the window reveals the tail and the right cue chevron is armed in that state.
+- Runtime checks owed to real clicks are unchanged: wheel over a knob changes the knob and does not pan; wheel or drag on a frame body pans; a cue tap glides one frame width.
