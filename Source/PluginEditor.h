@@ -466,13 +466,6 @@ private:
     void deletePluginPresetFile (const juce::File& file);
     static bool isVersionNewer (const juce::String& latest, const juce::String& current);
 
-
-    // "Advanced" expand/collapse banner for the Correction block. When expanded,
-    // the correction knobs (Flex / Humanize / Vibrato / Attack-Aware) are revealed
-    // to the right of the Speed / Amount knobs (the block widens).
-    // Advanced expand/collapse handle: the shared disclosure strip (chevron
-    // direction, hover feedback and tooltip are owned by the library).
-
     // One-time flag for syncing editor controls from persisted parameters
     bool measuresSyncDone = false;
 
