@@ -351,3 +351,53 @@ dialog, so that entry needed a home in the plugin's own menu.
 ### Notes
 - The Audio/MIDI dialog opens on a click, so it is verified by compile + code review here;
   the author confirms it in his session.
+
+## Feature â€” Preset Gallery icon gated to Curve Editor, Effects block as an ExpansibleFrame
+
+### Context
+The author checked the pill band and found one leak: the "Preset gallery" toolbar icon was
+visible on the Live tab, where the gallery has nothing to act on â€” it opens the curve notes,
+so it belongs to the Curve Editor tab only. He also asked to adopt `ebs::ExpansibleFrame` for
+the Effects frame (the second block of the bottom row): two columns of two cells visible
+directly, Gate over Reverb in column 1, Compress over Doubler in column 2, and Formant over
+De-Esser in a third column that only shows when the panel is open.
+
+### Changes
+- **Visibility** (`PluginEditor.cpp`, tab-driven block): `presetGalleryButton.setVisible (isCurveEditorMode)`
+  added next to the curve-only icons (options, snap, snap grid, step mode, zoom, scroll, reset
+  view, measures, play/rewind), so the icon follows the tab exactly like its siblings.
+- **Frame adoption**: new member `ebs::ExpansibleFrame effectsFrame` in `PluginEditor.h`. The six
+  effect cells (6 power toggles + 6 knobs) are reparented into the frame in the constructor with
+  `effectsFrame.addAndMakeVisible (c)`; as children of the body they paint above it and are clipped
+  by it, so a folded column vanishes with the frame. The frame paints its own body through
+  `drawFramePlain`, so the two block4 fill/outline calls in `paint()` were deleted, and the
+  `block4Bounds` member is gone.
+- **Host layout**: `effectsFrame.onExpandedChanged = [this] { resized(); }` â€” the frame owns the
+  open flag, the editor re-lays out when it flips. The width is computed from the flag:
+  `effectsChevron (28) + 2 * effectsPad (10) + (open ? 3 : 2) * effectsColW (74) + (open ? 2 : 1) * effectsColGap (8)`
+  â†’ **204 px closed, 286 px open** (the block was a fixed 292 px), so closing frees ~88 px for the
+  Harmony block. Cells are laid out in `effectsFrame.interior().reduced (10)`, two rows per column;
+  `effKnobD = jlimit (30, 54, rowH - 18 - 2)` keeps knobs at their full 54 px because adding a
+  COLUMN is how this block grows, never a third row.
+- **Folded cells**: Formant and De-Esser widgets are `setVisible (effectsOpen)`, so an invisible
+  cell takes no clicks and leaves its slot empty.
+- **Chevron tooltip**: `ebs::DisclosureChevron` sets no default tooltip, so the host supplies one â€”
+  new key `tooltip.effects_more` in all six locales (en, fr, de, es, ja, zh).
+
+### Tests
+- Full tree rebuilt in Release: **0 errors**, exit 0. `OpenVoxTunerTests`: **136 OK / 0 FAILED**, exit 0.
+- Standalone captured twice with `PrintWindow` flag 2 (1116x639): `.dbg/ui_check_frame_closed.png`
+  and `.dbg/ui_check_frame_open.png`. Pixel scan of the closed row: Effects frame outer edges
+  x 249..449 (200 px measured, chevron glyph at x 438..441), Root/Scale block 466..696, Harmony
+  712..1096 â€” the Harmony block took the freed width. The open capture shows three columns with
+  Formant over De-Esser and the chevron pointing left.
+- **Preset Gallery icon is absent from the Live capture** (the toolbar row shows zoom, scroll up,
+  confirm, reset only).
+- The open state was captured by temporarily starting `effectsFrame.setExpanded (true)` in the
+  constructor; that line was removed and the tree rebuilt, so the shipped binary starts collapsed.
+
+### Notes
+- The chevron click cannot be injected here, so the toggle is proven by the temporary expanded
+  launch plus code review; the author confirms the click in his session.
+- Opening the frame pushes the Root and Harmony blocks right; at narrow plugin widths Harmony
+  loses slack first (same trade-off as the widened pill band).

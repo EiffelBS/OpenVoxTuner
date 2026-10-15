@@ -1958,6 +1958,30 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     upwardCompAmountSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipUpwardCompAmount));
     addAndMakeVisible (upwardCompAmountSlider);
 
+    // Effects frame (ebs::ExpansibleFrame): the six effect cells live inside the frame
+    // body, so the chevron on its right edge folds the third column (Formant over
+    // De-Esser) away. The frame owns the open flag; the editor re-lays out when it
+    // flips, and the frame widens to take the extra column, pushing the Harmony block.
+    addAndMakeVisible (effectsFrame);
+    effectsFrame.onExpandedChanged = [this] { resized(); };
+    effectsFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipEffectsMore));
+
+    // The cells move into the frame: as children of the body they paint above it and
+    // are clipped by it, so a folded column disappears with the frame's own fold.
+    for (juce::Component* c : { static_cast<juce::Component*> (&noiseGateEnableButton),
+                                static_cast<juce::Component*> (&noiseGateThresholdSlider),
+                                static_cast<juce::Component*> (&upwardCompEnableButton),
+                                static_cast<juce::Component*> (&upwardCompAmountSlider),
+                                static_cast<juce::Component*> (&reverbEnableButton),
+                                static_cast<juce::Component*> (&reverbMixSlider),
+                                static_cast<juce::Component*> (&doubleEnableButton),
+                                static_cast<juce::Component*> (&doubleAmountSlider),
+                                static_cast<juce::Component*> (&formantEnableButton),
+                                static_cast<juce::Component*> (&formantSlider),
+                                static_cast<juce::Component*> (&deessEnableButton),
+                                static_cast<juce::Component*> (&deessAmountSlider) })
+        effectsFrame.addAndMakeVisible (c);
+
     // 2026-07-24 (Deprecation): FlexTune and Attack-Aware UI setup
     // is disabled. The slider/label members still exist (in
     // PluginEditor.h) for future re-implementation, but they are
@@ -2415,13 +2439,11 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillRoundedRectangle (block1Bounds.toFloat(), 6.0f);
     g.fillRoundedRectangle (block2Bounds.toFloat(), 6.0f);
     g.fillRoundedRectangle (block3Bounds.toFloat(), 6.0f);
-    g.fillRoundedRectangle (block4Bounds.toFloat(), 6.0f);
 
     g.setColour (ebs::accentSoft().withAlpha(0.3f));
     g.drawRoundedRectangle (block1Bounds.toFloat(), 6.0f, 1.0f);
     g.drawRoundedRectangle (block2Bounds.toFloat(), 6.0f, 1.0f);
     g.drawRoundedRectangle (block3Bounds.toFloat(), 6.0f, 1.0f);
-    g.drawRoundedRectangle (block4Bounds.toFloat(), 6.0f, 1.0f);
 
     // Top banner with title (opaque, matches tab bar background).
     g.setColour (ebs::bgDark());
@@ -2738,7 +2760,15 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // knobs (Flex / Humanize / Vibrato / Attack-Aware) on the right.
     const int knobBlockWidth   = 220;  // Speed + Amount (prominent big knobs)
     const int advancedWidth    = 160;  // revealed correction knobs when expanded
-    const int effectBlockWidth = 292;  // 4 columns of toggles + full-size knobs
+    // The Effects frame is an ebs::ExpansibleFrame: closed it shows two columns of two
+    // cells, open it takes a third, so its width follows the frame's own flag.
+    const int effectsPad     = 10;   // frame interior padding
+    const int effectsColW    = 74;   // one cell: power toggle + full-size knob
+    const int effectsColGap  = 8;
+    const int effectsChevron = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
+    const int effectBlockWidth = effectsChevron + 2 * effectsPad
+                               + (effectsFrame.expanded() ? 3 : 2) * effectsColW
+                               + (effectsFrame.expanded() ? 2 : 1) * effectsColGap;
     const int scaleBlockWidth  = 236;  // narrowed to fit the Root combo (see Block 1)
     const int blockSpacing     = 10;
     const int bannerW          = 22;   // vertical "Advanced" banner width
@@ -2759,7 +2789,6 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto rightBlock = bottomArea; // remaining (Harmony)
 
     block2Bounds = leftBlock;     // Correction: Speed, Amount (+ advanced knobs)
-    block4Bounds = effectBlock;   // Effects: Gate, Reverb, Formant
     block1Bounds = middleBlock;   // Key, Scale, Keyboard
     block3Bounds = rightBlock;    // Harmony controls
 
@@ -2893,23 +2922,33 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         formantStrategyLabel.setBounds (0, 0, 0, 0);
     }
 
-    // --- Block 4 : Effects - 2 rows of four cells ---
-    // Row 1 Noise Gate + Upward Comp + Reverb + Formant, row 2 Doubler + De-Esser
-    // (its power toggle and Threshold knob) + the two extra De-Esser knobs. Every
-    // cell is a power toggle (or a caption label, for knobs with no switch of
-    // their own) on top and a knob below. The knob size is derived from the row
-    // height, so it stays at its full 54 px: adding a COLUMN is how this block
-    // grows, never a row (a third row would shrink every knob). The value is shown
-    // in the popup display while dragging (no textbox).
-    auto b4 = block4Bounds.reduced (10);
+    // --- Block 4 : Effects - an ebs::ExpansibleFrame with two columns of two cells ---
+    // Column 1 shows Noise Gate over Reverb, column 2 Upward Compressor over Doubler.
+    // The chevron on the frame's right edge opens a third column (Formant over
+    // De-Esser): the frame WIDENS and pushes the Harmony block, which is what the
+    // host re-layout on onExpandedChanged is for. Every cell is a power toggle carrying
+    // its name on top and a knob below; the knob size comes from the row height, so it
+    // stays at its full 54 px: adding a COLUMN is how this block grows, never a row
+    // (a third row would shrink every knob). The value shows in the popup display while
+    // dragging (no textbox).
+    effectsFrame.setBounds (effectBlock);
+    const bool effectsOpen = effectsFrame.expanded();
+
+    // The folded column's widgets are hidden, not painted over: an invisible child of
+    // the frame takes no clicks and leaves its cell empty.
+    formantEnableButton.setVisible (effectsOpen);
+    formantSlider.setVisible (effectsOpen);
+    deessEnableButton.setVisible (effectsOpen);
+    deessAmountSlider.setVisible (effectsOpen);
+
+    auto b4 = effectsFrame.interior().reduced (effectsPad);   // frame-local coordinates
     const int effectPowerH  = 18;
     const int rowGap        = 8;
-    const int colGap        = 8;
     const int numEffectRows = 2;
-    const int numEffectCols = 4;
+    const int numEffectCols = effectsOpen ? 3 : 2;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
-    const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * colGap) / numEffectCols;
+    const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * effectsColGap) / numEffectCols;
 
     // Cell with a power toggle: toggle on top, knob centred below.
     auto placeToggledKnob = [&] (juce::Rectangle<int> cell, auto& toggle, auto& knob)
@@ -2919,30 +2958,35 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         knob.setBounds (kx, cell.getY() + 2, effKnobD, effKnobD);
     };
 
-    // Row 1 : Noise Gate + Upward Comp + Reverb + Formant
-    auto row1 = b4.removeFromTop (rowH);
-    b4.removeFromTop (rowGap);
-    placeToggledKnob (row1.removeFromLeft (effectColW), noiseGateEnableButton, noiseGateThresholdSlider);
-    row1.removeFromLeft (colGap);
-    placeToggledKnob (row1.removeFromLeft (effectColW), upwardCompEnableButton, upwardCompAmountSlider);
-    row1.removeFromLeft (colGap);
-    placeToggledKnob (row1.removeFromLeft (effectColW), reverbEnableButton, reverbMixSlider);
-    row1.removeFromLeft (colGap);
-    placeToggledKnob (row1, formantEnableButton, formantSlider);
+    // Column 1 : Noise Gate on top, Reverb below.
+    auto col1 = b4.removeFromLeft (effectColW);
+    b4.removeFromLeft (effectsColGap);
+    placeToggledKnob (col1.removeFromTop (rowH), noiseGateEnableButton, noiseGateThresholdSlider);
+    col1.removeFromTop (rowGap);
+    placeToggledKnob (col1, reverbEnableButton, reverbMixSlider);
 
-    // Row 2 : Doubler + De-Esser, leaving two free cells for the next module.
-    // The Doubler cell is built exactly like its siblings (power toggle carrying
-    // the name, knob below): double_enable is a real parameter, so switching off
-    // greys the knob and stops the copy without clearing double_amount. It lives
-    // here because it is an effect of the processed signal, not a harmony voice;
-    // nothing Harmony does touches this cell.
-    // The De-Esser cell is one switch (deess_enable) and one Intensity knob: that
-    // knob drives the threshold and the depth together, and the band centre follows
-    // voice_type, so there is nothing else to place in this cell.
-    auto row2 = b4;
-    placeToggledKnob (row2.removeFromLeft (effectColW), doubleEnableButton, doubleAmountSlider);
-    row2.removeFromLeft (colGap);
-    placeToggledKnob (row2.removeFromLeft (effectColW), deessEnableButton, deessAmountSlider);
+    // Column 2 : Upward Compressor on top, Doubler below. The Doubler cell is built
+    // exactly like its siblings (power toggle carrying the name, knob below):
+    // double_enable is a real parameter, so switching off greys the knob and stops the
+    // copy without clearing double_amount. It lives here because it is an effect of the
+    // processed signal, not a harmony voice; nothing Harmony does touches this cell.
+    auto col2 = b4.removeFromLeft (effectColW);
+    b4.removeFromLeft (effectsColGap);
+    placeToggledKnob (col2.removeFromTop (rowH), upwardCompEnableButton, upwardCompAmountSlider);
+    col2.removeFromTop (rowGap);
+    placeToggledKnob (col2, doubleEnableButton, doubleAmountSlider);
+
+    // Column 3, only when the frame is open : Formant on top, De-Esser below. The
+    // De-Esser cell is one switch (deess_enable) and one Intensity knob: that knob
+    // drives the detector threshold and the depth cap together, and the band centre
+    // follows voice_type, so there is nothing else to place in this cell.
+    if (effectsOpen)
+    {
+        auto col3 = b4;
+        placeToggledKnob (col3.removeFromTop (rowH), formantEnableButton, formantSlider);
+        col3.removeFromTop (rowGap);
+        placeToggledKnob (col3, deessEnableButton, deessAmountSlider);
+    }
 
     // Harmony controls block (rightmost block)
     // Split into left/right columns FIRST, then fill each column.
@@ -3334,6 +3378,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // routine needs to render the harmony blue lines.)
     
     optionsButton.setVisible (isCurveEditorMode);
+    presetGalleryButton.setVisible (isCurveEditorMode);
     snapButton.setVisible (isCurveEditorMode);
     snapGridButton.setVisible (isCurveEditorMode);
     stepModeButton.setVisible (isCurveEditorMode);

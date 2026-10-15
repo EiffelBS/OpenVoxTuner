@@ -263,6 +263,12 @@ private:
     ebs::PowerToggle upwardCompEnableButton;
     juce::Slider       upwardCompAmountSlider;
     juce::Label        upwardCompAmountLabel;
+
+    // Effects frame: the six effect cells (Gate, Compress, Reverb, Doubler, Formant,
+    // De-Esser) live inside this ebs::ExpansibleFrame. Closed it shows two columns of
+    // two cells; the chevron on its right edge opens a third column and widens the
+    // frame, which the editor answers by re-laying out the bottom row.
+    ebs::ExpansibleFrame effectsFrame;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> upwardCompEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> upwardCompAmountAttachment;
 
@@ -434,7 +440,6 @@ private:
     juce::Rectangle<int> block1Bounds;
     juce::Rectangle<int> block2Bounds;
     juce::Rectangle<int> block3Bounds; // Harmony block
-    juce::Rectangle<int> block4Bounds; // Effects block (Formant + Reverb)
 
     // "Advanced" expand/collapse banner for the Correction block. When expanded,
     // the correction knobs (Flex / Humanize / Vibrato / Attack-Aware) are revealed
