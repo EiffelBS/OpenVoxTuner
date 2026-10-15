@@ -121,6 +121,23 @@ private:
         bool isToggle = false;        ///< ON-state drawables must be regenerated too
     };
     void restyleIconButtons();
+
+    // Bottom-row width model: each block preferred width, and the floor below which its
+    // widgets collide. Shared by the band registration and the per-block layout code.
+    static constexpr int kKnobBlockW    = 220;  // Speed + Amount big knobs
+    static constexpr int kAdvancedW     = 160;  // revealed correction zone when expanded
+    static constexpr int kCorrPad       = 10;   // frame interior padding
+    static constexpr int kEffectsPad    = 10;   // frame interior padding
+    static constexpr int kEffectsColW   = 74;   // one cell: power toggle + full-size knob
+    static constexpr int kEffectsColGap = 8;
+    static constexpr int kScalePrefW    = 236;  // narrowed to fit the Root combo
+    static constexpr int kScaleMinW     = 200;  // floor for the 180 px keyboard strip
+    static constexpr int kHarmonyPrefW  = 384;
+    static constexpr int kHarmonyMinW   = 300;
+
+    /** Re-state every bottom-row block widths from each frame own fold flag. Called at
+     *  construction, on every fold, and at the start of resized(). */
+    void updateBottomBandWidths();
     std::vector<IconSkin> iconSkins;
 
     OvtLookAndFeel customLookAndFeel;
@@ -277,6 +294,11 @@ private:
     // component, so it repaints itself when the row re-lays out.
     ebs::FramedBody scaleFrame;
     ebs::FramedBody harmonyFrame;
+    // The bottom row is one ebs::FrameBand: every block states the width its content asks
+    // for and the floor below which its widgets collide. Spare room goes only to blocks
+    // that can use it, and below the hard floor the row scrolls instead of stretching the
+    // last block. Registration order IS left to right; the band sets every frame bounds.
+    ebs::FrameBand bottomBand { 10 };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> upwardCompEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> upwardCompAmountAttachment;
 

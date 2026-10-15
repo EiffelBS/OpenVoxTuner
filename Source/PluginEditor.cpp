@@ -547,18 +547,29 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Humanize, Voice Type, Formant Strategy) away, and the block WIDENS to take it,
     // pushing Harmony - exactly the Effects contract. The frame owns the fold flag,
     // the editor answers by re-laying out the bottom row.
-    addAndMakeVisible (correctionFrame);
+    // Every bottom-row block goes into one ebs::FrameBand. The band lays them out left
+    // to right in registration order, gives spare room only to blocks marked growable,
+    // and scrolls below the hard floor instead of stretching the last block. It reparents
+    // each frame, so the widgets already inside a frame body stay there.
+    addAndMakeVisible (bottomBand);
+    bottomBand.addFrame (&correctionFrame, kKnobBlockW, kKnobBlockW, true);   // restated by the width model below
+    bottomBand.addFrame (&effectsFrame, 2 * kEffectsColW + 2 * kEffectsPad, 2 * kEffectsColW + 2 * kEffectsPad, false);
+    bottomBand.addFrame (&scaleFrame, kScalePrefW, kScaleMinW, false);
+    bottomBand.addFrame (&harmonyFrame, kHarmonyPrefW, kHarmonyMinW, true);
     // Root/Scale and Harmony are framed components too, so every bottom-row block is a
     // component: a re-layout moves components, never a painted region.
-    addAndMakeVisible (scaleFrame);
-    addAndMakeVisible (harmonyFrame);
+
     correctionFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
     // Restore the state persisted in the plugin XML BEFORE the callback is armed, so
     // restoring a saved session does not fire a re-layout.
     correctionFrame.setExpanded (processorRef.getAdvancedExpanded());
+    // The width model is the single source of truth for every block size, so it runs right
+    // after the restored fold flag and before any layout.
+    updateBottomBandWidths();
     correctionFrame.onExpandedChanged = [this]
     {
         processorRef.setAdvancedExpanded (correctionFrame.expanded());
+        updateBottomBandWidths();   // the fold changes what this block asks for
         resized();
     };
 
@@ -1967,8 +1978,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // body, so the chevron on its right edge folds the third column (Formant over
     // De-Esser) away. The frame owns the open flag; the editor re-lays out when it
     // flips, and the frame widens to take the extra column, pushing the Harmony block.
-    addAndMakeVisible (effectsFrame);
-    effectsFrame.onExpandedChanged = [this] { resized(); };
+    // The band registered this frame in the constructor, so it is already a band child.
+    effectsFrame.onExpandedChanged = [this]
+    {
+        updateBottomBandWidths();   // the fold changes what this block asks for
+        resized();
+    };
     effectsFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipEffectsMore));
 
     // The cells move into the frame: as children of the body they paint above it and
@@ -2646,6 +2661,31 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     }
 }
 
+// The single source of truth for every bottom-row block width. Each frame states the
+// width its content asks for and the floor below which its widgets collide; the band
+// gives spare room only to blocks marked growable and scrolls below the total floor.
+void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
+{
+    const int chevron = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
+    const int corrBaseW   = kKnobBlockW - 22 - 2 * kCorrPad;
+    const int corrClosedW = corrBaseW + 2 * kCorrPad + chevron;
+
+    const int effectW = chevron + 2 * kEffectsPad
+                      + (effectsFrame.expanded() ? 3 : 2) * kEffectsColW
+                      + (effectsFrame.expanded() ? 2 : 1) * kEffectsColGap;
+
+    // Correction grows: the advanced zone is revealed as WIDTH, so spare room lands here.
+    bottomBand.setFrameWidths (&correctionFrame,
+                             corrClosedW + (correctionFrame.expanded() ? kAdvancedW : 0),
+                             corrClosedW, true);
+    // Effects is content-driven: its width IS the cell count, so it never absorbs slack.
+    bottomBand.setFrameWidths (&effectsFrame, effectW, effectW, false);
+    // Root/Scale has a hard floor set by the 180 px keyboard strip; nothing to stretch.
+    bottomBand.setFrameWidths (&scaleFrame, kScalePrefW, kScaleMinW, false);
+    // Harmony stretches its right column of knobs, so it takes the spare room.
+    bottomBand.setFrameWidths (&harmonyFrame, kHarmonyPrefW, kHarmonyMinW, true);
+}
+
 void OpenVoxTunerAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
@@ -2809,50 +2849,19 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // === Bottom bar: blocks ===
     auto bottomArea = bounds.reduced (pad);
 
-    // Block widths. The Correction block is an ebs::ExpansibleFrame, the same component
-    // the Effects frame uses: closed it shows Speed + Amount, open it WIDENS to take the
-    // advanced zone on the right, exactly like the Effects frame taking its third column.
-    // Both widths come from the frame own flag, and both chevron strips are 22 + 6 px.
-    const int knobBlockWidth   = 220;  // Speed + Amount (prominent big knobs)
-    const int advancedWidth    = 160;  // revealed correction knobs when expanded
-    const int corrPad          = 10;   // frame interior padding
-    const int corrChevron      = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
-    const int corrBaseW        = knobBlockWidth - 22 - 2 * corrPad;   // Speed + Amount content strip
-    const int corrClosedW      = corrBaseW + 2 * corrPad + corrChevron;
-    // The Effects frame is an ebs::ExpansibleFrame: closed it shows two columns of two
-    // cells, open it takes a third, so its width follows the frame's own flag.
-    const int effectsPad     = 10;   // frame interior padding
-    const int effectsColW    = 74;   // one cell: power toggle + full-size knob
-    const int effectsColGap  = 8;
-    const int effectsChevron = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
-    const int effectBlockWidth = effectsChevron + 2 * effectsPad
-                               + (effectsFrame.expanded() ? 3 : 2) * effectsColW
-                               + (effectsFrame.expanded() ? 2 : 1) * effectsColGap;
-    const int scaleBlockWidth  = 236;  // narrowed to fit the Root combo (see Block 1)
-    const int blockSpacing     = 10;
+    // The bottom row is one ebs::FrameBand. Each block states the width its content asks
+    // for and the floor below which its widgets collide; spare room goes only to blocks
+    // marked growable, and below the hard floor the row scrolls instead of stretching
+    // the last block. The band sets every frame bounds, so no block is placed by hand.
+    const int corrChevron = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
+    const int corrBaseW   = kKnobBlockW - 22 - 2 * kCorrPad;   // Speed + Amount content strip
 
-    // Clamp the Correction width so the other blocks always keep some room.
+    updateBottomBandWidths();
+    bottomBand.setBounds (bottomArea);
+
     const bool correctionOpen = correctionFrame.expanded();
-    const int fixedOthers   = effectBlockWidth + scaleBlockWidth + 3 * blockSpacing;
-    const int availForBlock = juce::jmax (corrClosedW,
-                                          bottomArea.getWidth() - fixedOthers);
-    const int correctionWidth = juce::jmin (corrClosedW + (correctionOpen ? advancedWidth : 0),
-                                            availForBlock);
-
-    auto leftBlock = bottomArea.removeFromLeft (correctionWidth);
-    bottomArea.removeFromLeft (blockSpacing);
-    auto effectBlock = bottomArea.removeFromLeft (effectBlockWidth);
-    bottomArea.removeFromLeft (blockSpacing);
-    auto middleBlock = bottomArea.removeFromLeft (scaleBlockWidth);
-    bottomArea.removeFromLeft (blockSpacing);
-    auto rightBlock = bottomArea; // remaining (Harmony)
-
-    scaleFrame.setBounds (middleBlock);   // Key, Scale, Keyboard
-    harmonyFrame.setBounds (rightBlock);  // Harmony controls
-
     // --- Block 2 : Correction - an ebs::ExpansibleFrame; Speed + Amount always visible ---
-    correctionFrame.setBounds (leftBlock);
-    auto b2 = correctionFrame.interior().reduced (corrPad);   // frame-local coordinates
+    auto b2 = correctionFrame.interior().reduced (kCorrPad);   // frame-local coordinates
 
     // The chevron strip is excluded by interior(), so the content area IS the interior:
     // the base knobs on the left, the advanced zone in what is left over.
@@ -2992,7 +3001,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // stays at its full 54 px: adding a COLUMN is how this block grows, never a row
     // (a third row would shrink every knob). The value shows in the popup display while
     // dragging (no textbox).
-    effectsFrame.setBounds (effectBlock);
+
     const bool effectsOpen = effectsFrame.expanded();
 
     // The folded column's widgets are hidden, not painted over: an invisible child of
@@ -3002,14 +3011,14 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     deessEnableButton.setVisible (effectsOpen);
     deessAmountSlider.setVisible (effectsOpen);
 
-    auto b4 = effectsFrame.interior().reduced (effectsPad);   // frame-local coordinates
+    auto b4 = effectsFrame.interior().reduced (kEffectsPad);   // frame-local coordinates
     const int effectPowerH  = 18;
     const int rowGap        = 8;
     const int numEffectRows = 2;
     const int numEffectCols = effectsOpen ? 3 : 2;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
-    const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * effectsColGap) / numEffectCols;
+    const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;
 
     // Cell with a power toggle: toggle on top, knob centred below.
     auto placeToggledKnob = [&] (juce::Rectangle<int> cell, auto& toggle, auto& knob)
@@ -3021,7 +3030,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // Column 1 : Noise Gate on top, Reverb below.
     auto col1 = b4.removeFromLeft (effectColW);
-    b4.removeFromLeft (effectsColGap);
+    b4.removeFromLeft (kEffectsColGap);
     placeToggledKnob (col1.removeFromTop (rowH), noiseGateEnableButton, noiseGateThresholdSlider);
     col1.removeFromTop (rowGap);
     placeToggledKnob (col1, reverbEnableButton, reverbMixSlider);
@@ -3032,7 +3041,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // copy without clearing double_amount. It lives here because it is an effect of the
     // processed signal, not a harmony voice; nothing Harmony does touches this cell.
     auto col2 = b4.removeFromLeft (effectColW);
-    b4.removeFromLeft (effectsColGap);
+    b4.removeFromLeft (kEffectsColGap);
     placeToggledKnob (col2.removeFromTop (rowH), upwardCompEnableButton, upwardCompAmountSlider);
     col2.removeFromTop (rowGap);
     placeToggledKnob (col2, doubleEnableButton, doubleAmountSlider);
@@ -5765,6 +5774,10 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     // switch needs the same repaint as the ExpansibleFrames.
     scaleFrame.repaint();
     harmonyFrame.repaint();
+    // The band cues dissolve the panel colour into the edge and draw the shared glyph in
+    // accent, so they need the same repaint as the frames they sit over.
+    bottomBand.leftCueStrip().repaint();
+    bottomBand.rightCueStrip().repaint();
     // A/B slots read palette tokens directly inside their custom paint;
     // a repaint keeps them current after a theme switch.
     buttonA.repaint();

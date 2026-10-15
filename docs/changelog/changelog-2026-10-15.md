@@ -474,3 +474,36 @@ Release rebuild 0 errors, exit 0; tests **136 OK / 0 FAILED**, exit 0. The fold 
 ### Notes
 - Design rule for the row: any block whose geometry moves must be a component, not a painted region.
 - Stage B (planned UI.16): an `ebs::FrameBand` scroll container, used as an escape valve below a hard floor, never as the primary sizing mechanism.
+
+## Feature — Bottom row is one scrollable FrameBand (Stage B)
+
+### Context
+Stage A made every block of the bottom row a component. The row was still stretched and compressed by `resized()`: the last block absorbed all spare room and the first blocks were squeezed below their content floor when the window got narrow (Harmony went to ~214 px, under its 300 px floor). The request was a horizontal container that grows what can grow and scrolls below the hard floor, reusing the pill's chevron-on-mouseover vocabulary and staying usable on touchpads and touchscreens.
+
+The agreed shape: **scroll is an escape valve below a hard floor, never the primary sizing mechanism.** Spare room goes only to blocks marked growable; a block whose width is fixed by its content keeps it.
+
+### Changes
+- **New library component `ebs::FrameBand`** (`.dbg/eiffelbs-ui-tip/include/eiffelbs/FrameBand.h`, ~596 lines, umbrella row L48), commits `15732df` (tag `v0.13.0`) and `6ee3a1d` (tag `v0.13.1`), pushed to `EiffelBS/eiffelbs-ui`.
+  - `addFrame (frame, preferredW, minW, growable)`, `removeFrame`, `setFrameWidths` (the growable flag is carried — an ExpansibleFrame that just opens re-states its own width), `preferredWidth()` / `minWidth()`, `maxScroll()`, `scrollPosition()`, `targetScrollPosition()`, `scrollTo`, `snapScroll` (no easing, for restoring a saved layout), `revealFrame` (smallest move that shows a frame), `canScrollLeft/Right`, `leftCueStrip()` / `rightCueStrip()`, `setGap`.
+  - **No `juce::Viewport`**: the band is a plain component that lays each frame at `baseX - round(scrollPos)`; JUCE clips children to the parent, so off-band frames are clipped for free and the scrollbar strip costs no height. Cue chevrons are direct front children.
+  - Scroll vocabulary borrowed from `PillTabSwitch`: 60 Hz timer, easing `kSmoothing = 0.18f`, hover-edge auto-scroll (30 px edge, 5 px per tick), cue bands painted with a transparent-inside / solid-at-edge dissolve and the shared `drawChevronGlyph` free function, cue earning its paint only past 4 px hidden.
+  - Touch and touchpad: drag pan is gated by the **press target** read from `e.source.getComponentUnderMouse()` (a press on a knob never pans), with a 10 px slop; the wheel is skipped when a `Slider` or `TextEditor` chain under the pointer consumes it, so a wheel over a knob changes the knob and not the row; tapping a cue glides one frame width.
+  - Traps recorded in the header: `juce::Component` **is** a `MouseListener`, so declaring it as a second base made `addMouseListener (this, true)` an ambiguous conversion; `getEventRelativeTo` takes a non-const `Component*`; bare `jmax`/`jmin` do not compile inside `namespace ebs`; `Rectangle::setX` keeps the width, which stretched the cue band past the edge.
+- `Source/PluginEditor.h`: `ebs::FrameBand bottomBand { 10 };` and `void updateBottomBandWidths();`; the row constants move to class scope (`kScalePrefW 236`, `kScaleMinW 200`, `kHarmonyPrefW 384`, `kHarmonyMinW 300`, `kAdvancedW 160`, `kEffectsColW 74`, `kEffectsPad 10`, `kEffectsColGap 8`, `kCorrPad 10`, `kKnobBlockW 220`).
+- Constructor: `addAndMakeVisible (bottomBand);` then the four frames are registered **in left-to-right order** — correction, effects, scale, harmony. The band reparents each frame, so the widget reparent loops that were already inside each frame body stay valid.
+- `updateBottomBandWidths()` is the single source of truth for block widths, called from the constructor, from `resized()`, and from both fold lambdas (the fold changes what a block asks for). Width contract: correction pref 226 closed / 386 open, min 226, **growable**; effects pref = min (184 closed / 286 open), **not growable** — needs the 4-argument `setFrameWidths`; scale pref 236 / min 200, **not growable**; harmony pref 384 / min 300, **growable**.
+- `resized()` no longer sets any frame bounds: the four `setBounds` calls are deleted (grep for `leftBlock`, `effectBlock`, `rightBlock`, `middleBlock` returns no matches) and replaced by `bottomBand.setBounds (bottomArea);`. Each block still lays out inside its own frame (`interior()` / `getLocalBounds().reduced (10)`).
+- The theme handler repaints both cue strips alongside the frames.
+- `CMakeLists.txt` FetchContent pin `v0.13.0` — `v0.13.1`; fetched source verified `git describe --tags` = `v0.13.1`, `log -1` = `6ee3a1d`.
+
+### Tests
+Library smoke PASS (0 failures), including the FrameBand block: gaps counted once in both width totals; a band that fits does not scroll; spare room goes to growable blocks only; below the floor a growable block stops at its minimum; the scroll span is the widths actually computed, not the floor (`maxScroll() == 40`); `snapScroll` clamps and arms the cue that has room; `revealFrame` asks for the smallest move; each cue keeps its vertex on the side where content is hidden (vertical ink spread per column: left 1 at x 12 / 7 at x 17, right mirrored); `setFrameWidths` keeps a block non-growable when asked.
+
+OVT release rebuild 0 errors, exit 0; tests **136 OK / 0 FAILED**, exit 0. The fold cycle was driven from a temporary timer (expand tick 20, collapse 60) because synthetic input is blocked here, and the probe was removed before the shipped build: open run 1 vs open run 2 reproduce the same layout, and **closed run 1 vs closed run 2 diff 0 pixels** — collapsing after a band re-layout returns to the pristine baseline (`.dbg/b5_open.png`, `b5_closed.png`, `b6_open.png`, `b6_closed.png`, 1116x639, PrintWindow flag 2 with a +1/-1 width nudge as the forced full repaint).
+
+At the narrowest legal window (`setResizeLimits (1100, 600, …)` → bottom area 1080 px) closed pref + gaps = 1060 fits, so all four frames render with no clipping and no cue chevrons; expanded, the growables shrink proportionally (correction 359, harmony 370) and the row still shows every block. Crops: `.dbg/b4_row.png`, `b5_open_row.png`, `b5_closed_row.png`.
+
+### Notes
+- Scroll is unreachable at today's minimum window width: the four floors add to 976 px against a 1080 px view. That is the intended state — the valve exists for the frames that will be added later, exactly as designed.
+- Cue tooltips were deliberately not added: `PillTabSwitch` cues have none, and adding them would mean two new i18n keys across six locales with no user request.
+- Runtime checks owed to real clicks: wheel over a knob changes the knob and does not pan; wheel or drag on a frame body pans; a cue tap glides one frame width.
