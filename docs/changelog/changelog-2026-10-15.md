@@ -206,3 +206,64 @@ it drives the raw setters, so the mapping change does not touch it.
   design.
 - Deferred: auto multi-band placement (5 / 6.5 / 8 kHz detectors with band-selection
   hysteresis), ~1.5 day extra.
+
+
+## Refactor â€” Shared UI widgets: five project-local widgets retired to eiffelbs-ui (v0.12.28)
+
+### Context
+The shared design library already owned most of this plugin's surface (theme, knobs,
+morph slider, power toggles), but five widgets were still drawn locally: the tab pill,
+the toolbar icon buttons, the Advanced chevron, the Use Voice switch and the Debug
+window log. The blocker was a gap in the library â€” `ebs::IconButton` had no glyph for
+zoom, chevrons, grid, step, power, trash or save, so the toolbar could not move. The
+gap was closed **upstream first** (the no-fork rule), then the consumer swaps followed.
+
+### Changes
+- **Upstream, library commit `7c374e9` / tag `v0.12.28`**: 11 shapes added to
+  `ebs::IconButton` â€” `zoomIn`, `zoomOut`, `chevronUp`, `chevronDown`, `chevronLeft`,
+  `chevronRight`, `grid`, `step`, `power`, `trash`, `save`. The Feather SVG strings are
+  verbatim from this project's drawable table, so the glyphs the plugin already drew are
+  now shared. `IconButton.h` 540 â†’ 558 lines; `tests/Smoke.cpp` renders **the whole
+  39-shape enum** and asserts every shape paints visible ink.
+- **`ebs::PillTabSwitch`** replaces the local tab pill (Live / Curve Editor). The pill
+  self-measures its width and scrolls on wheel; its label font is fixed at 17 px, so the
+  text is slightly larger than the old widget â€” verified on screen that it does not push
+  the toolbar icons out of `toolsArea`.
+- **14 buttons â†’ `ebs::IconButton`**: zoom in / out, scroll up / down, reset view, global
+  undo / redo, preset prev / next / save, Options, Preset Gallery, hamburger menu,
+  rewind, and the Curve Editor undo / redo chips. Two local setup lambdas
+  (`setupEbsIcon`, `setupFramedIcon`) carry the tooltip and framed-body language; the
+  Curve Editor chips pin white ink over a soft-accent frame because they float on the
+  theme-invariant dark canvas. The dead hook `refreshDrawableButtonIcons()` is deleted,
+  and the SVG table keeps only the six strings still drawn (scale, grid, step, power,
+  play, stop).
+- **Six buttons kept as `juce::DrawableButton` on purpose**: bypass, midiOut, snap,
+  snapGrid, stepMode, play. They paint a solid accent pill when ON and
+  `ebs::IconButton` has no accent-fill ON background, so swapping them would delete the
+  active-state signal.
+- **`ebs::DisclosureChevron`** replaces the `VerticalTextButtonLF` triangle that painted
+  the Advanced chevron from `getToggleState()`; the host keeps owning `advancedExpanded`.
+- **`ebs::ToggleSwitch`** on `useVoiceButton` â€” a drop-in typing replacement for
+  `juce::ToggleButton`, knob glides ~120 ms, disabled state dims by multiplying alpha.
+- **`ebs::LogView`** for the Debug window's MIDI log half: tail-follow + drop counter,
+  fed by the same 10 Hz refresh from `proc.getLastSentMidiNoteForChannel(1..9)`.
+- **`ebs::sanitizeForShaping` on displayed preset names**: the preset combo list and its
+  four `setText` sites, plus the gallery card name and meta labels. User file names and
+  XML fields are an untrusted edge for the text shaper; the raw name stays the lookup
+  key, so preset matching is untouched.
+
+### Tests
+- `OpenVoxTuner` SharedCode target: **0 errors** in Release.
+- `OpenVoxTunerTests`: rebuilt and run â€” **136 OK / 0 FAILED**, exit 0.
+- Library smoke on the new tag: **PASS, 0 failures**, including the new gate "every
+  IconButton shape paints visible ink" over all 39 shapes (receipt
+  `%TEMP%\eiffelbs-ui-smoke.png`, 18738 bytes).
+- Standalone captured at `.dbg/ui_check_swaps.png` (1102x628, `PrintWindow` flag 2,
+  PID 88220): pill, five toolbar glyphs, gallery grid icon, global undo/redo, settings
+  gear, collapsed Advanced chevron and the Use Voice switch all render on the real widget.
+
+### Notes
+- Curve Editor chips, the expanded Advanced panel and the Debug window need a mouse click
+  to be seen; synthetic input is blocked on this machine, so those three surfaces are
+  verified by compile + code review only and are left to the author's session.
+- `attackAwareButton` stays untouched: deprecated and hidden.

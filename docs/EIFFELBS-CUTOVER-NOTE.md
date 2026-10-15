@@ -1,7 +1,7 @@
 # OpenVoxTuner × eiffelbs-ui cutover notes
 
 OpenVoxTuner now consumes the shared EiffelBS design system
-([eiffelbs-ui](https://github.com/EiffelBS/eiffelbs-ui)) version **v0.12.27**
+([eiffelbs-ui](https://github.com/EiffelBS/eiffelbs-ui)) version **v0.12.28**
 through CMake `FetchContent`, exactly like OpenTimbre. There are no local
 shims: the plugin links the library and calls `ebs::` directly.
 
@@ -281,6 +281,48 @@ state: more than 400 green pixels through the real painting path).
   `chore/eiffelbs-ui-0.12.7`, per the standing decision not to push this
   repository.
 
+## Verification record (v0.12.28 bump)
+
+- **This bump is a feature, not a pin.** Library commit `7c374e9` ("IconButton:
+  viewer-toolbar glyph set, ported from OpenVoxTuner") adds **11 shapes** to
+  `ebs::IconButton`: `zoomIn`, `zoomOut`, `chevronUp`, `chevronDown`, `chevronLeft`,
+  `chevronRight`, `grid`, `step`, `power`, `trash`, `save`. The Feather SVG strings are
+  verbatim from OpenVoxTuner's local drawable table, so the glyphs this plugin already
+  drew are now shared. `IconButton.h` 540 â†’ **558** lines (92+/2âˆ’). `tests/Smoke.cpp`
+  L234â€“258 renders **the whole 39-shape enum** with the comment "The WHOLE enum: a new
+  shape cannot ship without an ink check", and the gate asserts every shape paints
+  visible ink: **PASS, 0 failures**, receipt `%TEMP%\eiffelbs-ui-smoke.png`
+  (18738 bytes). Commit + lightweight tag `v0.12.28` pushed to `origin/main`;
+  `git ls-remote --tags` confirms `refs/tags/v0.12.28 = 7c374e9b735d8d8673b83ff501b64893afd59956`.
+- **The repin is authoritative.** `GIT_TAG v0.12.28` in `CMakeLists.txt`, the stale
+  `FETCHCONTENT_SOURCE_DIR_EIFFELBS-UI` cache override cleared, and `git describe`
+  inside `build/_deps/eiffelbs-ui-src` reads **v0.12.28**.
+- **Five consumer swaps, all agreed in advance.**
+
+  | Widget | Site | Note |
+  | --- | --- | --- |
+  | `ebs::PillTabSwitch` | Live / Curve Editor tabs | Replaces the local pill widget; self-measured width, wheel scroll. |
+  | `ebs::IconButton` | 14 buttons: toolbar zoom/scroll/reset, global undo/redo, preset prev/next/save, Options, Preset Gallery, menu, rewind, Curve Editor chips | Dead hook `refreshDrawableButtonIcons()` deleted; SVG table trimmed to the six strings still drawn. |
+  | `ebs::DisclosureChevron` | Advanced chevron | `VerticalTextButtonLF` (triangle from `getToggleState()`) deleted; host keeps owning `advancedExpanded`. |
+  | `ebs::ToggleSwitch` | `useVoiceButton` | Drop-in typing for `juce::ToggleButton`; caption label kept to its left. |
+  | `ebs::LogView` | Debug window MIDI log half | Tail-follow + drop counter, same 10 Hz refresh from `proc.getLastSentMidiNoteForChannel(1..9)`. |
+  | `ebs::sanitizeForShaping` | Preset combo + gallery cards | Displayed names only; the raw name stays the lookup key. |
+
+- **Six buttons stay `juce::DrawableButton` deliberately**: bypass, midiOut, snap,
+  snapGrid, stepMode, play. They paint a solid accent pill when ON and
+  `ebs::IconButton` has no accent-fill ON background, so swapping them would delete the
+  active-state signal.
+- **Build and tests:** `OpenVoxTuner` SharedCode target green (**0 errors**);
+  `OpenVoxTunerTests` rebuilt and run â€” **136 OK / 0 FAILED**, exit 0. Standalone linked
+  and captured at `.dbg/ui_check_swaps.png` (1102x628, `PrintWindow` flag 2, PID 88220):
+  pill, five toolbar glyphs, gallery grid icon, global undo/redo, settings gear, collapsed
+  Advanced chevron and the Use Voice switch all render on the real widget.
+- **Owed to a human click:** Curve Editor chips, the expanded Advanced panel and the Debug
+  window need a mouse; synthetic input is blocked on this machine, so those three surfaces
+  are verified by compile + code review only.
+- **OVT commits stay local** on `chore/eiffelbs-ui-0.12.7`, per the standing decision not
+  to push this repository.
+
 ## Bump log (append a line per bump)
 
 | Date | Pin | Notes |
@@ -289,6 +331,7 @@ state: more than 400 green pixels through the real painting path).
 | 2026-10-08 | v0.12.7 | Tag resolved with `git ls-remote` unavailable (`SEC_E_NO_CREDENTIALS`) via the GitHub tags API: v0.12.6 (`2615cb9`) was the last published tag; v0.12.7 was the next local release. README of the library refreshed first (it had not been updated for several versions), then the Windows `min`/`max` macro fix (`f263048`) was folded into the same release and the tag re-pointed. Offline builds used `-DFETCHCONTENT_SOURCE_DIR_EIFFELBS-UI=.dbg\eiffelbs-ui-v0127` (a clean `git archive` export of the tag). Build cost: 118 s + 113 s incremental Release (Visual Studio 17 2022; MSBuild had skipped the two largest TUs on the first pass - `PluginEditor.obj`, `PluginProcessor.obj` - so their objects were deleted and forced). The bump needs **no** OVT code change beyond the pin itself: see the toggle constat above. Published 2026-10-09: `git push origin v0.12.7` (tag only - the remote `main` deliberately stayed at `2615cb9`, an untagged later commit by another session was NOT carried). Costs of the published-pin proof: 24 s configure + 78 s test build, 112/112 again. |
 | 2026-10-15 | v0.12.26 (`d2dfd1a`) | Pin moved 19 tags / 24 commits. Nine components added, `DataList.h` +77, `IconButton.h` +120; the Theme/Fonts/LookAndFeel/Sidebar/StatusBar/ToggleSwitch edits are comment-only (`daa9a75`). OpenVoxTuner consumes none of the new widgets, so the only code change is the pin plus `NOMINMAX`. The umbrella gained `Waveform.h` + `ThumbnailPool.h`, which pull `<juce_audio_utils>` and compile `juce_audio_devices` in every consumer TU; JUCE's unparenthesised `std::min` in `juce_UMPEndpoint.h(86)` then broke `Source/PluginProcessor.cpp` and `test/Main.cpp` (C2589 + C2059). Fixed by defining `NOMINMAX` on `OpenVoxTuner` and `OpenVoxTunerTests`. The stale local `FETCHCONTENT_SOURCE_DIR_EIFFELBS-UI` override was cleared so the `GIT_TAG` pin is authoritative. Fresh build: 136/136 tests, full tree green with no warnings, standalone UI captured in `.dbg/ui_check_v01226.png`. OVT commit `2512651`, local only. |
 | 2026-10-15 | v0.12.27 (`1d32bf4`) | Upstream fix of the v0.12.26 coupling, made in the library: `Waveform.h` and `ThumbnailPool.h` are **out of the umbrella** `eiffelbs.h` and are opt-in includes, because they pull `<juce_audio_utils>` and compile `juce_audio_devices` in every consumer TU of a header-only design system. Library smoke PASS 0 failures against the local JUCE 8.0.8 checkout; commit + tag pushed to `origin`. OVT repinned: FetchContent re-populated to v0.12.27, `OpenVoxTunerTests` built and ran **136/136** with `NOMINMAX` **removed** (the proof that the library no longer forces it), define then restored, full tree green with no MSVC warnings, standalone captured in `.dbg/ui_check_v01227.png`. OVT commit local only. |
+| 2026-10-15 | v0.12.28 (`7c374e9`) | Upstream feature contributed from this project: 11 `IconButton` shapes (zoomIn / zoomOut / chevronUp / chevronDown / chevronLeft / chevronRight / grid / step / power / trash / save), Feather strings verbatim from OVT's drawable table; `IconButton.h` 540 â†’ 558 lines; smoke now renders the whole 39-shape enum (PASS 0 failures, receipt 18738 bytes). Commit + tag pushed. Consumer: repinned, five swaps applied â€” `PillTabSwitch`, 14 `IconButton`s (dead hook `refreshDrawableButtonIcons()` deleted), `DisclosureChevron` for the Advanced chevron, `ToggleSwitch` on `useVoiceButton`, `LogView` for the Debug MIDI log, plus `ebs::sanitizeForShaping` on displayed preset names. Six accent-pill ON buttons kept as `juce::DrawableButton` (IconButton has no accent-fill ON state). Build green 0 errors, tests 136/136, standalone captured `.dbg/ui_check_swaps.png`. OVT commits local only. |
 
 ### Running the test suite in this environment
 
