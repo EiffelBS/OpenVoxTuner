@@ -3166,6 +3166,12 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         companionGroupLabel.setBounds (0, 0, 0, 0);
         companionGroupBox.setBounds (0, 0, 0, 0);
     }
+    // The bottom-row blocks are painted by paint(), not by components. When a block moves,
+    // JUCE only repaints the rectangles its widgets vacated, so the old fill and outline of
+    // the block stay on screen: the effects frame is a component and repaints itself, which
+    // is why only its neighbours ghost after the chevron. Repaint the whole editor after a
+    // re-layout - a layout change is rare, and one full pass is cheaper than tracking regions.
+    repaint();
 }
 
 void OpenVoxTunerAudioProcessorEditor::parentHierarchyChanged()
