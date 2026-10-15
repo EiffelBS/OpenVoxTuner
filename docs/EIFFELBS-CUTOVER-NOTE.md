@@ -1,7 +1,7 @@
 # OpenVoxTuner × eiffelbs-ui cutover notes
 
 OpenVoxTuner now consumes the shared EiffelBS design system
-([eiffelbs-ui](https://github.com/EiffelBS/eiffelbs-ui)) version **v0.12.26**
+([eiffelbs-ui](https://github.com/EiffelBS/eiffelbs-ui)) version **v0.12.27**
 through CMake `FetchContent`, exactly like OpenTimbre. There are no local
 shims: the plugin links the library and calls `ebs::` directly.
 
@@ -25,18 +25,21 @@ the live pin.)
   targets (`OpenVoxTuner`, `OpenVoxKey`, `OpenVoxTunerTests`) all do; the
   `juce_gui_extra` entries in `CMakeLists.txt` carry a comment saying so -
   do not remove them as "unused".
-- **since v0.12.26**, `NOMINMAX` is required on every target that includes
-  `<eiffelbs/eiffelbs.h>`. The umbrella now carries `Waveform.h` and
-  `ThumbnailPool.h`, which need `juce::AudioThumbnail`, so they pull
-  `<juce_audio_utils/juce_audio_utils.h>` into every consumer TU. That compiles
-  `juce_audio_devices`, whose `juce_UMPEndpoint.h` calls `std::min` **without**
-  parentheses; the Windows `min`/`max` function-like macros expand that into
-  `std::(...)` and MSVC fails (C2589 + C2059). OpenVoxTuner's TUs include
-  `<windows.h>` without `NOMINMAX` (the ARA SDK and the VST3 plugin-client
-  chain), so the define is now carried by the `OpenVoxTuner` and
-  `OpenVoxTunerTests` targets. JUCE sets `NOMINMAX` before its own
-  `windows.h` include, which is why the library smoke stays green while a
-  consumer that reaches `windows.h` first does not.
+- **`NOMINMAX` was required from v0.12.26; it is not required by v0.12.27.** The
+  v0.12.26 umbrella carried `Waveform.h` and `ThumbnailPool.h`, which need
+  `juce::AudioThumbnail`, so they pulled `<juce_audio_utils/juce_audio_utils.h>`
+  into every consumer TU. That compiled `juce_audio_devices`, whose
+  `juce_UMPEndpoint.h` calls `std::min` **without** parentheses; the Windows
+  `min`/`max` function-like macros expand that into `std::(...)` and MSVC fails
+  (C2589 + C2059). OpenVoxTuner's TUs include `<windows.h>` without `NOMINMAX`
+  (the ARA SDK and the VST3 plugin-client chain), so the define had to be carried
+  by the `OpenVoxTuner` and `OpenVoxTunerTests` targets. JUCE sets `NOMINMAX`
+  before its own `windows.h` include, which is why the library smoke stayed green
+  while a consumer that reaches `windows.h` first did not. In v0.12.27 the two
+  audio widgets are **opt-in includes**, so the library compiles no audio module
+  in this project's TUs; OpenVoxTuner keeps `NOMINMAX` as protection for its own
+  bare `<windows.h>` includes, and that is now a measured statement: the tests
+  target builds and passes with the define removed.
 
 ## Offline / vendored builds
 
@@ -231,10 +234,52 @@ state: more than 400 green pixels through the real painting path).
   dark theme, knobs and keyboard intact.
 - **Commit `2512651`** (CMakeLists only: pin + two `NOMINMAX` defines + the
   cache-override comment). Local on `chore/eiffelbs-ui-0.12.7`, **not pushed**.
-- **Open thread, upstream:** the umbrella drags an audio module into every
-  consumer TU of a header-only design system. Keeping `Waveform.h` and
-  `ThumbnailPool.h` out of `eiffelbs.h` (opt-in includes) removes the tax for
-  every plugin project; needs agreement with the library owner before a PR.
+- **Open thread, upstream — CLOSED on 2026-10-15:** the umbrella dragged an audio
+  module into every consumer TU of a header-only design system. Keeping
+  `Waveform.h` and `ThumbnailPool.h` out of `eiffelbs.h` as opt-in includes
+  removes that tax for every plugin project. Done: library commit `1d32bf4`, tag
+  `v0.12.27`, pushed; see the record below.
+
+## Verification record (v0.12.27 bump)
+
+- **The fix is upstream, not in this repository.** Library commit `1d32bf4`
+  ("Umbrella: the two audio widgets are opt-in, not in eiffelbs.h") removes
+  `Waveform.h` and `ThumbnailPool.h` from `eiffelbs.h`, with the reason written at
+  the top of the umbrella and repeated at the top of both headers. A host that
+  wants them includes the header directly and links `juce::juce_audio_utils`. Tag
+  `v0.12.27` (`1d32bf4`) was pushed to `origin/main` together with the commit; the
+  library's `project(... VERSION ...)` finally reads `0.12.27`, where it had been
+  reading `0.12.7` since that release.
+- **Library smoke: PASS, 0 failures**, built and run against the local JUCE 8.0.8
+  checkout (`-DEIFFELBS_UI_JUCE_DIR=C:/JUCE -DEIFFELBS_UI_BUILD_SMOKE_TEST=ON`).
+  The suite never touched `Waveform` or `ThumbnailPool`, so it now compiles
+  strictly less than before and the polluted-context proof (the smoke includes
+  `<windows.h>` bare, with no `NOMINMAX`, before the umbrella) still holds. PNG
+  receipt `%TEMP%\eiffelbs-ui-smoke.png` (9369 bytes).
+- **OpenVoxTuner repinned to `v0.12.27`.** FetchContent re-populated:
+  `git describe` in `build/_deps/eiffelbs-ui-src` reads **v0.12.27**, and the
+  populated umbrella contains no `Waveform.h` / `ThumbnailPool.h` include. A grep
+  over `Source/` finds zero includes of those two headers — every `waveform` hit in
+  this project is OVT's own ARA overlay (`ovt::drawWaveformOverlay`, the
+  `ui_show_waveform` / `ui_waveform_type` parameters), which lives in
+  `Source/ui/OVTTheme.h` and needs only `juce_dsp`.
+- **The consumer-side mitigation is now measured, not assumed.** The
+  `NOMINMAX` define was removed from `OpenVoxTunerTests`, the tree reconfigured
+  and rebuilt: **green**, and the freshly built exe ran **136 OK, 0 FAILED** (exit
+  0). So `eiffelbs-ui` no longer forces the define on this project. It was then
+  restored — OVT's own TUs include `<windows.h>` bare through the ARA SDK and the
+  VST3 plugin-client chain, so killing the macros stays cheap protection — and the
+  full tree rebuilt green with **no MSVC warnings**, tests re-run fresh at
+  **136 OK, 0 FAILED**.
+- **Standalone UI captured on the new pin:** `.dbg/ui_check_v01227.png`
+  (1102x628, `PrintWindow` flag 2, PID 102024). Dark theme; Effects row 1 Gate /
+  Compress / Reverb / Formant, row 2 Doubler / De-Esser; keyboard, piano, Morph
+  strip and tabs intact. The PNG is **byte-identical in size** to the v0.12.26
+  capture (60262 bytes), consistent with zero functional delta: the bump removed a
+  compile-time cost, not a widget.
+- **OVT commit is local only** (pin + the two `NOMINMAX` comments), on
+  `chore/eiffelbs-ui-0.12.7`, per the standing decision not to push this
+  repository.
 
 ## Bump log (append a line per bump)
 
@@ -243,6 +288,7 @@ state: more than 400 green pixels through the real painting path).
 | 2026-08-27 | v0.4.2 | Cutover pin; note drifted (announced v0.3.0). |
 | 2026-10-08 | v0.12.7 | Tag resolved with `git ls-remote` unavailable (`SEC_E_NO_CREDENTIALS`) via the GitHub tags API: v0.12.6 (`2615cb9`) was the last published tag; v0.12.7 was the next local release. README of the library refreshed first (it had not been updated for several versions), then the Windows `min`/`max` macro fix (`f263048`) was folded into the same release and the tag re-pointed. Offline builds used `-DFETCHCONTENT_SOURCE_DIR_EIFFELBS-UI=.dbg\eiffelbs-ui-v0127` (a clean `git archive` export of the tag). Build cost: 118 s + 113 s incremental Release (Visual Studio 17 2022; MSBuild had skipped the two largest TUs on the first pass - `PluginEditor.obj`, `PluginProcessor.obj` - so their objects were deleted and forced). The bump needs **no** OVT code change beyond the pin itself: see the toggle constat above. Published 2026-10-09: `git push origin v0.12.7` (tag only - the remote `main` deliberately stayed at `2615cb9`, an untagged later commit by another session was NOT carried). Costs of the published-pin proof: 24 s configure + 78 s test build, 112/112 again. |
 | 2026-10-15 | v0.12.26 (`d2dfd1a`) | Pin moved 19 tags / 24 commits. Nine components added, `DataList.h` +77, `IconButton.h` +120; the Theme/Fonts/LookAndFeel/Sidebar/StatusBar/ToggleSwitch edits are comment-only (`daa9a75`). OpenVoxTuner consumes none of the new widgets, so the only code change is the pin plus `NOMINMAX`. The umbrella gained `Waveform.h` + `ThumbnailPool.h`, which pull `<juce_audio_utils>` and compile `juce_audio_devices` in every consumer TU; JUCE's unparenthesised `std::min` in `juce_UMPEndpoint.h(86)` then broke `Source/PluginProcessor.cpp` and `test/Main.cpp` (C2589 + C2059). Fixed by defining `NOMINMAX` on `OpenVoxTuner` and `OpenVoxTunerTests`. The stale local `FETCHCONTENT_SOURCE_DIR_EIFFELBS-UI` override was cleared so the `GIT_TAG` pin is authoritative. Fresh build: 136/136 tests, full tree green with no warnings, standalone UI captured in `.dbg/ui_check_v01226.png`. OVT commit `2512651`, local only. |
+| 2026-10-15 | v0.12.27 (`1d32bf4`) | Upstream fix of the v0.12.26 coupling, made in the library: `Waveform.h` and `ThumbnailPool.h` are **out of the umbrella** `eiffelbs.h` and are opt-in includes, because they pull `<juce_audio_utils>` and compile `juce_audio_devices` in every consumer TU of a header-only design system. Library smoke PASS 0 failures against the local JUCE 8.0.8 checkout; commit + tag pushed to `origin`. OVT repinned: FetchContent re-populated to v0.12.27, `OpenVoxTunerTests` built and ran **136/136** with `NOMINMAX` **removed** (the proof that the library no longer forces it), define then restored, full tree green with no MSVC warnings, standalone captured in `.dbg/ui_check_v01227.png`. OVT commit local only. |
 
 ### Running the test suite in this environment
 

@@ -80,7 +80,7 @@ add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 include(FetchContent)
 FetchContent_Declare(eiffelbs-ui
     GIT_REPOSITORY https://github.com/EiffelBS/eiffelbs-ui.git
-    GIT_TAG        v0.12.26
+    GIT_TAG        v0.12.27
     GIT_SHALLOW    TRUE)
 FetchContent_MakeAvailable(eiffelbs-ui)
 
@@ -185,10 +185,15 @@ target_compile_definitions(OpenVoxTuner PRIVATE
 # The VST3 format expects hashed IDs, but JUCE generates its own (VST2 compat).
 # Since we do NOT ship a VST2 build, this warning can safely be ignored
 # (sessions will never reference a VST2 anyway).
-# NOMINMAX: the eiffelbs-ui umbrella (>= v0.12.26) pulls <juce_audio_utils> through
-# Waveform.h / ThumbnailPool.h, which compiles juce_audio_devices in this TU; its
-# juce_UMPEndpoint.h calls std::min WITHOUT parentheses, and the Windows min/max
-# function-like macros break it (C2589 + C2059). Killing the macros is also what
+# NOMINMAX: kept as protection, not as a library requirement. This TU includes
+# <windows.h> BARE through the ARA SDK and the VST3 plugin-client chain
+# (Source/PluginProcessor.cpp L63), so the Windows min/max function-like macros are
+# live, and juce_UMPEndpoint.h calls std::min WITHOUT parentheses: MSVC fails
+# (C2589 + C2059). It was REQUIRED from eiffelbs-ui v0.12.26, whose umbrella
+# included Waveform.h / ThumbnailPool.h and made every consumer TU compile
+# juce_audio_devices; since v0.12.27 those two widgets are opt-in includes, so the
+# library no longer forces the define (measured: the tests target builds and its
+# 136 tests pass with NOMINMAX removed). Killing the macros is also what
 # Source/dsp/BlockAwareOnePole.h has been working around by hand.
 target_compile_definitions(OpenVoxTuner PRIVATE
     JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1
@@ -412,11 +417,16 @@ target_link_libraries(OpenVoxTunerTests PRIVATE
     juce::juce_gui_extra              # eiffelbs-ui >= v0.12.7 links it INTERFACE
 )
 
-# The eiffelbs-ui umbrella (>= v0.12.26) includes Waveform.h and ThumbnailPool.h,
-# which need juce::AudioThumbnail, so they pull <juce_audio_utils/juce_audio_utils.h>
-# into every consumer TU. That compiles juce_audio_devices, whose juce_UMPEndpoint.h
-# calls std::min WITHOUT parentheses: the Windows min/max function-like macros turn
-# that into `std::(...)` and MSVC fails (C2589 + C2059). NOMINMAX kills the macros.
+# NOMINMAX is kept as protection for this project's own TUs, which include
+# <windows.h> bare (Source/PluginProcessor.cpp L63, Source/dsp/KeyBridge.h L16,
+# via the ARA SDK and the VST3 plugin-client chain). It was REQUIRED from
+# eiffelbs-ui v0.12.26, whose umbrella included Waveform.h + ThumbnailPool.h and
+# so compiled juce_audio_devices in every consumer TU: juce_UMPEndpoint.h calls
+# std::min WITHOUT parentheses, which the Windows min/max macros turn into
+# `std::(...)` (MSVC C2589 + C2059). Measured on v0.12.27, where the two audio
+# widgets are opt-in includes: this target builds and its 136 tests pass with the
+# define REMOVED, so eiffelbs-ui no longer forces it. Keeping it costs nothing and
+# covers any future path that reaches juce_audio_devices.
 target_compile_definitions(OpenVoxTunerTests PRIVATE NOMINMAX)
 
 # === LPC formant framing benchmark (console app) ===
