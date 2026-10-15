@@ -229,6 +229,9 @@ gap was closed **upstream first** (the no-fork rule), then the consumer swaps fo
   self-measures its width and scrolls on wheel; its label font is fixed at 17 px, so the
   text is slightly larger than the old widget â€” verified on screen that it does not push
   the toolbar icons out of `toolsArea`.
+   Slots carry glyphs through the library provider `onTabIcon` (`mic` for Live,
+   `activity` for Curve Editor): the strip measures icon + gap + label itself, and the
+   glyph colour follows the label (white on the active slot, dim elsewhere).
 - **14 buttons â†’ `ebs::IconButton`**: zoom in / out, scroll up / down, reset view, global
   undo / redo, preset prev / next / save, Options, Preset Gallery, hamburger menu,
   rewind, and the Curve Editor undo / redo chips. Two local setup lambdas

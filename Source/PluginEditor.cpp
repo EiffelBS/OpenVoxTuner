@@ -2166,6 +2166,16 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     tabSwitch = std::make_unique<ebs::PillTabSwitch> (tabbedComponent);
     addAndMakeVisible (*tabSwitch);
 
+    // Glyphs in the pill slots. The shared switch measures icon + gap + label
+    // itself, so the strip asks for the width the PAIR needs; the glyph colour
+    // follows the label (white on the active slot, dim elsewhere).
+    tabSwitch->onTabIcon = [] (int i) -> std::optional<ebs::IconButton::Shape>
+    {
+        if (i == 0) return ebs::IconButton::Shape::mic;      // Live: the live voice feed
+        if (i == 1) return ebs::IconButton::Shape::activity; // Curve Editor: the pitch curve
+        return std::nullopt;
+    };
+
     // Initialize piano keyboards with chromatic intervals so they display
     // all keys on first paint, before the first timerCallback fires.
     {
