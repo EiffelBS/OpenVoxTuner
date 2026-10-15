@@ -272,6 +272,11 @@ private:
     // The Correction block is the same component: one chevron, one fold flag, one
     // host re-layout. Both bottom-row frames are ExpansibleFrame, not two bespoke handles.
     ebs::ExpansibleFrame correctionFrame;
+    // Root/Scale and Harmony are plain framed bodies (ebs::FramedBody): the same frame
+    // language as the two ExpansibleFrames, with no fold. Every bottom-row block is a
+    // component, so it repaints itself when the row re-lays out.
+    ebs::FramedBody scaleFrame;
+    ebs::FramedBody harmonyFrame;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> upwardCompEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> upwardCompAmountAttachment;
 
@@ -439,9 +444,6 @@ private:
     void deletePluginPresetFile (const juce::File& file);
     static bool isVersionNewer (const juce::String& latest, const juce::String& current);
 
-    // Bounds for the bottom blocks
-    juce::Rectangle<int> block1Bounds;
-    juce::Rectangle<int> block3Bounds; // Harmony block
 
     // "Advanced" expand/collapse banner for the Correction block. When expanded,
     // the correction knobs (Flex / Humanize / Vibrato / Attack-Aware) are revealed

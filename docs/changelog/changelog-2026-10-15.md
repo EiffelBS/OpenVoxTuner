@@ -453,3 +453,24 @@ Release rebuild 0 errors, exit 0; tests **136 OK / 0 FAILED**, exit 0. The fold 
 ### Notes
 - Converting a block from a painted region to a component makes the UI.13 ghost impossible by construction. Root/Scale and Harmony are still paint-only regions, so the global `repaint()` at the end of `resized()` stays.
 - The chevron reads closed `>` / open `<`, the same direction contract as the Effects frame.
+
+## Feature — Root/Scale and Harmony blocks are components (Stage A of the bottom row)
+
+### Context
+The bottom row had four blocks and two mechanisms: Effects and Correction were `ebs::ExpansibleFrame` components, Root/Scale and Harmony were rectangles painted by `paint()`. The request was to put frame 1 on the same component for consistency, and to plan for more frames in the band.
+
+### Changes
+- `Source/PluginEditor.h`: `ebs::FramedBody scaleFrame;` and `ebs::FramedBody harmonyFrame;` replace `block1Bounds` / `block3Bounds`. No library change was needed: `FramedBody` is the title-less frame body of the shared library (umbrella `eiffelbs.h` L32) and paints `drawFramePlain` on its own bounds.
+- Ten Root/Scale widgets (Key label + combo, Scale label + combo, the mini piano keyboard, Key/Scale Detection power button, source label + combo, companion group label + box) and eighteen Harmony widgets are reparented into the two frame bodies by two loops at the end of the constructor.
+- **Reparenting trap found in the capture**: a later `addAndMakeVisible (scaleKeyboard);` in the constructor moved the keyboard back to the editor, so its frame-local bounds were read as editor-local and it painted behind the pill band. The line is deleted; the reparent loop is now the last parent assignment for every widget of the row.
+- `paint()` draws no block fill or outline any more, and the global `repaint()` at the end of `resized()` is deleted: nothing painted moves any more, so the UI.13 ghost class is closed by construction rather than patched.
+- Layout reads each frame's own area: `scaleFrame.getLocalBounds().reduced (10)` and `harmonyFrame.getLocalBounds().reduced (10)`. Geometry, widths and the width model are unchanged.
+- The theme handler repaints both frames alongside the Correction frame and its chevron.
+
+### Tests
+Release rebuild 0 errors, exit 0; tests **136 OK / 0 FAILED**, exit 0. The fold cycle was driven from a temporary timer (expand tick 40, collapse 100, expand 160, collapse 220, `stopTimer()` 260) because synthetic input is blocked here: closed base vs closed after collapse **diff 0 pixels**, open first vs open second **diff 0**, closed base vs closed after the full cycle **diff 0** (`.dbg/u15_1_closed_base.png` .. `u15_5_closed_second.png`, 1116x639, PrintWindow flag 2). The mini keyboard is back inside the Root/Scale frame (crop x 460..705) and the pill band region no longer differs from the reference.
+- Diff against the shipped reference: **3852 pixels**, bbox x 467..1098 / y 450..621 — the border band of the two frames only. Pixel rows through the Effects frame (`x = 255, 300, 445`) are byte-identical in both builds, so this residue is the intended harmonisation: `drawFramePlain` strokes its outline inset by 0.5 px, the deleted editor paint stroked it on the rectangle (half of the stroke outside). All four blocks now share one border rendering.
+
+### Notes
+- Design rule for the row: any block whose geometry moves must be a component, not a painted region.
+- Stage B (planned UI.16): an `ebs::FrameBand` scroll container, used as an escape valve below a hard floor, never as the primary sizing mechanism.

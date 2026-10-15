@@ -548,6 +548,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // pushing Harmony - exactly the Effects contract. The frame owns the fold flag,
     // the editor answers by re-laying out the bottom row.
     addAndMakeVisible (correctionFrame);
+    // Root/Scale and Harmony are framed components too, so every bottom-row block is a
+    // component: a re-layout moves components, never a painted region.
+    addAndMakeVisible (scaleFrame);
+    addAndMakeVisible (harmonyFrame);
     correctionFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
     // Restore the state persisted in the plugin XML BEFORE the callback is armed, so
     // restoring a saved session does not fire a re-layout.
@@ -2070,6 +2074,40 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&formantStrategyBox),
                                 static_cast<juce::Component*> (&formantStrategyLabel) })
         correctionFrame.addAndMakeVisible (c);
+    // Root/Scale and Harmony widgets move into their own frame body, the same contract as
+    // the Correction frame: as children they paint above the frame and are clipped by it,
+    // so each block repaints itself when the bottom row re-lays out.
+    for (juce::Component* c : { static_cast<juce::Component*> (&keyBox),
+                                static_cast<juce::Component*> (&keyLabel),
+                                static_cast<juce::Component*> (&scaleBox),
+                                static_cast<juce::Component*> (&scaleLabel),
+                                static_cast<juce::Component*> (&scaleKeyboard),
+                                static_cast<juce::Component*> (&keyDetectPowerButton),
+                                static_cast<juce::Component*> (&keySourceLabel),
+                                static_cast<juce::Component*> (&keySourceBox),
+                                static_cast<juce::Component*> (&companionGroupLabel),
+                                static_cast<juce::Component*> (&companionGroupBox) })
+        scaleFrame.addAndMakeVisible (c);
+
+    for (juce::Component* c : { static_cast<juce::Component*> (&harmonyEnableButton),
+                                static_cast<juce::Component*> (&harmonyTypeBox),
+                                static_cast<juce::Component*> (&useVoiceLabel),
+                                static_cast<juce::Component*> (&useVoiceButton),
+                                static_cast<juce::Component*> (&harmonyToneColorLabel),
+                                static_cast<juce::Component*> (&shiftedVoicesBox),
+                                static_cast<juce::Component*> (&harmonyToneBox),
+                                static_cast<juce::Component*> (&harmonyToneColorSlider),
+                                static_cast<juce::Component*> (&harmonyFollowLeadButton),
+                                static_cast<juce::Component*> (&harmonyGainMatchButton),
+                                static_cast<juce::Component*> (&harmonyGainLabel),
+                                static_cast<juce::Component*> (&harmonyGainSlider),
+                                static_cast<juce::Component*> (&harmonyBlendLabel),
+                                static_cast<juce::Component*> (&harmonyBlendSlider),
+                                static_cast<juce::Component*> (&harmonyFormantLabel),
+                                static_cast<juce::Component*> (&harmonyFormantSlider),
+                                static_cast<juce::Component*> (&harmonyAttackLabel),
+                                static_cast<juce::Component*> (&harmonyAttackSlider) })
+        harmonyFrame.addAndMakeVisible (c);
 
     // Attack-Aware correction toggle button - power-icon style like Gate / Reverb / Formant.
     // 2026-07-24 (Deprecation): Attack-Aware button setup is disabled.
@@ -2078,7 +2116,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // attackAwareButton.setTooltip (ovt::tr(ovt::Keys::kTooltipAttack));
     // addAndMakeVisible (attackAwareButton);
 
-    addAndMakeVisible (scaleKeyboard);
+    // scaleKeyboard is made visible inside scaleFrame by the reparent loop above; a
+    // second addAndMakeVisible here would move it back to the editor and give its
+    // frame-local bounds editor-local meaning.
 
     // === Bidirectional attachments to AudioParameters ===
     auto& tree = processorRef.getParameters();
@@ -2455,15 +2495,9 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (ebs::bgDark());
     g.fillAll();
 
-    // Draw the remaining block backgrounds (Key/Scale and Harmony). The Correction
-    // block is an ebs::ExpansibleFrame and paints its own body, so it needs no fill here.
-    g.setColour (ebs::bgPanel());
-    g.fillRoundedRectangle (block1Bounds.toFloat(), 6.0f);
-    g.fillRoundedRectangle (block3Bounds.toFloat(), 6.0f);
-
-    g.setColour (ebs::accentSoft().withAlpha(0.3f));
-    g.drawRoundedRectangle (block1Bounds.toFloat(), 6.0f, 1.0f);
-    g.drawRoundedRectangle (block3Bounds.toFloat(), 6.0f, 1.0f);
+    // Every bottom-row block paints its own body: the two ExpansibleFrames (Correction,
+    // Effects) and the two FramedBodies (Root/Scale, Harmony). paint() draws no block
+    // fill or outline here any more.
 
     // Top banner with title (opaque, matches tab bar background).
     g.setColour (ebs::bgDark());
@@ -2813,8 +2847,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     bottomArea.removeFromLeft (blockSpacing);
     auto rightBlock = bottomArea; // remaining (Harmony)
 
-    block1Bounds = middleBlock;   // Key, Scale, Keyboard
-    block3Bounds = rightBlock;    // Harmony controls
+    scaleFrame.setBounds (middleBlock);   // Key, Scale, Keyboard
+    harmonyFrame.setBounds (rightBlock);  // Harmony controls
 
     // --- Block 2 : Correction - an ebs::ExpansibleFrame; Speed + Amount always visible ---
     correctionFrame.setBounds (leftBlock);
@@ -3020,7 +3054,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // Left: enable button + type + voices + toggles
     // Right: Volume/Blend/Formant knobs
     {
-        auto h = block3Bounds.reduced(10);
+        auto h = harmonyFrame.getLocalBounds().reduced(10);
 
         auto powerButtonWidth = [&] (juce::Button& b) -> int
         {
@@ -3113,7 +3147,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     }
 
     // --- Block 1 : Key, Scale, Keyboard (middle) ---
-    auto b1 = block1Bounds.reduced(10);
+    auto b1 = scaleFrame.getLocalBounds().reduced(10);
 
     auto topRow = b1.removeFromTop(44); // Key + Scale row (20 label + 24 combobox)
 
@@ -3193,12 +3227,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         companionGroupLabel.setBounds (0, 0, 0, 0);
         companionGroupBox.setBounds (0, 0, 0, 0);
     }
-    // The bottom-row blocks are painted by paint(), not by components. When a block moves,
-    // JUCE only repaints the rectangles its widgets vacated, so the old fill and outline of
-    // the block stay on screen: the effects frame is a component and repaints itself, which
-    // is why only its neighbours ghost after the chevron. Repaint the whole editor after a
-    // re-layout - a layout change is rare, and one full pass is cheaper than tracking regions.
-    repaint();
+    // Every bottom-row block is a component now: two ExpansibleFrames (Correction,
+    // Effects) and two FramedBodies (Root/Scale, Harmony). A re-layout therefore moves
+    // components only. JUCE repaints a resized component in full, and a moved one in both
+    // its old and new areas, which is exactly what the global repaint() used to compensate
+    // for (the painted block regions of UI.13). Nothing painted moves any more.
 }
 
 void OpenVoxTunerAudioProcessorEditor::parentHierarchyChanged()
@@ -5728,6 +5761,10 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     // switch needs.
     correctionFrame.repaint();
     correctionFrame.disclosure().repaint();
+    // The two plain framed bodies read palette tokens inside their own paint, so a theme
+    // switch needs the same repaint as the ExpansibleFrames.
+    scaleFrame.repaint();
+    harmonyFrame.repaint();
     // A/B slots read palette tokens directly inside their custom paint;
     // a repaint keeps them current after a theme switch.
     buttonA.repaint();
