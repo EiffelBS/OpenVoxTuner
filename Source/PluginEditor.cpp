@@ -542,24 +542,25 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     speedSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSpeed));
     amountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipAmount));
 
-    // "Advanced" expand/collapse handle for the Correction block: reveals the
-    // Flex / Humanize / Vibrato / Attack-Aware correction knobs to the right of
-    // the Speed / Amount knobs when expanded. The shared strip owns the chevron
-    // direction, its hover tint and the pointing-hand cursor.
-    advancedButton.setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
-    // Restore the persisted expand/collapse state from the processor (saved
-    // across sessions in the plugin state XML).
-    advancedExpanded = processorRef.getAdvancedExpanded();
-    advancedButton.expanded = advancedExpanded;
-    advancedButton.onToggle = [this]
+    // The Correction block is an ebs::ExpansibleFrame, the same component the Effects
+    // frame uses: the chevron on its right edge folds the advanced zone (Vibrato,
+    // Humanize, Voice Type, Formant Strategy) away, and the block WIDENS to take it,
+    // pushing Harmony - exactly the Effects contract. The frame owns the fold flag,
+    // the editor answers by re-laying out the bottom row.
+    addAndMakeVisible (correctionFrame);
+    correctionFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
+    // Restore the state persisted in the plugin XML BEFORE the callback is armed, so
+    // restoring a saved session does not fire a re-layout.
+    correctionFrame.setExpanded (processorRef.getAdvancedExpanded());
+    correctionFrame.onExpandedChanged = [this]
     {
-        advancedExpanded = ! advancedExpanded;
-        advancedButton.expanded = advancedExpanded;
-        processorRef.setAdvancedExpanded (advancedExpanded);
+        processorRef.setAdvancedExpanded (correctionFrame.expanded());
         resized();
-        repaint();  // the bottom-block frames are painted in paint(), so redraw them
     };
-    addAndMakeVisible (advancedButton);
+
+    // The Speed / Amount knobs and the studio-console switch stay visible in both states;
+    // the advanced zone is the one that folds. The widgets move into the frame body with
+    // modeSwitch, created below.
     setupKnob (formantSlider, nullptr, "");
     // Pivot knob: fill grows from the central 0 value, not from the minimum.
     formantSlider.getProperties().set ("centred", true);
@@ -2048,7 +2049,27 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Graphic Modern/Transparent switch below the Speed/Amount knobs (console style).
     // Backed by correctionModeButton so undo + parameter sync are reused.
     modeSwitch = std::make_unique<CorrectionModeSwitch> (correctionModeButton);
-    addAndMakeVisible (*modeSwitch);
+    // The studio-console switch lives inside the Correction frame, like every widget of
+    // that block: as a child of the body it paints above the frame and is clipped by it.
+    correctionFrame.addAndMakeVisible (*modeSwitch);
+
+    // Every widget of this block moves into the frame body: as children they paint above it
+    // and are clipped by it, so a folded zone is hidden with setVisible(false), never painted
+    // over. The Speed / Amount knobs and the studio-console switch stay visible in both states;
+    // the advanced zone (Vibrato, Humanize, Voice Type, Formant Strategy) is the one that folds.
+    for (juce::Component* c : { static_cast<juce::Component*> (&speedSlider),
+                                static_cast<juce::Component*> (&speedLabel),
+                                static_cast<juce::Component*> (&amountSlider),
+                                static_cast<juce::Component*> (&amountLabel),
+                                static_cast<juce::Component*> (&vibratoPreserveSlider),
+                                static_cast<juce::Component*> (&vibratoPreserveLabel),
+                                static_cast<juce::Component*> (&humanizeSlider),
+                                static_cast<juce::Component*> (&humanizeLabel),
+                                static_cast<juce::Component*> (&voiceTypeBox),
+                                static_cast<juce::Component*> (&voiceTypeLabel),
+                                static_cast<juce::Component*> (&formantStrategyBox),
+                                static_cast<juce::Component*> (&formantStrategyLabel) })
+        correctionFrame.addAndMakeVisible (c);
 
     // Attack-Aware correction toggle button - power-icon style like Gate / Reverb / Formant.
     // 2026-07-24 (Deprecation): Attack-Aware button setup is disabled.
@@ -2434,15 +2455,14 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (ebs::bgDark());
     g.fillAll();
 
-    // Draw the bottom blocks backgrounds (left = scale, middle = knobs, right = harmony)
+    // Draw the remaining block backgrounds (Key/Scale and Harmony). The Correction
+    // block is an ebs::ExpansibleFrame and paints its own body, so it needs no fill here.
     g.setColour (ebs::bgPanel());
     g.fillRoundedRectangle (block1Bounds.toFloat(), 6.0f);
-    g.fillRoundedRectangle (block2Bounds.toFloat(), 6.0f);
     g.fillRoundedRectangle (block3Bounds.toFloat(), 6.0f);
 
     g.setColour (ebs::accentSoft().withAlpha(0.3f));
     g.drawRoundedRectangle (block1Bounds.toFloat(), 6.0f, 1.0f);
-    g.drawRoundedRectangle (block2Bounds.toFloat(), 6.0f, 1.0f);
     g.drawRoundedRectangle (block3Bounds.toFloat(), 6.0f, 1.0f);
 
     // Top banner with title (opaque, matches tab bar background).
@@ -2755,11 +2775,16 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // === Bottom bar: blocks ===
     auto bottomArea = bounds.reduced (pad);
 
-    // Block widths. The Correction block shows Speed + Amount by default and
-    // WIDENS when the "Advanced" banner is expanded to reveal the correction
-    // knobs (Flex / Humanize / Vibrato / Attack-Aware) on the right.
+    // Block widths. The Correction block is an ebs::ExpansibleFrame, the same component
+    // the Effects frame uses: closed it shows Speed + Amount, open it WIDENS to take the
+    // advanced zone on the right, exactly like the Effects frame taking its third column.
+    // Both widths come from the frame own flag, and both chevron strips are 22 + 6 px.
     const int knobBlockWidth   = 220;  // Speed + Amount (prominent big knobs)
     const int advancedWidth    = 160;  // revealed correction knobs when expanded
+    const int corrPad          = 10;   // frame interior padding
+    const int corrChevron      = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
+    const int corrBaseW        = knobBlockWidth - 22 - 2 * corrPad;   // Speed + Amount content strip
+    const int corrClosedW      = corrBaseW + 2 * corrPad + corrChevron;
     // The Effects frame is an ebs::ExpansibleFrame: closed it shows two columns of two
     // cells, open it takes a third, so its width follows the frame's own flag.
     const int effectsPad     = 10;   // frame interior padding
@@ -2771,13 +2796,13 @@ void OpenVoxTunerAudioProcessorEditor::resized()
                                + (effectsFrame.expanded() ? 2 : 1) * effectsColGap;
     const int scaleBlockWidth  = 236;  // narrowed to fit the Root combo (see Block 1)
     const int blockSpacing     = 10;
-    const int bannerW          = 22;   // vertical "Advanced" banner width
 
     // Clamp the Correction width so the other blocks always keep some room.
+    const bool correctionOpen = correctionFrame.expanded();
     const int fixedOthers   = effectBlockWidth + scaleBlockWidth + 3 * blockSpacing;
-    const int availForBlock = juce::jmax (knobBlockWidth,
+    const int availForBlock = juce::jmax (corrClosedW,
                                           bottomArea.getWidth() - fixedOthers);
-    const int correctionWidth = juce::jmin (knobBlockWidth + (advancedExpanded ? advancedWidth : 0),
+    const int correctionWidth = juce::jmin (corrClosedW + (correctionOpen ? advancedWidth : 0),
                                             availForBlock);
 
     auto leftBlock = bottomArea.removeFromLeft (correctionWidth);
@@ -2788,30 +2813,32 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     bottomArea.removeFromLeft (blockSpacing);
     auto rightBlock = bottomArea; // remaining (Harmony)
 
-    block2Bounds = leftBlock;     // Correction: Speed, Amount (+ advanced knobs)
     block1Bounds = middleBlock;   // Key, Scale, Keyboard
     block3Bounds = rightBlock;    // Harmony controls
 
-    // --- Block 2 : Correction (Speed + Amount, optionally Advanced knobs) ---
-    auto b2 = block2Bounds.reduced (10);
+    // --- Block 2 : Correction - an ebs::ExpansibleFrame; Speed + Amount always visible ---
+    correctionFrame.setBounds (leftBlock);
+    auto b2 = correctionFrame.interior().reduced (corrPad);   // frame-local coordinates
 
-    // "Advanced" vertical banner pinned to the right edge of the (possibly
-    // widened) Correction block. Clicking it expands / collapses the block. It
-    // is a plain rectangular handle inset from the block's rounded corners.
-    auto bannerRect = block2Bounds.withTrimmedLeft (block2Bounds.getWidth() - bannerW);
-    // Make the reactive (clickable) zone half the block height and round its
-    // corners so it reads as a clean handle, not a full-height grip.
-    const int halfTrim = static_cast<int> (block2Bounds.getHeight() * 0.25f);
-    bannerRect = bannerRect.withTrimmedTop (halfTrim).withTrimmedBottom (halfTrim);
-    advancedButton.setBounds (bannerRect);
+    // The chevron strip is excluded by interior(), so the content area IS the interior:
+    // the base knobs on the left, the advanced zone in what is left over.
+    auto content = b2;
 
-    // Content area excludes the banner strip on the right.
-    auto content = b2.withTrimmedRight (bannerW);
+    // The folded zone is hidden, not painted over: an invisible child of the frame takes
+    // no clicks and leaves its cell empty - the Effects frame third column rule.
+    vibratoPreserveSlider.setVisible (correctionOpen);
+    vibratoPreserveLabel.setVisible (correctionOpen);
+    humanizeSlider.setVisible (correctionOpen);
+    humanizeLabel.setVisible (correctionOpen);
+    voiceTypeBox.setVisible (correctionOpen);
+    voiceTypeLabel.setVisible (correctionOpen);
+    formantStrategyBox.setVisible (correctionOpen);
+    formantStrategyLabel.setVisible (correctionOpen);
 
     // Speed + Amount: the two prominent big knobs on the left. A strip is
     // reserved at the bottom of this area for the Modern/Transparent graphic
     // switch, which shrinks the two knobs vertically.
-    const int baseContentW = knobBlockWidth - bannerW - 20;  // width reserved for Speed + Amount
+    const int baseContentW = juce::jmin (corrBaseW, content.getWidth());  // width reserved for Speed + Amount
     auto baseArea = content.removeFromLeft (baseContentW);
     auto advancedArea = content;                              // Flex / Humanize / Vibrato / Attack
 
@@ -2859,7 +2886,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         s.setBounds (kx, ky, d, d);
     };
 
-    if (advancedArea.getWidth() > 4)
+    if (correctionOpen && advancedArea.getWidth() > 4)
     {
         // 2026-07-27 (Layout update with Voice Type selector): the advanced
         // area now uses 2 rows: row 1 = Vibrato + Humanize side-by-side
@@ -4410,7 +4437,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
 
     // Refresh all translatable tooltips
-    advancedButton.setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
+    correctionFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
     voiceTypeBox.setTooltip (ovt::tr (ovt::Keys::kTooltipVoiceType));
     voiceTypeLabel.setTooltip (ovt::tr (ovt::Keys::kTooltipVoiceType));
     formantStrategyBox.setTooltip (ovt::tr (ovt::Keys::kTooltipFormantStrategy));
@@ -5194,7 +5221,7 @@ void OpenVoxTunerAudioProcessorEditor::writePluginPresetFile (const juce::String
 
     juce::XmlElement root ("OVT_PLUGIN_PRESET");
     root.setAttribute ("name", name);
-    root.setAttribute ("advancedExpanded", advancedExpanded ? 1 : 0);
+    root.setAttribute ("advancedExpanded", correctionFrame.expanded() ? 1 : 0);
     // stateXml already carries the real parameters.state root type (e.g.
     // "OpenVoxTuner") with <PARAM id=.. value=..> children, so restoreState()
     // via replaceState() keeps the tree type consistent.
@@ -5696,9 +5723,11 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     // Re-apply to other buttons
     updateButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel());
     updateButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
-    // "Advanced" correction-block expander: the shared strip reads palette
-    // tokens inside its own paint, so a repaint is all a theme switch needs.
-    advancedButton.repaint();
+    // "Advanced" correction-block expander: the frame paints its own body and the
+    // chevron reads palette tokens inside its own paint, so repaints are all a theme
+    // switch needs.
+    correctionFrame.repaint();
+    correctionFrame.disclosure().repaint();
     // A/B slots read palette tokens directly inside their custom paint;
     // a repaint keeps them current after a theme switch.
     buttonA.repaint();

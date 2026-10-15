@@ -269,6 +269,9 @@ private:
     // two cells; the chevron on its right edge opens a third column and widens the
     // frame, which the editor answers by re-laying out the bottom row.
     ebs::ExpansibleFrame effectsFrame;
+    // The Correction block is the same component: one chevron, one fold flag, one
+    // host re-layout. Both bottom-row frames are ExpansibleFrame, not two bespoke handles.
+    ebs::ExpansibleFrame correctionFrame;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> upwardCompEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> upwardCompAmountAttachment;
 
@@ -438,7 +441,6 @@ private:
 
     // Bounds for the bottom blocks
     juce::Rectangle<int> block1Bounds;
-    juce::Rectangle<int> block2Bounds;
     juce::Rectangle<int> block3Bounds; // Harmony block
 
     // "Advanced" expand/collapse banner for the Correction block. When expanded,
@@ -446,8 +448,6 @@ private:
     // to the right of the Speed / Amount knobs (the block widens).
     // Advanced expand/collapse handle: the shared disclosure strip (chevron
     // direction, hover feedback and tooltip are owned by the library).
-    ebs::DisclosureChevron advancedButton;
-    bool advancedExpanded = false;
 
     // One-time flag for syncing editor controls from persisted parameters
     bool measuresSyncDone = false;

@@ -433,3 +433,23 @@ Library smoke PASS (0 failures), including the new DisclosureChevron + Expansibl
 ### Notes
 - The editor-side `repaint()` is what cleared the ghosted block; this patch closes the same bug class for the glyph, for any host that toggles without moving the frame.
 - The library commit is `fbfa5f0`, tag `v0.12.30` pushed to `EiffelBS/eiffelbs-ui`.
+
+## Feature — Correction block is an ExpansibleFrame, like Effects
+
+### Context
+The Effects frame became `ebs::ExpansibleFrame` (UI.12) while the Correction block stayed a bare chevron on a host-painted region: two blocks of the same bottom row, two different mechanisms. The request was to make frame 1 use the same component.
+
+### Changes
+- `Source/PluginEditor.h`: `ebs::ExpansibleFrame correctionFrame;` replaces `ebs::DisclosureChevron advancedButton;`, the editor-side `bool advancedExpanded` and `juce::Rectangle<int> block2Bounds`.
+- Constructor: the frame is armed with the persisted state (`setExpanded (processorRef.getAdvancedExpanded())` BEFORE the callback is installed, so restoring a saved session does not fire a re-layout), the `kTooltipAdvanced` tooltip moves onto `correctionFrame.disclosure()`, and `onExpandedChanged` writes the flag back to the processor and calls `resized()`.
+- Every widget of the block is reparented into the frame body: Speed, Amount, Vibrato, Humanize, Voice Type, Formant Strategy with their labels, plus the Modern/Transparent studio-console switch. The folded zone is `setVisible(false)`, so an invisible child takes no clicks and leaves its cell empty — the Effects third-column rule.
+- Layout: `correctionFrame.setBounds (leftBlock)`; the content area comes from `interior().reduced (corrPad)`, which already excludes the 22 + 6 px chevron strip, so the half-height banner handle and `bannerW` are gone. Closed width 226 px, open 386 px (was 220 / 380): Harmony loses 6 px in both states, and the Speed/Amount content strip keeps its 178 px.
+- `paint()` no longer fills or outlines block 2 — the frame paints its own body through `drawFramePlain`. The theme handler repaints the frame and its chevron.
+- The XML attribute name `advancedExpanded` is unchanged, so preset persistence keeps passing.
+
+### Tests
+Release rebuild 0 errors, exit 0; tests **136 OK / 0 FAILED**, exit 0. The fold cycle was driven from a temporary timer (synthetic input is blocked here): expand at tick 40, a +1/-1 width nudge at 120/125, collapse at 200, second nudge at 260/265, `stopTimer()` at 300. DWM captures: expanded without nudge vs expanded after the forced full repaint **diff 0 pixels**; collapsed without nudge vs after nudge **diff 0**; baseline closed vs folded back **diff 0** (`.dbg/t1_closed_base.png`, `t2_open.png`, `t4_closed.png`). The shipped binary, probe removed, captures byte-identical to the verified collapsed state.
+
+### Notes
+- Converting a block from a painted region to a component makes the UI.13 ghost impossible by construction. Root/Scale and Harmony are still paint-only regions, so the global `repaint()` at the end of `resized()` stays.
+- The chevron reads closed `>` / open `<`, the same direction contract as the Effects frame.
