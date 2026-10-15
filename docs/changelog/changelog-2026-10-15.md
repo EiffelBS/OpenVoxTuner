@@ -270,3 +270,46 @@ gap was closed **upstream first** (the no-fork rule), then the consumer swaps fo
   to be seen; synthetic input is blocked on this machine, so those three surfaces are
   verified by compile + code review only and are left to the author's session.
 - `attackAwareButton` stays untouched: deprecated and hidden.
+## UI polish — taller pill band, flush viewport, system title bars
+
+### Context
+Three layout complaints from the author's session on the running standalone: the Live /
+Curve Editor pill looked cramped, the tab viewport left a wider gap above the control
+frames than the frames leave below them to the window edge, and the plugin still drew its
+own caption (the JUCE title bar) in the standalone and in the Preset Gallery window. The
+system title bar is now the house norm across the projects under development.
+
+### Changes
+- **Pill band 44 px, pill 40 px** (`resized()`): the toolbar band over the tab viewport
+  grows from 30 to 44 px and `ebs::PillTabSwitch` from 30 to 40 px, so the badge (library
+  inset: `height - 6`) reads 34 px instead of 24. The pill geometry is height-driven in
+  the library (radius `h/2`, badge `h-6`), so no library change was needed.
+- **Fixed 22 px icon slots**: `iconSize` used to be `toolsArea.getHeight()`, which would
+  have stretched every toolbar button to 40 px with the taller band. A `placeIcon` lambda
+  now takes square slots and centres each button in its slot; `measuresComboBox` is
+  centred at 24 px for the same reason.
+- **Viewport flush**: `tabArea.setBottom (centerArea.getBottom())` puts the tab viewport's
+  bottom edge on the centre area's, so the gap above the frame row equals the pad the
+  frames keep to the window edge (10 px). Measured on screen: canvas bottom → frame top
+  10 px, frame bottom → window edge 9–10 px.
+- **System title bars**: `ClosableGalleryWindow` gets `setUsingNativeTitleBar (true)`;
+  `parentHierarchyChanged()` sets it on the standalone wrapper, guarded by
+  `! w->isUsingNativeTitleBar()` so the window peer is recreated once, not on every
+  callback. The Harmony Debug window was already native and stays as it is. In a DAW host
+  the `DocumentWindow` cast yields nullptr, so both calls are no-ops.
+
+### Tests
+- Full tree rebuilt in Release: **0 errors**, exit 0.
+- `OpenVoxTunerTests`: **136 OK / 0 FAILED**, exit 0.
+- Standalone captured at `.dbg/ui_check_swaps.png` (1116x639, `PrintWindow` flag 2):
+  Windows caption with the standard minimise/maximise/close buttons replaces the JUCE
+  strip; pill badge measures 32 px on screen (was 26); toolbar icons stay 22 px; canvas
+  bottom → frame top 10 px and frame bottom → window edge 9–10 px, read pixel by pixel.
+
+### Notes
+- The pill width grows with the glyph slots (icon 14 + gap 6 per slot), so at narrow
+  plugin widths the middle toolbar group loses slack — watch it on the smallest host
+  window.
+- The gallery window caption is native now; seeing it needs a click on the gallery icon,
+  and synthetic input is blocked on this machine, so that surface is verified by compile
+  + review only.

@@ -2617,19 +2617,23 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto tabArea = centerArea.reduced (pad);
     // Reduce the gap between the title banner and the Live/Curve Editor tabs.
     tabArea.setY (centerArea.getY() + 4);
+    // The viewport sits as close to the top of the frames as the frames sit to the
+    // window edge: one pad gap above the frame row, the same gap below it.
+    tabArea.setBottom (centerArea.getBottom());
     tabbedComponent.setBounds (tabArea);
     
     // Graphic Mode specific tools aligned over the tab bar row.
     auto tabBounds = tabbedComponent.getBounds();
-    auto toolsArea = tabBounds.removeFromTop(30).reduced(2, 4); // height is 22
+    auto toolsArea = tabBounds.removeFromTop(44).reduced(2, 4); // band 44 -> row 40, icons stay 22
 
     // Live / Curve Editor tab switch, placed on the left of the toolbar row:
     // the shared eiffelbs-ui pill. It measures its own labels (the tab names
     // are already translated), so it asks for the width they need instead of
-    // the editor guessing it. Same height as the Modern/Transparent switch.
+    // editor guessing it. The pill band is TALLER than the icon row, so the labels
+    // get their air and the fixed 22 px icons stay centred inside it.
     if (tabSwitch != nullptr)
     {
-        const int switchH = 30;
+        const int switchH = 40;
         const int switchW = tabSwitch->preferredWidth();
         auto switchRect = toolsArea.removeFromLeft(switchW);
         switchRect = switchRect.withSizeKeepingCentre(switchW, switchH);
@@ -2637,7 +2641,13 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         toolsArea.removeFromLeft(6); // gap
     }
 
-    int iconSize = toolsArea.getHeight(); // 22
+    const int iconSize = 22;   // square icon slots: a taller pill band must not stretch them
+    auto placeIcon = [&] (juce::Component& btn, bool fromRight)
+    {
+        auto r = fromRight ? toolsArea.removeFromRight (iconSize)
+                           : toolsArea.removeFromLeft  (iconSize);
+        btn.setBounds (r.withSizeKeepingCentre (iconSize, iconSize));
+    };
 
     // Toolbar left group (curve-editor mode): standalone transport + measures.
     const bool isStandalone = processorRef.isStandaloneWrapper();
@@ -2646,9 +2656,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     {
         // Standalone transport: a "Return to start" (rewind) button placed
         // before the Play/Pause toggle, matching the classic DAW order.
-        rewindButton.setBounds (toolsArea.removeFromLeft(iconSize));
+        placeIcon (rewindButton, false);
         toolsArea.removeFromLeft(4);
-        playButton.setBounds (toolsArea.removeFromLeft(iconSize));
+        placeIcon (playButton, false);
         toolsArea.removeFromLeft(leftGap);
     }
     // "Measures" control (number of measures shown in the curve editor time window).
@@ -2656,33 +2666,33 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int measuresLabelW = static_cast<int> (juce::GlyphArrangement::getStringWidth (measuresLabel.getFont(), measuresLabel.getText())) + 10;
     measuresLabel.setBounds (toolsArea.removeFromLeft (measuresLabelW));
     toolsArea.removeFromLeft(4);
-    measuresComboBox.setBounds (toolsArea.removeFromLeft (56));
+    measuresComboBox.setBounds (toolsArea.removeFromLeft (56).withSizeKeepingCentre (56, 24));
     toolsArea.removeFromLeft(leftGap);
 
     // Toolbar (right to left): Options | Gallery | zoom / scroll / reset | snap / grid / step
     // Options and Gallery are icon-only buttons; leave a clear gap before
     // the reset (X) button so they don't visually touch.
-    optionsButton.setBounds (toolsArea.removeFromRight(iconSize));
+    placeIcon (optionsButton, true);
     toolsArea.removeFromRight(8);
-    presetGalleryButton.setBounds (toolsArea.removeFromRight(iconSize));
-    toolsArea.removeFromRight(8);
-
-    resetViewButton.setBounds (toolsArea.removeFromRight(iconSize));
-    toolsArea.removeFromRight(8);
-    scrollDownButton.setBounds (toolsArea.removeFromRight(iconSize));
-    toolsArea.removeFromRight(8);
-    scrollUpButton.setBounds (toolsArea.removeFromRight(iconSize));
-    toolsArea.removeFromRight(8);
-    zoomOutButton.setBounds (toolsArea.removeFromRight(iconSize));
-    toolsArea.removeFromRight(8);
-    zoomInButton.setBounds (toolsArea.removeFromRight(iconSize));
+    placeIcon (presetGalleryButton, true);
     toolsArea.removeFromRight(8);
 
-    stepModeButton.setBounds (toolsArea.removeFromRight(iconSize));
+    placeIcon (resetViewButton, true);
     toolsArea.removeFromRight(8);
-    snapGridButton.setBounds (toolsArea.removeFromRight(iconSize));
+    placeIcon (scrollDownButton, true);
     toolsArea.removeFromRight(8);
-    snapButton.setBounds (toolsArea.removeFromRight(iconSize));
+    placeIcon (scrollUpButton, true);
+    toolsArea.removeFromRight(8);
+    placeIcon (zoomOutButton, true);
+    toolsArea.removeFromRight(8);
+    placeIcon (zoomInButton, true);
+    toolsArea.removeFromRight(8);
+
+    placeIcon (stepModeButton, true);
+    toolsArea.removeFromRight(8);
+    placeIcon (snapGridButton, true);
+    toolsArea.removeFromRight(8);
+    placeIcon (snapButton, true);
 
     // === Bottom bar: blocks ===
     auto bottomArea = bounds.reduced (pad);
@@ -3089,9 +3099,18 @@ void OpenVoxTunerAudioProcessorEditor::parentHierarchyChanged()
     // In a DAW host the top-level component is not a DocumentWindow, so the cast yields
     // nullptr and this is a safe no-op.
     if (auto* w = dynamic_cast<juce::DocumentWindow*> (getTopLevelComponent()))
+    {
         w->setTitleBarButtonsRequired (juce::DocumentWindow::minimiseButton
                                         | juce::DocumentWindow::maximiseButton
                                         | juce::DocumentWindow::closeButton, false);
+
+        // System title bar is the house norm: the OS chrome owns the caption, not the
+        // JUCE-drawn strip. Only the standalone wrapper owns a top-level window; in a
+        // DAW host the cast yields nullptr, so this stays a safe no-op. Guarded so the
+        // peer is recreated once, not on every parentHierarchyChanged.
+        if (processorRef.isStandaloneWrapper() && ! w->isUsingNativeTitleBar())
+            w->setUsingNativeTitleBar (true);
+    }
 }
 
 void OpenVoxTunerAudioProcessorEditor::timerCallback()
@@ -5409,6 +5428,8 @@ void OpenVoxTunerAudioProcessorEditor::showPresetGallery()
     });
 
     w->setContentOwned (gallery, true);
+    // System title bar, the house norm: the OS chrome owns the caption.
+    w->setUsingNativeTitleBar (true);
     w->setSize (760, 540);
     w->setResizeLimits (480, 360, 2200, 1400);
     w->centreWithSize (760, 540);
