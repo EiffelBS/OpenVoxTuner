@@ -537,3 +537,26 @@ Measured at the minimum legal window (`setResizeLimits (1100, 600, → )` — ba
 - Both reported symptoms are closed: Harmony never stretches, and the advanced zone opens at the minimum window width.
 - Scroll is now reachable at the minimum window when the foldable blocks are open (76 px / 158 px hidden); widening the window reveals the tail and the right cue chevron is armed in that state.
 - Runtime checks owed to real clicks are unchanged: wheel over a knob changes the knob and does not pan; wheel or drag on a frame body pans; a cue tap glides one frame width.
+
+## Feature — FrameBand scroll strip (v0.15.0 + v0.15.1)
+
+### Context
+The band had three ways to move — wheel pan, touch drag and the cue chevrons — and no visible affordance that content continues past the edge. Mouse users saw a clipped Harmony block with nothing telling them the row scrolls. The pill strip already solves the same problem in this library: a thumb you can grab.
+
+### Changes
+- `eiffelbs-ui` adds nested component `FrameBand::Track`: a hairline trough with a thumb sized `viewW / contentW` and placed by `scrollPos / maxScroll`. Ink is `ebs::textDim()` at 0.70 alpha, `ebs::accent()` at 0.95 while hovered or dragging; the strip paints only when `maxScroll() > 0`, so a row that fits shows nothing.
+- Dragging the thumb maps track pixels to scroll 1:1 through `maxScroll / (trackWidth - thumbLength)`; a press in the trough pages one view width, the same step as the cue chevrons. The strip is 8 px tall and laid over the frames' bottom padding, so it costs no height.
+- Public accessors `trackWidth()`, `thumbLength()`, `thumbX()` and `scrollTrack()`, the last so the host can put a tooltip on the strip.
+- One trap found in the live app: JUCE z-order IS the child index, where 0 is the back, so `addAndMakeVisible` appended the strip behind the opaque frames and nothing rendered. `addFrame` now re-fronts the track and both cues. Commits tag `v0.15.0` (the strip) and `v0.15.1` (the z-order fix), pushed.
+- `CMakeLists.txt` FetchContent pin `v0.14.0` → `v0.15.1`; the fetched source verified `v0.15.1` with `git describe --tags`.
+
+### Tests
+- Library smoke PASS (0 failures) with the strip block: at view 250 the track measures 242 px and the thumb 178 px at x 0; `snapScroll(45)` moves the thumb to x 32 and `snapScroll(90)` puts it at `trackWidth - thumbLength`; at view 500 the strip is hidden and its length is 0. Z-order asserted with `getIndexOfChildComponent`: the strip sits in front of the frames it draws over, and the cues stay in front of the strip.
+- OVT Release rebuild 0 errors, exit 0; tests **136 OK / 0 FAILED**, exit 0.
+- Live numbers from a temporary probe (synthetic input is blocked here), minimum window with both blocks open: view 1080, `maxScroll() == 158`, track 1072 px, thumb 935 px at x 0, strip visible, child index 4 against frame index 0.
+- Pixel scan of the strip rows (window y 615 and 617, x 30..990 step 40) reads luminance **112 / 115** across the whole width — ink over the frames; the same rows with all blocks closed read **58** everywhere, i.e. no strip. Capture `.dbg/b13_open.png` (1116x639, PrintWindow flag 2 with a +1/-1 px width nudge as the forced full repaint), crop `.dbg/b13_strip3.png`. The probe was removed and rebuilt.
+
+### Notes
+- The strip is an affordance, not a new mechanism: it drives the same eased scroll target as the wheel, the drag and the chevrons.
+- No tooltip on the strip yet; `scrollTrack()` is public so the host can add one.
+- Runtime checks owed to real clicks: drag the thumb, press in the trough, wheel over a knob changes the knob and does not pan.
