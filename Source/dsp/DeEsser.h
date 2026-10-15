@@ -44,6 +44,13 @@ namespace ovtdsp
      * - Hysteresis: engage at +6 dB over the threshold, disengage at the threshold.
      *   Without it a signal sitting exactly on the threshold chatters open/closed.
      *
+     * - Single knob. One intensity value (0..1) drives the threshold and the depth
+     *   cap together (-38 x amount dB, 19 x amount dB), the way a hardware de-esser's
+     *   Intensity knob does: more of it means both "hear the sibilance sooner" and
+     *   "duck deeper". The band centre is NOT a knob: it comes from the Voice Type
+     *   register the user already sets for pitch detection, so a low voice is
+     *   de-essed around 5 kHz and a soprano around 8.4 kHz without any extra control.
+     *
      * - Fast attack (5 ms) / slow release (80 ms), ramped per sample. A hard gain
      *   toggle clicks, so every change is a one-pole ramp, exactly like NoiseGate's
      *   gate and UpwardCompressor's bypass. Max reduction caps the floor at
@@ -83,6 +90,41 @@ namespace ovtdsp
             bypassGain  = 0.0f; // fully bypassed: the ramp fades the reduction in
         }
 
+        /**
+         * Single-knob control: intensity 0..1 drives the threshold AND the depth cap
+         * together, exactly like the "Intensity" knob of a hardware de-esser.
+         *   threshold = -38 x amount dB, depth cap = 19 x amount dB
+         * amount 0 is mathematically inert: the threshold sits at 0 dBFS, so the open
+         * point (threshold + 6 dB, linear 2.0) is unreachable for any in-band signal
+         * -- a full-scale sine in the band reads ~0.55 as RMS -- and the depth floor
+         * is unity gain, so even a hypothetical trigger would duck nothing. amount
+         * 0.65 reproduces the classic -25 dB / 12 dB pair, so the measured defaults
+         * survive the mapping.
+         */
+        void setAmount (float amount)
+        {
+            const float a = juce::jlimit (0.0f, 1.0f, amount);
+            thresholdDb    = -38.0f * a;
+            maxReductionDb =  19.0f * a;
+            depthDirty     = true;
+        }
+
+        /**
+         * Band centre from the Voice Type register (0=Universal, 1=Bass, 2=Baritone,
+         * 3=Tenor, 4=Alto, 5=Soprano). The sibilance peak sits just above F4, and
+         * FormantPreserver's voice-type table already walks F4 from 3200 Hz (Bass) to
+         * 3900 Hz (Soprano), so the band centre walks the same ladder: a low voice is
+         * de-essed lower, a high voice higher. Universal keeps the classic 7 kHz, so
+         * the default behaviour is unchanged.
+         */
+        void setVoiceType (int vt)
+        {
+            static constexpr float centreByVoice[6] = { 7000.0f, 5200.0f, 6000.0f,
+                                                         6800.0f, 7600.0f, 8400.0f };
+            centreFreqHz = centreByVoice[juce::jlimit (0, 5, vt)];
+            bandDirty    = true;
+        }
+
         /** Detector threshold, dB below full scale (-60..0). */
         void setThresholdDb (float db)     { thresholdDb = db; depthDirty = true; }
         /** Depth cap: how much the gain may be ducked, in dB (0..24). */
@@ -95,6 +137,7 @@ namespace ovtdsp
         float getCurrentGain() const { return currentGain; }
         bool  isEngaged() const      { return engaged; }
         float getDetector() const    { return detector; } // smoothed band RMS
+        float getCentreFreqHz() const { return centreFreqHz; }
 
         void process (juce::AudioBuffer<float>& buffer, bool enabled, float wetMix) override
         {

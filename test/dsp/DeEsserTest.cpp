@@ -38,9 +38,11 @@ static void deEsserFillStereoSine (juce::AudioBuffer<float>& b, float& phase,
  * De-Esser unit tests.
  *
  * The module is a broadband gain stage driven by an RMS detector on the sibilance
- * band only, so the suite checks the four properties that define it:
+ * band only, so the suite checks the properties that define it:
  *  - band isolation: energy outside the band must not trigger reduction;
- *  - reduction depth: a hot band tone ducks to exactly Max reduction;
+ *  - reduction depth: a hot band tone ducks to exactly the depth the knob asks for;
+ *  - intensity monotonicity: 0% is inert, 100% reaches the deepest floor;
+ *  - Voice Type placement: each register gets its own band centre, clamped in range;
  *  - hysteresis + stereo link: the gate stays shut between close and open levels,
  *    and the loudest channel drives the gain on BOTH channels;
  *  - click-free toggling: gain is ramped per sample, never stepped.
@@ -54,20 +56,21 @@ public:
     {
         constexpr double sr = 44100.0;
         constexpr int block = 512;
-        const float floorGain = std::pow (10.0f, -12.0f / 20.0f); // Max reduction = 12 dB
+        const float amount = 0.65f; // the UI default intensity
+        const float floorGain = std::pow (10.0f, -19.0f * amount / 20.0f); // depth cap at that intensity
 
-        // Band amplitudes for fc = 7 kHz (band edges 4.9 / 9.1 kHz, 12 dB/oct skirts).
-        // The cascade passes a 7 kHz tone at ~0.64, so:
-        const float ampHot = 0.8f;  // band RMS ~0.52, above the +6 dB open level
-        const float ampMid = 0.4f;  // band RMS ~0.26, inside the hysteresis window
-        const float ampLow = 0.3f;  // 3 kHz tone: band RMS ~0.11, below the close level
+        // Band amplitudes for the Universal ladder entry (centre 7 kHz, edges 4.9 /
+        // 9.1 kHz, 12 dB/oct skirts). The cascade passes a 7 kHz tone at ~0.73, so:
+        const float ampHot = 0.8f;  // band RMS ~0.41, above the +6 dB open level (0.117)
+        const float ampMid = 0.4f;  // band RMS ~0.21, above the open level
+        const float ampHold = 0.17f; // band RMS ~0.088, inside the hysteresis window (close 0.058)
+        const float ampLow = 0.3f;  // 3 kHz tone: band RMS ~0.064, below the open level
 
         ovtdsp::DeEsser de;
         de.prepare (sr, block);
         de.reset();
-        de.setThresholdDb (-25.0f);
-        de.setMaxReductionDb (12.0f);
-        de.setFrequencyHz (7000.0f);
+        de.setAmount (amount);   // -24.7 dB threshold, 12.35 dB depth: the classic pair
+        de.setVoiceType (0);     // Universal keeps the measured 7 kHz centre
 
         juce::AudioBuffer<float> buf (2, block);
 
@@ -116,11 +119,11 @@ public:
         beginTest ("Hysteresis: the gate stays shut between close and open levels");
         for (int i = 0; i < 30; ++i)
         {
-            deEsserFillStereoSine (buf, phase, 7000.0f, ampMid, ampMid, sr);
+            deEsserFillStereoSine (buf, phase, 7000.0f, ampHold, ampHold, sr);
             de.process (buf, true, 1.0f);
         }
         expect (de.isEngaged(), "a level between close and open must keep the gate shut");
-        expectWithinAbsoluteError (deEsserRms (buf, 0), ampMid * 0.7071f * floorGain, 0.015f,
+        expectWithinAbsoluteError (deEsserRms (buf, 0), ampHold * 0.7071f * floorGain, 0.015f,
                                    "hysteresis must hold the reduction, not release it");
 
         beginTest ("Stereo link: the loudest channel ducks both channels equally");
@@ -194,6 +197,111 @@ public:
         }
         expectWithinAbsoluteError (deEsserRms (buf, 0), ampHot * 0.7071f, 0.02f,
                                    "disabled de-esser must restore the full level");
+
+        beginTest ("Intensity is monotonic: 0% is inert, 100% ducks deepest");
+        // One knob maps threshold = -38 x amount dB and depth = 19 x amount dB, so the
+        // trigger point and the floor must both move with it. At 0% the open level is
+        // +6 dBFS, unreachable by any signal, and the depth floor is unity: mathematically inert.
+        de.reset();
+        de.setAmount (0.0f);
+        for (int i = 0; i < 10; ++i)
+        {
+            buf.clear();
+            de.process (buf, true, 1.0f);
+        }
+        for (int i = 0; i < 40; ++i)
+        {
+            deEsserFillStereoSine (buf, phase, 7000.0f, ampHot, ampHot, sr);
+            de.process (buf, true, 1.0f);
+        }
+        expect (! de.isEngaged(), "0% intensity must never engage");
+        expectWithinAbsoluteError (de.getCurrentGain(), 1.0f, 1.0e-3f,
+                                   "0% intensity must leave the gain at unity");
+        expectWithinAbsoluteError (deEsserRms (buf, 0), ampHot * 0.7071f, 0.02f,
+                                   "0% intensity must pass the tone through untouched");
+
+        de.reset();
+        de.setAmount (1.0f);
+        for (int i = 0; i < 10; ++i)
+        {
+            buf.clear();
+            de.process (buf, true, 1.0f);
+        }
+        for (int i = 0; i < 40; ++i)
+        {
+            deEsserFillStereoSine (buf, phase, 7000.0f, ampHot, ampHot, sr);
+            de.process (buf, true, 1.0f);
+        }
+        const float fullFloor = std::pow (10.0f, -19.0f / 20.0f); // deepest cap the knob can ask for
+        expect (de.isEngaged(), "100% intensity must engage on a hot band tone");
+        expectWithinAbsoluteError (de.getCurrentGain(), fullFloor, 0.02f,
+                                   "100% intensity must reach the deepest floor");
+
+        de.reset();
+        de.setAmount (0.5f);
+        for (int i = 0; i < 10; ++i)
+        {
+            buf.clear();
+            de.process (buf, true, 1.0f);
+        }
+        for (int i = 0; i < 40; ++i)
+        {
+            deEsserFillStereoSine (buf, phase, 7000.0f, ampHot, ampHot, sr);
+            de.process (buf, true, 1.0f);
+        }
+        const float halfGain = de.getCurrentGain();
+        expect (halfGain > fullFloor && halfGain < 1.0f,
+                "a mid intensity must duck between the deepest floor and unity");
+
+        beginTest ("Voice Type places the band centre (Universal keeps 7 kHz)");
+        const float expectedCentre[6] = { 7000.0f, 5200.0f, 6000.0f, 6800.0f, 7600.0f, 8400.0f };
+        for (int vt = 0; vt <= 5; ++vt)
+        {
+            de.setVoiceType (vt);
+            expectWithinAbsoluteError (de.getCentreFreqHz(), expectedCentre[vt], 1.0e-3f,
+                                       "each register must place its own band centre");
+        }
+        de.setVoiceType (9); // out-of-range indices clamp, they never read past the ladder
+        expectWithinAbsoluteError (de.getCentreFreqHz(), 8400.0f, 1.0e-3f,
+                                   "an index above Soprano must clamp to Soprano");
+        de.setVoiceType (-2);
+        expectWithinAbsoluteError (de.getCentreFreqHz(), 7000.0f, 1.0e-3f,
+                                   "an index below Universal must clamp to Universal");
+
+        beginTest ("Bass ladder: the band passes its own centre and rejects 11 kHz");
+        // Bass puts the centre at 5200 Hz, edges 3640 / 6760. The 12 dB/oct skirts are
+        // gentle, so the honest test is the detector ratio, not a hard on/off at 7 kHz.
+        de.reset();
+        de.setAmount (amount);   // back to the UI default intensity for this group
+        de.setVoiceType (1);
+        for (int i = 0; i < 10; ++i)
+        {
+            buf.clear();
+            de.process (buf, true, 1.0f);
+        }
+        for (int i = 0; i < 30; ++i)
+        {
+            deEsserFillStereoSine (buf, phase, 5200.0f, ampMid, ampMid, sr);
+            de.process (buf, true, 1.0f);
+        }
+        const float detCentre = de.getDetector();
+        expect (de.isEngaged(), "a tone at the Bass band centre must engage the detector");
+
+        de.reset();
+        for (int i = 0; i < 10; ++i)
+        {
+            buf.clear();
+            de.process (buf, true, 1.0f);
+        }
+        for (int i = 0; i < 30; ++i)
+        {
+            deEsserFillStereoSine (buf, phase, 11000.0f, ampMid, ampMid, sr);
+            de.process (buf, true, 1.0f);
+        }
+        const float detHigh = de.getDetector();
+        expect (! de.isEngaged(), "11 kHz sits outside the Bass band and must not engage");
+        expect (detCentre > detHigh * 1.5f,
+                "the band must pass its own centre at least 3.5 dB above a frequency over it");
     }
 };
 

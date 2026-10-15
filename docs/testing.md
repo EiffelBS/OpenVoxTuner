@@ -99,7 +99,7 @@ The runner runs all registered tests and prints one line per suite
 [ OK ] DeEsser (1024 assertions)
 ...
 =========================
-Result: 133 OK, 0 FAILED
+Result: 136 OK, 0 FAILED
 =========================
 ```
 

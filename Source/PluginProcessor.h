@@ -466,9 +466,7 @@ private:
     std::atomic<float>* upwardCompEnableParam = nullptr;   // Upward compressor on/off
     std::atomic<float>* upwardCompAmountParam = nullptr;   // Upward compressor amount (0-1)
     std::atomic<float>* deessEnableParam = nullptr;        // De-esser on/off
-    std::atomic<float>* deessThresholdParam = nullptr;     // De-esser detector threshold (dB)
-    std::atomic<float>* deessMaxReductionParam = nullptr;  // De-esser depth cap (dB)
-    std::atomic<float>* deessFrequencyParam = nullptr;     // De-esser band centre (Hz)
+    std::atomic<float>* deessAmountParam = nullptr;        // De-esser intensity (0-1)
     std::atomic<float>* flexTuneParam = nullptr;    // FlexTune deadband (0-100 cents)
     std::atomic<float>* humanizeParam = nullptr;    // Humanize random cents (0-50)
     std::atomic<float>* correctionModeParam = nullptr; // 0=Modern, 1=Transparent        

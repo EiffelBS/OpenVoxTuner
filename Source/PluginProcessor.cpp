@@ -592,23 +592,22 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterFloat> (
                             "reverb_mix", "Reverb Mix",
                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
-                       // De-esser: tames the sibilance of the corrected lead. The
-                       // detector listens ONLY to the band around deess_frequency
-                       // (2-pole high-pass + 2-pole low-pass), so plosives and low
-                       // vowels cannot trigger it; the reduction is applied broadband
-                       // and capped by deess_max_reduction. Same shape as the sibling
-                       // effects: the knobs keep their values when the switch is off.
+                       // De-esser: tames the sibilance of the corrected lead. One knob
+                       // (Intensity, 0..1) drives the detector threshold and the depth
+                       // cap together (-38 x amount dB, 19 x amount dB), the way a
+                       // hardware de-esser's Intensity knob does. The band centre is
+                       // NOT a parameter: it comes from voice_type, the register the
+                       // user already sets for pitch detection, so a low voice is
+                       // de-essed around 5 kHz and a soprano around 8.4 kHz. The
+                       // detector listens ONLY to that band (2-pole high-pass + 2-pole
+                       // low-pass), so plosives and low vowels cannot trigger it; the
+                       // reduction is applied broadband. Same shape as the sibling
+                       // effects: the knob keeps its value when the switch is off.
                        , std::make_unique<juce::AudioParameterBool> (
                              "deess_enable", "De-Esser Enable", false)
                        , std::make_unique<juce::AudioParameterFloat> (
-                             "deess_threshold", "De-Esser Threshold",
-                             juce::NormalisableRange<float> (-60.0f, 0.0f, 1.0f), -25.0f)
-                       , std::make_unique<juce::AudioParameterFloat> (
-                             "deess_max_reduction", "De-Esser Max Reduction",
-                             juce::NormalisableRange<float> (0.0f, 24.0f, 1.0f), 12.0f)
-                       , std::make_unique<juce::AudioParameterFloat> (
-                             "deess_frequency", "De-Esser Frequency",
-                             juce::NormalisableRange<float> (3000.0f, 12000.0f, 100.0f), 7000.0f)
+                             "deess_amount", "De-Esser Intensity",
+                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.65f)
                       // 2026-07-24 (Deprecation): FlexTune and Attack-Aware
                       // APVTS parameters are KEPT for preset compatibility
                       // (so existing presets don't lose their values) but
@@ -733,9 +732,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     upwardCompEnableParam = parameters.getRawParameterValue ("upward_comp_enable");
     upwardCompAmountParam = parameters.getRawParameterValue ("upward_comp_amount");
     deessEnableParam = parameters.getRawParameterValue ("deess_enable");
-    deessThresholdParam = parameters.getRawParameterValue ("deess_threshold");
-    deessMaxReductionParam = parameters.getRawParameterValue ("deess_max_reduction");
-    deessFrequencyParam = parameters.getRawParameterValue ("deess_frequency");
+    deessAmountParam = parameters.getRawParameterValue ("deess_amount");
     flexTuneParam = parameters.getRawParameterValue ("flex_tune");
     humanizeParam = parameters.getRawParameterValue ("humanize");
     correctionModeParam = parameters.getRawParameterValue ("correction_mode");
@@ -1538,13 +1535,17 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                 if (effect->getId() == "deesser")
                 {
-                    // The de-esser has three controls, not just an enable flag, so
-                    // its knobs are pushed into the module before each pass. wetMix
-                    // stays 1: the depth is capped by max_reduction, not by a mix.
+                    // One knob drives the whole effect: the intensity sets the detector
+                    // threshold and the depth cap together, and the band centre comes
+                    // from voice_type, the register the user already picks for pitch
+                    // detection. wetMix stays 1: depth is capped by the intensity, not
+                    // by a mix.
                     auto* de = static_cast<ovtdsp::DeEsser*> (effect.get());
-                    if (deessThresholdParam != nullptr)    de->setThresholdDb (deessThresholdParam->load());
-                    if (deessMaxReductionParam != nullptr) de->setMaxReductionDb (deessMaxReductionParam->load());
-                    if (deessFrequencyParam != nullptr)    de->setFrequencyHz (deessFrequencyParam->load());
+                    if (deessAmountParam != nullptr)
+                        de->setAmount (deessAmountParam->load());
+                    const int deessVoiceType = (voiceTypeParam != nullptr)
+                        ? juce::jlimit (0, 5, static_cast<int> (std::round (voiceTypeParam->load()))) : 0;
+                    de->setVoiceType (deessVoiceType);
                     enabled = (deessEnableParam != nullptr && deessEnableParam->load() > 0.5f);
                     wetMix = 1.0f;
                 }
@@ -3275,12 +3276,15 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             if (effect->getId() == "deesser")
             {
-                // Same wiring as the silent path above: the de-esser needs its three
-                // knobs pushed in before the pass, and runs at full mix.
+                // Same wiring as the silent path above: one intensity knob drives the
+                // threshold and the depth, voice_type places the band, and the effect
+                // runs at full mix.
                 auto* de = static_cast<ovtdsp::DeEsser*> (effect.get());
-                if (deessThresholdParam != nullptr)    de->setThresholdDb (deessThresholdParam->load());
-                if (deessMaxReductionParam != nullptr) de->setMaxReductionDb (deessMaxReductionParam->load());
-                if (deessFrequencyParam != nullptr)    de->setFrequencyHz (deessFrequencyParam->load());
+                if (deessAmountParam != nullptr)
+                    de->setAmount (deessAmountParam->load());
+                const int deessVoiceType = (voiceTypeParam != nullptr)
+                    ? juce::jlimit (0, 5, static_cast<int> (std::round (voiceTypeParam->load()))) : 0;
+                de->setVoiceType (deessVoiceType);
                 enabled = (deessEnableParam != nullptr && deessEnableParam->load() > 0.5f);
                 wetMix = 1.0f;
             }

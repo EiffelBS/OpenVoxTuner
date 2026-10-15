@@ -94,9 +94,13 @@
 | Doubler Enable | `double_enable` | Bool | **false** | false / true |
 | Double Amount | `double_amount` | Float | **0.0** | 0 – 100 % |
 | De-Esser Enable | `deess_enable` | Bool | **false** | false / true |
-| De-Esser Threshold | `deess_threshold` | Float | **-25.0 dB** | -60 – 0 dB |
-| De-Esser Max Reduction | `deess_max_reduction` | Float | **12.0 dB** | 0 – 24 dB |
-| De-Esser Frequency | `deess_frequency` | Float | **7000 Hz** | 3000 – 12000 Hz (100 Hz steps) |
+| De-Esser Intensity | `deess_amount` | Float | **0.65** (65%) | 0 – 1 (0–100%) |
+
+The De-Esser has one knob. Intensity maps the trigger level (`-38 x amount` dB) and the
+depth cap (`19 x amount` dB) together, so 0% is inert and 100% is the deepest. The band
+centre is not a parameter: it follows `voice_type` (Universal 7000 Hz, Bass 5200 Hz,
+Baritone 6000 Hz, Tenor 6800 Hz, Alto 7600 Hz, Soprano 8400 Hz), with the band edges at
+70% and 130% of that centre.
 
 ## Vibrato
 

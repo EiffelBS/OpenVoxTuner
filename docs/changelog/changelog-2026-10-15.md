@@ -144,3 +144,65 @@ Release; `bench_deesser_placement` passes all gates with exit 0.
 - Deferred by design: a de-esser sidechain input (external detector reference),
   which belongs to the 3-bus architecture work; and a split-band mode that ducks
   only the band instead of the whole voice.
+
+## Refactor — De-Esser collapsed to one Intensity knob (`deess_amount`)
+
+### Context
+The surface shipped hours earlier asked for three decisions: a dB threshold, a depth
+cap, and a centre frequency. A speaker does not make those decisions; they set a
+de-esser as strong as they want and expect the tool to place it. The chosen answer is
+one **Intensity** knob, with the band centre driven by **Voice Type** — the register
+the user already picks for pitch detection — so no extra control appears at all.
+
+### Changes
+- **Mapping**: `thresholdDb = −38 × amount`, `maxReductionDb = 19 × amount`
+  (`setAmount`), the hardware de-esser convention: more intensity means both "hear
+  the sibilance sooner" and "duck deeper". The default **0.65** reproduces the
+  measured −24.7 dB / 12.35 dB pair, so the placement bench and the depth tests keep
+  their meaning. At 0% the open level is +6 dBFS, unreachable by any signal, and the
+  depth floor is unity: mathematically inert, no special case in the code.
+- **Band centre from Voice Type** (`setVoiceType`): ladder index 0 – 5 →
+  **7000 / 5200 / 6000 / 6800 / 7600 / 8400 Hz**, edges at ×0.7 and ×1.3 (the Soprano
+  top edge, 10920 Hz, stays under nyquist − 200 at 44.1 kHz). Universal keeps the
+  measured 7 kHz, so default behaviour is unchanged. The raw setters
+  (`setThresholdDb`, `setMaxReductionDb`, `setFrequencyHz`) stay in the header: the
+  unit tests and the placement bench drive them directly.
+- **Parameters**: `deess_threshold`, `deess_max_reduction` and `deess_frequency` are
+  removed; `deess_amount` (0 – 1, default 0.65) replaces them. No migration code is
+  needed: the plugin has none, and no XML preset on disk carried the removed keys —
+  the UI shipped the same day. `MorphState.deessAmount` stores the normalized value,
+  which for this range equals the raw value; capture, lerp, `getMorphParameterIds()`
+  and the A/B slot restore all follow.
+- **UI**: Effects row 2 is Doubler + De-Esser with one knob under the power toggle.
+  The caption-label cells for Depth/Freq and the `placeCaptionKnob` lambda are
+  deleted (no remaining users); the block keeps its 4 columns, leaving two free cells
+  for the next module. The knob reads `0 – 100 %` in the popup display only, greys
+  with the enable switch, and carries `tooltip.deesser_amount`.
+- **i18n**: `tooltip.deesser_amount` in all 6 locales, and the Voice Type tooltip now
+  states that it places the de-esser band. Bytes verified as strict UTF-8, no BOM, no
+  replacement characters.
+- **Factory presets** set intensity only: `studioStack` 0.55, `spokenPodcast` 0.65,
+  `broadcastVoice` 0.8, `leadVocal` 0.65; `correctionPure` and `transparentDub` keep
+  `deess_enable = 0`. No preset sets `voice_type`: it constrains pitch detection, so
+  changing it is a semantic change beyond de-essing.
+
+### Tests
+The suite grows to **11 groups / 1056 assertions** for `DeEsser`: the depth group is
+re-anchored on the amount mapping, and three groups are new — intensity monotonicity
+(0% inert, 100% reaches `10^(−19/20)` = 0.141, mid intensity in between), the Voice
+Type ladder values with clamping at both ends, and Bass band isolation (the 5200 Hz
+centre passes its own tone and engages; 11 kHz sits outside and does not, detector
+ratio > 1.5). The hysteresis group moved to `ampHold = 0.17`, because the new open
+level (0.117) sits above the band level of the old `ampMid` tone: a test that passes
+for the wrong reason is not a test.
+
+Full suite in one process: **136 groups OK / 0 FAILED**, exit 0. The plugin SharedCode
+target builds clean in Release, and `bench_deesser_placement` still passes all gates —
+it drives the raw setters, so the mapping change does not touch it.
+
+### Notes
+- The ladder is a **user choice, not a measurement**: a user who leaves Voice Type on
+  Universal gets 7 kHz whatever their voice. Stated as the honest limitation of this
+  design.
+- Deferred: auto multi-band placement (5 / 6.5 / 8 kHz detectors with band-selection
+  hysteresis), ~1.5 day extra.

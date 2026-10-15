@@ -604,6 +604,23 @@ Two bugs the tests caught, both worth remembering:
 Validation: full suite **133 groups OK / 0 FAILED** in one process, exit 0; plugin
 SharedCode target builds clean in Release; `bench_deesser_placement` passes its gates.
 
+### 8w. De-Esser: one Intensity knob, band centre from Voice Type (2026-10-15)
+
+The three-knob surface of section 8v (Threshold / Depth / Freq) was collapsed to a
+single **Intensity** knob: asking a speaker to set a dB threshold, a depth cap and a
+centre frequency is asking them to be an engineer. The mapping is the hardware
+de-esser convention — one value drives the trigger level and the depth cap together.
+
+- [x] **DE.7 (Single-knob mapping, 2026-10-15)** — `deess_amount` (0 – 1, default **0.65**) maps `thresholdDb = −38 × amount` and `maxReductionDb = 19 × amount`. At 0% the open level is +6 dBFS, unreachable by any signal, and the depth floor is unity: mathematically inert, no special case in the code. The default 0.65 reproduces the −24.7 dB / 12.35 dB pair the three-knob version measured with, so the placement bench and the depth tests keep their meaning. The raw setters (`setThresholdDb`, `setMaxReductionDb`, `setFrequencyHz`) stay in the header for the unit tests and the bench.
+- [x] **DE.8 (Voice Type places the band, 2026-10-15)** — ladder index 0 – 5 → **7000 / 5200 / 6000 / 6800 / 7600 / 8400 Hz**, edges at ×0.7 and ×1.3 (the Soprano top edge, 10920 Hz, stays under nyquist − 200 at 44.1 kHz). Universal keeps the measured 7 kHz, so default behaviour is unchanged. The ladder is **user-driven, not measured**: a user who leaves Voice Type on Universal gets 7 kHz whatever their voice. Auto multi-band detection (5 / 6.5 / 8 kHz detectors with band-selection hysteresis) is deferred (~1.5 day extra).
+- [x] **DE.9 (Params, UI, persistence, 2026-10-15)** — `deess_threshold`, `deess_max_reduction` and `deess_frequency` are removed (DE.2's rows are superseded); no XML preset on disk carried them, the UI having shipped the same day. `MorphState.deessAmount` (normalized == raw), capture, lerp, `getMorphParameterIds()`, A/B slot restore. Effects row 2 is Doubler + De-Esser with one knob under the toggle; the caption-label cells and the `placeCaptionKnob` lambda are gone, the block keeps 4 columns and two free cells for the next module. `tooltip.deesser_amount` in 6 locales, and the Voice Type tooltip now says the band follows it; bytes verified strict UTF-8, no BOM, no U+FFFD. Factory presets set intensity only (studioStack 0.55, spokenPodcast 0.65, broadcastVoice 0.8, leadVocal 0.65) and never `voice_type`, which constrains pitch detection.
+- [x] **DE.10 (Tests, 2026-10-15)** — depth group re-anchored on the amount mapping; new groups: intensity monotonicity (0% inert, 100% reaches `10^(−19/20)` = 0.141, mid intensity in between), Voice Type ladder values with clamping at both ends, and Bass band isolation (centre 5200 Hz passes its own tone and engages, 11 kHz sits outside and does not, detector ratio > 1.5). The hysteresis group moved to `ampHold = 0.17`, because the new open level (0.117) sits above the band level of the old `ampMid` tone.
+
+Validation: full suite **136 groups OK / 0 FAILED** in one process, exit 0; plugin
+SharedCode target builds clean in Release; `bench_deesser_placement` gates still PASS
+(it drives the raw setters, so the mapping change does not touch it); standalone
+rebuilt and the single knob verified on screen.
+
 ## 9. Documentation
 
 - [x] Architecture overview
