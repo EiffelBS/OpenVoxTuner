@@ -409,7 +409,7 @@ The ExpansibleFrame adoption works, but clicking the chevron left the old Root/S
 
 ### Changes
 - `PluginEditor::resized()` ends with `repaint()`. The bottom-row blocks are paint-only regions (the editor draws their fill and outline), so moving one repaints only the rectangles its widgets vacated. The effects frame is a component and repaints itself, which is why only its neighbours ghosted.
-- No library change: ``ebs::ExpansibleFrame`` behaves as documented, and the host owns the re-layout.
+- The glyph half of the bug was fixed upstream, see the repin section below.
 
 ### Tests
 The click cannot be injected here, so the state was driven from code: a temporary timer opened the frame 1.5 s after launch and nudged the editor bounds 3.5 s later (the same full repaint a manual resize forces). DWM captures of the window before and after the nudge differed on 2 319 pixels, x 465..795 / y 450..621 - the ghosted Root/Scale block. After the fix the two captures are pixel-identical (diff 0). Release build 0 errors; tests 136 OK / 0 FAILED.
@@ -417,3 +417,19 @@ The click cannot be injected here, so the state was driven from code: a temporar
 ### Notes
 - The rule covers every re-layout that moves a paint-only region, including the Correction block expand.
 - The temporary timer was removed and the tree rebuilt, so the shipped binary carries no repro code.
+
+## Repin — eiffelbs-ui v0.12.30, chevron repaints on fold change
+
+### Context
+`ebs::DisclosureChevron` exposes its fold state as a public field, and `ExpansibleFrame::setExpanded` wrote that field directly: the glyph changed with no repaint. A host that moves the strip gets its repaint from `setBounds`, a host that keeps it in place gets none.
+
+### Changes
+- Upstream patch, eiffelbs-ui `v0.12.30`: `DisclosureChevron::setExpanded (bool)` sets the flag and repaints; `ExpansibleFrame::setExpanded` calls it, and the header now states the host-side repaint duty for paint-only regions.
+- `CMakeLists.txt` FetchContent pin `v0.12.28` — `v0.12.30`.
+
+### Tests
+Library smoke PASS (0 failures), including the new DisclosureChevron + ExpansibleFrame block: both fold states rendered, glyph direction read from ink columns (closed heavy at x 8, open heavy at x 13), host notified once, `interior()` slot. OVT rebuild 0 errors; tests 136 OK / 0 FAILED.
+
+### Notes
+- The editor-side `repaint()` is what cleared the ghosted block; this patch closes the same bug class for the glyph, for any host that toggles without moving the frame.
+- The library commit is `fbfa5f0`, tag `v0.12.30` pushed to `EiffelBS/eiffelbs-ui`.
