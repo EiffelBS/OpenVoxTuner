@@ -93,6 +93,10 @@
 | Upward Comp Amount | `upward_comp_amount` | Float | **0.25** | 0 – 1 |
 | Doubler Enable | `double_enable` | Bool | **false** | false / true |
 | Double Amount | `double_amount` | Float | **0.0** | 0 – 100 % |
+| De-Esser Enable | `deess_enable` | Bool | **false** | false / true |
+| De-Esser Threshold | `deess_threshold` | Float | **-25.0 dB** | -60 – 0 dB |
+| De-Esser Max Reduction | `deess_max_reduction` | Float | **12.0 dB** | 0 – 24 dB |
+| De-Esser Frequency | `deess_frequency` | Float | **7000 Hz** | 3000 – 12000 Hz (100 Hz steps) |
 
 ## Vibrato
 

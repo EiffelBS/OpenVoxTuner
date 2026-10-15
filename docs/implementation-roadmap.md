@@ -575,6 +575,35 @@ is `double_amount` (section 8t).
 Validation: full suite **125 groups OK / 0 FAILED** in one process (the `PluginPreset` suite gained the "doubler power switch keeps its amount" group); SharedCode,
 `OpenVoxTuner_VST3` and `OpenVoxTuner_Standalone` all build in Release.
 
+### 8v. De-Esser: sibilance control on the corrected lead (2026-10-15)
+
+A de-esser tames the "s"/"t"/"f" burst energy of the **corrected lead voice**. It
+is a band-limited dynamics stage: a detector that only hears the 5–8 kHz region,
+and a gain reduction applied to the whole voice, capped by a Max reduction knob.
+It sits **before** `ReverbEffect` in the effects chain, so it de-esses the voice
+and never the room tail.
+
+- [x] **DE.1 (`ovtdsp::DeEsser` module, 2026-10-15)** — `Source/dsp/DeEsser.h`, header-only, `IEffect` interface (no `juce_dsp` dependency, so the test target links it without `juce::BiquadFilter`). Band = 2-pole RBJ high-pass at `centre × 0.7` **in series with** a 2-pole low-pass at `centre × 1.3` (Q = 0.7071, coefficients pre-normalised by `a0`, house convention as in `FormantPreserver.cpp`). Detector = smoothed per-sample RMS of the band over the first two channels (τ = 10 ms), i.e. the exact `NoiseGate.h` convention; hysteresis open at `2 × thresholdLinear` (+6 dB), close at `thresholdLinear`. Gain: attack 5 ms toward `10^(−maxRed/20)`, release 80 ms toward 1. Bypass ramp τ = 25 ms with the `bypassGain < 1e-4` early-out, so toggling the power never clicks.
+- [x] **DE.2 (Parameters, 2026-10-15)** — `deess_enable` (bool, default false), `deess_threshold` (−60 – 0 dB, default −25), `deess_max_reduction` (0 – 24 dB, default 12), `deess_frequency` (3000 – 12000 Hz, 100 Hz steps, default 7000). APVTS entries, raw pointers cached in `PluginProcessor.h`, read in **both** effects loops (the silent pass-through path and the main path — wiring one only gives divergent behaviour between them), `wetMix` fixed at 1.0.
+- [x] **DE.3 (Chain placement, 2026-10-15)** — `effects.push_back<DeEsser>()` **before** `ReverbEffect` (`PluginProcessor.cpp` L791-798). Chain order: gate → upward comp → pitch/formant → **de-esser** → reverb. Measured with `tools/bench_deesser_placement.cpp` (180 Hz harmonic stack + 7 band-limited bursts, threshold −35 dB, max reduction 12 dB, centre 7 kHz, reverb room 0.4 / damping 0.6 / wet 0.3), ratios against the bypass chain:
+
+  | chain | sibilance | total | tail sibilance | tail body | tail gain swing |
+  |-------|-----------|-------|----------------|-----------|-----------------|
+  | before (shipped) | −8.78 dB | −5.01 dB | **−10.52 dB** | −4.28 dB | **0.0451** |
+  | after | −8.76 dB | −6.48 dB | −4.81 dB | −4.60 dB | 0.1043 |
+
+  Detector peaks (band RMS, dBFS): voice **−36.95** (below the −35.00 close point → the voice body alone never triggers), burst **−21.24** (above the −28.98 open point), tail **−82.85**. The shipped order cleans the tail harshness 5.7 dB deeper, keeps 1.47 dB more loudness, and pumps the tail 2.3× less. Gates: `PLACEMENT GATES PASS`, exit 0.
+- [x] **DE.4 (UI, 2026-10-15)** — Effects block grows to **4 columns** (width 230 → 292 px), row 1 Gate / Compress / Reverb / Formant, row 2 Doubler / **De-Esser** toggle + Threshold knob / Depth knob / Freq knob. Knobs keep their full size; the two knobs without a switch use the Harmony caption-label pattern. The enable switch greys the three knobs in the 30 fps timer, exactly like the sibling effects. Value readouts are `dB` / `Hz` in the popup display only.
+- [x] **DE.5 (i18n + persistence, 2026-10-15)** — `label.deesser` + `tooltip.deesser_enable` / `_threshold` / `_max_reduction` / `_frequency` in all 6 locales (en **De-Esser**, fr **Désesseur**, de **De-Esser**, es **Dessersor**, ja **デエッサー**, zh **齿音消除器**); bytes verified strict UTF-8, no BOM, no U+FFFD. `MorphState` fields (normalized: 0.5833333 / 0.5 / 0.4444444), capture, `applyInterpolatedState`, `getMorphParameterIds()`, A/B slot restore (`setSlider` × 3 + `setChoice`). Factory presets: `studioStack` −30/9/7000 on, `spokenPodcast` −28/10/7500 on, `broadcastVoice` −20/16/6500 on, `leadVocal` −25/12/7000 on; `correctionPure` and `transparentDub` explicitly off (no dynamics on the lead).
+- [x] **DE.6 (`test/dsp/DeEsserTest.cpp`, 2026-10-15)** — 8 groups / 1039 assertions, on the `UpwardCompressorTest` motif: bypass bit-identical (1024 assertions), band isolation (a 3 kHz tone is not de-essed), reduction depth (a hot band tone ducks to Max reduction), hysteresis window, stereo link, release, click-free power toggle, disabled restores full level.
+
+Two bugs the tests caught, both worth remembering:
+- The first cascade put the high-pass and the low-pass coefficients on the **same** 2-pole section, so the band was a low-pass at 9100 Hz only: a 3 kHz tone passed at ~1.0 and engaged the detector. Fixed by splitting `BandSection` into `Section high, low` in series.
+- The click test initially measured **output sample delta**, which is meaningless on a 7 kHz sine (its natural slope is `2·A·sin(πf/sr)` ≈ 0.765). It now measures the continuity of the **applied gain** (`< 0.01`) plus a sample-continuity bound of 0.80.
+
+Validation: full suite **133 groups OK / 0 FAILED** in one process, exit 0; plugin
+SharedCode target builds clean in Release; `bench_deesser_placement` passes its gates.
+
 ## 9. Documentation
 
 - [x] Architecture overview

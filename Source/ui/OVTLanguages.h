@@ -174,6 +174,7 @@ namespace ovt
         static const char* kTooltipUpwardCompAmount = "tooltip.upward_comp_amount";
         static const char* kLabelReverbBtn      = "label.reverb_btn";
         static const char* kLabelDouble         = "label.double";
+        static const char* kLabelDeesser        = "label.deesser";
         static const char* kLabelTone           = "label.tone";
         static const char* kLabelModernBtn      = "label.modern_btn";
         static const char* kLabelTransparentBtn = "label.transparent_btn";
@@ -268,6 +269,10 @@ namespace ovt
         static const char* kTooltipHarmonyFormant = "tooltip.harmony_formant";
         static const char* kTooltipDoubleAmount = "tooltip.double_amount";
         static const char* kTooltipDoubleEn    = "tooltip.double_enable";
+        static const char* kTooltipDeesserEnable       = "tooltip.deesser_enable";
+        static const char* kTooltipDeesserThreshold    = "tooltip.deesser_threshold";
+        static const char* kTooltipDeesserMaxReduction = "tooltip.deesser_max_reduction";
+        static const char* kTooltipDeesserFrequency    = "tooltip.deesser_frequency";
         static const char* kTooltipReverbEn    = "tooltip.reverb_enable";
         static const char* kTooltipFormant     = "tooltip.formant_enable";
         static const char* kTooltipFlexTune    = "tooltip.flex_tune";
@@ -617,6 +622,11 @@ namespace ovt
             { kTooltipHarmonyFormant, "Formant shift for harmony voices (semitones)" },
             { kTooltipDoubleAmount, "Stereo doubler of the lead: detune up to 10 cents, Haas delay up to 25 ms, spread opposite to the lead. Works even when Harmony is off." },
             { kTooltipDoubleEn,       "Enable/disable the stereo doubler. The amount is kept when switched off." },
+            { kLabelDeesser,          "De-Esser" },
+            { kTooltipDeesserEnable,  "Tames the sibilants (s, sh, t) of the corrected lead voice. Switching off leaves the voice untouched." },
+            { kTooltipDeesserThreshold, "Level of the high band that starts triggering the reduction. Lower = more aggressive." },
+            { kTooltipDeesserMaxReduction, "Cap on how much the gain can drop when a sibilant is detected. Higher = deeper reduction." },
+            { kTooltipDeesserFrequency, "Centre of the band the detector listens to. Place it on the brightest part of the sibilance." },
             { kTooltipReverbEn,       "Enable/disable reverb effect." },
             { kTooltipFormant,        "Enable/disable formant shifting." },
             { kTooltipFlexTune,       "Deadband in cents: input pitch within this range is left uncorrected." },
@@ -944,6 +954,11 @@ namespace ovt
             { kTooltipHarmonyFormant, "Decalage de formant pour les voix d'harmonie (demi-tons)" },
             { kTooltipDoubleAmount, "Double stéréo de la voix principale : désaccord jusqu'à 10 cents, délai de Haas jusqu'à 25 ms, épanouissement opposé à la voix principale. Fonctionne même sans harmonie." },
             { kTooltipDoubleEn,       "Activer/désactiver le double stéréo. La valeur est conservée quand il est éteint." },
+            { kLabelDeesser,          "Désesseur" },
+            { kTooltipDeesserEnable,  "Atténue les sibilantes (s, ch, t) de la voix principale corrigée. Éteint, la voix reste intacte." },
+            { kTooltipDeesserThreshold, "Niveau de la bande aiguë qui déclenche la réduction. Plus bas = plus agressif." },
+            { kTooltipDeesserMaxReduction, "Limite de la baisse de gain quand une sibilante est détectée. Plus haut = réduction plus profonde." },
+            { kTooltipDeesserFrequency, "Centre de la bande écoutée par le détecteur. Placez-la sur la partie la plus brillante des sibilantes." },
             { kTooltipReverbEn,       "Activer/desactiver l'effet de reverberation." },
             { kTooltipFormant,        "Activer/desactiger le deplacement de formant." },
             { kTooltipFlexTune,       "Deadband en cents : les entrees dans cette plage ne sont pas corrigees." },
@@ -1273,6 +1288,11 @@ namespace ovt
             { kTooltipHarmonyFormant, "Formantverschiebung fuer Harmoniestimmen (Halbtoene)" },
             { kTooltipDoubleAmount, "Stereo-Doubler der Hauptstimme: Verstimmung bis 10 Cent, Haas-Verzoegerung bis 25 ms, Verbreiterung gegenueber der Hauptstimme. Funktioniert auch ohne Harmonie." },
             { kTooltipDoubleEn,       "Doubler-Effekt aktivieren/deaktivieren. Der Wert bleibt beim Ausschalten erhalten." },
+            { kLabelDeesser,          "De-Esser" },
+            { kTooltipDeesserEnable,  "Dämpft die Zischlaute (s, sch, t) der korrigierten Hauptstimme. Beim Ausschalten bleibt die Stimme unberührt." },
+            { kTooltipDeesserThreshold, "Pegel des Hochbands, ab dem die Reduktion ausgelöst wird. Niedriger = aggressiver." },
+            { kTooltipDeesserMaxReduction, "Grenze für den Gain-Abfall, wenn ein Zischlaut erkannt wird. Höher = tiefere Reduktion." },
+            { kTooltipDeesserFrequency, "Mittelpunkt des Bands, das der Detektor hört. Auf den hellsten Anteil der Zischlaute setzen." },
             { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
             { kTooltipFormant,        "Formantenverschiebung aktivieren/deaktivieren." },
             { kTooltipFlexTune,       "Deadband in Cents: Eingaenge in diesem Bereich werden nicht korrigiert." },
@@ -1600,6 +1620,11 @@ namespace ovt
             { kTooltipHarmonyFormant, "Desplazamiento de formante para voces de armonia (semitonos)" },
             { kTooltipDoubleAmount, "Doblador estereo de la voz principal: desafinacion hasta 10 centimos, retardo de Haas hasta 25 ms, apertura opuesta a la voz principal. Funciona incluso sin harmonia." },
             { kTooltipDoubleEn,       "Activar/desactivar el doblador estereo. El valor se conserva al apagarlo." },
+            { kLabelDeesser,          "Dessersor" },
+            { kTooltipDeesserEnable,  "Suaviza las sibilantes (s, sh, t) de la voz principal corregida. Al apagarlo, la voz queda intacta." },
+            { kTooltipDeesserThreshold, "Nivel de la banda aguda que empieza a provocar la reduccion. Mas bajo = mas agresivo." },
+            { kTooltipDeesserMaxReduction, "Limite de la caida de ganancia cuando se detecta una sibilante. Mas alto = reduccion mas profunda." },
+            { kTooltipDeesserFrequency, "Centro de la banda que escucha el detector. Colocalo en la parte mas brillante de las sibilantes." },
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberacion." },
             { kTooltipFormant,        "Activar/desactivar desplazamiento de formante." },
             { kTooltipFlexTune,       "Deadband en cents: las entradas en este rango no se corrigen." },
@@ -1926,6 +1951,11 @@ namespace ovt
             { kTooltipHarmonyFormant, "ハーモニーボイスのフォルマントシフト（半音）" },
             { kTooltipDoubleAmount, "リードのステレオダブラー：最大10セントのデチューン、最大25msのハース・オフセット、リードと反対方向の広がり。ハーモニー OFF でも動作します。" },
             { kTooltipDoubleEn,       "ダブラーの効果を有効/無効にします。オフにしても量は保持されます。" },
+            { kLabelDeesser,          "デエッサー" },
+            { kTooltipDeesserEnable,  "補正済みのリード音声のサ行音（s, sh, t）を和らげます。オフでは音声はそのままです。" },
+            { kTooltipDeesserThreshold, "減衰を開始する高域帯域のレベルです。低いほど強く効きます。" },
+            { kTooltipDeesserMaxReduction, "サ行音検出時にゲインを下げる量の上限です。高いほど深く減衰します。" },
+            { kTooltipDeesserFrequency, "検出器が聴く帯域の中心周波数です。サ行音で最も明るい部分に置きます。" },
             { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
             { kTooltipFormant,        "フォルマントシフトの有効/無効。" },
             { kTooltipFlexTune,       "デッドバンド(セント): この範囲内のピッチは補正されません。" },
@@ -2252,6 +2282,11 @@ namespace ovt
             { kTooltipHarmonyFormant, "和声声部的共振峰偏移（半音）" },
             { kTooltipDoubleAmount, "主声部的立体声加倍：最大 10 音分失谐，最大 25 毫秒 Haas 延迟，与主声部相反的展开。关闭和声时同样有效。" },
             { kTooltipDoubleEn,       "启用/禁用立体声加倍器。关闭时数值保持不变。" },
+            { kLabelDeesser,          "齿音消除器" },
+            { kTooltipDeesserEnable,  "柔化已修正主声部的齿音（s、sh、t）。关闭时声音保持原样。" },
+            { kTooltipDeesserThreshold, "触发衰减的高频段电平。越低作用越强。" },
+            { kTooltipDeesserMaxReduction, "检测到齿音时增益下降量的上限。越高衰减越深。" },
+            { kTooltipDeesserFrequency, "检测器所听频段的中心频率。设在齿音最明亮的部分。" },
             { kTooltipReverbEn,       "启用/禁用混响效果。" },
             { kTooltipFormant,        "启用/禁用共振峰偏移。" },
             { kTooltipFlexTune,       "死区（音分）：此范围内的输入音高保持不校正。" },

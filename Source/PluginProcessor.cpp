@@ -592,6 +592,23 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterFloat> (
                             "reverb_mix", "Reverb Mix",
                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
+                       // De-esser: tames the sibilance of the corrected lead. The
+                       // detector listens ONLY to the band around deess_frequency
+                       // (2-pole high-pass + 2-pole low-pass), so plosives and low
+                       // vowels cannot trigger it; the reduction is applied broadband
+                       // and capped by deess_max_reduction. Same shape as the sibling
+                       // effects: the knobs keep their values when the switch is off.
+                       , std::make_unique<juce::AudioParameterBool> (
+                             "deess_enable", "De-Esser Enable", false)
+                       , std::make_unique<juce::AudioParameterFloat> (
+                             "deess_threshold", "De-Esser Threshold",
+                             juce::NormalisableRange<float> (-60.0f, 0.0f, 1.0f), -25.0f)
+                       , std::make_unique<juce::AudioParameterFloat> (
+                             "deess_max_reduction", "De-Esser Max Reduction",
+                             juce::NormalisableRange<float> (0.0f, 24.0f, 1.0f), 12.0f)
+                       , std::make_unique<juce::AudioParameterFloat> (
+                             "deess_frequency", "De-Esser Frequency",
+                             juce::NormalisableRange<float> (3000.0f, 12000.0f, 100.0f), 7000.0f)
                       // 2026-07-24 (Deprecation): FlexTune and Attack-Aware
                       // APVTS parameters are KEPT for preset compatibility
                       // (so existing presets don't lose their values) but
@@ -715,6 +732,10 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     noiseGateThresholdParam = parameters.getRawParameterValue ("noise_gate_threshold");
     upwardCompEnableParam = parameters.getRawParameterValue ("upward_comp_enable");
     upwardCompAmountParam = parameters.getRawParameterValue ("upward_comp_amount");
+    deessEnableParam = parameters.getRawParameterValue ("deess_enable");
+    deessThresholdParam = parameters.getRawParameterValue ("deess_threshold");
+    deessMaxReductionParam = parameters.getRawParameterValue ("deess_max_reduction");
+    deessFrequencyParam = parameters.getRawParameterValue ("deess_frequency");
     flexTuneParam = parameters.getRawParameterValue ("flex_tune");
     humanizeParam = parameters.getRawParameterValue ("humanize");
     correctionModeParam = parameters.getRawParameterValue ("correction_mode");
@@ -767,7 +788,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     pitchCurve       = std::make_unique<ovtdsp::PitchCurve>();
     pitchCurve->loadPreset ("default");
 
-    // Initialize post-processing effects (reverb, etc.)
+    // Initialize post-processing effects (de-esser, reverb).
+    // Order matters: the de-esser runs BEFORE the reverb so it tames the
+    // sibilance of the corrected lead voice itself. A reverb tail is decorrelated
+    // high-frequency energy that would keep the detector engaged after the singer
+    // has stopped hissing, ducking the whole mix; de-essing the dry lead first and
+    // then adding space is what a vocal chain does on a real console.
+    effects.push_back (std::make_unique<ovtdsp::DeEsser>());
     effects.push_back (std::make_unique<ovtdsp::ReverbEffect>());
     OVT_LOG ("Effects initialized: " + juce::String (static_cast<int> (effects.size())));
 
@@ -1499,15 +1526,28 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             fifoWriteIndex = (fifoWriteIndex + 1) % analysisWindow;
         }
 
-        // Apply post-processing effects (reverb) on the cleared buffer before
-        // returning, so the reverb tail can decay naturally through its internal
-        // state onto the zeroed input without abrupt cuts or clicks.
+        // Apply post-processing effects (de-esser, reverb) on the cleared buffer
+        // before returning, so the reverb tail can decay naturally through its
+        // internal state onto the zeroed input without abrupt cuts or clicks.
         if (!effects.empty())
         {
             for (auto& effect : effects)
             {
                 bool enabled = false;
                 float wetMix = 0.0f;
+
+                if (effect->getId() == "deesser")
+                {
+                    // The de-esser has three controls, not just an enable flag, so
+                    // its knobs are pushed into the module before each pass. wetMix
+                    // stays 1: the depth is capped by max_reduction, not by a mix.
+                    auto* de = static_cast<ovtdsp::DeEsser*> (effect.get());
+                    if (deessThresholdParam != nullptr)    de->setThresholdDb (deessThresholdParam->load());
+                    if (deessMaxReductionParam != nullptr) de->setMaxReductionDb (deessMaxReductionParam->load());
+                    if (deessFrequencyParam != nullptr)    de->setFrequencyHz (deessFrequencyParam->load());
+                    enabled = (deessEnableParam != nullptr && deessEnableParam->load() > 0.5f);
+                    wetMix = 1.0f;
+                }
 
                 if (effect->getId() == "reverb")
                 {
@@ -3224,7 +3264,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // === POST-PROCESSING EFFECTS ===
-    // Apply stacked effects (reverb, etc.) to the final mixed output buffer.
+    // Apply stacked effects (de-esser, reverb) to the final mixed output buffer.
     // Each effect reads its own enable/mix parameters internally.
     if (!effects.empty())
     {
@@ -3232,6 +3272,18 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             bool enabled = false;
             float wetMix = 0.0f;
+
+            if (effect->getId() == "deesser")
+            {
+                // Same wiring as the silent path above: the de-esser needs its three
+                // knobs pushed in before the pass, and runs at full mix.
+                auto* de = static_cast<ovtdsp::DeEsser*> (effect.get());
+                if (deessThresholdParam != nullptr)    de->setThresholdDb (deessThresholdParam->load());
+                if (deessMaxReductionParam != nullptr) de->setMaxReductionDb (deessMaxReductionParam->load());
+                if (deessFrequencyParam != nullptr)    de->setFrequencyHz (deessFrequencyParam->load());
+                enabled = (deessEnableParam != nullptr && deessEnableParam->load() > 0.5f);
+                wetMix = 1.0f;
+            }
 
             if (effect->getId() == "reverb")
             {

@@ -41,17 +41,30 @@ The list below shows the **real `id` values** as used by
 
 ## Factory plugin presets
 
-These are built-in full-parameter presets (APVTS state only):
+These are built-in full-parameter presets (APVTS state only). The names below
+are the exact strings in `getFactoryPluginPresetNames()` (`PluginEditor.cpp`),
+in menu order; "Default" carries no overrides and applies the factory defaults
+verbatim.
 
-| Preset          | Description                                          |
-|-----------------|------------------------------------------------------|
-| Default         | True factory defaults (all parameters at default).   |
-| Natural Light   | Subtle correction, transparent mode.                 |
-| Modern Pop      | Fast correction, bright formant.                     |
-| Ballad Slow     | Slow retarget, vibrato preserved.                    |
-| Electronic      | Heavy correction, formant shift.                     |
-| Live Vocal      | Balanced for live use.                               |
-| Podcast Speech  | Optimized for spoken voice.                          |
+| Preset | Description | De-Esser |
+|--------|-------------|----------|
+| Default | True factory defaults (all parameters at default). | off |
+| Pure Correction | Pitch correction only, no dynamics on the lead. | off |
+| Transparent / Doubling | Light correction + stereo doubler, no dynamics. | off |
+| Studio Stack | 4-voice unison/octave stack with formant preservation. | on, −30 dB / 9 dB / 7 kHz |
+| Live Scene | Fast correction, direct monitoring, no effects. | off |
+| Spoken Voice / Podcast | Gentle correction, gate, strong upward compression. | on, −28 dB / 10 dB / 7.5 kHz |
+| Creative Robot | Hard tune with a strong formant shift. | off |
+| Broadcast Voice | Firm gate + 0.8 upward lift for streaming/radio loudness. | on, −20 dB / 16 dB / 6.5 kHz |
+| Breathy Vocals | Airy lo-fi voice: no gate, gentle upward lift, light reverb. | off |
+| Lead Vocal | Thickened lead: gate, −3/+3 harmony, reverb, upward compression. | on, −25 dB / 12 dB / 7 kHz |
+
+The presets that add top-end energy (upward compression, stacked harmony
+voices, reverb) switch the De-Esser on; the presets that leave the lead
+untouched keep it off so the sibilance stays exactly as recorded. The De-Esser
+sits **before** the reverb in the effects chain, so a preset de-esses the
+corrected lead voice and never the room tail — see
+`docs/user-guide/correction-modes.md` for the measured placement evidence.
 
 *(Plugin presets store only APVTS parameter state, never the pitch curve.)*
 

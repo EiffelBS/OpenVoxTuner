@@ -254,6 +254,19 @@ private:
     juce::Slider      doubleAmountSlider;
     ebs::PowerToggle  doubleEnableButton;
 
+    // De-Esser: sibilance suppressor for the corrected lead voice. One power
+    // switch (deess_enable) covers all three knobs, exactly like reverb_mix
+    // behind reverb_enable: switching off greys the knobs and keeps their values.
+    // Threshold is the cell's knob (toggle + knob, as its siblings); Depth and
+    // Frequency are caption-label cells, since the block grows by columns.
+    ebs::PowerToggle deessEnableButton;
+    juce::Slider       deessThresholdSlider;     // detector threshold (dB)
+    juce::Label        deessThresholdLabel;
+    juce::Slider       deessMaxReductionSlider;  // depth cap (dB)
+    juce::Label        deessMaxReductionLabel;
+    juce::Slider       deessFrequencySlider;     // band centre (Hz)
+    juce::Label        deessFrequencyLabel;
+
     // Reverb controls (post-processing effect)
     ebs::PowerToggle reverbEnableButton;
     juce::Slider       reverbMixSlider;
@@ -363,6 +376,10 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyFormantAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> doubleAmountAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> doubleEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> deessEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> deessThresholdAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> deessMaxReductionAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> deessFrequencyAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;

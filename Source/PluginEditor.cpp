@@ -851,6 +851,50 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     setupTitleLabel (harmonyAttackLabel, "Attack");
     setupTitleLabel (harmonyFormantLabel, "Formant");
 
+    // De-Esser knobs. The detector listens ONLY to the band around
+    // deess_frequency, so low vowels and plosives cannot trigger it; the gain
+    // reduction is applied to the whole voice (split-band subtraction would
+    // comb-filter it) and is capped by deess_max_reduction. All three are greyed
+    // while deess_enable is off and keep their values, exactly like reverb_mix
+    // behind reverb_enable.
+    setupKnob (deessThresholdSlider, nullptr, "");
+    deessThresholdSlider.setRange (-60.0, 0.0, 1.0);
+    deessThresholdSlider.setValue (-25.0);
+    deessThresholdSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    deessThresholdSlider.setPopupDisplayEnabled (true, false, this);
+    deessThresholdSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " dB"; };
+    deessThresholdSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserThreshold));
+
+    setupKnob (deessMaxReductionSlider, nullptr, "");
+    deessMaxReductionSlider.setRange (0.0, 24.0, 1.0);
+    deessMaxReductionSlider.setValue (12.0);
+    deessMaxReductionSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    deessMaxReductionSlider.setPopupDisplayEnabled (true, false, this);
+    deessMaxReductionSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " dB"; };
+    deessMaxReductionSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserMaxReduction));
+
+    setupKnob (deessFrequencySlider, nullptr, "");
+    deessFrequencySlider.setRange (3000.0, 12000.0, 100.0);
+    deessFrequencySlider.setValue (7000.0);
+    deessFrequencySlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    deessFrequencySlider.setPopupDisplayEnabled (true, false, this);
+    deessFrequencySlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v)) + " Hz"; };
+    deessFrequencySlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserFrequency));
+
+    // Caption labels for the two extra De-Esser knobs, in the same style as the
+    // Harmony knob captions (small font, centred, no value display).
+    setupTitleLabel (deessMaxReductionLabel, "Depth");
+    setupTitleLabel (deessFrequencyLabel, "Freq");
+
+    // De-Esser power toggle: a real parameter (deess_enable), attached to the
+    // button like every sibling effect in this block (Gate / Comp / Reverb /
+    // Formant / Doubler). Switching off does not clear the knobs.
+    deessEnableButton.setButtonText (ovt::tr (ovt::Keys::kLabelDeesser));
+    deessEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    deessEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
+    deessEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserEnable));
+    addAndMakeVisible (deessEnableButton);
+
     // Use Voice controls
     useVoiceButton.setButtonText (ovt::tr(ovt::Keys::kLabelUseVoice));
     useVoiceButton.setColour (juce::ToggleButton::textColourId, ebs::text());
@@ -2248,6 +2292,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // reverb_enable. The knob keeps its value when switched off; refreshLabels()
     // greys it and the processor stops applying the copy.
     doubleEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "double_enable", doubleEnableButton);
+    // De-Esser attachments: one power switch covering three knobs. The knobs keep
+    // their values when the effect is switched off; refreshLabels() greys them,
+    // exactly as it does for reverb_mix behind reverb_enable.
+    deessEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "deess_enable", deessEnableButton);
+    deessThresholdAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "deess_threshold", deessThresholdSlider);
+    deessMaxReductionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "deess_max_reduction", deessMaxReductionSlider);
+    deessFrequencyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "deess_frequency", deessFrequencySlider);
     // Keep the Follow Lead and Gain Match sub-toggles in sync with the parent
     // Harmony switch. onStateChange fires on a direct click, so we re-run
     // refreshLabels() (which now also disables those two sub-toggles based on
@@ -2894,7 +2945,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // knobs (Flex / Humanize / Vibrato / Attack-Aware) on the right.
     const int knobBlockWidth   = 220;  // Speed + Amount (prominent big knobs)
     const int advancedWidth    = 160;  // revealed correction knobs when expanded
-    const int effectBlockWidth = 230;  // 3 columns of toggles + full-size knobs
+    const int effectBlockWidth = 292;  // 4 columns of toggles + full-size knobs
     const int scaleBlockWidth  = 236;  // narrowed to fit the Root combo (see Block 1)
     const int blockSpacing     = 10;
     const int bannerW          = 22;   // vertical "Advanced" banner width
@@ -3049,19 +3100,20 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         formantStrategyLabel.setBounds (0, 0, 0, 0);
     }
 
-    // --- Block 4 : Effects - 2 rows of three cells ---
-    // Row 1 Noise Gate + Upward Comp + Reverb, row 2 Formant + Doubler + a free
-    // slot for the next effect. Every cell is a power toggle (or a caption label,
-    // for effects with no on/off switch) on top and a knob below. The knob size is
-    // derived from the row height, so it stays at its full 54 px: adding a COLUMN
-    // is how this block grows, never a row (a third row would shrink every knob).
-    // The value is shown in the popup display while dragging (no textbox).
+    // --- Block 4 : Effects - 2 rows of four cells ---
+    // Row 1 Noise Gate + Upward Comp + Reverb + Formant, row 2 Doubler + De-Esser
+    // (its power toggle and Threshold knob) + the two extra De-Esser knobs. Every
+    // cell is a power toggle (or a caption label, for knobs with no switch of
+    // their own) on top and a knob below. The knob size is derived from the row
+    // height, so it stays at its full 54 px: adding a COLUMN is how this block
+    // grows, never a row (a third row would shrink every knob). The value is shown
+    // in the popup display while dragging (no textbox).
     auto b4 = block4Bounds.reduced (10);
     const int effectPowerH  = 18;
     const int rowGap        = 8;
     const int colGap        = 8;
     const int numEffectRows = 2;
-    const int numEffectCols = 3;
+    const int numEffectCols = 4;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
     const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * colGap) / numEffectCols;
@@ -3074,25 +3126,46 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         knob.setBounds (kx, cell.getY() + 2, effKnobD, effKnobD);
     };
 
-    // Row 1 : Noise Gate + Upward Comp + Reverb
+    // Cell with a caption label instead of a switch: label on top, knob centred
+    // below at exactly the same size as its toggled siblings. Used by the De-Esser
+    // Depth and Frequency knobs, which share deess_enable - the single power
+    // switch for the whole effect, like reverb_mix behind reverb_enable.
+    auto placeCaptionKnob = [&] (juce::Rectangle<int> cell, juce::Label& label, juce::Slider& knob)
+    {
+        const int captionH = 14;
+        const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - effKnobD) / 2);
+        label.setBounds (kx, cell.getY(), effKnobD, captionH);
+        knob.setBounds (kx, cell.getY() + captionH + 2, effKnobD, effKnobD);
+    };
+
+    // Row 1 : Noise Gate + Upward Comp + Reverb + Formant
     auto row1 = b4.removeFromTop (rowH);
     b4.removeFromTop (rowGap);
     placeToggledKnob (row1.removeFromLeft (effectColW), noiseGateEnableButton, noiseGateThresholdSlider);
     row1.removeFromLeft (colGap);
     placeToggledKnob (row1.removeFromLeft (effectColW), upwardCompEnableButton, upwardCompAmountSlider);
     row1.removeFromLeft (colGap);
-    placeToggledKnob (row1, reverbEnableButton, reverbMixSlider);
+    placeToggledKnob (row1.removeFromLeft (effectColW), reverbEnableButton, reverbMixSlider);
+    row1.removeFromLeft (colGap);
+    placeToggledKnob (row1, formantEnableButton, formantSlider);
 
-    // Row 2 : Formant + Doubler + the free slot for the next effect.
+    // Row 2 : Doubler + De-Esser + Depth + Freq.
     // The Doubler cell is built exactly like its siblings (power toggle carrying
     // the name, knob below): double_enable is a real parameter, so switching off
     // greys the knob and stops the copy without clearing double_amount. It lives
     // here because it is an effect of the processed signal, not a harmony voice;
     // nothing Harmony does touches this cell.
+    // The De-Esser cell carries its own switch (deess_enable) and the Threshold
+    // knob; Depth and Freq are caption cells of the same effect, so all three
+    // knobs grey out together when the effect is off.
     auto row2 = b4;
-    placeToggledKnob (row2.removeFromLeft (effectColW), formantEnableButton, formantSlider);
-    row2.removeFromLeft (colGap);
     placeToggledKnob (row2.removeFromLeft (effectColW), doubleEnableButton, doubleAmountSlider);
+    row2.removeFromLeft (colGap);
+    placeToggledKnob (row2.removeFromLeft (effectColW), deessEnableButton, deessThresholdSlider);
+    row2.removeFromLeft (colGap);
+    placeCaptionKnob (row2.removeFromLeft (effectColW), deessMaxReductionLabel, deessMaxReductionSlider);
+    row2.removeFromLeft (colGap);
+    placeCaptionKnob (row2, deessFrequencyLabel, deessFrequencySlider);
 
     // Harmony controls block (rightmost block)
     // Split into left/right columns FIRST, then fill each column.
@@ -3503,6 +3576,15 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // itself is kept so switching back on re-arms the effect at the same level.
     bool isDoublerEnabled = doubleEnableButton.getToggleState();
     doubleAmountSlider.setEnabled (isDoublerEnabled);
+
+    // Gray out all three De-Esser knobs if disabled: deess_enable gates the whole
+    // effect, and the values are kept so switching back on re-arms the de-esser at
+    // the same threshold / depth / band centre. The Depth and Frequency captions
+    // stay readable - labels are never greyed in this block.
+    bool isDeesserEnabled = deessEnableButton.getToggleState();
+    deessThresholdSlider.setEnabled (isDeesserEnabled);
+    deessMaxReductionSlider.setEnabled (isDeesserEnabled);
+    deessFrequencySlider.setEnabled (isDeesserEnabled);
 
     // Harmony controls enable/disable
     bool isHarmonyEnabled = harmonyEnableButton.getToggleState();
@@ -4495,6 +4577,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     harmonyToneColorLabel.setText (ovt::tr(ovt::Keys::kLabelTone), juce::dontSendNotification);
     noiseGateEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelNoiseGate));
     doubleEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelDouble));
+    deessEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelDeesser));
     noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
 
     // Refresh all translatable tooltips
@@ -4533,6 +4616,10 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     harmonyFormantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyFormant));
     doubleAmountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleAmount));
     doubleEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleEn));
+    deessEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserEnable));
+    deessThresholdSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserThreshold));
+    deessMaxReductionSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserMaxReduction));
+    deessFrequencySlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserFrequency));
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
     buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
     buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));
@@ -4857,6 +4944,9 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("reverb_mix",         saved.reverbMix,          reverbMixSlider);
     setSlider ("noise_gate_threshold", saved.noiseGateThreshold, noiseGateThresholdSlider);
     setSlider ("upward_comp_amount",   saved.upwardCompAmount,   upwardCompAmountSlider);
+    setSlider ("deess_threshold",      saved.deessThreshold,     deessThresholdSlider);
+    setSlider ("deess_max_reduction",  saved.deessMaxReduction,  deessMaxReductionSlider);
+    setSlider ("deess_frequency",      saved.deessFrequency,     deessFrequencySlider);
     setSlider ("flex_tune",          saved.flexTune,           flexTuneSlider);
     setSlider ("humanize",           saved.humanize,           humanizeSlider);
     setSlider ("vibrato_preserve",    saved.vibratoPreserve,    vibratoPreserveSlider);
@@ -4901,6 +4991,7 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("double_enable",     saved.doubleEnable ? 1.0f : 0.0f);
     setChoice ("noise_gate_enable", saved.noiseGateEnable ? 1.0f : 0.0f);
     setChoice ("upward_comp_enable", saved.upwardCompEnable ? 1.0f : 0.0f);
+    setChoice ("deess_enable",       saved.deessEnable ? 1.0f : 0.0f);
     setChoice ("correction_mode",   saved.correctionMode ? 1.0f : 0.0f);
 
     // Restore the pitch curve
@@ -4964,7 +5055,10 @@ namespace
             { "amount", 1.0f }, { "flex_tune", 0.0f }, { "humanize", 0.0f },
             { "harmony_enable", 0.0f }, { "formant_enable", false },
             { "vibrato_preserve", 0.0f }, { "attack_aware", 0.0f },
-            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f }
+            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
+            // Nothing dynamic on the lead: pitch correction only, so the de-esser
+            // stays off and the sibilance keeps its natural level.
+            { "deess_enable", 0.0f }
         };
         static const std::map<juce::String, float> transparentDub = {
             { "amount", 0.85f }, { "flex_tune", 25.0f }, { "humanize", 15.0f },
@@ -4975,14 +5069,22 @@ namespace
             // independent of harmony_enable). 35 % = ~3.5 cents detune, ~9 ms
             // Haas offset and a light right-side spread; the power switch must be
             // on for that amount to be heard.
-            { "double_enable", 1.0f }, { "double_amount", 35.0f }
+            { "double_enable", 1.0f }, { "double_amount", 35.0f },
+            // Transparency means no dynamics: the doubler widens the lead, the
+            // sibilance is left exactly as recorded.
+            { "deess_enable", 0.0f }
         };
         static const std::map<juce::String, float> studioStack = {
             { "amount", 0.9f }, { "flex_tune", 15.0f }, { "humanize", 20.0f },
             { "harmony_enable", 1.0f }, { "harmony_type", 17.0f }, // Unison + Octaves (4 voices)
             { "harmony_gain_match", 1.0f }, { "harmony_follow_lead", 1.0f },
             { "harmony_gain", 0.75f }, { "harmony_blend", 0.5f },
-            { "formant_enable", 1.0f }, { "formant_mode", 1.0f }
+            { "formant_enable", 1.0f }, { "formant_mode", 1.0f },
+            // A 4-voice stack multiplies the sibilants: N voices singing the same
+            // "s" add up to +6 dB of top end, so a light de-esser keeps the stack
+            // bright without the hiss the sum produces.
+            { "deess_enable", 1.0f }, { "deess_threshold", -30.0f },
+            { "deess_max_reduction", 9.0f }, { "deess_frequency", 7000.0f }
         };
         static const std::map<juce::String, float> liveScene = {
             { "amount", 0.9f }, { "flex_tune", 10.0f }, { "humanize", 30.0f },
@@ -4999,7 +5101,12 @@ namespace
             { "noise_gate_threshold", -45.0f },
             // Spoken/quiet material: lift weak passages before tuning so the
             // pitch detector and correction see a more consistent level.
-            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.6f }
+            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.6f },
+            // Speech is where sibilance hurts most: the upward compressor lifts
+            // every quiet "s" and a close mic on a podcast rig makes it worse.
+            // High band centre (7.5 kHz) matches spoken "s" energy, gentle depth.
+            { "deess_enable", 1.0f }, { "deess_threshold", -28.0f },
+            { "deess_max_reduction", 10.0f }, { "deess_frequency", 7500.0f }
         };
         static const std::map<juce::String, float> creativeRobot = {
             { "amount", 1.0f }, { "flex_tune", 0.0f }, { "humanize", 0.0f },
@@ -5016,7 +5123,12 @@ namespace
             { "formant_enable", 1.0f }, { "formant_mode", 1.0f }, { "formant", 0.0f },
             { "reverb_enable", 0.0f }, { "noise_gate_enable", 1.0f },
             { "noise_gate_threshold", -50.0f },
-            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.8f }
+            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.8f },
+            // On air the 0.8 upward lift pushes every sibilant up to the same loud
+            // level, which is what makes a broadcast voice sound harsh on small
+            // speakers. Firm de-essing (16 dB cap) keeps the level even and clean.
+            { "deess_enable", 1.0f }, { "deess_threshold", -20.0f },
+            { "deess_max_reduction", 16.0f }, { "deess_frequency", 6500.0f }
         };
         // Breathy Vocals: airy, weak indie/lo-fi voice. No gate (keep the natural
         // breath), just a gentle upward lift so the quiet, breathy parts stay
@@ -5043,7 +5155,13 @@ namespace
             { "formant_enable", 1.0f }, { "formant_mode", 1.0f }, { "formant", 0.0f },
             { "reverb_enable", 1.0f }, { "reverb_mix", 0.25f },
             { "noise_gate_enable", 1.0f }, { "noise_gate_threshold", -40.0f },
-            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.5f }
+            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.5f },
+            // The thickened lead is also the most sibilant preset: upward
+            // compression, harmony voices and reverb all add top end on top of the
+            // doubled "s". De-essing before the reverb keeps the space without the
+            // hiss, at the standard 7 kHz centre.
+            { "deess_enable", 1.0f }, { "deess_threshold", -25.0f },
+            { "deess_max_reduction", 12.0f }, { "deess_frequency", 7000.0f }
         };
 
         if (name == "Pure Correction")       return &correctionPure;

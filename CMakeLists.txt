@@ -422,3 +422,24 @@ target_link_libraries(bench_formant_lsd PRIVATE
     juce::juce_data_structures
     juce::juce_events
 )
+
+# === De-Esser placement benchmark (console app) ===
+# tools/bench_deesser_placement.cpp — compares the shipped order (de-esser before
+# ReverbEffect, so the corrected lead voice is de-essed) against de-essing after
+# the reverb (which also de-esses the wet tail). Reports sibilance cut, total
+# level, tail brightness and tail pumping, all measured on the output.
+juce_add_console_app(bench_deesser_placement
+    PRODUCT_NAME "bench_deesser_placement"
+    VERSION 0.1.0)
+
+target_sources(bench_deesser_placement PRIVATE
+    tools/bench_deesser_placement.cpp
+    Source/dsp/ReverbEffect.cpp
+)
+target_link_libraries(bench_deesser_placement PRIVATE
+    juce::juce_audio_basics
+    juce::juce_audio_processors
+    juce::juce_data_structures
+    juce::juce_events
+    juce::juce_dsp
+)

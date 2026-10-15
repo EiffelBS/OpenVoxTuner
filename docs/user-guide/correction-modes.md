@@ -103,6 +103,7 @@ Trades latency against processing quality:
 - **Ballad / slow track**: raise **Speed** toward 150–200 ms and keep **Vibrato Preserve** high.
 - **Pop / tight**: use **Modern** correction with a low **Speed**.
 - **Background vocal layers**: lower **Amount** (60–80%) so they sit naturally behind the lead.
+- **Sibilant takes**: when you push **Upward Comp** (the quiet "s" gets lifted to the same level as the vowels), switch the **De-Esser** on with it — Threshold around -25 dB, Depth 12 dB, centre 7 kHz. It works on the corrected lead, before the reverb, so the room you add stays bright.
 
 ---
 

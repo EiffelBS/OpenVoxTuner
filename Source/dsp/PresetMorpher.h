@@ -56,6 +56,10 @@ namespace ovtdsp
         float noiseGateThreshold = 0.375f; // normalized: -50dB in -80..0 range
         bool upwardCompEnable = false;
         float upwardCompAmount = 0.25f; // 0..1 upward compression amount
+        bool deessEnable = false;       // "deess_enable": power switch, knobs are kept
+        float deessThreshold = 0.5833333f;   // normalized: -25 dB in -60..0 range
+        float deessMaxReduction = 0.5f;      // normalized: 12 dB in 0..24 range
+        float deessFrequency = 0.4444444f;   // normalized: 7000 Hz in 3000..12000 range
         bool correctionMode = false; // false = Modern
 
         // PitchCurve
@@ -115,6 +119,10 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("noise_gate_threshold")) s.noiseGateThreshold = p->getValue();
         if (auto* p = params.getParameter ("upward_comp_enable"))   s.upwardCompEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("upward_comp_amount"))   s.upwardCompAmount = p->getValue();
+        if (auto* p = params.getParameter ("deess_enable"))         s.deessEnable = p->getValue() > 0.5f;
+        if (auto* p = params.getParameter ("deess_threshold"))      s.deessThreshold = p->getValue();
+        if (auto* p = params.getParameter ("deess_max_reduction"))  s.deessMaxReduction = p->getValue();
+        if (auto* p = params.getParameter ("deess_frequency"))      s.deessFrequency = p->getValue();
         if (auto* p = params.getParameter ("correction_mode"))     s.correctionMode = p->getValue() > 0.5f;
 
         // Curve (copy)
@@ -141,6 +149,8 @@ namespace ovtdsp
                         "editor_measures", "voice_type", "formant_enable", "bypass", "harmony_enable",
                         "harmony_use_voice", "harmony_follow_lead", "reverb_enable",
                         "noise_gate_enable", "upward_comp_enable", "upward_comp_amount",
+                        "deess_threshold", "deess_max_reduction", "deess_frequency",
+                        "deess_enable",
                         "correction_mode" });
         return ids;
     }
@@ -203,6 +213,9 @@ namespace ovtdsp
         setParam ("key_detect",         lerpOrStep (source.keyDetect, target.keyDetect, t));
         setParam ("noise_gate_threshold", source.noiseGateThreshold + (target.noiseGateThreshold - source.noiseGateThreshold) * t);
         setParam ("upward_comp_amount", source.upwardCompAmount + (target.upwardCompAmount - source.upwardCompAmount) * t);
+        setParam ("deess_threshold",     source.deessThreshold + (target.deessThreshold - source.deessThreshold) * t);
+        setParam ("deess_max_reduction", source.deessMaxReduction + (target.deessMaxReduction - source.deessMaxReduction) * t);
+        setParam ("deess_frequency",     source.deessFrequency + (target.deessFrequency - source.deessFrequency) * t);
 
         // Discrete parameters (step at 50%)
         setParam ("key",                    lerpOrStep ((float) source.key / 11.0f, (float) target.key / 11.0f, t));
@@ -224,6 +237,7 @@ namespace ovtdsp
         setParam ("double_enable",     lerpOrStep (source.doubleEnable ? 1.0f : 0.0f, target.doubleEnable ? 1.0f : 0.0f, t));
         setParam ("noise_gate_enable", lerpOrStep ((float) source.noiseGateEnable, (float) target.noiseGateEnable, t) > 0.5f ? 1.0f : 0.0f);
         setParam ("upward_comp_enable", lerpOrStep (source.upwardCompEnable ? 1.0f : 0.0f, target.upwardCompEnable ? 1.0f : 0.0f, t));
+        setParam ("deess_enable",      lerpOrStep (source.deessEnable ? 1.0f : 0.0f, target.deessEnable ? 1.0f : 0.0f, t));
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));
     }
 }

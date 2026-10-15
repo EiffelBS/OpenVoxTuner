@@ -18,6 +18,7 @@ test/
 ├─ formant_preservation_benchmark.py # Python benchmark (not part of the C++ suite)
 ├─ dsp/                              # DSP test suites (one file per module)
 │  ├─ BlockAwareOnePoleTest.cpp
+│  ├─ DeEsserTest.cpp
 │  ├─ DoublerTest.cpp
 │  ├─ FormantPreserverTest.cpp
 │  ├─ FormantPreserverModulationTest.cpp
@@ -52,7 +53,9 @@ The test suites found under `test/dsp/` cover pitch detection (YIN), scale
 quantization, pitch shifting (PSOLA), retarget envelope, formant preservation
 (LPC and multi-formant), MIDI file analysis/import into pitch curves, harmony
 gain-match & attack, the stereo doubler (detune ratio, Haas offset, constant
-perceived RMS, mono compatibility, amount-0 bypass), the fixed Unison detune
+perceived RMS, mono compatibility, amount-0 bypass), the de-esser (band-limited
+detection, reduction depth, hysteresis window, stereo link, release, click-free
+power toggle, bit-identical bypass), the fixed Unison detune
 (identical voice pair, correlated +6 dB sum decorrelated to +3 dB, beat rate,
 mono L+R sum), key detection and the key
 bridge, sidechain bus layout, speed floor, block-aware one-pole filtering,
@@ -93,9 +96,10 @@ The runner runs all registered tests and prints one line per suite
 ```text
 [ OK ] ScaleQuantizer (28 assertions)
 [ OK ] PitchShifterOutput (12 assertions)
+[ OK ] DeEsser (1024 assertions)
 ...
 =========================
-Result: 125 OK, 0 FAILED
+Result: 133 OK, 0 FAILED
 =========================
 ```
 
