@@ -29,7 +29,6 @@ class PresetGallery; // defined in ui/PResetGallery.h
 
 class CorrectionModeSwitch; // graphic Modern/Transparent console switch (defined in PluginEditor.cpp)
 
-class TabSwitch; // iPhone-style Live/Curve Editor tab switch (defined in PluginEditor.cpp)
 
 /** Local host around the shared eiffelbs-ui LookAndFeel. Everything is
     stock ebs:: rendering; this subclass only replays OpenVoxTuner's legacy
@@ -49,20 +48,6 @@ struct OvtLookAndFeel final : ebs::LookAndFeel
             default:                      return {};
         }
     }
-};
-
-// Look and feel for the Correction block's "Advanced" handle: a centred chevron
-// (direction indicator) plus grip lines, drawn on a subtle background (square left
-// edge, rounded right corners, no border) that fills the block's right edge.
-class VerticalTextButtonLF : public juce::LookAndFeel_V4
-{
-public:
-    void drawButtonBackground (juce::Graphics& g, juce::Button& button,
-                               const juce::Colour& backgroundColour,
-                               bool shouldDrawButtonAsHighlighted,
-                               bool shouldDrawButtonAsDown) override;
-    void drawButtonText (juce::Graphics& g, juce::TextButton& button,
-                         bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
 };
 
 class OpenVoxTunerAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -110,9 +95,6 @@ public:
 
     /** Re-apply all component colours after a theme change. */
     void applyThemeToAllComponents();
-
-    /** Refresh DrawableButton SVG icons for the current theme. */
-    void refreshDrawableButtonIcons();
 
 private:
     // === Custom Look And Feel ===
@@ -222,7 +204,7 @@ private:
     std::unique_ptr<juce::FileChooser> midiImportFileChooser;
 
     // Hamburger menu (gear icon button, replaces all top-bar controls).
-    juce::DrawableButton menuButton { "Options", juce::DrawableButton::ImageOnButtonBackground };
+    ebs::IconButton menuButton { ebs::IconButton::Shape::settings };
     // Screen position for right-click triggered wrench menu (0,0 = use menuButton position).
     juce::Point<int> pendingMenuScreenPos;
 
@@ -236,8 +218,10 @@ private:
     juce::Label       harmonyBlendLabel;
     juce::Label       harmonyAttackLabel;
     juce::Label       harmonyTypeLabel;
-    // Use voice toggle and shifted voices selector
-    juce::ToggleButton useVoiceButton;
+    // Use voice: shared iOS-style sliding switch, plus the label it needs
+    // (the switch paints only the pill, so the caption is its own component).
+    juce::Label       useVoiceLabel;
+    ebs::ToggleSwitch useVoiceButton;
     juce::ComboBox    shiftedVoicesBox;
     juce::ComboBox    harmonyToneBox;
     juce::Slider      harmonyToneColorSlider;
@@ -306,24 +290,24 @@ private:
     std::unique_ptr<CorrectionModeSwitch> modeSwitch;
 
     // iPhone-style Live / Curve Editor tab switch, replacing the standard
-    // TabbedButtonBar. Directly controls tabbedComponent's current index.
-    std::unique_ptr<TabSwitch> tabSwitch;
+    // Live / Curve Editor tab switch, replacing the standard TabbedButtonBar:
+    std::unique_ptr<ebs::PillTabSwitch> tabSwitch;
 
     // Curve Editor "Options" button: icon-only (hamburger) with a distinct
     // accent-tinted background so it stands out from the neutral zoom/scroll/
     // snap buttons in this section. The plugin's own options keep the gear.
-    juce::DrawableButton optionsButton {"Curve Options", juce::DrawableButton::ImageOnButtonBackground};
+    ebs::IconButton optionsButton { ebs::IconButton::Shape::wand };
     // Preset Gallery toolbar button (icon-only grid, opens the browsable gallery).
-    juce::DrawableButton presetGalleryButton {"Preset Gallery", juce::DrawableButton::ImageOnButtonBackground};
+    ebs::IconButton presetGalleryButton { ebs::IconButton::Shape::grid };
     juce::DrawableButton snapButton {"Snap to scale", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton snapGridButton {"Snap to grid", juce::DrawableButton::ImageOnButtonBackground};
     juce::DrawableButton stepModeButton {"Step mode", juce::DrawableButton::ImageOnButtonBackground};
     // Curve editor view controls (mirror the Visualizer toolbar: zoom/scroll/reset).
-    juce::DrawableButton zoomInButton   {"Zoom In",   juce::DrawableButton::ImageOnButtonBackground};
-    juce::DrawableButton zoomOutButton  {"Zoom Out",  juce::DrawableButton::ImageOnButtonBackground};
-    juce::DrawableButton scrollUpButton {"Scroll Up", juce::DrawableButton::ImageOnButtonBackground};
-    juce::DrawableButton scrollDownButton {"Scroll Down", juce::DrawableButton::ImageOnButtonBackground};
-    juce::DrawableButton resetViewButton {"Reset View", juce::DrawableButton::ImageOnButtonBackground};
+    ebs::IconButton zoomInButton { ebs::IconButton::Shape::zoomIn };
+    ebs::IconButton zoomOutButton { ebs::IconButton::Shape::zoomOut };
+    ebs::IconButton scrollUpButton { ebs::IconButton::Shape::chevronUp };
+    ebs::IconButton scrollDownButton { ebs::IconButton::Shape::chevronDown };
+    ebs::IconButton resetViewButton { ebs::IconButton::Shape::cross };
 
     // "Measures" control (curve editor time window). Moved from the embedded editor
     // controls to the toolbar so it no longer covers the ruler.
@@ -333,7 +317,7 @@ private:
     // Stop icon when playing) plus a "Return to start" (rewind) button.
     // Only meaningful when not driven by a DAW host.
     juce::DrawableButton playButton {"Play", juce::DrawableButton::ImageOnButtonBackground};
-    juce::DrawableButton rewindButton {"Rewind", juce::DrawableButton::ImageOnButtonBackground};
+    ebs::IconButton rewindButton { ebs::IconButton::Shape::rewind };
 
     // Update checker / release notification.
     juce::TextButton updateButton { "Check updates" };
@@ -455,8 +439,9 @@ private:
     // "Advanced" expand/collapse banner for the Correction block. When expanded,
     // the correction knobs (Flex / Humanize / Vibrato / Attack-Aware) are revealed
     // to the right of the Speed / Amount knobs (the block widens).
-    juce::TextButton advancedButton { "Advanced" };
-    VerticalTextButtonLF advancedButtonLF;
+    // Advanced expand/collapse handle: the shared disclosure strip (chevron
+    // direction, hover feedback and tooltip are owned by the library).
+    ebs::DisclosureChevron advancedButton;
     bool advancedExpanded = false;
 
     // One-time flag for syncing editor controls from persisted parameters
@@ -495,8 +480,8 @@ private:
 
     // Global Undo/Redo buttons (icon-only DrawableButtons, placed in the
     // header between button B and the Options gear).
-    juce::DrawableButton undoButton { "Undo", juce::DrawableButton::ImageOnButtonBackground };
-    juce::DrawableButton redoButton { "Redo", juce::DrawableButton::ImageOnButtonBackground };
+    ebs::IconButton undoButton { ebs::IconButton::Shape::undo };
+    ebs::IconButton redoButton { ebs::IconButton::Shape::redo };
 
     void performGlobalUndo();
     void performGlobalRedo();
@@ -507,9 +492,9 @@ private:
 
     // === Plugin Presets (separate from Curve Presets) ===
     // Centred selector in the top banner: [<] [Combo: name] [>] [save].
-    juce::DrawableButton presetPrevButton { "Prev Preset", juce::DrawableButton::ImageOnButtonBackground };
-    juce::DrawableButton presetNextButton { "Next Preset", juce::DrawableButton::ImageOnButtonBackground };
-    juce::DrawableButton presetSaveButton { "Save Preset", juce::DrawableButton::ImageOnButtonBackground };
+    ebs::IconButton presetPrevButton { ebs::IconButton::Shape::chevronLeft };
+    ebs::IconButton presetNextButton { ebs::IconButton::Shape::chevronRight };
+    ebs::IconButton presetSaveButton { ebs::IconButton::Shape::save };
     juce::ComboBox       presetComboBox;
     // Ordered list of plugin-preset names (factory "Default" first, then
     // custom). Mirrors the Curve Presets pattern but never touches the curve.

@@ -262,8 +262,8 @@ namespace ui
         PianoKeyboard& getPianoKeyboard() { return pianoKeyboard; }
 
         /// Undo/Redo button access (for PluginEditor to position them)
-        juce::TextButton& getUndoButton() { return undoButton; }
-        juce::TextButton& getRedoButton() { return redoButton; }
+        ebs::IconButton& getUndoButton() { return undoButton; }
+        ebs::IconButton& getRedoButton() { return redoButton; }
 
         /// Refresh all translatable strings after a language change.
         void refreshTranslations();
@@ -443,8 +443,8 @@ namespace ui
         // Undo/Redo buttons (positioned by parent)
         // Hex escapes produce raw UTF-8 bytes (>127) which juce::String(const char*)
         // rejects in Debug; wrap in CharPointer_UTF8 so JUCE decodes them correctly.
-        juce::TextButton undoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb6") };  // Undo arrow symbol ↶
-        juce::TextButton redoButton { juce::CharPointer_UTF8 ("\xe2\x86\xb7") };  // Redo arrow symbol ↷
+        ebs::IconButton undoButton { ebs::IconButton::Shape::undo };
+        ebs::IconButton redoButton { ebs::IconButton::Shape::redo };
 
         // Piano Roll mode toggle (second editing metaphor for the same curve).
         juce::TextButton pianoRollButton { "Piano Roll" };

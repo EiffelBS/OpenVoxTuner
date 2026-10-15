@@ -135,7 +135,8 @@ PresetGallery::PresetCard::PresetCard (const juce::String& name,
     thumbComp.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (thumbComp);
 
-    nameLabel.setText (name, juce::dontSendNotification);
+    // Card text is a user file name / XML field: harden it for the shaper.
+    nameLabel.setText (ebs::sanitizeForShaping (name), juce::dontSendNotification);
     nameLabel.setFont (ovt::fontLabel());
     nameLabel.setColour (juce::Label::textColourId, ebs::text());
     nameLabel.setInterceptsMouseClicks (false, false);
@@ -144,7 +145,7 @@ PresetGallery::PresetCard::PresetCard (const juce::String& name,
     const juce::String meta = description.isNotEmpty()
         ? (category + " - " + description)
         : category;
-    metaLabel.setText (meta, juce::dontSendNotification);
+    metaLabel.setText (ebs::sanitizeForShaping (meta), juce::dontSendNotification);
     metaLabel.setFont (ovt::fontLabelSmall());
     metaLabel.setColour (juce::Label::textColourId, ebs::textDim());
     metaLabel.setMinimumHorizontalScale (0.5f);

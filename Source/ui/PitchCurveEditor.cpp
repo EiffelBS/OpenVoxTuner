@@ -73,18 +73,19 @@ namespace ui
         snapToGridEnabled = true;
         setStepModeEnabled(true);
 
-        // Undo/Redo buttons
-        auto setupUndoBtn = [this] (juce::TextButton& btn, const juce::String& tip)
+        // Undo/Redo chips: shared-library icon buttons. They float over the
+        // theme-invariant dark canvas (vizBg), so the glyph ink is pinned to
+        // white and the frame keeps the soft-accent body the old TextButtons had.
+        auto setupChipIcon = [&] (ebs::IconButton& btn, const juce::String& tip)
         {
-            btn.setColour (juce::TextButton::buttonColourId, ebs::accentSoft());
-                        // These chips float over the theme-invariant dark canvas
-            // (vizBg), so their label stays bright under both themes.
-            btn.setColour (juce::TextButton::textColourOffId, juce::Colours::white.withAlpha (0.92f));
+            btn.setFramed (true);
+            btn.setColour (ebs::IconButton::iconColourId, juce::Colours::white.withAlpha (0.92f));
+            btn.setColour (ebs::IconButton::frameFillColourId, ebs::accentSoft());
             btn.setTooltip (tip);
             addAndMakeVisible (btn);
         };
-        setupUndoBtn (undoButton, ovt::tr(ovt::Keys::kTooltipUndo));
-        setupUndoBtn (redoButton, ovt::tr(ovt::Keys::kTooltipRedo));
+        setupChipIcon (undoButton, ovt::tr(ovt::Keys::kTooltipUndo));
+        setupChipIcon (redoButton, ovt::tr(ovt::Keys::kTooltipRedo));
 
         undoButton.onClick = [this] { performUndo(); };
         redoButton.onClick = [this] { performRedo(); };
@@ -120,7 +121,7 @@ namespace ui
 
     void PitchCurveEditor::restyleChipButtons()
     {
-        juce::TextButton* chips[] = { &undoButton, &redoButton, &pianoRollButton };
+        juce::TextButton* chips[] = { &pianoRollButton };
         for (auto* c : chips)
         {
             // Canvas-overlay tokens: soft-accent body, bright fixed text.

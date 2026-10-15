@@ -29,48 +29,6 @@ static juce::Drawable* getBrandLogo()
 
 // === Theme colors ("autotune" style: dark + pink/purple accent) ===
 
-// "Advanced" banner look-and-feel: a plain rectangular handle (square corners),
-// subtle fill (the block background, slightly darker), no border. It is aligned
-// to the block's right edge but inset from the rounded corners (see resized()),
-// so the reactive zone is a single clean rectangle with no overflow / point.
-void VerticalTextButtonLF::drawButtonBackground (juce::Graphics& g, juce::Button& button,
-                                                 const juce::Colour& backgroundColour,
-                                                 bool shouldDrawButtonAsHighlighted,
-                                                 bool /*shouldDrawButtonAsDown*/)
-{
-    auto b = button.getLocalBounds().toFloat();
-    juce::Colour fill = backgroundColour;
-    if (shouldDrawButtonAsHighlighted)
-        fill = fill.brighter (0.18f);
-    g.setColour (fill);
-    g.fillRoundedRectangle (b, 4.0f);
-}
-
-// Draw the "Advanced" handle for the Correction block: a single centred chevron
-// that points right when collapsed (click to expand) and left when expanded
-// (click to collapse). Accent colour so the handle is clearly visible. No extra
-// glyphs: the chevron alone communicates expand/collapse.
-void VerticalTextButtonLF::drawButtonText (juce::Graphics& g, juce::TextButton& button,
-                                           bool shouldDrawButtonAsHighlighted, bool /*shouldDrawButtonAsDown*/)
-{
-    const bool expanded = button.getToggleState();
-    const int w = button.getWidth();
-    const int h = button.getHeight();
-
-    // Chevron (centred): points right when collapsed (click to expand), left when
-    // expanded (click to collapse).
-    g.setColour (shouldDrawButtonAsHighlighted ? ebs::accent().brighter (0.2f) : ebs::accent());
-    const float cx = static_cast<float> (w) * 0.5f;
-    const float cy = static_cast<float> (h) * 0.5f;
-    const float s  = 5.0f;
-    juce::Path chevron;
-    if (expanded)
-        chevron.addTriangle (cx + s, cy - s, cx + s, cy + s, cx - s, cy);  // points left
-    else
-        chevron.addTriangle (cx - s, cy - s, cx - s, cy + s, cx + s, cy);  // points right
-    g.fillPath (chevron);
-}
-
 // Helper: ensure a PopupMenu uses our custom LookAndFeel for correct background colours
 static void applyMenuLookAndFeel (juce::PopupMenu& m, OvtLookAndFeel& lf)
 {
@@ -166,124 +124,6 @@ private:
     juce::Button& button;
     float pillPos = 0.0f;      // current animated position [0..1]
     float targetPillPos = 0.0f; // target position [0..1]
-};
-
-// === Live / Curve Editor tab switch (iPhone-style) ===
-// Replaces the standard JUCE TabbedButtonBar with an animated pill switch.
-// Two-position horizontal switch controlling the tabbed component's current
-// index (0 = Live, 1 = Curve Editor). A light Timer keeps the visual in sync
-// when the tab changes from elsewhere.
-class TabSwitch : public juce::Component,
-                  private juce::Timer
-{
-public:
-    explicit TabSwitch (juce::TabbedComponent& tabs)
-        : tabbed (tabs)
-        , pillPos (tabs.getCurrentTabIndex() == 1 ? 1.0f : 0.0f)
-        , targetPillPos (pillPos)
-    {
-        setWantsKeyboardFocus (false);
-        startTimerHz (60);
-    }
-
-    ~TabSwitch() override { stopTimer(); }
-
-    /// Minimum width required to render the two labels (Live + translated
-    /// "Curve Editor") at the standard font size (40% of @p height) without
-    /// truncating any translation, including the long ones (FR: "Editeur de
-    /// courbe", DE: "Kurveneditor", ES: "Editor de curva", JP/CN full-width).
-    /// The layout must call this and allocate at least that many pixels
-    /// horizontally - the Live/Curve tabs are critical navigation, so
-    /// widening the pill is always preferable to shrinking the label font.
-    static int getPreferredWidth (float height)
-    {
-        const float fontH = juce::jmax (9.0f, height * 0.50f);
-        // Bypass the platform font scale (createFontRaw) so the pill
-        // label visually matches the Modern/Transparent pill below the
-        // Speed/Amount knobs (which paints at the raw 40%-of-height
-        // point size).  The multiplier is 0.50 (vs the Modern pill's
-        // 0.40) so the "Live" / "Curve Editor" navigation labels are
-        // noticeably larger, as befits a primary navigation element.
-        juce::Font f = ovt::createFontRaw (fontH, true);
-        const float liveW  = juce::GlyphArrangement::getStringWidth (f, ovt::tr (ovt::Keys::kTabLive));
-        const float curveW = juce::GlyphArrangement::getStringWidth (f, ovt::tr (ovt::Keys::kTabCurveEditor));
-        // Two labels side by side, each with horizontal padding (6px each side)
-        // plus a small outer breathing room.
-        const float labelW = juce::jmax (liveW, curveW) + 12.0f;
-        return juce::roundToInt (labelW * 2.0f + 8.0f);
-    }
-
-    void paint (juce::Graphics& g) override
-    {
-        auto area = getLocalBounds().toFloat().reduced (1.0f);
-        const float radius = area.getHeight() * 0.5f;
-
-        g.setColour (ebs::bgPanel());
-        g.fillRoundedRectangle (area, radius);
-        g.setColour (ebs::text().withAlpha (0.18f));
-        g.drawRoundedRectangle (area, radius, 1.0f);
-
-        const float half = area.getWidth() * 0.5f;
-        auto leftRect  = area.withWidth (half);
-        auto rightRect = area.withTrimmedLeft (half);
-
-        // Sliding accent pill.
-        const float pillW = half - 4.0f;
-        const float pillX = leftRect.getX() + 2.0f + pillPos * half;
-        auto pillRect = juce::Rectangle<float> (pillX, area.getY() + 2.0f, pillW, area.getHeight() - 4.0f);
-        g.setColour (ebs::accent());
-        g.fillRoundedRectangle (pillRect, pillRect.getHeight() * 0.5f);
-
-        // Use ~50%-of-height font size, in the plugin typeface family.
-        // Bypass the platform font scale (createFontRaw) so the label
-        // visually matches the Modern/Transparent pill below the
-        // Speed/Amount knobs.  The multiplier is 0.50 (vs the Modern
-        // pill's 0.40) so the "Live" / "Curve Editor" navigation labels
-        // are noticeably larger, as befits a primary navigation element.
-        // The pill is allocated enough width (see getPreferredWidth() and
-        // the layout at the call site) so that even the longest translation
-        // of "Curve Editor" fits without truncation - Live/Curve Editor
-        // are critical navigation, so widening the pill beats shrinking
-        // the label.
-        const float fontH = juce::jmax (9.0f, area.getHeight() * 0.50f);
-        g.setFont (ovt::createFontRaw (fontH, true));
-
-        const juce::String liveText  = ovt::tr (ovt::Keys::kTabLive);
-        const juce::String curveText = ovt::tr (ovt::Keys::kTabCurveEditor);
-        const bool isRight = targetPillPos > 0.5f;
-        g.setColour (isRight ? ebs::text().withAlpha (0.55f) : juce::Colours::white);
-        g.drawText (liveText, leftRect, juce::Justification::centred);
-        g.setColour (isRight ? juce::Colours::white : ebs::text().withAlpha (0.55f));
-        g.drawText (curveText, rightRect, juce::Justification::centred);
-    }
-
-    void mouseUp (const juce::MouseEvent&) override
-    {
-        const int newIdx = (tabbed.getCurrentTabIndex() == 0) ? 1 : 0;
-        tabbed.setCurrentTabIndex (newIdx);
-        targetPillPos = (newIdx == 1) ? 1.0f : 0.0f;
-    }
-
-    bool hitTest (int, int) override { return true; }
-
-private:
-    void timerCallback() override
-    {
-        const float target = (tabbed.getCurrentTabIndex() == 1) ? 1.0f : 0.0f;
-        if (std::abs (target - targetPillPos) > 0.001f)
-            targetPillPos = target;
-
-        constexpr float kSmoothing = 0.18f;
-        if (std::abs (pillPos - targetPillPos) > 0.001f)
-        {
-            pillPos += (targetPillPos - pillPos) * kSmoothing;
-            repaint();
-        }
-    }
-
-    juce::TabbedComponent& tabbed;
-    float pillPos = 0.0f;
-    float targetPillPos = 0.0f;
 };
 
 const juce::Colour OpenVoxTunerAudioProcessorEditor::kBgDark     = juce::Colour::fromString("#FF121318"); // Deep background
@@ -692,26 +532,19 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     speedSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSpeed));
     amountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipAmount));
 
-    // "Advanced" expand/collapse banner for the Correction block: reveals the
+    // "Advanced" expand/collapse handle for the Correction block: reveals the
     // Flex / Humanize / Vibrato / Attack-Aware correction knobs to the right of
-    // the Speed / Amount knobs when expanded.
-    advancedButton.setLookAndFeel (&advancedButtonLF);
-    // Subtle, borderless banner: same family as the block background but a little
-    // darker; the expanded/collapsed state is shown only by the direction chevron,
-    // not by a strong colour change.
-    advancedButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel().darker (0.5f));
-    advancedButton.setColour (juce::TextButton::buttonOnColourId, ebs::bgPanel().darker (0.5f));
-    advancedButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
-    advancedButton.setColour (juce::TextButton::textColourOnId,   ebs::text());
+    // the Speed / Amount knobs when expanded. The shared strip owns the chevron
+    // direction, its hover tint and the pointing-hand cursor.
     advancedButton.setTooltip (ovt::tr (ovt::Keys::kTooltipAdvanced));
-    advancedButton.setClickingTogglesState (true);
     // Restore the persisted expand/collapse state from the processor (saved
     // across sessions in the plugin state XML).
     advancedExpanded = processorRef.getAdvancedExpanded();
-    advancedButton.setToggleState (advancedExpanded, juce::dontSendNotification);
-    advancedButton.onClick = [this]
+    advancedButton.expanded = advancedExpanded;
+    advancedButton.onToggle = [this]
     {
-        advancedExpanded = advancedButton.getToggleState();
+        advancedExpanded = ! advancedExpanded;
+        advancedButton.expanded = advancedExpanded;
         processorRef.setAdvancedExpanded (advancedExpanded);
         resized();
         repaint();  // the bottom-block frames are painted in paint(), so redraw them
@@ -876,10 +709,14 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     deessEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserEnable));
     addAndMakeVisible (deessEnableButton);
 
-    // Use Voice controls
-    useVoiceButton.setButtonText (ovt::tr(ovt::Keys::kLabelUseVoice));
-    useVoiceButton.setColour (juce::ToggleButton::textColourId, ebs::text());
-    useVoiceButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
+    // "Use Voice": the shared iOS-style sliding switch. It paints only the pill,
+    // so the caption is a separate label placed to its left in resized().
+    useVoiceLabel.setText (ovt::tr(ovt::Keys::kLabelUseVoice), juce::dontSendNotification);
+    useVoiceLabel.setColour (juce::Label::textColourId, ebs::text());
+    useVoiceLabel.setFont (ovt::fontLabelSmall());
+    addAndMakeVisible (useVoiceLabel);
+    useVoiceButton.setColour (ebs::ToggleSwitch::trackOnColourId,  ebs::accent());
+    useVoiceButton.setColour (ebs::ToggleSwitch::trackOffColourId, ebs::text().withAlpha (0.18f));
     addAndMakeVisible (useVoiceButton);
 
     shiftedVoicesBox.addItemList ({ "1", "2", "3", "4" }, 1);
@@ -1400,7 +1237,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             if (slotMatchesPreset (activeSlot))
             {
                 currentPluginPresetName = activeSlot.presetName;
-                presetComboBox.setText (activeSlot.presetName, juce::dontSendNotification);
+                presetComboBox.setText (ebs::sanitizeForShaping (activeSlot.presetName), juce::dontSendNotification);
             }
             else
             {
@@ -1661,89 +1498,56 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         addAndMakeVisible(btn);
     };
 
+    // Non-toggle toolbar icons are the shared library's IconButton: it owns the
+    // glyph, the palette-aware ink and the accent hover, so these buttons need
+    // no SVG string, no per-state drawable set and no theme restyling pass.
+    auto setupEbsIcon = [&] (ebs::IconButton& btn, const juce::String& tooltip)
+    {
+        btn.setTooltip (tooltip);
+        addAndMakeVisible (btn);
+    };
+
+    // Framed variant for icons sitting in a toolbar row: a real button
+    // affordance (body + outline), the same language as the old accent-tinted
+    // drawable backgrounds they replace.
+    auto setupFramedIcon = [&] (ebs::IconButton& btn, const juce::String& tooltip)
+    {
+        btn.setFramed (true);
+        btn.setTooltip (tooltip);
+        addAndMakeVisible (btn);
+    };
+
     // === SVG icons as full XML strings (Lucide-style, 24x24 viewBox) ===
     // Each uses stroke="#010101" as a placeholder for per-state coloring.
 
+    // The toolbar glyphs that IconButton does not carry are gone: zoom, scroll,
+    // reset, gear, hamburger, grid, save, undo / redo and the preset chevrons
+    // all come from ebs::IconButton now. These six stay for the toggle buttons
+    // below, which need a solid accent pill on their ON state (snap, grid, step,
+    // bypass, MIDI out) plus the play / stop pair.
     static const char* svgScale = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="18" r="3"/><path d="M10 18V4l11-2v15"/></svg>)";
 
     static const char* svgGrid = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>)";
 
     static const char* svgStep = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20v-5h6v-6h6V4h4"/></svg>)";
 
-    static const char* svgClear = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>)";
-
     static const char* svgPower = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/></svg>)";
-
-    static const char* svgGear = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>)";
-
-    // Zoom/scroll/reset icons (shared with the Visualizer toolbar).
-    static const char* svgZoomIn = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>)";
-    static const char* svgZoomOut = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>)";
-    static const char* svgScrollUp = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>)";
-    static const char* svgScrollDown = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>)";
-    static const char* svgResetView = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>)";
 
     // Transport (standalone only).
     static const char* svgPlay = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>)";
     static const char* svgStop = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>)";
-    // "Return to start" (rewind): a left-pointing triangle plus a vertical bar,
-    // the classic DAW skip-to-beginning glyph.
-    static const char* svgRewind = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="5" x2="6" y2="19"/><polygon points="19 5 9 12 19 19"/></svg>)";
-    // Curve Editor "Options": hamburger (3 horizontal bars) - clearly distinct
-    // from the plugin's own gear (menuButton) and icon-only (no text label).
-    static const char* svgHamburger = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>)";
-
-    // Plugin Preset selector (top banner, centred): previous / next arrows and
-    // a save (download-to-disk) icon. Distinct from the Curve Presets gallery.
-    static const char* svgPresetPrev = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>)";
-    static const char* svgPresetNext = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>)";
-    static const char* svgPresetSave = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>)";
-
-    // Global plugin Undo / Redo icons (curved-left arrows). Mirror the Curve
-    // Editor's own undo/redo buttons, but operate on the processor-wide
-    // UndoManager (every automatable parameter).
-    static const char* svgUndo = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>)";
-    static const char* svgRedo = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M20 9H9a5 5 0 0 0 0 10h4"/></svg>)";
-
-    // Preset Gallery : a 2x2 grid of rounded tiles.
-    static const char* svgPresetGrid = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>)";
 
     // Setup Toolbar Buttons
-    // Curve Editor "Options" button: icon-only hamburger, with a distinct
-    // accent-tinted background so it stands out from the neutral zoom/scroll/
-    // snap buttons in this section.
-{
-    auto optsNormal = createDrawableSVG (svgHamburger, ebs::text());
-    auto optsOver   = createDrawableSVG (svgHamburger, ebs::accent());
-    auto optsDown   = createDrawableSVG (svgHamburger, ebs::accent());;
-    optionsButton.setImages (optsNormal.get(), optsOver.get(), optsDown.get());
-    iconSkins.push_back ({ &optionsButton, svgHamburger });
-    optionsButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
-    optionsButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
-    optionsButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
-    optionsButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
-    addAndMakeVisible (optionsButton);
-
+    // Curve Editor "Options" and Preset Gallery: framed icon buttons from the
+    // shared library. Framed mode gives them the pressable affordance the old
+    // accent-tinted drawable background provided, and the glyph ink stays
+    // palette-aware without a restyling pass.
+    setupFramedIcon (optionsButton, ovt::tr(ovt::Keys::kTooltipCurveOptions));
     optionsButton.onClick = [this] { showCurveOptionsMenu(); };
-    optionsButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCurveOptions));
 
     // Preset Gallery toolbar button: icon-only grid, opens the browsable gallery.
-    {
-        auto galNormal = createDrawableSVG (svgPresetGrid, ebs::text());
-        auto galOver   = createDrawableSVG (svgPresetGrid, ebs::accent());
-        auto galDown   = createDrawableSVG (svgPresetGrid, ebs::accent());;
-        presetGalleryButton.setImages (galNormal.get(), galOver.get(), galDown.get());
-        iconSkins.push_back ({ &presetGalleryButton, svgPresetGrid, nullptr, false });
-        presetGalleryButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
-        presetGalleryButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
-        presetGalleryButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
-        presetGalleryButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
-        addAndMakeVisible (presetGalleryButton);
-
-        presetGalleryButton.onClick = [this] { showPresetGallery(); };
-        presetGalleryButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPresetGallery));
-    }
-}
+    setupFramedIcon (presetGalleryButton, ovt::tr(ovt::Keys::kTooltipPresetGallery));
+    presetGalleryButton.onClick = [this] { showPresetGallery(); };
 
     setupIconButton(snapButton, svgScale, true, "Snap to scale");
     snapButton.setToggleState(true, juce::dontSendNotification);
@@ -1767,19 +1571,19 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     stepModeButton.setTooltip(ovt::tr(ovt::Keys::kTooltipStepMode));
 
     // Curve Editor view controls (mirror the Visualizer toolbar: zoom / scroll / reset).
-    setupIconButton(zoomInButton, svgZoomIn, false, ovt::tr(ovt::Keys::kTooltipZoomIn));
+    setupEbsIcon (zoomInButton, ovt::tr(ovt::Keys::kTooltipZoomIn));
     zoomInButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->zoomIn(); };
 
-    setupIconButton(zoomOutButton, svgZoomOut, false, ovt::tr(ovt::Keys::kTooltipZoomOut));
+    setupEbsIcon (zoomOutButton, ovt::tr(ovt::Keys::kTooltipZoomOut));
     zoomOutButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->zoomOut(); };
 
-    setupIconButton(scrollUpButton, svgScrollUp, false, ovt::tr(ovt::Keys::kTooltipScrollUp));
+    setupEbsIcon (scrollUpButton, ovt::tr(ovt::Keys::kTooltipScrollUp));
     scrollUpButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->scrollUp(); };
 
-    setupIconButton(scrollDownButton, svgScrollDown, false, ovt::tr(ovt::Keys::kTooltipScrollDown));
+    setupEbsIcon (scrollDownButton, ovt::tr(ovt::Keys::kTooltipScrollDown));
     scrollDownButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->scrollDown(); };
 
-    setupIconButton(resetViewButton, svgResetView, false, ovt::tr(ovt::Keys::kTooltipResetView));
+    setupEbsIcon (resetViewButton, ovt::tr(ovt::Keys::kTooltipResetView));
     resetViewButton.onClick = [this] { if (curveEditor != nullptr) curveEditor->resetView(); };
 
     // "Measures" control: number of measures shown in the curve editor time window.
@@ -1805,54 +1609,23 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     addAndMakeVisible (measuresComboBox);
 
     // === Global plugin Undo/Redo buttons (Option 1) ===
-    // Icon-only DrawableButtons (curved-arrow glyphs) that operate on the
+    // Icon-only glyphs from the shared library, operating on the
     // processor-wide UndoManager (every automatable parameter). Wired to
     // performGlobalUndo() / performGlobalRedo(); the keyboard shortcuts
     // Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z do the same (see keyPressed()).
     // They sit in the header between button B and the Options gear.
-    {
-        auto undoNorm = createDrawableSVG (svgUndo, ebs::text().withAlpha (0.75f));
-        auto undoOver = createDrawableSVG (svgUndo, ebs::accent());
-        auto undoDown = createDrawableSVG (svgUndo, ebs::accent());;
-        undoButton.setImages (undoNorm.get(), undoOver.get(), undoDown.get());
-        iconSkins.push_back ({ &undoButton, svgUndo });
-        undoButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        undoButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
-        undoButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
-        undoButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
-        undoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipUndo));
-        undoButton.onClick = [this] { performGlobalUndo(); };
-        addAndMakeVisible (undoButton);
+    setupEbsIcon (undoButton, ovt::tr(ovt::Keys::kTooltipUndo));
+    undoButton.onClick = [this] { performGlobalUndo(); };
 
-        auto redoNorm = createDrawableSVG (svgRedo, ebs::text().withAlpha (0.75f));
-        auto redoOver = createDrawableSVG (svgRedo, ebs::accent());
-        auto redoDown = createDrawableSVG (svgRedo, ebs::accent());;
-        redoButton.setImages (redoNorm.get(), redoOver.get(), redoDown.get());
-        iconSkins.push_back ({ &redoButton, svgRedo });
-        redoButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        redoButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
-        redoButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
-        redoButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
-        redoButton.setTooltip (ovt::tr(ovt::Keys::kTooltipRedo));
-        redoButton.onClick = [this] { performGlobalRedo(); };
-        addAndMakeVisible (redoButton);
-    }
+    setupEbsIcon (redoButton, ovt::tr(ovt::Keys::kTooltipRedo));
+    redoButton.onClick = [this] { performGlobalRedo(); };
 
     // === Plugin Preset selector (separate from Curve Presets) ===
     // Centred in the top banner: [<] [Combo: name] [>] [save]. Mirrors the
     // standard plugin-preset bar. Applies the full parameter state (no
     // curve) via the processor's global-undo-aware apply.
     {
-        auto prevNorm = createDrawableSVG (svgPresetPrev, ebs::text().withAlpha (0.75f));
-        auto prevOver = createDrawableSVG (svgPresetPrev, ebs::accent());
-        auto prevDown = createDrawableSVG (svgPresetPrev, ebs::accent());;
-        presetPrevButton.setImages (prevNorm.get(), prevOver.get(), prevDown.get());
-        iconSkins.push_back ({ &presetPrevButton, svgPresetPrev });
-        presetPrevButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        presetPrevButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
-        presetPrevButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
-        presetPrevButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
-        presetPrevButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPluginPresetPrev));
+        setupEbsIcon (presetPrevButton, ovt::tr(ovt::Keys::kTooltipPluginPresetPrev));
         presetPrevButton.onClick = [this] {
             const int idx = pluginPresetNames.indexOf (currentPluginPresetName);
             const int n = pluginPresetNames.size();
@@ -1860,18 +1633,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             const int prev = (idx <= 0) ? n - 1 : idx - 1;
             applyPluginPresetByName (pluginPresetNames[prev]);
         };
-        addAndMakeVisible (presetPrevButton);
 
-        auto nextNorm = createDrawableSVG (svgPresetNext, ebs::text().withAlpha (0.75f));
-        auto nextOver = createDrawableSVG (svgPresetNext, ebs::accent());
-        auto nextDown = createDrawableSVG (svgPresetNext, ebs::accent());;
-        presetNextButton.setImages (nextNorm.get(), nextOver.get(), nextDown.get());
-        iconSkins.push_back ({ &presetNextButton, svgPresetNext });
-        presetNextButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        presetNextButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
-        presetNextButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
-        presetNextButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
-        presetNextButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPluginPresetNext));
+        setupEbsIcon (presetNextButton, ovt::tr(ovt::Keys::kTooltipPluginPresetNext));
         presetNextButton.onClick = [this] {
             const int idx = pluginPresetNames.indexOf (currentPluginPresetName);
             const int n = pluginPresetNames.size();
@@ -1879,20 +1642,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             const int next = (idx < 0 || idx >= n - 1) ? 0 : idx + 1;
             applyPluginPresetByName (pluginPresetNames[next]);
         };
-        addAndMakeVisible (presetNextButton);
 
-        auto saveNorm = createDrawableSVG (svgPresetSave, ebs::text().withAlpha (0.75f));
-        auto saveOver = createDrawableSVG (svgPresetSave, ebs::accent());
-        auto saveDown = createDrawableSVG (svgPresetSave, ebs::accent());;
-        presetSaveButton.setImages (saveNorm.get(), saveOver.get(), saveDown.get());
-        iconSkins.push_back ({ &presetSaveButton, svgPresetSave });
-        presetSaveButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        presetSaveButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.2f));
-        presetSaveButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
-        presetSaveButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
-        presetSaveButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPluginPresetSave));
+        setupEbsIcon (presetSaveButton, ovt::tr(ovt::Keys::kTooltipPluginPresetSave));
         presetSaveButton.onClick = [this] { promptSavePluginPreset(); };
-        addAndMakeVisible (presetSaveButton);
 
         presetComboBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgDark());
         presetComboBox.setColour (juce::ComboBox::textColourId, ebs::text());
@@ -1940,7 +1692,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         addAndMakeVisible (playButton);
     }
 
-    setupIconButton(rewindButton, svgRewind, false, ovt::tr(ovt::Keys::kTooltipRewind));
+    setupEbsIcon (rewindButton, ovt::tr(ovt::Keys::kTooltipRewind));
     rewindButton.onClick = [this] {
         processorRef.resetTransportTime();
         if (curveEditor != nullptr)
@@ -1959,7 +1711,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     addAndMakeVisible (midiOutButton);
 
     // Menu button (gear icon for options)
-    setupIconButton (menuButton, svgGear, false, "OpenVoxTuner options");
+    setupEbsIcon (menuButton, "OpenVoxTuner options");
 
     // Toggle buttons with text (attached to parameters)
     // Bypass lives only in the Advanced menu now (direct parameter write);
@@ -2042,8 +1794,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                 // Attach the button to the debug parameter so the host will propagate the change
                 testGrainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(proc.getParameters(), "dbg_test_grain", testGrainButton);
 
-                midiLog.setMultiLine(true);
-                midiLog.setReadOnly(true);
+                // The shared read-only log view: CodeDocument-backed, keeps a text
+                // selection (Ctrl+C), and knows where the reader is looking.
                 addAndMakeVisible(midiLog);
 
                 startTimerHz (10);
@@ -2068,14 +1820,23 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             }
             void timerCallback() override
             {
-                // update midi log
-                juce::String s;
+                // Rebuild the midi snapshot. The view is refreshed ONLY when the
+                // text changed, so a reader scrolled up is never yanked back at 10 Hz.
+                std::vector<juce::String> lines;
                 for (int ch = 1; ch <= 9; ++ch)
                 {
-                    int note = proc.getLastSentMidiNoteForChannel(ch);
-                    if (note >= 0) s += "Ch" + juce::String(ch) + ":" + juce::String(note) + "\n";
+                    const int note = proc.getLastSentMidiNoteForChannel(ch);
+                    if (note >= 0)
+                        lines.push_back ("Ch" + juce::String(ch) + ":" + juce::String(note));
                 }
-                midiLog.setText(s, juce::dontSendNotification);
+                juce::String joined;
+                for (const auto& l : lines)
+                    joined << l << "\n";
+                if (joined != lastMidiSnapshot)
+                {
+                    lastMidiSnapshot = joined;
+                    midiLog.reset (lines);
+                }
             }
         private:
             OpenVoxTunerAudioProcessor& proc;
@@ -2085,7 +1846,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             juce::TextButton dumpButton;
             juce::TextButton testGrainButton;
             std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> testGrainAttachment;
-            juce::TextEditor midiLog;
+            ebs::LogView midiLog;
+            juce::String lastMidiSnapshot;   // so the view is rebuilt only on change
         };
 
         w->setContentOwned (new DebugContent (processorRef), true);
@@ -2399,9 +2161,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     tabbedComponent.setColour (juce::TabbedComponent::backgroundColourId, ebs::bgDark());
     tabbedComponent.setColour (juce::TabbedComponent::outlineColourId, ebs::accentSoft());
 
-    // Replace the standard tab bar with an iPhone-style animated pill switch.
-    tabbedComponent.getTabbedButtonBar().setVisible (false);
-    tabSwitch = std::make_unique<TabSwitch> (tabbedComponent);
+    // Replace the standard tab bar with the shared animated pill switch.
+    tabbedComponent.getTabbedButtonBar().setVisible(false);
+    tabSwitch = std::make_unique<ebs::PillTabSwitch> (tabbedComponent);
     addAndMakeVisible (*tabSwitch);
 
     // Initialize piano keyboards with chromatic intervals so they display
@@ -2851,22 +2613,18 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto tabBounds = tabbedComponent.getBounds();
     auto toolsArea = tabBounds.removeFromTop(30).reduced(2, 4); // height is 22
 
-    // iPhone-style Live / Curve Editor tab switch, placed on the left of the
-    // toolbar row instead of the old JUCE TabbedButtonBar. Same height as the
-    // Modern/Transparent switch below the Speed/Amount knobs.
+    // Live / Curve Editor tab switch, placed on the left of the toolbar row:
+    // the shared eiffelbs-ui pill. It measures its own labels (the tab names
+    // are already translated), so it asks for the width they need instead of
+    // the editor guessing it. Same height as the Modern/Transparent switch.
     if (tabSwitch != nullptr)
     {
         const int switchH = 30;
-        // Width is computed from the translated labels so the longest
-        // translation of "Curve Editor" (FR "Editeur de courbe",
-        // DE "Kurveneditor", ES "Editor de curva", JP/CN full-width)
-        // never gets truncated - the Live/Curve tabs are critical
-        // navigation, so we widen the pill rather than shrink the font.
-        const int switchW = TabSwitch::getPreferredWidth (static_cast<float> (switchH));
-        auto switchRect = toolsArea.removeFromLeft (switchW);
-        switchRect = switchRect.withSizeKeepingCentre (switchW, switchH);
+        const int switchW = tabSwitch->preferredWidth();
+        auto switchRect = toolsArea.removeFromLeft(switchW);
+        switchRect = switchRect.withSizeKeepingCentre(switchW, switchH);
         tabSwitch->setBounds (switchRect);
-        toolsArea.removeFromLeft (6); // gap
+        toolsArea.removeFromLeft(6); // gap
     }
 
     int iconSize = toolsArea.getHeight(); // 22
@@ -3162,7 +2920,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         harmonyTypeBox.setBounds (leftCol.removeFromTop(26));
 
         auto uvRow = leftCol.removeFromTop(22);
-        useVoiceButton.setBounds (uvRow.removeFromLeft(120).reduced(2));
+        // Caption first, then the pill: the switch is sized to its own sweet spot.
+        const int uvLabelW = useVoiceLabel.getFont().getStringWidth (useVoiceLabel.getText()) + 4;
+        useVoiceLabel.setBounds (uvRow.removeFromLeft (uvLabelW).reduced (0, 3));
+        useVoiceButton.setBounds (uvRow.removeFromLeft (44));
         harmonyToneColorLabel.setBounds (uvRow.removeFromRight(34));
 
         auto selectorRow = leftCol.removeFromTop(28);
@@ -4256,14 +4017,6 @@ void OpenVoxTunerAudioProcessorEditor::showMorphContextMenu()
     menu.showMenuAsync (juce::PopupMenu::Options());
 }
 
-void OpenVoxTunerAudioProcessorEditor::refreshDrawableButtonIcons()
-{
-    // The DrawableButton colour IDs are already re-applied in
-    // applyThemeToAllComponents(). This method is a hook for
-    // future SVG icon recreation if needed.
-    applyThemeToAllComponents();
-}
-
 bool OpenVoxTunerAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
 {
     // Global plugin Undo/Redo (Option 1): Ctrl/Cmd+Z = undo,
@@ -4523,8 +4276,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
             voiceTypeBox.setSelectedItemIndex (juce::jmin (currentVoiceType, 5), juce::dontSendNotification);
     }
 
-    // Update "Use Voice" toggle button text
-    useVoiceButton.setButtonText (ovt::tr (ovt::Keys::kLabelUseVoice));
+    // Update "Use Voice" switch caption
+    useVoiceLabel.setText (ovt::tr (ovt::Keys::kLabelUseVoice), juce::dontSendNotification);
 
     // Update button text
     updateButton.setButtonText (ovt::tr(ovt::Keys::kLabelUpdates));
@@ -5146,8 +4899,15 @@ void OpenVoxTunerAudioProcessorEditor::refreshPluginPresetList()
     if (! pluginPresetNames.contains ("User"))
         pluginPresetNames.add ("User");
 
+    // The combo shows user file names, which are an untrusted edge: harden them
+    // for the text shaper. The lookup key stays the RAW name, so preset matching
+    // is never affected by the display form.
+    juce::StringArray displayNames;
+    for (const auto& n : pluginPresetNames)
+        displayNames.add (ebs::sanitizeForShaping (n));
+
     presetComboBox.clear();
-    presetComboBox.addItemList (pluginPresetNames, 1);
+    presetComboBox.addItemList (displayNames, 1);
 }
 
 void OpenVoxTunerAudioProcessorEditor::applyPluginPresetByName (const juce::String& name)
@@ -5161,7 +4921,7 @@ void OpenVoxTunerAudioProcessorEditor::applyPluginPresetByName (const juce::Stri
 
     processorRef.applyPluginPresetState (state);
     currentPluginPresetName = name;
-    presetComboBox.setText (name, juce::dontSendNotification);
+    presetComboBox.setText (ebs::sanitizeForShaping (name), juce::dontSendNotification);
 
     // Record the assigned preset on the active A/B slot so that switching
     // slots later can show the preset name (or "User" if it was edited).
@@ -5295,7 +5055,7 @@ void OpenVoxTunerAudioProcessorEditor::promptSavePluginPreset()
                 writePluginPresetFile (name, file);
                 refreshPluginPresetList();
                 currentPluginPresetName = name;
-                presetComboBox.setText (name, juce::dontSendNotification);
+                presetComboBox.setText (ebs::sanitizeForShaping (name), juce::dontSendNotification);
             });
             return;
         }
@@ -5303,7 +5063,7 @@ void OpenVoxTunerAudioProcessorEditor::promptSavePluginPreset()
         writePluginPresetFile (name, file);
         refreshPluginPresetList();
         currentPluginPresetName = name;
-        presetComboBox.setText (name, juce::dontSendNotification);
+        presetComboBox.setText (ebs::sanitizeForShaping (name), juce::dontSendNotification);
     }), true);
 }
 
@@ -5805,7 +5565,11 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     };
     applyToggleColours (harmonyEnableButton);
     applyToggleColours (harmonyFollowLeadButton);
-    applyToggleColours (useVoiceButton);
+    // The shared switch keeps its track tokens live: re-apply them, and the
+    // caption label too.
+    useVoiceLabel.setColour (juce::Label::textColourId, ebs::text());
+    useVoiceButton.setColour (ebs::ToggleSwitch::trackOnColourId,  ebs::accent());
+    useVoiceButton.setColour (ebs::ToggleSwitch::trackOffColourId, ebs::text().withAlpha (0.18f));
     applyToggleColours (formantEnableButton);
     applyToggleColours (reverbEnableButton);
     applyToggleColours (noiseGateEnableButton);
@@ -5814,11 +5578,9 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     // Re-apply to other buttons
     updateButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel());
     updateButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
-    // "Advanced" correction-block expander: live tokens were correct at
-    // construction but went stale on later switches - re-apply them too.
-    advancedButton.setColour (juce::TextButton::buttonColourId,   ebs::bgPanel().darker (0.5f));
-    advancedButton.setColour (juce::TextButton::buttonOnColourId, ebs::bgPanel().darker (0.5f));
-    advancedButton.setColour (juce::TextButton::textColourOffId,  ebs::text());
+    // "Advanced" correction-block expander: the shared strip reads palette
+    // tokens inside its own paint, so a repaint is all a theme switch needs.
+    advancedButton.repaint();
     // A/B slots read palette tokens directly inside their custom paint;
     // a repaint keeps them current after a theme switch.
     buttonA.repaint();
@@ -5832,13 +5594,14 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     buttonB.setColour (juce::TextButton::buttonColourId,  ebs::bgPanel());
     buttonB.setColour (juce::TextButton::textColourOffId, ebs::text());
 
-    // Re-apply to the Curve Editor "Options" button: keep its distinct
-    // accent-tinted background and bright icon (it is a DrawableButton, not a
-    // TextButton like the other re-applied buttons above).
-    optionsButton.setColour (juce::DrawableButton::backgroundColourId, ebs::accent().withAlpha (0.22f));
-    optionsButton.setColour (juce::DrawableButton::backgroundOnColourId, ebs::accent().withAlpha (0.4f));
-    optionsButton.setColour (juce::DrawableButton::textColourId, juce::Colours::white);
-    optionsButton.setColour (juce::DrawableButton::textColourOnId, juce::Colours::white);
+    // Re-apply to the Curve Editor "Options" and Preset Gallery buttons: framed
+    // icon buttons keep their accent-tinted body and bright glyph under both themes.
+    for (auto* b : { &optionsButton, &presetGalleryButton })
+    {
+        b->setFramed (true);
+        b->setColour (ebs::IconButton::iconColourId, juce::Colours::white);
+        b->setColour (ebs::IconButton::frameFillColourId, ebs::accent().withAlpha (0.22f));
+    }
 
     // Re-apply DrawableButton colours (background and text)
     auto applyDrawableBtnColours = [] (juce::DrawableButton& btn) {
@@ -5849,11 +5612,6 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyDrawableBtnColours (snapButton);
     applyDrawableBtnColours (snapGridButton);
     applyDrawableBtnColours (stepModeButton);
-    applyDrawableBtnColours (zoomInButton);
-    applyDrawableBtnColours (zoomOutButton);
-    applyDrawableBtnColours (scrollUpButton);
-    applyDrawableBtnColours (scrollDownButton);
-    applyDrawableBtnColours (resetViewButton);
 
     // Re-apply to tabbed component
     tabbedComponent.setColour (juce::TabbedComponent::backgroundColourId, ebs::bgDark());
