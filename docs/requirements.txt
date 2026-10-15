@@ -1,6 +1,9 @@
-mkdocs-material>=9.5.0
+# Floors set at the first release that closes each published advisory:
+# mkdocs-material 9.7.7 (GHSA-xvg9-69gf-fjrf, DOM XSS in search suggestions),
+# pymdown-extensions 11.0.1 (GHSA-9xwg-3r6f-jcx2 path traversal, GHSA-gm37-52c6-37mw ReDoS).
+mkdocs-material>=9.7.7
 mkdocs-minify-plugin>=0.8.0
 mkdocs-git-revision-date-localized-plugin>=1.2.0
 mkdocs-git-committers-plugin-2>=0.6.0
 mkdocs-awesome-pages-plugin>=2.9.0
-pymdown-extensions>=10.6
+pymdown-extensions>=11.0.1

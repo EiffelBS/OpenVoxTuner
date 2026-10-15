@@ -560,3 +560,23 @@ The band had three ways to move — wheel pan, touch drag and the cue chevrons �
 - The strip is an affordance, not a new mechanism: it drives the same eased scroll target as the wheel, the drag and the chevrons.
 - No tooltip on the strip yet; `scrollTrack()` is public so the host can add one.
 - Runtime checks owed to real clicks: drag the thumb, press in the trough, wheel over a knob changes the knob and does not pan.
+
+## Maintenance — Dependabot advisory sweep (pip floors, Actions pin, npm audit fix)
+
+### Context
+- The push of `dev` reported 10 Dependabot alerts on the default branch (2 critical, 5 high, 3 moderate). A full local scan (`npm audit`, plus the OSV API for PyPI and GitHub Actions) found 40 distinct advisories over 21 npm packages, 6 over 2 pip packages, and 1 in GitHub Actions.
+- The site is a static marketing build, so the one critical advisory matters: GHSA-26w7-cxv4-gfx2, remote code execution through the AVIF image optimizer, whose only fix is Astro 7.4.0 — a semver-major migration, deliberately not taken in this pass.
+
+### Changes
+- `docs/requirements.txt`: floors raised to `mkdocs-material>=9.7.7` (GHSA-xvg9-69gf-fjrf, DOM XSS in search suggestions) and `pymdown-extensions>=11.0.1` (GHSA-9xwg-3r6f-jcx2 path traversal, GHSA-gm37-52c6-37mw ReDoS). The unpinned ranges are what Dependabot was reading.
+- `.github/workflows/release.yml`: `actions/download-artifact` pinned from the floating `@v4` to `@v4.3.0`, the patched line for GHSA-cxww-7g56-2vh6 (CVE-2024-42471, zip-slip while extracting an artifact).
+- `site/package-lock.json`: `npm audit fix` applied — non-breaking transitive bumps only (devalue, nanoid, http-cache-semantics, js-yaml, source-map-js, sprintf-js, argparse, postcss-nested).
+
+### Tests
+- Site build green after the lockfile change: `npm run build`, 6 pages in 2.72 s.
+- Docs build green with the pinned set in a fresh venv: mkdocs-material 9.7.7, pymdown-extensions 12.3, every plugin resolved together, `mkdocs build` exit 0 (one pre-existing missing-link warning under `docs/archive/`, unrelated to this change).
+- `npm audit` after the fix: 20 findings (1 critical, 9 high, 10 moderate). Everything left is gated on the Astro major.
+
+### Notes
+- Four packages have no published fix on their current major: `@astrojs/tailwind`, `tailwindcss` (the fix line is Tailwind 4), `chokidar`, `postcss-selector-parser`.
+- Astro 4 to 7 also forces Node 20 to 22 in `deploy-site.yml` and retires `@astrojs/tailwind`; that is a project, not a bump.

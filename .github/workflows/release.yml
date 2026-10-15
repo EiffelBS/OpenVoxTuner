@@ -225,20 +225,23 @@ jobs:
           fetch-tags: true
           clean: false
 
+      # Pinned to an exact patched release: GHSA-cxww-7g56-2vh6 (CVE-2024-42471,
+      # zip-slip on artifact extraction) is fixed in 4.1.3, and a floating @v4
+      # ref lets Dependabot report the range instead of the resolved commit.
       - name: Download Windows installer artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.3.0
         with:
           name: OpenVoxTuner-Windows-Installer
           path: release-assets
 
       - name: Download macOS artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.3.0
         with:
           name: OpenVoxTuner-macOS
           path: release-assets
 
       - name: Download macOS installer artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.3.0
         with:
           name: OpenVoxTuner-macOS-Pkg
           path: release-assets
