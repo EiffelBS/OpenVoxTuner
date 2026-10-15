@@ -13,6 +13,16 @@
 #include "ovt_assets_binary_data.h"
 #include <map>
 
+// The standalone wrapper owns the audio/MIDI device dialog. Its header lives in the
+// juce_audio_plugin_client module, which is already on the include path. Only the standalone
+// build has a live StandalonePluginHolder instance, so the include and the call are both
+// guarded: compiling this into the VST3 target would drag the whole wrapper class into the
+// plugin binary for nothing.
+#if JUCE_STANDALONE_APPLICATION
+ #include <juce_audio_utils/juce_audio_utils.h>   // AudioDeviceManager / AudioProcessorPlayer, declared by the wrapper header
+ #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
+#endif
+
 // Cached vector logo (assets/icon.svg embedded as a binary resource). Parsed
 // once and reused so we don't re-parse the SVG on every repaint.
 static juce::Drawable* getBrandLogo()
@@ -1062,6 +1072,20 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
             // Formant Mode and Pitch Detection are hidden for now - may be
             // re-enabled later when additional modes become available.
+
+            // Audio/MIDI setup (standalone only): the system title bar removed the JUCE-drawn
+            // caption that used to carry the device settings button, so the dialog is opened
+            // from here. JUCE owns the dialog through its standalone holder.
+            if (isStandalone)
+            {
+                advancedMenu.addItem (ovt::tr(ovt::Keys::kMenuAudioMidiSetup), [this]
+                {
+                   #if JUCE_STANDALONE_APPLICATION
+                    if (auto* holder = juce::StandalonePluginHolder::getInstance())
+                        holder->showAudioSettingsDialog();
+                   #endif
+                });
+            }
 
             // MIDI Learn (standalone only)
             if (isStandalone)
@@ -2163,6 +2187,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Replace the standard tab bar with the shared animated pill switch.
     tabbedComponent.getTabbedButtonBar().setVisible(false);
+
+    // The pill switch replaces the visible tab bar, and hiding the bar does NOT shrink the
+    // strip it reserves: with the default depth of 30 the canvas starts 30 px below the top of
+    // the component, so a taller toolbar band overlapped it. Zero depth makes the content fill
+    // the whole bounds, which is what the band-above-viewport layout assumes.
+    tabbedComponent.setTabBarDepth (0);
     tabSwitch = std::make_unique<ebs::PillTabSwitch> (tabbedComponent);
     addAndMakeVisible (*tabSwitch);
 
@@ -2614,17 +2644,23 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // revealed to the SIDE via the "Advanced" banner, so we keep the bottom
     // strip compact.
     auto centerArea = bounds.removeFromTop (bounds.getHeight() - 190);
-    auto tabArea = centerArea.reduced (pad);
-    // Reduce the gap between the title banner and the Live/Curve Editor tabs.
-    tabArea.setY (centerArea.getY() + 4);
-    // The viewport sits as close to the top of the frames as the frames sit to the
-    // window edge: one pad gap above the frame row, the same gap below it.
+
+    // Toolbar band: the pill and the icon row sit ABOVE the tab viewport, not inside it. The
+    // hidden tab bar used to reserve 30 px at the top of the tabbed component, so a taller
+    // pill overlapped the canvas; the depth is zeroed in the constructor, so the content fills
+    // the whole bounds and the band can be a strip taken off centerArea.
+    const int bandH   = 44;   // pill row: a taller pill gives the labels their air
+    const int bandGap = 6;    // minimal spacing between the pill and the viewport
+    auto bandArea = centerArea.removeFromTop (bandH + bandGap);
+    auto tabArea  = centerArea.reduced (pad);
+    tabArea.setY (bandArea.getBottom());
+    // The viewport sits as close to the top of the frames as the frames sit to the window
+    // edge: the same pad gap below the frame row.
     tabArea.setBottom (centerArea.getBottom());
     tabbedComponent.setBounds (tabArea);
     
-    // Graphic Mode specific tools aligned over the tab bar row.
-    auto tabBounds = tabbedComponent.getBounds();
-    auto toolsArea = tabBounds.removeFromTop(44).reduced(2, 4); // band 44 -> row 40, icons stay 22
+    // Graphic Mode specific tools aligned over the toolbar band.
+    auto toolsArea = bandArea.reduced (pad, 4); // pill centred in the band, icons stay 22 px
 
     // Live / Curve Editor tab switch, placed on the left of the toolbar row:
     // the shared eiffelbs-ui pill. It measures its own labels (the tab names

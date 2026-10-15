@@ -55,6 +55,7 @@ namespace ovt
         static const char* kMenuResetDefault   = "menu.reset_default";
         static const char* kMenuBypass         = "menu.bypass";
         static const char* kMenuExportImage    = "menu.export_image";
+        static const char* kMenuAudioMidiSetup = "menu.audio_midi_setup";
         static const char* kMenuInterface     = "menu.interface";
         static const char* kMenuAdvanced      = "menu.advanced";
         static const char* kMenuLowLatency     = "menu.low_latency";
@@ -423,6 +424,7 @@ namespace ovt
             { kMenuExportImage,    "Export as Image..." },
             { kMenuInterface,     "Interface" },
             { kMenuAdvanced,      "Advanced" },
+            { kMenuAudioMidiSetup, "Audio/MIDI setup" },
             { kMenuLowLatency,     "Low Latency" },
             { kMenuQuality,        "Quality" },
             { kMenuSafe,           "Safe" },
@@ -758,6 +760,7 @@ namespace ovt
             { kMenuExportImage,    "Exporter en image..." },
             { kMenuInterface,     "Interface" },
             { kMenuAdvanced,      "Avanc\u00e9" },
+            { kMenuAudioMidiSetup, "R\u00e9glages Audio/MIDI" },
             { kMenuLowLatency,     "Basse latence" },
             { kMenuQuality,        "Qualite" },
             { kMenuSafe,           "Securise" },
@@ -1088,6 +1091,7 @@ namespace ovt
             { kMenuExportImage,    "Als Bild exportieren..." },
             { kMenuInterface,     "Schnittstelle" },
             { kMenuAdvanced,      "Erweitert" },
+            { kMenuAudioMidiSetup, "Audio-/MIDI-Einstellungen" },
             { kMenuLowLatency,     "Niedrige Latenz" },
             { kMenuQuality,        "Qualitaet" },
             { kMenuSafe,           "Sicher" },
@@ -1418,6 +1422,7 @@ namespace ovt
             { kMenuExportImage,    "Exportar como imagen..." },
             { kMenuInterface,     "Interfaz" },
             { kMenuAdvanced,      "Avanzado" },
+            { kMenuAudioMidiSetup, "Ajustes de audio/MIDI" },
             { kMenuLowLatency,     "Baja latencia" },
             { kMenuQuality,        "Calidad" },
             { kMenuSafe,           "Seguro" },
@@ -1748,6 +1753,7 @@ namespace ovt
             { kMenuExportImage,    "画像としてエクスポート..." },
             { kMenuInterface,     "\u30a4\u30f3\u30bf\u30fc\u30d5\u30a7\u30fc\u30b9" },
             { kMenuAdvanced,      "\u8a73\u7d30\u8a2d\u5b9a" },
+            { kMenuAudioMidiSetup, "\u30aa\u30c7\u30a3\u30aa/MIDI\u8a2d\u5b9a" },
             { kMenuLowLatency,     "低レイテンシ" },
             { kMenuQuality,        "クオリティ" },
             { kMenuSafe,           "セーフ" },
@@ -2075,6 +2081,7 @@ namespace ovt
             { kMenuExportImage,    "导出为图片..." },
             { kMenuInterface,     "\u754c\u9762" },
             { kMenuAdvanced,      "\u9ad8\u7ea7" },
+            { kMenuAudioMidiSetup, "\u97f3\u9891/MIDI \u8bbe\u7f6e" },
             { kMenuLowLatency,     "低延迟" },
             { kMenuQuality,        "质量" },
             { kMenuSafe,           "安全" },

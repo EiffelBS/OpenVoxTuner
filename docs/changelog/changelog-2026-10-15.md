@@ -313,3 +313,41 @@ system title bar is now the house norm across the projects under development.
 - The gallery window caption is native now; seeing it needs a click on the gallery icon,
   and synthetic input is blocked on this machine, so that surface is verified by compile
   + review only.
+## UI polish — pill lifted above the viewport, Audio/MIDI setup in the Advanced menu
+
+### Context
+The band-above-viewport layout of the previous pass did not land: the pill still overlapped
+the tab canvas. The reason is a JUCE detail — hiding the tab bar with `setVisible(false)`
+does not shrink the strip it reserves, so the canvas kept starting 30 px below the top of
+`tabbedComponent`, inside the band. The system title bar also removed the standalone's
+built-in "Options" button, which was the only way to reach the audio device and MIDI setup
+dialog, so that entry needed a home in the plugin's own menu.
+
+### Changes
+- **`tabbedComponent.setTabBarDepth (0)`** (constructor, right after the bar is hidden):
+  `setTabBarDepth` is public and calls `resized()`, so zeroing it makes the content fill the
+  whole component bounds. That is what lets the band be a strip taken off `centerArea` above
+  the tab area, with `tabArea.setY (bandArea.getBottom())` — canvas top on band bottom.
+- **Band geometry**: `bandH = 44`, `bandGap = 6`; the pill (40 px) is centred in the band, so
+  it sits directly under the logo banner and the viewport starts below it with a minimal gap.
+- **Advanced menu, standalone only**: new item "Audio/MIDI setup" opens
+  `juce::StandalonePluginHolder::getInstance()->showAudioSettingsDialog()`, the same dialog
+  JUCE's own caption button used to reach. Guarded by `#if JUCE_STANDALONE_APPLICATION` so the
+  VST3 binary never compiles the wrapper class; the include needs `juce_audio_utils` first,
+  because the wrapper header declares `AudioDeviceManager` and `AudioIODeviceCallback`.
+- **i18n**: key `menu.audio_midi_setup` added to `ovt::Keys` with all six locales (en, fr, de,
+  es, ja, zh).
+
+### Tests
+- Full tree rebuilt in Release: **0 errors**, exit 0. The first attempt failed with 130
+  cascading errors in `juce_StandaloneFilterWindow.h` (base class not defined,
+  `AudioDeviceManager` not a namespace) until the module include was added.
+- `OpenVoxTunerTests`: rebuilt and run — **136 OK / 0 FAILED**, exit 0.
+- Standalone captured at `.dbg/ui_check_swaps.png` (1116x639, `PrintWindow` flag 2, PID 131168)
+  and read pixel by pixel: pill badge spans y 86..125 (40 px pill, 32 px accent badge), canvas
+  fill starts at y 131 → **6 px gap** between pill bottom and viewport; the bottom margins are
+  unchanged (canvas bottom → frame top 10 px, frame bottom → window edge 9–10 px).
+
+### Notes
+- The Audio/MIDI dialog opens on a click, so it is verified by compile + code review here;
+  the author confirms it in his session.
