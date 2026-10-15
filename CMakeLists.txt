@@ -73,11 +73,14 @@ add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 # Offline builds can point at a local checkout instead of GitHub:
 #   cmake -B build -DFETCHCONTENT_SOURCE_DIR_EIFFELBS-UI=<checkout>
 # (DASH spelled exactly like this - this name keeps its hyphen.)
+# The override lives in the local CMake cache, so it OUTRANKS the pinned tag:
+# a build configured against a stale copy compiles that copy and the GIT_TAG
+# line is decorative. Clear it with an empty value to make the pin authoritative.
 # ---------------------------------------------------------------
 include(FetchContent)
 FetchContent_Declare(eiffelbs-ui
     GIT_REPOSITORY https://github.com/EiffelBS/eiffelbs-ui.git
-    GIT_TAG        v0.12.7
+    GIT_TAG        v0.12.26
     GIT_SHALLOW    TRUE)
 FetchContent_MakeAvailable(eiffelbs-ui)
 
@@ -182,8 +185,14 @@ target_compile_definitions(OpenVoxTuner PRIVATE
 # The VST3 format expects hashed IDs, but JUCE generates its own (VST2 compat).
 # Since we do NOT ship a VST2 build, this warning can safely be ignored
 # (sessions will never reference a VST2 anyway).
+# NOMINMAX: the eiffelbs-ui umbrella (>= v0.12.26) pulls <juce_audio_utils> through
+# Waveform.h / ThumbnailPool.h, which compiles juce_audio_devices in this TU; its
+# juce_UMPEndpoint.h calls std::min WITHOUT parentheses, and the Windows min/max
+# function-like macros break it (C2589 + C2059). Killing the macros is also what
+# Source/dsp/BlockAwareOnePole.h has been working around by hand.
 target_compile_definitions(OpenVoxTuner PRIVATE
-    JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1)
+    JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1
+    NOMINMAX)
 
 # Source paths.
 target_sources(OpenVoxTuner PRIVATE
@@ -402,6 +411,13 @@ target_link_libraries(OpenVoxTunerTests PRIVATE
     juce::juce_graphics
     juce::juce_gui_extra              # eiffelbs-ui >= v0.12.7 links it INTERFACE
 )
+
+# The eiffelbs-ui umbrella (>= v0.12.26) includes Waveform.h and ThumbnailPool.h,
+# which need juce::AudioThumbnail, so they pull <juce_audio_utils/juce_audio_utils.h>
+# into every consumer TU. That compiles juce_audio_devices, whose juce_UMPEndpoint.h
+# calls std::min WITHOUT parentheses: the Windows min/max function-like macros turn
+# that into `std::(...)` and MSVC fails (C2589 + C2059). NOMINMAX kills the macros.
+target_compile_definitions(OpenVoxTunerTests PRIVATE NOMINMAX)
 
 # === LPC formant framing benchmark (console app) ===
 # tools/bench_formant_lsd.cpp — log-spectral distortion (LSD) of the LPC
