@@ -2853,7 +2853,6 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // for and the floor below which its widgets collide; spare room goes only to blocks
     // marked growable, and below the hard floor the row scrolls instead of stretching
     // the last block. The band sets every frame bounds, so no block is placed by hand.
-    const int corrChevron = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
     const int corrBaseW   = kKnobBlockW - 22 - 2 * kCorrPad;   // Speed + Amount content strip
 
     updateBottomBandWidths();
