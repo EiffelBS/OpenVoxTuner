@@ -175,6 +175,8 @@ namespace ovt
         static const char* kTooltipEffectsMore = "tooltip.effects_more";
         static const char* kTooltipUpwardCompAmount = "tooltip.upward_comp_amount";
         static const char* kLabelReverbBtn      = "label.reverb_btn";
+        static const char* kLabelPadReverbBtn   = "label.pad_reverb_btn";
+        static const char* kLabelLimiterBtn     = "label.limiter_btn";
         static const char* kLabelDouble         = "label.double";
         static const char* kLabelDeesser        = "label.deesser";
         static const char* kLabelTone           = "label.tone";
@@ -274,6 +276,10 @@ namespace ovt
         static const char* kTooltipDeesserEnable       = "tooltip.deesser_enable";
         static const char* kTooltipDeesserAmount       = "tooltip.deesser_amount";
         static const char* kTooltipReverbEn    = "tooltip.reverb_enable";
+        static const char* kTooltipPadReverbEn  = "tooltip.pad_reverb_enable";
+        static const char* kTooltipPadReverbMix = "tooltip.pad_reverb_mix";
+        static const char* kTooltipLimiterEn    = "tooltip.limiter_enable";
+        static const char* kTooltipOutputTrim   = "tooltip.output_trim";
         static const char* kTooltipFormant     = "tooltip.formant_enable";
         static const char* kTooltipFlexTune    = "tooltip.flex_tune";
         static const char* kTooltipHumanize    = "tooltip.humanize";
@@ -386,6 +392,7 @@ namespace ovt
         static const char* kMidiLearnAmount        = "midi_learn.amount";
         static const char* kMidiLearnFormant       = "midi_learn.formant";
         static const char* kMidiLearnReverbMix     = "midi_learn.reverb_mix";
+        static const char* kMidiLearnOutputTrim    = "midi_learn.output_trim";
         static const char* kMidiLearnFlexTune      = "midi_learn.flex_tune";
         static const char* kMidiLearnHumanize      = "midi_learn.humanize";
         static const char* kMidiLearnVibrato       = "midi_learn.vibrato";
@@ -542,6 +549,8 @@ namespace ovt
             { kLabelThreshold,   "Threshold" },
             { kTooltipThreshold, "Noise gate threshold in dB. Signals below this level are muted." },
             { kLabelReverbBtn,      "Reverb" },
+            { kLabelPadReverbBtn,   "Pad" },
+            { kLabelLimiterBtn,     "Limit" },
             { kLabelDouble,         "Doubler" },
             { kLabelTone,           "Tone" },
             { kLabelModernBtn,      "Modern" },
@@ -628,6 +637,10 @@ namespace ovt
             { kTooltipDeesserEnable,  "Tames the sibilants (s, sh, t) of the corrected lead voice. Switching off leaves the voice untouched." },
             { kTooltipDeesserAmount,  "How hard the de-esser works: one move sets the trigger level and the depth together. 0% does nothing, 100% is the deepest." },
             { kTooltipReverbEn,       "Enable/disable reverb effect." },
+            { kTooltipPadReverbEn,    "Enable/disable the pad reverb: the second reverb room, sitting on the harmony voices. It is separate from the lead reverb, long and wide, so the stack gains amplitude without washing the lead." },
+            { kTooltipPadReverbMix,   "Pad reverb wet mix for the harmony voices." },
+            { kTooltipLimiterEn,      "Peak limiter on the output. Non-lookahead, so it adds no latency: it catches peaks above -1.7 dBFS instead of letting them clip." },
+            { kTooltipOutputTrim,     "Output trim in dB: the gain applied before the limiter. Use it to fit the plugin into a mix without touching the harmony balance." },
             { kTooltipFormant,        "Enable/disable formant shifting." },
             { kTooltipFlexTune,       "Deadband in cents: input pitch within this range is left uncorrected." },
             { kTooltipHumanize,       "Random pitch fluctuations in cents, added when correction is applied." },
@@ -725,6 +738,7 @@ namespace ovt
             { kMidiLearnAmount,       "Amount" },
             { kMidiLearnFormant,      "Formant" },
             { kMidiLearnReverbMix,    "Reverb Mix" },
+            { kMidiLearnOutputTrim,   "Output Trim" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanize" },
             { kMidiLearnVibrato,       "Vibrato" },
@@ -874,6 +888,8 @@ namespace ovt
             { kLabelThreshold,   "Seuil" },
             { kTooltipThreshold, "Seuil du noise gate en dB. Les signaux en dessous sont coupes." },
             { kLabelReverbBtn,      "Reverb" },
+            { kLabelPadReverbBtn,   "Nappe" },
+            { kLabelLimiterBtn,     "Limiteur" },
             { kLabelDouble,         "Doubler" },
             { kLabelTone,           "Timbre" },
             { kLabelModernBtn,      "Moderne" },
@@ -960,6 +976,10 @@ namespace ovt
             { kTooltipDeesserEnable,  "Atténue les sibilantes (s, ch, t) de la voix principale corrigée. Éteint, la voix reste intacte." },
             { kTooltipDeesserAmount,  "Intensité du désesseur : il règle d'un seul geste le niveau de déclenchement et la profondeur. 0 % ne change rien, 100 % est le plus profond." },
             { kTooltipReverbEn,       "Activer/desactiver l'effet de reverberation." },
+            { kTooltipPadReverbEn,    "Active/désactive la réverb de nappe : la seconde salle de réverb, posée sur les voix d'harmonie. Elle est séparée de la réverb du lead, longue et large : la pile gagne de l'amplitude sans laver le lead." },
+            { kTooltipPadReverbMix,   "Mix de réverb de nappe pour les voix d'harmonie." },
+            { kTooltipLimiterEn,      "Limiteur de crête sur la sortie. Sans anticipation, donc il n'ajoute aucune latence : il retient les crêtes au-dessus de -1,7 dBFS au lieu de les faire crisper." },
+            { kTooltipOutputTrim,     "Trim de sortie en dB : le gain appliqué avant le limiteur. Il ajuste le niveau du plugin dans le mix sans toucher l'équilibre des harmonies." },
             { kTooltipFormant,        "Activer/desactiger le deplacement de formant." },
             { kTooltipFlexTune,       "Deadband en cents : les entrees dans cette plage ne sont pas corrigees." },
             { kTooltipHumanize,       "Fluctuations aleatoires de hauteur en cents, ajoutees lors de la correction." },
@@ -1057,6 +1077,7 @@ namespace ovt
             { kMidiLearnAmount,       "Intensite" },
             { kMidiLearnFormant,      "Formant" },
             { kMidiLearnReverbMix,    "Mix Reverb" },
+            { kMidiLearnOutputTrim,   "Trim sortie" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humaniser" },
             { kMidiLearnVibrato,       "Vibrato" },
@@ -1206,6 +1227,8 @@ namespace ovt
             { kLabelThreshold,   "Schwelle" },
             { kTooltipThreshold, "Rauschtor-Schwelle in dB. Signale unter diesem Wert werden unterdrueckt." },
             { kLabelReverbBtn,      "Reverb" },
+            { kLabelPadReverbBtn,   "Pad" },
+            { kLabelLimiterBtn,     "Limit" },
             { kLabelDouble,         "Doubler" },
             { kLabelTone,           "Klangfarbe" },
             { kLabelModernBtn,      "Modern" },
@@ -1294,6 +1317,10 @@ namespace ovt
             { kTooltipDeesserEnable,  "Dämpft die Zischlaute (s, sch, t) der korrigierten Hauptstimme. Beim Ausschalten bleibt die Stimme unberührt." },
             { kTooltipDeesserAmount,  "Intensität des De-Essers: Auslösungspegel und Tiefe werden in einem Zug geregelt. 0 % ändert nichts, 100 % ist die tiefste Reduktion." },
             { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
+            { kTooltipPadReverbEn,    "Aktiviert/deaktiviert die Pad-Reverb: der zweite Hall-Raum, auf den Harmoniestimmen. Er ist getrennt von der Lead-Reverb, lang und breit – der Stapel gewinnt Lautstärke, ohne die Lead-Stimme zu verwischen." },
+            { kTooltipPadReverbMix,   "Pad-Reverb-Anteil der Harmoniestimmen." },
+            { kTooltipLimiterEn,      "Peak-Limiter am Ausgang. Ohne Lookahead, also ohne zusätzliche Latenz: Er fängt Peaks über -1,7 dBFS ab, statt sie ins Clipping laufen zu lassen." },
+            { kTooltipOutputTrim,     "Output-Trim in dB: die Verstärkung vor dem Limiter. Passt das Plugin in den Mix an, ohne die Harmonie-Balance zu ändern." },
             { kTooltipFormant,        "Formantenverschiebung aktivieren/deaktivieren." },
             { kTooltipFlexTune,       "Deadband in Cents: Eingaenge in diesem Bereich werden nicht korrigiert." },
             { kTooltipHumanize,       "Zufaellige Tonhoehen-Schwankungen in Cents bei Korrektur." },
@@ -1389,6 +1416,7 @@ namespace ovt
             { kMidiLearnAmount,       "Intensitaet" },
             { kMidiLearnFormant,      "Formant" },
             { kMidiLearnReverbMix,    "Reverb-Mix" },
+            { kMidiLearnOutputTrim,   "Output-Trim" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanisieren" },
             { kMidiLearnVibrato,       "Vibrato" },
@@ -1538,6 +1566,8 @@ namespace ovt
             { kLabelThreshold,   "Umbral" },
             { kTooltipThreshold, "Umbral de la puerta de ruido en dB. Las senales por debajo se silencian." },
             { kLabelReverbBtn,      "Reverb" },
+            { kLabelPadReverbBtn,   "Napa" },
+            { kLabelLimiterBtn,     "Limitador" },
             { kLabelDouble,         "Doblador" },
             { kLabelTone,           "Tono" },
             { kLabelModernBtn,      "Moderno" },
@@ -1626,6 +1656,10 @@ namespace ovt
             { kTooltipDeesserEnable,  "Suaviza las sibilantes (s, sh, t) de la voz principal corregida. Al apagarlo, la voz queda intacta." },
             { kTooltipDeesserAmount,  "Intensidad del dessersor: fija a la vez el nivel de activacion y la profundidad. 0% no cambia nada, 100% es lo mas profundo." },
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberacion." },
+            { kTooltipPadReverbEn,    "Activa/desactiva la reverberación de napa: la segunda sala de reverberación, sobre las voces de armonía. Separada de la del lead, larga y ancha; la pila gana amplitud sin lavar el lead." },
+            { kTooltipPadReverbMix,   "Mezcla de reverberación de napa para las voces de armonía." },
+            { kTooltipLimiterEn,      "Limitador de picos en la salida. Sin anticipación, así que no añade latencia: retiene los picos por encima de -1,7 dBFS en lugar de dejarlos recortar." },
+            { kTooltipOutputTrim,     "Trim de salida en dB: la ganancia aplicada antes del limitador. Ajusta el nivel del plugin en la mezcla sin tocar el equilibrio de las armonías." },
             { kTooltipFormant,        "Activar/desactivar desplazamiento de formante." },
             { kTooltipFlexTune,       "Deadband en cents: las entradas en este rango no se corrigen." },
             { kTooltipHumanize,       "Fluctuaciones aleatorias de tono en cents al aplicar correccion." },
@@ -1721,6 +1755,7 @@ namespace ovt
             { kMidiLearnAmount,       "Intensidad" },
             { kMidiLearnFormant,      "Formante" },
             { kMidiLearnReverbMix,    "Mix Reverb" },
+            { kMidiLearnOutputTrim,   "Trim de salida" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanizar" },
             { kMidiLearnVibrato,       "Vibrato" },
@@ -1870,6 +1905,8 @@ namespace ovt
             { kLabelThreshold,   "しきい値" },
             { kTooltipThreshold, "ノイズゲートのしきい値（dB）。このレベル以下の信号はミュートされます。" },
             { kLabelReverbBtn,      "リバーブ" },
+            { kLabelPadReverbBtn,   "パッド" },
+            { kLabelLimiterBtn,     "リミッター" },
             { kLabelDouble,         "ダブラー" },
             { kLabelTone,           "音色" },
             { kLabelModernBtn,      "モダン" },
@@ -1957,6 +1994,10 @@ namespace ovt
             { kTooltipDeesserEnable,  "補正済みのリード音声のサ行音（s, sh, t）を和らげます。オフでは音声はそのままです。" },
             { kTooltipDeesserAmount,  "デエッサーの強さです。トリガーレベルと減衰量を同時に設定します。0%は何も変化せず、100%が最も深く減衰します。" },
             { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
+            { kTooltipPadReverbEn,    "パッド・リバーブのオン/オフ：ハーモニー声に掛ける第二のリバーブ部屋です。リード用とは別で、長く広い設定。スタックは音量を得てもリードが滲みません。" },
+            { kTooltipPadReverbMix,   "ハーモニー声のパッド・リバーブのミックス量。" },
+            { kTooltipLimiterEn,      "出力のピーク・リミッター。先読みがないのでレイテンシは増えません。-1.7 dBFS を超えるピークをクリップ前に抑えます。" },
+            { kTooltipOutputTrim,     "出力トリム（dB）：リミッターの前に掛かるゲイン。和声のバランスを変えずにプラグインのレベルをミックスに合わせます。" },
             { kTooltipFormant,        "フォルマントシフトの有効/無効。" },
             { kTooltipFlexTune,       "デッドバンド(セント): この範囲内のピッチは補正されません。" },
             { kTooltipHumanize,       "補正時に追加されるランダムなピッチ変動(セント)。" },
@@ -2052,6 +2093,7 @@ namespace ovt
             { kMidiLearnAmount,       "量" },
             { kMidiLearnFormant,      "フォルマント" },
             { kMidiLearnReverbMix,    "リバーブミックス" },
+            { kMidiLearnOutputTrim,   "出力トリム" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "人性化" },
             { kMidiLearnVibrato,       "ビブラート" },
@@ -2201,6 +2243,8 @@ namespace ovt
             { kLabelThreshold,      "阈值" },
             { kTooltipThreshold,    "噪声门阈值（dB）。低于此电平的信号将被静音。" },
             { kLabelReverbBtn,      "混响" },
+            { kLabelPadReverbBtn,   "Pad" },
+            { kLabelLimiterBtn,     "限制器" },
             { kLabelDouble,         "加倍器" },
             { kLabelTone,           "音色" },
             { kLabelModernBtn,      "现代" },
@@ -2288,6 +2332,10 @@ namespace ovt
             { kTooltipDeesserEnable,  "柔化已修正主声部的齿音（s、sh、t）。关闭时声音保持原样。" },
             { kTooltipDeesserAmount,  "齿音消除强度：同时设定触发电平和衰减深度。0% 无变化，100% 最深。" },
             { kTooltipReverbEn,       "启用/禁用混响效果。" },
+            { kTooltipPadReverbEn,    "开关 Pad 混响：第二间混响房间，架在和声声部上。它与主声混响分开，长而宽；和声堆叠获得音量而不淹没主声。" },
+            { kTooltipPadReverbMix,   "和声声部的 Pad 混响混合量。" },
+            { kTooltipLimiterEn,      "输出峰值限制器。无预读，因此不增加延迟；它把超过 -1.7 dBFS 的峰值收住，而不是让其削波。" },
+            { kTooltipOutputTrim,     "输出微调（dB）：限制器之前的增益。用于让插件贴合混音，而不改变和声平衡。" },
             { kTooltipFormant,        "启用/禁用共振峰偏移。" },
             { kTooltipFlexTune,       "死区（音分）：此范围内的输入音高保持不校正。" },
             { kTooltipHumanize,       "随机音高波动（音分），在校正应用时添加。" },
@@ -2383,6 +2431,7 @@ namespace ovt
             { kMidiLearnAmount,       "量" },
             { kMidiLearnFormant,      "共振峰" },
             { kMidiLearnReverbMix,    "混响混合" },
+            { kMidiLearnOutputTrim,   "输出微调" },
             { kMidiLearnFlexTune,     "灵活调音" },
             { kMidiLearnHumanize,     "人性化" },
             { kMidiLearnVibrato,       "颤音" },

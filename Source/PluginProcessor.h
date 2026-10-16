@@ -21,6 +21,8 @@
 #include "dsp/RetargetEnvelope.h"
 #include "dsp/PitchCurve.h"
 #include "dsp/IEffect.h"
+#include "dsp/EffectsBus.h"
+#include "dsp/OutputLimiter.h"
 #include "dsp/NoiseGate.h"
 #include "dsp/UpwardCompressor.h"
 #include "dsp/DeEsser.h"
@@ -459,8 +461,12 @@ private:
     std::atomic<float>* midiTargetEnableParam = nullptr; // MIDI target / follow enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
     std::atomic<float>* editorPlayheadLoopParam = nullptr; // Curve Editor playhead loop (0=follow host, 1=loop on Measures)
-    std::atomic<float>* reverbEnableParam = nullptr; // Reverb on/off
-    std::atomic<float>* reverbMixParam = nullptr;   // Reverb wet mix (0-1)
+    std::atomic<float>* reverbEnableParam = nullptr; // Lead reverb on/off
+    std::atomic<float>* reverbMixParam = nullptr;   // Lead reverb wet mix (0-1)
+    std::atomic<float>* padReverbEnableParam = nullptr; // Harmony-pad reverb on/off
+    std::atomic<float>* padReverbMixParam = nullptr;    // Harmony-pad reverb wet mix (0-1)
+    std::atomic<float>* outputTrimParam = nullptr;      // Master output trim (-12..+12 dB)
+    std::atomic<float>* limiterEnableParam = nullptr;   // Master limiter on/off
     std::atomic<float>* noiseGateEnableParam = nullptr;    // Noise gate on/off
     std::atomic<float>* noiseGateThresholdParam = nullptr; // Noise gate threshold (dB)
     std::atomic<float>* upwardCompEnableParam = nullptr;   // Upward compressor on/off
@@ -534,9 +540,21 @@ private:
     std::unique_ptr<ovtdsp::RetargetEnvelope>  retargetEnvelope;
     std::unique_ptr<ovtdsp::PitchCurve>        pitchCurve; // "graphic" mode
 
-    // Post-processing effects (reverb, delay, chorus, etc.).
-    // Applied in order after the main pitch-correction + harmony pipeline.
-    std::vector<std::unique_ptr<ovtdsp::IEffect>> effects;     
+    // === Effects buses: three tap points of the vocal chain ===
+    // Each bus owns its OWN effect instances, so one effect class can run twice
+    // with different fixed settings (a short room on the lead, a long wide one on
+    // the harmony pad). Registration order is the processing order.
+    //   leadBus    : corrected lead voice, before any harmony is added.
+    //   harmonyBus : harmony bus, before it is mixed into the master output.
+    //   masterBus  : final mixed output, after every bus has been blended.
+    ovtdsp::EffectsBus leadBus;
+    ovtdsp::EffectsBus harmonyBus;
+    ovtdsp::EffectsBus masterBus;
+
+    // Master output stage, applied AFTER every effect: trim + non-lookahead peak
+    // limiter. It is not an IEffect: it is the last stage of the chain and must
+    // run even when no effect is enabled.
+    ovtdsp::OutputLimiter outputLimiter;
 
     // Current correction mode.
     //   0 = auto (standard quantization)
@@ -947,6 +965,12 @@ private:
     juce::String liveChordSymbol;
     mutable juce::CriticalSection liveChordLock;
     std::atomic<bool> liveChordActive { false };
+
+    // Runs the three effects buses on their own tap point. Each one reads its
+    // own parameters, so the wiring stays in one place per bus.
+    void applyLeadEffects (juce::AudioBuffer<float>& buffer);
+    void applyHarmonyEffects (juce::AudioBuffer<float>& harmony);
+    void applyMasterEffects (juce::AudioBuffer<float>& buffer);
 
     // Updates DSP parameters from the value tree.
     void syncParameters();

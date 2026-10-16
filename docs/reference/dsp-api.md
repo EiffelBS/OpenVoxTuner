@@ -144,10 +144,41 @@ LPC cross-synthesis formant preservation (the "exact" approach).
 | `virtual void reset()` | Flush delays/reverb tails. |
 | `virtual void process(juce::AudioBuffer<float>& buffer, bool enabled, float wetMix)` | Apply in place. |
 
+Effects are registered on one of the three tap points (`ovtdsp::EffectsBus`): the lead
+voice, the harmony bus, or the master output. Each bus owns its own instances, so the
+same class can run twice with different fixed settings; `enabled` and `wetMix` are
+computed by the caller's wiring callback from APVTS parameters.
+
+### `ovtdsp::EffectsBus`
+
+| Member | Description |
+|--------|-------------|
+| `void addEffect(std::unique_ptr<IEffect>)` | Register an effect on this bus (registration order is kept). |
+| `void prepare(double sampleRate, int maxBlockSize)` | Prepare every registered effect. |
+| `void reset()` | Reset every registered effect. |
+| `void apply(juce::AudioBuffer<float>& buffer, const Wiring& wiring)` | Run every effect in place on the tapped buffer. |
+| `int size() const` | Number of registered effects. |
+
+`Wiring` is `std::function<bool (IEffect&, bool& enabled, float& wetMix)>`: it computes
+the enable flag and wet mix for one effect (and may configure the instance), returning
+`false` to skip it for this block. The plugin owns `leadBus`, `harmonyBus` and `masterBus`.
+
 ### `ovtdsp::ReverbEffect : public IEffect`
 
-- `setRoomSize(float)` / `setDamping(float)` — reverb tuning.
+- `setRoomSize(float)` / `setDamping(float)` / `setStereoWidth(float)` — reverb tuning.
 - Wraps `juce::Reverb`; smooths the master enable gain to avoid clicks.
+- Two instances: a short centred room on the lead bus, a long wide room on the harmony bus.
+
+### `ovtdsp::OutputLimiter`
+
+Not an `IEffect`: the last stage of the master bus, applied after every effect.
+
+- `void prepare(double sampleRate, int maxBlockSize)`, `void reset()`.
+- `void setTrimDb(float)` — output gain in dB, clamped to `-12 .. +12`.
+- `void setLimiterEnabled(bool)` — off leaves a pure trim.
+- `void process(juce::AudioBuffer<float>& buffer)` — trim then limit, in place, channels linked.
+- `static constexpr float ceilingLinear = 0.98f` (~ -1.68 dBFS).
+- **Non-lookahead**: instantaneous attack, one-pole release (120 ms), so no latency is added.
 
 ### `ovtdsp::NoiseGate`
 

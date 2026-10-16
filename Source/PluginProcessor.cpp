@@ -592,6 +592,25 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterFloat> (
                             "reverb_mix", "Reverb Mix",
                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
+                        // Pad reverb: the SECOND instance of ReverbEffect, on the harmony
+                        // bus. A long, fully wide room is what a pad wants; the lead keeps
+                        // its own short centred room (reverb_enable / reverb_mix above).
+                        // Two instances, two knobs: no single compromise setting that has
+                        // to serve intelligibility and amplitude at the same time.
+                        , std::make_unique<juce::AudioParameterBool> (
+                              "pad_reverb_enable", "Pad Reverb Enable", false)
+                        , std::make_unique<juce::AudioParameterFloat> (
+                              "pad_reverb_mix", "Pad Reverb Mix",
+                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
+                        // Master output stage. The trim is a plain dB gain (-12..+12), so
+                        // setting the plugin level never touches the harmony gain-match;
+                        // the limiter is non-lookahead, so it adds NO latency and the
+                        // plugin's declared latency stays exactly as it is today.
+                        , std::make_unique<juce::AudioParameterFloat> (
+                              "output_trim", "Output Trim",
+                              juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f)
+                        , std::make_unique<juce::AudioParameterBool> (
+                              "limiter_enable", "Limiter Enable", true)
                        // De-esser: tames the sibilance of the corrected lead. One knob
                        // (Intensity, 0..1) drives the detector threshold and the depth
                        // cap together (-38 x amount dB, 19 x amount dB), the way a
@@ -727,6 +746,10 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     voiceTypeParam = parameters.getRawParameterValue ("voice_type");
     reverbEnableParam = parameters.getRawParameterValue ("reverb_enable");
     reverbMixParam = parameters.getRawParameterValue ("reverb_mix");
+    padReverbEnableParam = parameters.getRawParameterValue ("pad_reverb_enable");
+    padReverbMixParam = parameters.getRawParameterValue ("pad_reverb_mix");
+    outputTrimParam = parameters.getRawParameterValue ("output_trim");
+    limiterEnableParam = parameters.getRawParameterValue ("limiter_enable");
     noiseGateEnableParam = parameters.getRawParameterValue ("noise_gate_enable");
     noiseGateThresholdParam = parameters.getRawParameterValue ("noise_gate_threshold");
     upwardCompEnableParam = parameters.getRawParameterValue ("upward_comp_enable");
@@ -785,15 +808,42 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     pitchCurve       = std::make_unique<ovtdsp::PitchCurve>();
     pitchCurve->loadPreset ("default");
 
-    // Initialize post-processing effects (de-esser, reverb).
-    // Order matters: the de-esser runs BEFORE the reverb so it tames the
-    // sibilance of the corrected lead voice itself. A reverb tail is decorrelated
+    // === Effects buses: three tap points of the vocal chain ===
+    // LEAD bus. Order matters: the de-esser runs BEFORE the lead reverb so it tames
+    // the sibilance of the corrected lead voice itself. A reverb tail is decorrelated
     // high-frequency energy that would keep the detector engaged after the singer
     // has stopped hissing, ducking the whole mix; de-essing the dry lead first and
-    // then adding space is what a vocal chain does on a real console.
-    effects.push_back (std::make_unique<ovtdsp::DeEsser>());
-    effects.push_back (std::make_unique<ovtdsp::ReverbEffect>());
-    OVT_LOG ("Effects initialized: " + juce::String (static_cast<int> (effects.size())));
+    // then adding space is what a vocal chain does on a real console. On this bus the
+    // de-esser sees ONLY the dry lead, never a wet tail, which is exactly the reason
+    // the order was chosen in the first place.
+    leadBus.addEffect (std::make_unique<ovtdsp::DeEsser>());
+    {
+        // Lead room: short and centred. Consonants stay readable; the pad carries
+        // the depth and the width, so the lead does not have to.
+        auto leadReverb = std::make_unique<ovtdsp::ReverbEffect>();
+        leadReverb->setRoomSize (0.35f);
+        leadReverb->setDamping (0.50f);
+        leadReverb->setStereoWidth (0.5f);
+        leadBus.addEffect (std::move (leadReverb));
+    }
+
+    // HARMONY bus (the pad): a long, fully wide room gives the blended voices
+    // amplitude and depth. It is a SEPARATE ReverbEffect instance, so the two rooms
+    // are independent -- the same class the lead uses, tuned for a different job.
+    {
+        auto padReverb = std::make_unique<ovtdsp::ReverbEffect>();
+        padReverb->setRoomSize (0.85f);
+        padReverb->setDamping (0.40f);
+        padReverb->setStereoWidth (1.0f);
+        harmonyBus.addEffect (std::move (padReverb));
+    }
+
+    // MASTER bus: no effect registered yet. It is the tap point after every bus has
+    // been blended, where shared sends and glue land; the output trim + limiter runs
+    // immediately after it, as the last stage of the chain.
+    OVT_LOG ("Effects buses initialized: lead=" + juce::String (leadBus.size())
+             + " harmony=" + juce::String (harmonyBus.size())
+             + " master=" + juce::String (masterBus.size()));
 
     // VST3 extension for Studio One's Micro View.
     // Only allocated for Studio One - for every other host getVST3ClientExtensions()
@@ -1032,9 +1082,11 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     currentFlexTuneAmount = 1.0f;
     currentHumanizeCents = 0.0f;
 
-    // Prepare post-processing effects
-    for (auto& effect : effects)
-        effect->prepare (sampleRate, samplesPerBlock);
+    // Prepare every effects bus and the master output stage.
+    leadBus.prepare (sampleRate, samplesPerBlock);
+    harmonyBus.prepare (sampleRate, samplesPerBlock);
+    masterBus.prepare (sampleRate, samplesPerBlock);
+    outputLimiter.prepare (sampleRate, samplesPerBlock);
 
     // Prepare temporary buffers for shifted voices
     shiftedVoiceBuffers.clear();
@@ -1268,6 +1320,10 @@ void OpenVoxTunerAudioProcessor::reset()
     harmonyBuffer.clear();
     synthWorkBuffer.clear();
     lastMixedHarmonyBuffer.clear();
+    leadBus.reset();
+    harmonyBus.reset();
+    masterBus.reset();
+    outputLimiter.reset();
     silenceSamples = 0;
     lastInputPitch.store (0.0f);
     lastOutputPitch.store (0.0f);
@@ -1523,42 +1579,13 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             fifoWriteIndex = (fifoWriteIndex + 1) % analysisWindow;
         }
 
-        // Apply post-processing effects (de-esser, reverb) on the cleared buffer
-        // before returning, so the reverb tail can decay naturally through its
-        // internal state onto the zeroed input without abrupt cuts or clicks.
-        if (!effects.empty())
-        {
-            for (auto& effect : effects)
-            {
-                bool enabled = false;
-                float wetMix = 0.0f;
-
-                if (effect->getId() == "deesser")
-                {
-                    // One knob drives the whole effect: the intensity sets the detector
-                    // threshold and the depth cap together, and the band centre comes
-                    // from voice_type, the register the user already picks for pitch
-                    // detection. wetMix stays 1: depth is capped by the intensity, not
-                    // by a mix.
-                    auto* de = static_cast<ovtdsp::DeEsser*> (effect.get());
-                    if (deessAmountParam != nullptr)
-                        de->setAmount (deessAmountParam->load());
-                    const int deessVoiceType = (voiceTypeParam != nullptr)
-                        ? juce::jlimit (0, 5, static_cast<int> (std::round (voiceTypeParam->load()))) : 0;
-                    de->setVoiceType (deessVoiceType);
-                    enabled = (deessEnableParam != nullptr && deessEnableParam->load() > 0.5f);
-                    wetMix = 1.0f;
-                }
-
-                if (effect->getId() == "reverb")
-                {
-                    enabled = (reverbEnableParam != nullptr && reverbEnableParam->load() > 0.5f);
-                    wetMix = (reverbMixParam != nullptr) ? reverbMixParam->load() : 0.0f;
-                }
-
-                effect->process (buffer, enabled, wetMix);
-            }
-        }
+        // Run every effects bus on the cleared buffer before returning, so each
+        // reverb tail decays naturally through its internal state onto the zeroed
+        // input without abrupt cuts or clicks. These are the same helpers the live
+        // path uses, so a tail fades out at exactly the level the user hears.
+        applyLeadEffects (buffer);
+        applyHarmonyEffects (harmonyBuffer);
+        applyMasterEffects (buffer);
 
         harmonyFrequencies.clear();
         harmonyFrequenciesClean.clear();
@@ -2578,6 +2605,14 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    // === LEAD EFFECTS TAP ===
+    // Effects on the corrected lead voice, BEFORE any harmony is added to it. The
+    // de-esser sees the dry lead only (never a wet tail), and the lead room spaces
+    // the voice before it is blended with the pad. The harmony snapshot taken above
+    // is untouched, so the rendered voices are generated from the same source as
+    // before this tap: the split changes where effects act, not what harmony hears.
+    applyLeadEffects (buffer);
+
     // Harmony voices: formant preservation follows the same strategy as the
     // lead (Current / P0 / P1 / P2), selected by the formant_strategy param.
     //
@@ -3030,6 +3065,12 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             }
         }
 
+        // === HARMONY EFFECTS TAP ===
+        // Effects on the harmony bus, before it is mixed into the master output. The
+        // pad room acts on the blended voices only, so the lead keeps its own short
+        // room and the two rooms never fight each other for one shared setting.
+        applyHarmonyEffects (harmonyBuffer);
+
         // Now mix harmonyBuffer into main output below
         const float hGain = (harmonyGainParam ? harmonyGainParam->load() : 1.0f);
         if (hGain > 0.001f)
@@ -3264,40 +3305,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         flushPendingMidiNotes();
     }
 
-    // === POST-PROCESSING EFFECTS ===
-    // Apply stacked effects (de-esser, reverb) to the final mixed output buffer.
-    // Each effect reads its own enable/mix parameters internally.
-    if (!effects.empty())
-    {
-        for (auto& effect : effects)
-        {
-            bool enabled = false;
-            float wetMix = 0.0f;
-
-            if (effect->getId() == "deesser")
-            {
-                // Same wiring as the silent path above: one intensity knob drives the
-                // threshold and the depth, voice_type places the band, and the effect
-                // runs at full mix.
-                auto* de = static_cast<ovtdsp::DeEsser*> (effect.get());
-                if (deessAmountParam != nullptr)
-                    de->setAmount (deessAmountParam->load());
-                const int deessVoiceType = (voiceTypeParam != nullptr)
-                    ? juce::jlimit (0, 5, static_cast<int> (std::round (voiceTypeParam->load()))) : 0;
-                de->setVoiceType (deessVoiceType);
-                enabled = (deessEnableParam != nullptr && deessEnableParam->load() > 0.5f);
-                wetMix = 1.0f;
-            }
-
-            if (effect->getId() == "reverb")
-            {
-                enabled = (reverbEnableParam != nullptr && reverbEnableParam->load() > 0.5f);
-                wetMix = (reverbMixParam != nullptr) ? reverbMixParam->load() : 0.0f;
-            }
-
-            effect->process (buffer, enabled, wetMix);
-        }
-    }
+    // === MASTER EFFECTS TAP + OUTPUT STAGE ===
+    // The master bus is the tap point AFTER every bus has been blended: shared sends
+    // and glue land here. The output trim + non-lookahead limiter runs last, on the
+    // fully mixed signal, so it guards the ceiling of what the user finally hears.
+    applyMasterEffects (buffer);
 
     // CPU usage: ratio of time spent in processBlock to available block time.
     const auto blockEndTime = juce::Time::getHighResolutionTicks();
@@ -4073,6 +4085,86 @@ void OpenVoxTunerAudioProcessor::applyLatencyMode()
              " (" + juce::String (latencyMs, 1) + " ms)");
 }
  
+// === Effects buses: one tap point of the vocal chain each ===
+// Each helper owns the wiring for its own bus, so the parameter mapping lives in one
+// place per tap, and the silent (sleep) path runs exactly the same code as the live
+// path -- a tail decays at the level the user hears, not at a re-derived one.
+
+void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buffer)
+{
+    // Gate-envelope ducking: when the Noise Gate is off, getCurrentGain() stays 1.0,
+    // so this is neutral; when it closes, the lead room follows the voice out instead
+    // of leaving a tail ringing over silence.
+    const float gateGain = noiseGate.getCurrentGain();
+
+    leadBus.apply (buffer, [&] (ovtdsp::IEffect& effect, bool& enabled, float& wetMix)
+    {
+        if (effect.getId() == "deesser")
+        {
+            // One knob drives the whole effect: the intensity sets the detector
+            // threshold and the depth cap together, and the band centre comes from
+            // voice_type, the register the user already picks for pitch detection.
+            // wetMix stays 1: depth is capped by the intensity, not by a mix.
+            auto* de = static_cast<ovtdsp::DeEsser*> (&effect);
+            if (deessAmountParam != nullptr)
+                de->setAmount (deessAmountParam->load());
+            const int deessVoiceType = (voiceTypeParam != nullptr)
+                ? juce::jlimit (0, 5, static_cast<int> (std::round (voiceTypeParam->load()))) : 0;
+            de->setVoiceType (deessVoiceType);
+            enabled = (deessEnableParam != nullptr && deessEnableParam->load() > 0.5f);
+            wetMix = 1.0f;
+            return true;
+        }
+
+        if (effect.getId() == "reverb")
+        {
+            // Lead reverb: the ids the plugin already had, so every saved state and
+            // factory preset maps onto the lead room with no orphaned parameter.
+            enabled = (reverbEnableParam != nullptr && reverbEnableParam->load() > 0.5f);
+            wetMix = (reverbMixParam != nullptr) ? reverbMixParam->load() * gateGain : 0.0f;
+            return true;
+        }
+
+        return false;
+    });
+}
+
+void OpenVoxTunerAudioProcessor::applyHarmonyEffects (juce::AudioBuffer<float>& harmony)
+{
+    harmonyBus.apply (harmony, [&] (ovtdsp::IEffect& effect, bool& enabled, float& wetMix)
+    {
+        if (effect.getId() == "reverb")
+        {
+            // Pad reverb. No extra gate ducking here: the harmony mix downstream is
+            // already multiplied by the smoothed gate gain, so closing the gate takes
+            // the pad out together with the voices it belongs to.
+            enabled = (padReverbEnableParam != nullptr && padReverbEnableParam->load() > 0.5f);
+            wetMix = (padReverbMixParam != nullptr) ? padReverbMixParam->load() : 0.0f;
+            return true;
+        }
+
+        return false;
+    });
+}
+
+void OpenVoxTunerAudioProcessor::applyMasterEffects (juce::AudioBuffer<float>& buffer)
+{
+    masterBus.apply (buffer, [&] (ovtdsp::IEffect& effect, bool& enabled, float& wetMix)
+    {
+        // No effect is registered on the master bus yet: shared sends and glue land
+        // here. The mapping stays explicit so a new effect has one obvious home.
+        (void) effect; (void) enabled; (void) wetMix;
+        return false;
+    });
+
+    // Output stage, applied LAST: trim, then non-lookahead limiting. Reading the
+    // parameters here keeps the whole master tap in one place.
+    outputLimiter.setTrimDb ((outputTrimParam != nullptr) ? outputTrimParam->load() : 0.0f);
+    outputLimiter.setLimiterEnabled (limiterEnableParam == nullptr
+                                        || limiterEnableParam->load() > 0.5f);
+    outputLimiter.process (buffer);
+}
+
 // === Sync user parameters into the DSP modules ===
 void OpenVoxTunerAudioProcessor::syncParameters()
 {
@@ -4718,6 +4810,7 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("doubleAmount",     (double) ms.doubleAmount);
         slotXml->setAttribute ("doubleEnable",     ms.doubleEnable);
         slotXml->setAttribute ("reverbMix",        (double) ms.reverbMix);
+        slotXml->setAttribute ("padReverbMix",     (double) ms.padReverbMix);
         slotXml->setAttribute ("flexTune",         (double) ms.flexTune);
         slotXml->setAttribute ("humanize",         (double) ms.humanize);
         slotXml->setAttribute ("vibratoPreserve",  (double) ms.vibratoPreserve);
@@ -4742,6 +4835,9 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("harmonyEnable",    ms.harmonyEnable);
         slotXml->setAttribute ("useVoice",         ms.harmonyUseVoice);
         slotXml->setAttribute ("reverbEnable",     ms.reverbEnable);
+        slotXml->setAttribute ("padReverbEnable",  ms.padReverbEnable);
+        slotXml->setAttribute ("outputTrim",       (double) ms.outputTrim);
+        slotXml->setAttribute ("limiterEnable",    ms.limiterEnable);
         slotXml->setAttribute ("correctionMode",   ms.correctionMode);
         slotXml->setAttribute ("noiseGateEnable",  ms.noiseGateEnable);
         slotXml->setAttribute ("noiseGateThreshold", (double) ms.noiseGateThreshold);
@@ -4806,6 +4902,7 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.doubleAmount       = (float) slotXml->getDoubleAttribute ("doubleAmount", 0.0);
             ms.doubleEnable       = slotXml->getBoolAttribute ("doubleEnable", false);
             ms.reverbMix          = (float) slotXml->getDoubleAttribute ("reverbMix", 0.3);
+            ms.padReverbMix       = (float) slotXml->getDoubleAttribute ("padReverbMix", 0.3);
             ms.flexTune           = (float) slotXml->getDoubleAttribute ("flexTune", 0.25);
             ms.humanize           = (float) slotXml->getDoubleAttribute ("humanize", 0.0);
             ms.vibratoPreserve    = (float) slotXml->getDoubleAttribute ("vibratoPreserve", 0.0);
@@ -4830,6 +4927,9 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.harmonyEnable      = slotXml->getBoolAttribute ("harmonyEnable", false);
             ms.harmonyUseVoice    = slotXml->getBoolAttribute ("useVoice", false);
             ms.reverbEnable       = slotXml->getBoolAttribute ("reverbEnable", false);
+            ms.padReverbEnable    = slotXml->getBoolAttribute ("padReverbEnable", false);
+            ms.outputTrim         = (float) slotXml->getDoubleAttribute ("outputTrim", 0.5);
+            ms.limiterEnable      = slotXml->getBoolAttribute ("limiterEnable", true);
             ms.correctionMode     = slotXml->getBoolAttribute ("correctionMode", false);
             ms.noiseGateEnable    = slotXml->getBoolAttribute ("noiseGateEnable", false);
             ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.375);

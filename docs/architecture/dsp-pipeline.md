@@ -36,13 +36,21 @@ the single source of truth for signal-flow details.
                                            +-----------------+
                                            |  PitchShifter   |  PSOLA (formant-preserved)
                                            +-----------------+
+            LEAD BUS  ============================>   |   DeEsser, Lead Reverb
                                                      |
                                            +-----------------+ (optional)
-                                           |  HarmonyEngine  |  shifted voices
+                                           |  HarmonyEngine  |  shifted voices -> harmonyBuffer
+             HARMONY BUS  ===================>          |   Pad Reverb
                                            +-----------------+
                                                      |
-                                           +-----------------+ (optional)
-                                           |  ReverbEffect   |  post-processing (IEffect)
+                                           +-----------------+
+                                           |  MASTER BUS     |  final mixed buffer
+                                           +-----------------+
+                                                     |
+                                                     v
+                                           +-----------------+
+                                           | OutputLimiter   |  trim (-12..+12 dB),
+                                           |                 |  non-lookahead limiter
                                            +-----------------+
  Audio Out <--------------------------------------------------------+
 ```
@@ -207,11 +215,40 @@ enum, `None` + 21 types, e.g. `ThirdBelowAbove`, `VocalStack3/4`,
   "gate-follow" time (~12 ms) so the harmony swells together with the gated dry
   signal instead of arriving late.
 
-### 8. Post-processing effects (`ovtdsp::IEffect`)
+### 8. Effects buses (`ovtdsp::EffectsBus`) and the output stage
 
-Effects stacked after the pitch-correction + harmony mix, processing the final
-buffer in place. `ReverbEffect` (`id = "reverb"`) wraps `juce::Reverb` and
-smooths the enable gain to avoid clicks when toggled.
+Effects are not stacked on one global list any more: the processor owns **three**
+`ovtdsp::EffectsBus` instances, tapped at three points of the chain, in signal order.
+
+| Bus | Tap point | Registered effects | Driving parameters |
+|-----|-----------|--------------------|------------------|
+| Lead | corrected lead voice, **before** any harmony is added | `DeEsser`, `ReverbEffect` (short room: size 0.35, damping 0.50, width 0.5) | `deess_enable`, `deess_amount`, `reverb_enable`, `reverb_mix` |
+| Harmony | `harmonyBuffer`, **before** it is mixed into the output | `ReverbEffect` (long wide room: size 0.85, damping 0.40, width 1.0) | `pad_reverb_enable`, `pad_reverb_mix` |
+| Master | final mixed buffer, **after** the blend | none today (the home for shared sends / glue), then `OutputLimiter` | `output_trim`, `limiter_enable` |
+
+- Each bus owns its OWN effect instances, so one class can run twice with different
+  fixed settings. The enable flag and wet mix of every effect come from a per-bus
+  wiring callback reading APVTS parameters, so the same `ReverbEffect` class is
+  driven by two independent parameter pairs (`getId()` stays `"reverb"`; the bus *is*
+  the role).
+- **The lead reverb is ducked by the gate envelope**: its wet mix is multiplied by
+  `noiseGate.getCurrentGain()`, which returns 1.0 when the gate is off, so the tail
+  follows the phrase and the bypass stays neutral.
+- **The pad is not extra-ducked**: the harmony mix downstream is already multiplied by
+  the smoothed gate gain, so ducking the pad room a second time would double-dip.
+- Splitting the reverb is what makes it usable: one shared room forces one size on two
+  roles, and in `ReverbEffect` a rising wet mix attenuates the dry signal — so a long
+  pad room would wash out the lead's intelligibility and any tempo-synced copy.
+
+`ovtdsp::OutputLimiter` runs **last** on the master bus: an output trim in dB
+(`-12 .. +12`) followed by a peak limiter with a linked-channel one-pole envelope
+(0.7 ms attack, 120 ms release) and a `0.98` linear ceiling. It is deliberately
+**non-lookahead**: the gain at sample *i* is computed only from samples ≤ *i*, so the
+stage adds **no latency** and `setLatencySamples` is never touched by it. The trim
+scales the final result only, leaving the harmony `1/sqrt(1+N)` gain-match intact.
+
+The sleep path runs all three buses on the cleared buffer so tails decay, then
+returns; `OutputLimiter` passes a silent buffer through untouched.
 
 ## Corrective blend & modes
 

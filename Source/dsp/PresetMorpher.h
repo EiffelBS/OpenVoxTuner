@@ -25,7 +25,8 @@ namespace ovtdsp
         float harmonyToneColor = 0.5f;
         float doubleAmount = 0.0f;   // normalized "double_amount" (0..100 %)
         bool doubleEnable = false;   // "double_enable": power switch, amount is kept
-        float reverbMix = 0.0f;
+        float reverbMix = 0.0f;      // lead reverb wet mix ("reverb_mix")
+        float padReverbMix = 0.30f;  // harmony-bus (pad) reverb wet mix ("pad_reverb_mix")
         float flexTune = 0.0f;
         float humanize = 0.0f;
         float vibratoPreserve = 0.0f;
@@ -51,13 +52,16 @@ namespace ovtdsp
         bool harmonyEnable = false;
         bool harmonyUseVoice = true;
         bool harmonyFollowLead = true;
-        bool reverbEnable = false;
+        bool reverbEnable = false;   // lead reverb power switch
+        bool padReverbEnable = false; // pad reverb power switch, mix is kept
         bool noiseGateEnable = false;
         float noiseGateThreshold = 0.375f; // normalized: -50dB in -80..0 range
         bool upwardCompEnable = false;
         float upwardCompAmount = 0.25f; // 0..1 upward compression amount
         bool deessEnable = false;       // "deess_enable": power switch, knob is kept
         float deessAmount = 0.65f;      // intensity 0..1: -38 x a dB threshold, 19 x a dB depth
+        float outputTrim = 0.5f;        // normalized "output_trim" (-12..+12 dB): 0.5 = 0 dB
+        bool limiterEnable = true;      // "limiter_enable": master peak limiter on/off
         bool correctionMode = false; // false = Modern
 
         // PitchCurve
@@ -87,6 +91,7 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("double_amount"))      s.doubleAmount = p->getValue();
         if (auto* p = params.getParameter ("double_enable"))      s.doubleEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("reverb_mix"))         s.reverbMix = p->getValue();
+        if (auto* p = params.getParameter ("pad_reverb_mix"))     s.padReverbMix = p->getValue();
         if (auto* p = params.getParameter ("flex_tune"))          s.flexTune = p->getValue();
         if (auto* p = params.getParameter ("humanize"))           s.humanize = p->getValue();
         if (auto* p = params.getParameter ("vibrato_preserve"))   s.vibratoPreserve = p->getValue();
@@ -113,6 +118,9 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("harmony_enable"))      s.harmonyEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("harmony_use_voice"))   s.harmonyUseVoice = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("reverb_enable"))       s.reverbEnable = p->getValue() > 0.5f;
+        if (auto* p = params.getParameter ("pad_reverb_enable"))   s.padReverbEnable = p->getValue() > 0.5f;
+        if (auto* p = params.getParameter ("output_trim"))         s.outputTrim = p->getValue();
+        if (auto* p = params.getParameter ("limiter_enable"))      s.limiterEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("noise_gate_enable"))   s.noiseGateEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("noise_gate_threshold")) s.noiseGateThreshold = p->getValue();
         if (auto* p = params.getParameter ("upward_comp_enable"))   s.upwardCompEnable = p->getValue() > 0.5f;
@@ -144,9 +152,11 @@ namespace ovtdsp
                         "harmony_tone", "harmony_shifted_voices", "latency_mode",
                         "editor_measures", "voice_type", "formant_enable", "bypass", "harmony_enable",
                         "harmony_use_voice", "harmony_follow_lead", "reverb_enable",
+                        "pad_reverb_mix", "pad_reverb_enable",
                         "noise_gate_enable", "upward_comp_enable", "upward_comp_amount",
                         "deess_amount",
                         "deess_enable",
+                        "output_trim", "limiter_enable",
                         "correction_mode" });
         return ids;
     }
@@ -199,6 +209,7 @@ namespace ovtdsp
         setParam ("harmony_tone_color", source.harmonyToneColor + (target.harmonyToneColor - source.harmonyToneColor) * t);
         setParam ("double_amount",      source.doubleAmount + (target.doubleAmount - source.doubleAmount) * t);
         setParam ("reverb_mix",         source.reverbMix + (target.reverbMix - source.reverbMix) * t);
+        setParam ("pad_reverb_mix",     source.padReverbMix + (target.padReverbMix - source.padReverbMix) * t);
         setParam ("flex_tune",          source.flexTune + (target.flexTune - source.flexTune) * t);
         setParam ("humanize",           source.humanize + (target.humanize - source.humanize) * t);
         setParam ("vibrato_preserve",   source.vibratoPreserve + (target.vibratoPreserve - source.vibratoPreserve) * t);
@@ -210,6 +221,7 @@ namespace ovtdsp
         setParam ("noise_gate_threshold", source.noiseGateThreshold + (target.noiseGateThreshold - source.noiseGateThreshold) * t);
         setParam ("upward_comp_amount", source.upwardCompAmount + (target.upwardCompAmount - source.upwardCompAmount) * t);
         setParam ("deess_amount",        source.deessAmount + (target.deessAmount - source.deessAmount) * t);
+        setParam ("output_trim",         source.outputTrim + (target.outputTrim - source.outputTrim) * t);
 
         // Discrete parameters (step at 50%)
         setParam ("key",                    lerpOrStep ((float) source.key / 11.0f, (float) target.key / 11.0f, t));
@@ -228,10 +240,12 @@ namespace ovtdsp
         setParam ("harmony_use_voice", lerpOrStep (source.harmonyUseVoice ? 1.0f : 0.0f, target.harmonyUseVoice ? 1.0f : 0.0f, t));
         setParam ("harmony_follow_lead", lerpOrStep (source.harmonyFollowLead ? 1.0f : 0.0f, target.harmonyFollowLead ? 1.0f : 0.0f, t));
         setParam ("reverb_enable",     lerpOrStep (source.reverbEnable ? 1.0f : 0.0f, target.reverbEnable ? 1.0f : 0.0f, t));
+        setParam ("pad_reverb_enable", lerpOrStep (source.padReverbEnable ? 1.0f : 0.0f, target.padReverbEnable ? 1.0f : 0.0f, t));
         setParam ("double_enable",     lerpOrStep (source.doubleEnable ? 1.0f : 0.0f, target.doubleEnable ? 1.0f : 0.0f, t));
         setParam ("noise_gate_enable", lerpOrStep ((float) source.noiseGateEnable, (float) target.noiseGateEnable, t) > 0.5f ? 1.0f : 0.0f);
         setParam ("upward_comp_enable", lerpOrStep (source.upwardCompEnable ? 1.0f : 0.0f, target.upwardCompEnable ? 1.0f : 0.0f, t));
         setParam ("deess_enable",      lerpOrStep (source.deessEnable ? 1.0f : 0.0f, target.deessEnable ? 1.0f : 0.0f, t));
+        setParam ("limiter_enable",    lerpOrStep (source.limiterEnable ? 1.0f : 0.0f, target.limiterEnable ? 1.0f : 0.0f, t));
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));
     }
 }

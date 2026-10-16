@@ -1,6 +1,6 @@
 # OpenVoxTuner - Implementation Roadmap
 
-> Last updated: 2026-08-25 05:04 CEST
+> Last updated: 2026-10-16 09:15 CEST
 
 ## Legend
 
@@ -20,7 +20,7 @@
 - [x] Formant preservation
 - [x] Scale quantizer (14 scale types including Custom)
 - [x] Harmony engine (21 harmony types + None; 22 entries)
-- [x] Reverb effect (post-processing)
+- [x] Reverb effect — **split into two instances on two buses (2026-10-16)**: a short centred room on the lead bus (`reverb_enable` / `reverb_mix`, room size 0.35, damping 0.50, width 0.5) and a long wide room on the harmony/pad bus (`pad_reverb_enable` / `pad_reverb_mix`, room size 0.85, damping 0.40, width 1.0). One shared room forced one size on two roles with opposite needs (lead = intelligibility, pad = amplitude), and in `ReverbEffect` a rising wet mix attenuates the dry signal, so a long pad room washes out the lead and any tempo-synced copy. New `setStereoWidth(float)` alongside the existing `setRoomSize` / `setDamping`, all three now with real call sites.
 - [x] Noise Gate (input, before pitch detection)
 - ~~[x] FlexTune~~ *(DEPRECATED 2026-07-24 — UI hidden, logic disabled)* / [x] Humanize parameters
 - [x] Correction mode (Modern / Transparent)
@@ -28,6 +28,8 @@
 - [x] Pitch curve (programmatic control over time)
 - [x] Vibrato preservation (2026-07-14): correct against a smoothed center pitch instead of the instantaneous pitch, so the vibrato modulation survives while the note still snaps to the scale. New `vibrato_preserve` parameter (0-100%), `ovtdsp::VibratoPreserver` helper, Correction-section knob, A/B-morph + preset persistence, and unit test.
 - [x] **Harmony Attack fix (2026-07-27)**: Eliminated volume surplus at harmony voice onsets when Gate + Harmony are both active. Per-voice smoothstep (raised-cosine) fade-in retriggers on every gate-open; gate-follow clamp (12 ms) aligns harmony with gated dry signal; configurable `harmony_attack` parameter (1-300 ms, default 35 ms) under the Blend knob. New `HarmonyAttack` regression test covers all 21 harmony profiles (gate on/off, retrigger, long attack clamping). 139 tests pass.
+- [x] **Three effects buses — lead / harmonies / master (2026-10-16)**: `ovtdsp::EffectsBus` (`Source/dsp/EffectsBus.h`, header-only) replaces the single `effects` vector with three per-bus dispatches in `processFx` — `applyLeadEffects` on the corrected lead **before** any harmony is added, `applyHarmonyEffects` on `harmonyBuffer` **before** the mix, `applyMasterEffects` on the final buffer **after** the blend. Each bus owns its OWN effect instances and a wiring callback that computes `enabled` / `wetMix` from that bus's parameters, so one class can run twice with different fixed settings (`getId()` stays `"reverb"`; the bus *is* the role). The de-esser (#130) moved to the lead bus, keeping de-esser-before-reverb order. Lead wet is ducked by `noiseGate.getCurrentGain()` (neutral when the gate is off); the pad is not extra-ducked because the harmony mix downstream already multiplies by the smoothed gate gain. The master bus is intentionally empty today — it is the home for shared sends / glue. This is the pre-work for #130/#131/#132 (de-esser, doubler, tempo-sync delay). New `EffectsBusTest` (10 tests): empty bus bit-identical, all-on-master == legacy single-loop dispatch, non-lookahead, trim, linked channels, silence, impulse position.
+- [x] **Output trim + non-lookahead limiter on the master bus (2026-10-16)**: `ovtdsp::OutputLimiter` (`Source/dsp/OutputLimiter.h`, header-only, not an `IEffect`) runs **last** — an output trim in dB (`output_trim`, −12..+12, default 0) then a peak limiter (`limiter_enable`, default **true**) with a linked-channel one-pole envelope (0.7 ms attack, 120 ms release) and `ceilingLinear = 0.98` (~ −1.68 dBFS). Deliberately **non-lookahead**: the gain at sample *i* is computed only from samples ≤ *i*, so the stage adds **no latency** and `setLatencySamples` is never touched (the dynamic-latency trap). The trim scales the final result only, leaving the harmony `1/sqrt(1+N)` gain-match intact. A unit test caught the first release formula (`env += rc * (env - scaled)`, which diverges away from the target) and it was corrected to `(scaled - env)`.
 
 ## 2. Audio I/O and Plugin Format
 
@@ -94,6 +96,7 @@ plugin dependency). Detailed plan: `docs/implementation-plan-chord-detection.md`
 - [x] Key and Scale selection (ComboBox)
 - [x] Custom scale editor (12-button keyboard)
 - [x] Speed, Amount, Formant, Reverb knobs
+- [x] Effects block grows to **4 columns** (2026-10-16): column 3 = **Pad** (pad-reverb power toggle + mix knob), column 4 = **Limiter** (limiter power toggle + Output Trim knob in dB). The block grows by column, never by a third row, so every knob keeps its full size; the frame width model (`effectW`) and `numEffectCols` are both driven by the column count. Output Trim is deliberately NOT greyed out by the limiter switch (the trim works with the limiter off). i18n × 6 locales, MIDI-learn label for `output_trim`, undo-gesture listeners, theme colours.
 - ~~[x] FlexTune knob~~ *(DEPRECATED 2026-07-24)* / [x] Humanize knob
 - [x] Correction mode toggle (Modern / Transparent)
 - [x] Bypass toggle (standalone only)

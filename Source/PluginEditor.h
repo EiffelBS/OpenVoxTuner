@@ -264,10 +264,24 @@ private:
     ebs::PowerToggle deessEnableButton;
     juce::Slider       deessAmountSlider;        // intensity (0-1)
 
-    // Reverb controls (post-processing effect)
+    // Reverb controls (lead bus: the reverb that sits on the corrected lead)
     ebs::PowerToggle reverbEnableButton;
     juce::Slider       reverbMixSlider;
     juce::Label        reverbMixLabel;
+
+    // Pad Reverb: a SECOND ReverbEffect instance, on the harmony bus. Two instances
+    // are the whole point of the split: the lead needs a short, centred room for
+    // intelligibility and the pad needs a long, wide one for amplitude. One shared
+    // master reverb forces one room on both and washes the tempo-sync delay copies.
+    ebs::PowerToggle padReverbEnableButton;
+    juce::Slider       padReverbMixSlider;
+    juce::Label        padReverbMixLabel;
+
+    // Output stage: trim is the pre-limiter gain (-12..+12 dB), the limiter is the
+    // non-lookahead peak guard that runs last on the master bus.
+    ebs::PowerToggle limiterEnableButton;
+    juce::Slider       outputTrimSlider;
+    juce::Label        outputTrimLabel;
 
     // Noise Gate
     ebs::PowerToggle noiseGateEnableButton;
@@ -281,10 +295,11 @@ private:
     juce::Slider       upwardCompAmountSlider;
     juce::Label        upwardCompAmountLabel;
 
-    // Effects frame: the six effect cells (Gate, Compress, Reverb, Doubler, Formant,
-    // De-Esser) live inside this ebs::ExpansibleFrame. Closed it shows two columns of
-    // two cells; the chevron on its right edge opens a third column and widens the
-    // frame, which the editor answers by re-laying out the bottom row.
+    // Effects frame: the eight effect cells (Gate, Compress, Reverb, Doubler, Formant,
+    // De-Esser, Pad Reverb, Output Limit) live inside this ebs::ExpansibleFrame. Closed
+    // it shows two columns of two cells; the chevron on its right edge opens the extra
+    // columns and widens the frame, which the editor answers by re-laying out the bottom
+    // row. The block grows by COLUMN, never by adding a third row.
     ebs::ExpansibleFrame effectsFrame;
     // The Correction block is the same component: one chevron, one fold flag, one
     // host re-layout. Both bottom-row frames are ExpansibleFrame, not two bespoke handles.
@@ -400,6 +415,10 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> reverbEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbMixAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> padReverbEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> padReverbMixAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> limiterEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputTrimAttachment;
     // 2026-07-24 (Deprecation): FlexTune and Attack-Aware attachments are
     // disabled. The APVTS parameters still exist (for preset compatibility)
     // but no longer have a UI control attached.

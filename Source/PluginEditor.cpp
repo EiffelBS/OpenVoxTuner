@@ -1113,6 +1113,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                     {"amount", ovt::tr(ovt::Keys::kMidiLearnAmount).toStdString()},
                     {"formant", ovt::tr(ovt::Keys::kMidiLearnFormant).toStdString()},
                     {"reverb_mix", ovt::tr(ovt::Keys::kMidiLearnReverbMix).toStdString()},
+                    {"output_trim", ovt::tr(ovt::Keys::kMidiLearnOutputTrim).toStdString()},
                     {"flex_tune", ovt::tr(ovt::Keys::kMidiLearnFlexTune).toStdString()},
                     {"humanize", ovt::tr(ovt::Keys::kMidiLearnHumanize).toStdString()},
                     {"vibrato_preserve", ovt::tr(ovt::Keys::kMidiLearnVibrato).toStdString()},
@@ -1402,9 +1403,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     companionGroupAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "companion_group", companionGroupBox);
 
-    // Reverb attachments
+    // Reverb attachments (lead bus)
     reverbEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "reverb_enable", reverbEnableButton);
     reverbMixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "reverb_mix", reverbMixSlider);
+
+    // Pad Reverb attachments (harmony bus) and Output stage attachments (master bus)
+    padReverbEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "pad_reverb_enable", padReverbEnableButton);
+    padReverbMixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "pad_reverb_mix", padReverbMixSlider);
+    limiterEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "limiter_enable", limiterEnableButton);
+    outputTrimAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "output_trim", outputTrimSlider);
 
     noiseGateEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processorRef.getParameters(), "noise_gate_enable", noiseGateEnableButton);
@@ -1907,7 +1914,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     formantEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     addAndMakeVisible (formantEnableButton);
 
-    // Reverb controls (post-processing effect, same style as Formant)
+    // Reverb controls (lead bus: the reverb that sits on the corrected lead,
+    // same cell pattern as Formant)
     setupKnob (reverbMixSlider, &reverbMixLabel, "Mix");
     reverbMixSlider.setRange (0.0, 1.0, 0.01);
     reverbMixSlider.setEnabled (false); // disabled until reverb is toggled on
@@ -1921,6 +1929,44 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     reverbEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     reverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbEn));
     addAndMakeVisible (reverbEnableButton);
+
+    // Pad Reverb controls (harmony bus): the second reverb room, long and wide, on the
+    // harmony voices only. Same cell pattern as the lead reverb - one switch and one
+    // "Mix" knob. The two rooms are separate instances because a single reverb cannot
+    // be short-and-centred for the lead and long-and-wide for the pad at the same time.
+    padReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelPadReverbBtn));
+    padReverbEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    padReverbEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
+    padReverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPadReverbEn));
+    addAndMakeVisible (padReverbEnableButton);
+
+    setupKnob (padReverbMixSlider, nullptr, "");
+    padReverbMixSlider.setRange (0.0, 1.0, 0.01);
+    padReverbMixSlider.setEnabled (false); // disabled until the pad reverb is toggled on
+    // No value textbox; the live value is shown in JUCE's popup display while dragging.
+    padReverbMixSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    padReverbMixSlider.setPopupDisplayEnabled (true, false, this);
+    padReverbMixSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    padReverbMixSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipPadReverbMix));
+    padReverbMixLabel.setVisible (false); // the toggle carries the name, as for Reverb/De-Esser
+
+    // Output stage (master bus): the trim is a raw dB gain applied before the limiter,
+    // and the limiter is a non-lookahead peak guard. Trim stays live with the limiter
+    // off - it is the level match into the mix, not the safety net.
+    limiterEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelLimiterBtn));
+    limiterEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    limiterEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
+    limiterEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipLimiterEn));
+    addAndMakeVisible (limiterEnableButton);
+
+    setupKnob (outputTrimSlider, nullptr, "");
+    outputTrimSlider.setRange (-12.0, 12.0, 0.1);
+    // No value textbox; the live value is shown in JUCE's popup display while dragging.
+    outputTrimSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    outputTrimSlider.setPopupDisplayEnabled (true, false, this);
+    outputTrimSlider.textFromValueFunction = [] (double v) { return juce::String (v, 1) + " dB"; };
+    outputTrimSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipOutputTrim));
+    outputTrimLabel.setVisible (false); // same reason as padReverbMixLabel
 
     // Noise Gate
     noiseGateEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelNoiseGate));
@@ -1999,7 +2045,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&formantEnableButton),
                                 static_cast<juce::Component*> (&formantSlider),
                                 static_cast<juce::Component*> (&deessEnableButton),
-                                static_cast<juce::Component*> (&deessAmountSlider) })
+                                static_cast<juce::Component*> (&deessAmountSlider),
+                                static_cast<juce::Component*> (&padReverbEnableButton),
+                                static_cast<juce::Component*> (&padReverbMixSlider),
+                                static_cast<juce::Component*> (&limiterEnableButton),
+                                static_cast<juce::Component*> (&outputTrimSlider) })
         effectsFrame.addAndMakeVisible (c);
 
     // 2026-07-24 (Deprecation): FlexTune and Attack-Aware UI setup
@@ -2671,8 +2721,8 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     const int corrClosedW = corrBaseW + 2 * kCorrPad + chevron;
 
     const int effectW = chevron + 2 * kEffectsPad
-                      + (effectsFrame.expanded() ? 3 : 2) * kEffectsColW
-                      + (effectsFrame.expanded() ? 2 : 1) * kEffectsColGap;
+                      + (effectsFrame.expanded() ? 4 : 2) * kEffectsColW
+                      + (effectsFrame.expanded() ? 3 : 1) * kEffectsColGap;
 
     // Correction re-states its width when the advanced zone opens. The width comes from
     // the content, so the closed block is never squeezed and an open block never shrinks:
@@ -2998,13 +3048,13 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // --- Block 4 : Effects - an ebs::ExpansibleFrame with two columns of two cells ---
     // Column 1 shows Noise Gate over Reverb, column 2 Upward Compressor over Doubler.
-    // The chevron on the frame's right edge opens a third column (Formant over
-    // De-Esser): the frame WIDENS and pushes the Harmony block, which is what the
-    // host re-layout on onExpandedChanged is for. Every cell is a power toggle carrying
-    // its name on top and a knob below; the knob size comes from the row height, so it
-    // stays at its full 54 px: adding a COLUMN is how this block grows, never a row
-    // (a third row would shrink every knob). The value shows in the popup display while
-    // dragging (no textbox).
+    // The chevron on the frame's right edge opens the extra columns (Formant over
+    // De-Esser, then Pad Reverb over Output Limit): the frame WIDENS and pushes the
+    // Harmony block, which is what the host re-layout on onExpandedChanged is for. Every
+    // cell is a power toggle carrying its name on top and a knob below; the knob size
+    // comes from the row height, so it stays at its full 54 px: adding a COLUMN is how
+    // this block grows, never a row (a third row would shrink every knob). The value
+    // shows in the popup display while dragging (no textbox).
 
     const bool effectsOpen = effectsFrame.expanded();
 
@@ -3014,12 +3064,16 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     formantSlider.setVisible (effectsOpen);
     deessEnableButton.setVisible (effectsOpen);
     deessAmountSlider.setVisible (effectsOpen);
+    padReverbEnableButton.setVisible (effectsOpen);
+    padReverbMixSlider.setVisible (effectsOpen);
+    limiterEnableButton.setVisible (effectsOpen);
+    outputTrimSlider.setVisible (effectsOpen);
 
     auto b4 = effectsFrame.interior().reduced (kEffectsPad);   // frame-local coordinates
     const int effectPowerH  = 18;
     const int rowGap        = 8;
     const int numEffectRows = 2;
-    const int numEffectCols = effectsOpen ? 3 : 2;
+    const int numEffectCols = effectsOpen ? 4 : 2;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
     const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;
@@ -3056,10 +3110,20 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // follows voice_type, so there is nothing else to place in this cell.
     if (effectsOpen)
     {
-        auto col3 = b4;
+        auto col3 = b4.removeFromLeft (effectColW);
+        b4.removeFromLeft (kEffectsColGap);
         placeToggledKnob (col3.removeFromTop (rowH), formantEnableButton, formantSlider);
         col3.removeFromTop (rowGap);
         placeToggledKnob (col3, deessEnableButton, deessAmountSlider);
+
+        // Column 4, also only when open : Pad Reverb on top, Output Limit below. These
+        // two cells are the last stage of the chain: pad_reverb_mix is the wet mix of the
+        // harmony-only reverb room, and output_trim + limiter_enable are the master level
+        // match and the peak guard. The trim knob reads in dB (-12 to +12), not percent.
+        auto col4 = b4;
+        placeToggledKnob (col4.removeFromTop (rowH), padReverbEnableButton, padReverbMixSlider);
+        col4.removeFromTop (rowGap);
+        placeToggledKnob (col4, limiterEnableButton, outputTrimSlider);
     }
 
     // Harmony controls block (rightmost block)
@@ -3480,6 +3544,12 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // Gray out Reverb slider if disabled
     bool isReverbEnabled = reverbEnableButton.getToggleState();
     reverbMixSlider.setEnabled (isReverbEnabled);
+
+    // Gray out Pad Reverb slider if disabled. The Output Trim knob is NOT gated by the
+    // limiter switch: trim is the level match into the mix, so it stays live with the
+    // limiter off (a muted trim with no limiter is still a real gain change).
+    bool isPadReverbEnabled = padReverbEnableButton.getToggleState();
+    padReverbMixSlider.setEnabled (isPadReverbEnabled);
 
     // Gray out Upward Comp slider if disabled
     bool isUpwardCompEnabled = upwardCompEnableButton.getToggleState();
@@ -4279,6 +4349,8 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     formantSlider.addListener (this);
     morphSlider.addListener (this);
     reverbMixSlider.addListener (this);
+    padReverbMixSlider.addListener (this);
+    outputTrimSlider.addListener (this);
     // 2026-07-24 (Deprecation): FlexTune listener disabled (UI hidden).
     // flexTuneSlider.addListener (this);
     humanizeSlider.addListener (this);
@@ -4296,6 +4368,8 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     // snapshot (the live baseline captured by the timer).
     formantEnableButton.addListener (this);
     reverbEnableButton.addListener (this);
+    padReverbEnableButton.addListener (this);
+    limiterEnableButton.addListener (this);
     doubleEnableButton.addListener (this);
     noiseGateEnableButton.addListener (this);
     // 2026-07-24 (Deprecation): Attack-Aware button listener disabled.
@@ -4475,6 +4549,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     harmonyGainMatchButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyGainMatch));
     formantEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelFormantBtn));
     reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
+    padReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelPadReverbBtn));
+    limiterEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelLimiterBtn));
     correctionModeButton.setButtonText (correctionModeButton.getToggleState() ? ovt::tr(ovt::Keys::kLabelTransparentBtn) : ovt::tr(ovt::Keys::kLabelModernBtn));
     harmonyToneColorLabel.setText (ovt::tr(ovt::Keys::kLabelTone), juce::dontSendNotification);
     noiseGateEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelNoiseGate));
@@ -4500,6 +4576,10 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     formantEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant));
     formantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant));
     reverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn));
+    padReverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPadReverbEn));
+    padReverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipPadReverbMix));
+    limiterEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipLimiterEn));
+    outputTrimSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputTrim));
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
     flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune));
@@ -4842,6 +4922,8 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("harmony_tone_color", saved.harmonyToneColor,   harmonyToneColorSlider);
     setSlider ("double_amount",      saved.doubleAmount,       doubleAmountSlider);
     setSlider ("reverb_mix",         saved.reverbMix,          reverbMixSlider);
+    setSlider ("pad_reverb_mix",     saved.padReverbMix,       padReverbMixSlider);
+    setSlider ("output_trim",        saved.outputTrim,         outputTrimSlider);
     setSlider ("noise_gate_threshold", saved.noiseGateThreshold, noiseGateThresholdSlider);
     setSlider ("upward_comp_amount",   saved.upwardCompAmount,   upwardCompAmountSlider);
     setSlider ("deess_amount",       saved.deessAmount,      deessAmountSlider);
@@ -4886,6 +4968,8 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("harmony_use_voice", saved.harmonyUseVoice ? 1.0f : 0.0f);
     setChoice ("harmony_follow_lead", saved.harmonyFollowLead ? 1.0f : 0.0f);
     setChoice ("reverb_enable",     saved.reverbEnable ? 1.0f : 0.0f);
+    setChoice ("pad_reverb_enable", saved.padReverbEnable ? 1.0f : 0.0f);
+    setChoice ("limiter_enable",    saved.limiterEnable ? 1.0f : 0.0f);
     setChoice ("double_enable",     saved.doubleEnable ? 1.0f : 0.0f);
     setChoice ("noise_gate_enable", saved.noiseGateEnable ? 1.0f : 0.0f);
     setChoice ("upward_comp_enable", saved.upwardCompEnable ? 1.0f : 0.0f);
@@ -4982,7 +5066,11 @@ namespace
             // "s" add up to +6 dB of top end, so a light de-esser keeps the stack
             // bright without the hiss the sum produces. Low intensity, and the band
             // centre follows the Voice Type the user picked, not a preset override.
-            { "deess_enable", 1.0f }, { "deess_amount", 0.55f }
+            { "deess_enable", 1.0f }, { "deess_amount", 0.55f },
+            // The pad room is the harmony-only reverb: a 4-voice stack is where a long,
+            // wide room pays, because it fattens the voices without washing the lead
+            // (the lead keeps its own short room on reverb_mix).
+            { "pad_reverb_enable", 1.0f }, { "pad_reverb_mix", 0.35f }
         };
         static const std::map<juce::String, float> liveScene = {
             { "amount", 0.9f }, { "flex_tune", 10.0f }, { "humanize", 30.0f },
@@ -5058,7 +5146,10 @@ namespace
             // compression, harmony voices and reverb all add top end on top of the
             // doubled "s". De-essing before the reverb keeps the space without the
             // hiss, at the standard intensity; the band centre follows Voice Type.
-            { "deess_enable", 1.0f }, { "deess_amount", 0.65f }
+            { "deess_enable", 1.0f }, { "deess_amount", 0.65f },
+            // The "-3 / +3" voices get their own long room: the pad reverb fattens the
+            // harmony without smearing the lead, which keeps its short room at 0.25.
+            { "pad_reverb_enable", 1.0f }, { "pad_reverb_mix", 0.30f }
         };
 
         if (name == "Pure Correction")       return &correctionPure;
@@ -5687,6 +5778,8 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applySliderColours (amountSlider);
     applySliderColours (formantSlider);
     applySliderColours (reverbMixSlider);
+    applySliderColours (padReverbMixSlider);
+    applySliderColours (outputTrimSlider);
     applySliderColours (noiseGateThresholdSlider);
     applySliderColours (flexTuneSlider);
     applySliderColours (humanizeSlider);
@@ -5708,6 +5801,8 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (vibratoPreserveLabel);
     applyLabelColours (attackReleaseLabel);
     applyLabelColours (reverbMixLabel);
+    applyLabelColours (padReverbMixLabel);
+    applyLabelColours (outputTrimLabel);
     applyLabelColours (noiseGateThresholdLabel);
     applyLabelColours (harmonyToneColorLabel);
     applyLabelColours (keyLabel);
@@ -5763,6 +5858,8 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     useVoiceButton.setColour (ebs::ToggleSwitch::trackOffColourId, ebs::text().withAlpha (0.18f));
     applyToggleColours (formantEnableButton);
     applyToggleColours (reverbEnableButton);
+    applyToggleColours (padReverbEnableButton);
+    applyToggleColours (limiterEnableButton);
     applyToggleColours (noiseGateEnableButton);
     applyToggleColours (doubleEnableButton);
 

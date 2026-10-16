@@ -95,6 +95,22 @@
 | Double Amount | `double_amount` | Float | **0.0** | 0 – 100 % |
 | De-Esser Enable | `deess_enable` | Bool | **false** | false / true |
 | De-Esser Intensity | `deess_amount` | Float | **0.65** (65%) | 0 – 1 (0–100%) |
+| Pad Reverb Enable | `pad_reverb_enable` | Bool | **false** | false / true |
+| Pad Reverb Mix | `pad_reverb_mix` | Float | **0.30** | 0 – 1 |
+| Output Trim | `output_trim` | Float | **0.0 dB** | -12 – +12 dB |
+| Limiter Enable | `limiter_enable` | Bool | **true** | false / true |
+
+The effects are applied at three tap points, each with its own parameters: the lead
+voice (`deess_*`, `reverb_*`), the harmony bus (`pad_reverb_*`) and the master output
+(`output_trim`, `limiter_enable`). `reverb_enable` / `reverb_mix` are the **lead**
+reverb; `pad_reverb_enable` / `pad_reverb_mix` drive the separate long wide room that
+sits on the harmony voices only. The lead reverb's wet mix is additionally ducked by
+the noise-gate envelope, so the tail follows the phrase.
+
+The limiter is **on by default** and **non-lookahead**: it adds no latency, so the
+declared plugin latency is unchanged. `output_trim` scales the final result only, after
+every effect, and works with the limiter off (the Output Trim knob is not greyed out by
+the limiter switch).
 
 The De-Esser has one knob. Intensity maps the trigger level (`-38 x amount` dB) and the
 depth cap (`19 x amount` dB) together, so 0% is inert and 100% is the deepest. The band

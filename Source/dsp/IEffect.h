@@ -1,4 +1,4 @@
-﻿// IEffect.h
+// IEffect.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -11,9 +11,16 @@
 namespace ovtdsp
 {
     /**
-     * Abstract interface for post-processing audio effects.
-     * Effects are stacked after the main pitch-correction + harmony pipeline
-     * and process the final mixed output buffer.
+     * Abstract interface for vocal effects.
+     *
+     * An effect is registered on one of the three tap points of the chain
+     * (see ovtdsp::EffectsBus): the corrected lead voice before any harmony is
+     * added, the harmony bus before it is mixed into the output, or the master
+     * output after every bus has been blended. Each bus owns its OWN instances,
+     * so the same class can run twice with different fixed settings (a short room
+     * on the lead, a long wide one on the harmony pad). Processing is in-place on
+     * the tapped buffer; the effect never reads parameters, the caller's wiring
+     * computes `enabled` and `wetMix` from them.
      */
     class IEffect
     {

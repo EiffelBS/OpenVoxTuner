@@ -1,4 +1,4 @@
-﻿// ReverbEffect.h
+// ReverbEffect.h
 // ReverbEffect.h
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -29,6 +29,9 @@ namespace ovtdsp
 
         /** Adjust reverb damping (0.0 .. 1.0). */
         void setDamping (float damping);
+
+        /** Adjust stereo width (0.0 = centred, 1.0 = fully wide). */
+        void setStereoWidth (float width);
 
     private:
         juce::Reverb reverb;

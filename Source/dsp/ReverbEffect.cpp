@@ -1,4 +1,4 @@
-﻿// ReverbEffect.cpp
+// ReverbEffect.cpp
 // ReverbEffect.cpp
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -126,6 +126,13 @@ namespace ovtdsp
     void ReverbEffect::setDamping (float damping)
     {
         params.damping = juce::jlimit (0.0f, 1.0f, damping);
+        if (prepared)
+            reverb.setParameters (params);
+    }
+
+    void ReverbEffect::setStereoWidth (float width)
+    {
+        params.width = juce::jlimit (0.0f, 1.0f, width);
         if (prepared)
             reverb.setParameters (params);
     }
