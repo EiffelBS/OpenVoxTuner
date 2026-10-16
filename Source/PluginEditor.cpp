@@ -3131,11 +3131,19 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         auto col4 = b4;
         placeToggledKnob (col4.removeFromTop (rowH), padReverbEnableButton, padReverbMixSlider);
         col4.removeFromTop (rowGap);
-        placeToggledKnob (col4, limiterEnableButton, outputTrimSlider);
 
-        // The meter goes in the strip the knob leaves under it, in the SAME cell: rows are
-        // frozen at two and the cell width is the cell width, so the meter costs the frame
-        // no pixel of width. It takes the full 74 px column, which is what one dB line needs.
+        // The Output Limit cell is the only cell in this block that carries something
+        // under its knob: the output meter. Rows are frozen at two and the frame grows by
+        // column only, so the strip is paid for by THIS cell's knob - the one knob in the
+        // block that is smaller than its siblings. A 5 px bar plus one 8 pt dB line needs
+        // 16 px; the knob takes the rest of the cell.
+        auto limitCell = col4;
+        limiterEnableButton.setBounds (limitCell.removeFromTop (effectPowerH));
+        const int meterStripH = 16;
+        const int limitKnobD  = juce::jmax (30, limitCell.getHeight() - 2 - meterStripH);
+        const int kx = limitCell.getX() + juce::jmax (0, (limitCell.getWidth() - limitKnobD) / 2);
+        outputTrimSlider.setBounds (kx, limitCell.getY() + 2, limitKnobD, limitKnobD);
+
         const int meterTop = outputTrimSlider.getBounds().getBottom() + 1;
         outputMeter.setBounds (col4.getX(), meterTop, col4.getWidth(),
                                juce::jmax (0, col4.getBottom() - meterTop));
