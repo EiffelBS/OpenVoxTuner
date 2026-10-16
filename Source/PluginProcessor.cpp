@@ -872,13 +872,17 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         leadBus.addEffect (std::move (leadReverb));
     }
 
-    // HARMONY bus (the pad): a long, fully wide room gives the blended voices
-    // amplitude and depth. It is a SEPARATE ReverbEffect instance, so the two rooms
-    // are independent -- the same class the lead uses, tuned for a different job.
+    // HARMONY bus (the pad): a wide room gives the blended voices amplitude and depth. It is a
+    // SEPARATE ReverbEffect instance, so the two rooms are independent -- the same class the lead
+    // uses, tuned for a different job. The size is deliberately NOT at the top of the range: comb
+    // feedback is roomSize * 0.28 + 0.7, so 0.85 put 0.938 on the comb lines and the pad rang as
+    // a metallic resonator for ~2.7 s after every syllable -- the "sons bizarres" reported with
+    // Pad engaged. 0.62 / 0.55 keeps the depth, drops feedback to 0.874, and lands the tail inside
+    // a phrase (measured in SharedReverbRoomTest).
     {
         auto padReverb = std::make_unique<ovtdsp::ReverbEffect>();
-        padReverb->setRoomSize (0.85f);
-        padReverb->setDamping (0.40f);
+        padReverb->setRoomSize (0.62f);
+        padReverb->setDamping (0.55f);
         padReverb->setStereoWidth (1.0f);
         harmonyBus.addEffect (std::move (padReverb));
     }
@@ -3149,17 +3153,20 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             }
         }
 
-        // === HARMONY EFFECTS TAP ===
-        // Effects on the harmony bus, before it is mixed into the master output. The
-        // pad room acts on the blended voices only, so the lead keeps its own short
-        // room and the two rooms never fight each other for one shared setting.
-        applyHarmonyEffects (harmonyBuffer);
-
-        // The pad send is taken here, on the blended harmony voices BEFORE they are mixed
-        // into the master output: the send sees the voices at their own level, not the sum
-        // of lead plus pad. Mixing first would send the lead twice (once from its own tap,
-        // once through the mixed output), which is what makes a shared room read as two rooms.
+        // === PAD SEND TAP ===
+        // The send is taken on the blended voices BEFORE their own pad room runs. A send
+        // tapped after an insert feeds that insert's wet tail into a second room, so the
+        // stack reverberates twice and the two tails modulate each other -- the metallic
+        // flutter that reads as "sons bizarres" with Pad engaged. The dry voices are what
+        // should ring in the shared space; the pad room stays an insert on this bus.
         applyPadSend (harmonyBuffer);
+
+        // === HARMONY EFFECTS TAP ===
+        // Effects on the harmony bus, after the send is taken and before the voices are
+        // mixed into the master output. The pad room acts on the blended voices only, so
+        // the lead keeps its own short room and the two rooms never fight each other for
+        // one shared setting.
+        applyHarmonyEffects (harmonyBuffer);
 
         // Now mix harmonyBuffer into main output below
         const float hGain = (harmonyGainParam ? harmonyGainParam->load() : 1.0f);
@@ -4182,10 +4189,15 @@ void OpenVoxTunerAudioProcessor::applyLatencyMode()
 
 void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buffer)
 {
-    // Gate-envelope ducking: when the Noise Gate is off, getCurrentGain() stays 1.0,
-    // so this is neutral; when it closes, the lead room follows the voice out instead
-    // of leaving a tail ringing over silence.
-    const float gateGain = noiseGate.getCurrentGain();
+    // Gate-envelope ducking: when the Noise Gate is ENABLED, the lead room follows the
+    // voice out instead of leaving a tail ringing over silence. When it is disabled the
+    // gate's getCurrentGain() is STALE -- process() returns early and never updates the
+    // envelope -- so reading it unconditionally could freeze the lead wet mix at whatever
+    // level the gate last left behind, which is how "reverb à fond" stayed inaudible.
+    // The harmony mix downstream and the master ducking both check the flag; this tap must
+    // too, so a disabled gate means full mix.
+    const bool gateOn = (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f);
+    const float gateGain = gateOn ? noiseGate.getCurrentGain() : 1.0f;
 
     leadBus.apply (buffer, [&] (ovtdsp::IEffect& effect, bool& enabled, float& wetMix)
     {

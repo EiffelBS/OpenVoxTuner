@@ -119,11 +119,11 @@ namespace ovtdsp
         else
             reverb.processStereo (wetScratch.getWritePointer (0), wetScratch.getWritePointer (1), numSamples);
 
-        // The wet is ADDED to the dry, never swapped for it: a mix of 0 leaves the
-        // input bit-identical and a mix of 1 adds the full room. The old code
-        // multiplied the dry by (1 - mix), which attenuated the voice as the room
-        // opened up -- that is the behaviour this card corrects. A send must not
-        // steal from the dry path.
+        // The insert is a dry/wet CROSSFADE: mix 0 leaves the input bit-identical and
+        // mix 1 replaces it with the room. A Mix knob that only ADDS never reaches full
+        // wet, so pushing it to the end of the travel sounded like nothing -- that is
+        // the regression this corrects. Sends are the additive case: see processLeadSend
+        // and processPadSend, where stealing from the tapped path would be wrong.
         for (int ch = 0; ch < numChannels; ++ch)
         {
             float* data = buffer.getWritePointer (ch);
@@ -132,7 +132,8 @@ namespace ovtdsp
             for (int i = 0; i < numSamples; ++i)
             {
                 masterGain += (masterTarget - masterGain) * masterCoeff;
-                data[i] += wet[i] * mix * masterGain;
+                const float w = mix * masterGain;
+                data[i] = data[i] * (1.0f - w) + wet[i] * w;
             }
         }
     }
@@ -232,12 +233,13 @@ namespace ovtdsp
         if (masterBuffer.getNumChannels() == 1)
         {
             // Mono master: the stereo room is down-mixed to the centre, so the
-            // return level matches what a stereo listener hears.
+            // return level matches what a stereo listener hears. The trim keeps the
+            // tail behind the voice instead of doubling its level.
             float* out = masterBuffer.getWritePointer (0);
 
             for (int i = 0; i < numSamples; ++i)
             {
-                const float g = duckRamp.getNextValue();
+                const float g = duckRamp.getNextValue() * kReturnTrim;
                 const float wet = (sendL[i] + sendR[i]) * 0.5f * g;
                 out[i] += wet;
                 tailPeak = juce::jmax (tailPeak, std::abs (wet));
@@ -250,7 +252,7 @@ namespace ovtdsp
 
             for (int i = 0; i < numSamples; ++i)
             {
-                const float g = duckRamp.getNextValue();
+                const float g = duckRamp.getNextValue() * kReturnTrim;
                 const float wetL = sendL[i] * g;
                 const float wetR = sendR[i] * g;
                 outL[i] += wetL;

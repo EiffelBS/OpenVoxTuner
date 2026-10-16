@@ -1978,6 +1978,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     reverbMixSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     reverbMixSlider.setPopupDisplayEnabled (true, false, this);
     reverbMixSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    reverbMixSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbMix));
 
     reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
     reverbEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
@@ -1985,10 +1986,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     reverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbEn));
     addAndMakeVisible (reverbEnableButton);
 
-    // Pad Reverb controls (harmony bus): the second reverb room, long and wide, on the
-    // harmony voices only. Same cell pattern as the lead reverb - one switch and one
-    // "Mix" knob. The two rooms are separate instances because a single reverb cannot
-    // be short-and-centred for the lead and long-and-wide for the pad at the same time.
+    // Pad Reverb controls (harmony bus): the second reverb room, wide and heavily damped, on
+    // the harmony voices only. Same cell pattern as the lead reverb - one switch and one
+    // "Mix" knob. The two rooms are separate instances because a single reverb cannot be
+    // short-and-centred for the lead and wide-and-deep for the pad at the same time.
     padReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelPadReverbBtn));
     padReverbEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
     padReverbEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
@@ -4810,7 +4811,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     reverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn));
     formantEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant));
     formantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant));
-    reverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn));
+    reverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbMix));
     padReverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPadReverbEn));
     padReverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipPadReverbMix));
     limiterEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipLimiterEn));

@@ -9,6 +9,7 @@
 #include "../../Source/dsp/ReverbEffect.h"
 #include "../../Source/dsp/OnePoleLowCut.h"
 #include <cmath>
+#include <iostream>
 
 namespace
 {
@@ -76,6 +77,64 @@ namespace
     // Blocks needed for an asymptotic linear ramp to settle inside float precision:
     // the residual is exp(-samples/kRampSamples), so 60 blocks leave ~3e-6.
     constexpr int kWarmUpBlocks = 60;
+
+    /** ReverbEffect::kReturnTrim is private, so the level claim below mirrors it by value.
+        If the trim changes in the class, this constant makes the test fail loudly instead of
+        quietly agreeing with whatever the code now does. */
+    constexpr float kReturnTrimTest = 0.7f;
+
+    /** RMS over one channel of one block: level is what the user hears, so every level
+        claim in this suite is measured as an RMS ratio, not as a peak. */
+    float rvxRms (const juce::AudioBuffer<float>& buf, int channel)
+    {
+        double sum = 0.0;
+        for (int i = 0; i < buf.getNumSamples(); ++i)
+            sum += static_cast<double> (buf.getSample (channel, i)) * buf.getSample (channel, i);
+        return static_cast<float> (std::sqrt (sum / static_cast<double> (buf.getNumSamples())));
+    }
+
+    /** Seconds from a sustained voice until the room's tail falls 60 dB below its steady-state
+        level, measured through the same send / return path the plugin uses. The room has to be
+        driven first: an impulse alone enters the delay lines at the input scale (0.015) with the
+        wet gain ramped from zero, so its first-block peak is far below what the tail reaches and
+        a decay measured from it is the skip guard collapsing, not the room ringing. */
+    float rvxTailSeconds (ovtdsp::ReverbEffect& room)
+    {
+        const int drive = 200;   // ~1 s of sustained voice at unity send
+        float steadyPeak = 0.0f;
+
+        for (int k = 0; k < drive; ++k)
+        {
+            juce::AudioBuffer<float> src = roomSignal (2, kBlock, k);
+            room.processPadSend (src, 1.0f);
+
+            juce::AudioBuffer<float> m (2, kBlock);
+            m.clear();
+            room.processReturn (m, 1.0f);
+            steadyPeak = juce::jmax (steadyPeak, roomPeakOf (m));
+        }
+
+        if (steadyPeak <= 0.0f)
+            return -1.0f;
+
+        // Voice stops: silent blocks with send 0, so the only thing left is the tail. The budget
+        // runs to 8 s because the shipped pad room (roomSize 0.85) does not reach -60 dB inside a
+        // shorter window -- that is exactly the complaint being measured here.
+        for (int k = 0; k < 1500; ++k)
+        {
+            juce::AudioBuffer<float> silent (2, kBlock);
+            silent.clear();
+            room.processPadSend (silent, 0.0f);
+
+            juce::AudioBuffer<float> b (2, kBlock);
+            b.clear();
+            room.processReturn (b, 1.0f);
+
+            if (roomPeakOf (b) <= steadyPeak * 1.0e-3f)
+                return static_cast<float> ((k + 1) * kBlock / kSr);
+        }
+        return -1.0f;   // never decayed within ~8 s
+    }
 }
 
 class SharedReverbRoomTest : public juce::UnitTest
@@ -137,12 +196,16 @@ public:
                     "A send at unity changed the dry path");
         }
 
-        beginTest ("process() at mix 0 is a no-op, at full wet it ADDS the room");
+        beginTest ("process() is a Mix knob: mix 0 is a no-op, full wet replaces the voice");
         {
-            // The insert path: wetMix 0 is a no-op, wetMix 1 adds the room, and the dry
-            // term is never scaled.
+            // The endpoints of a dry/wet crossfade. Pure additive summing -- dry at unity plus
+            // the room on top -- never reaches "fully wet", which is exactly why pushing the
+            // lead mix to full sounded like nothing happening. So the assertion proves both
+            // directions: at full wet the output IS the room alone, and it is NOT voice + room.
             ovtdsp::ReverbEffect insert;
+            ovtdsp::ReverbEffect wetRef;
             insert.prepare (kSr, kBlock);
+            wetRef.prepare (kSr, kBlock);
 
             juce::AudioBuffer<float> dry = roomSignal (2, kBlock, 0);
             const juce::AudioBuffer<float> dryReference = dry;
@@ -151,16 +214,54 @@ public:
             expect (sendBuffersIdentical (dry, dryReference),
                     "process() at mix 0 changed the input");
 
-            juce::AudioBuffer<float> wet = roomSignal (2, kBlock, 0);
-            insert.process (wet, true, 1.0f);
+            // Warm up so both rooms hear the same history: comb feedback carries a send-ramp
+            // memory for seconds, so a short warm-up cannot pin a level comparison.
+            const int warmUp = 600;
+            for (int k = 0; k < warmUp; ++k)
+            {
+                juce::AudioBuffer<float> src = roomSignal (2, kBlock, k);
+                wetRef.processPadSend (src, 1.0f);
 
-            bool anyAdded = false;
-            for (int c = 0; c < wet.getNumChannels(); ++c)
-                for (int i = 0; i < wet.getNumSamples(); ++i)
-                    if (wet.getSample (c, i) != dryReference.getSample (c, i))
-                        anyAdded = true;
+                juce::AudioBuffer<float> m (2, kBlock);
+                m.clear();
+                wetRef.processReturn (m, 1.0f);
 
-            expect (anyAdded, "process() at full wet added nothing");
+                insert.process (src, true, 1.0f);
+            }
+
+            juce::AudioBuffer<float> src = roomSignal (2, kBlock, warmUp);
+            const juce::AudioBuffer<float> voice = src;
+
+            juce::AudioBuffer<float> m (2, kBlock);
+            m.clear();
+            wetRef.processPadSend (src, 1.0f);
+            wetRef.processReturn (m, 1.0f);   // m is the room's wet scaled by the trim
+
+            insert.process (src, true, 1.0f);
+
+            float maxDiffToWet = 0.0f;
+            float maxDiffToAdditive = 0.0f;
+            float wetPeak = 0.0f;
+            for (int c = 0; c < src.getNumChannels(); ++c)
+                for (int i = 0; i < src.getNumSamples(); ++i)
+                {
+                    const float wet = m.getSample (c, i) / kReturnTrimTest;
+                    const float out = src.getSample (c, i);
+                    const float additive = voice.getSample (c, i) + wet;
+
+                    maxDiffToWet      = juce::jmax (maxDiffToWet, std::abs (out - wet));
+                    maxDiffToAdditive = juce::jmax (maxDiffToAdditive, std::abs (out - additive));
+                    wetPeak = juce::jmax (wetPeak, std::abs (wet));
+                }
+
+            expectGreaterThan (wetPeak, 0.0f);
+            expectWithinAbsoluteError (maxDiffToWet, 0.0f, wetPeak * 1.0e-3f);
+
+            // The dry term has to be gone: the additive form differs from the real output by
+            // the whole voice, so half the voice RMS is a wide-open pass for crossfade and a
+            // hard fail for summing.
+            const float voiceRms = rvxRms (voice, 0);
+            expectGreaterThan (maxDiffToAdditive, voiceRms * 0.5f);
         }
 
         // === Known tail ===
@@ -211,63 +312,91 @@ public:
 
         beginTest ("A unity pad send equals the same room as an insert at full wet");
         {
-            // The closed-form expectation for a send at unity: the room sees exactly the
-            // signal that was sent, so the return must equal what the same room adds when
-            // run as an insert at full wet on the same blocks. The pad send is used here
-            // because it has no pre-send filter, so the two paths see identical input.
+            // The closed-form expectation for a send at unity: the room sees exactly the signal
+            // that was sent, so the return must equal what the same room produces when run as an
+            // insert at full wet, scaled by the documented return trim. Half mix is pinned in the
+            // same breath: half the voice plus half that same wet. The pad send is used here
+            // because it has no pre-send filter, so both paths see identical input.
             ovtdsp::ReverbEffect sendPath;
-            ovtdsp::ReverbEffect insertPath;
+            ovtdsp::ReverbEffect insertFull;
+            ovtdsp::ReverbEffect insertHalf;
             sendPath.prepare (kSr, kBlock);
-            insertPath.prepare (kSr, kBlock);
+            insertFull.prepare (kSr, kBlock);
+            insertHalf.prepare (kSr, kBlock);
 
             // The room's comb feedback is 0.896 per round trip on delay lines of
             // 1200-1760 samples at 48 kHz, so the send ramp that runs during the
             // first ~1200 samples keeps echoing in the comb memory for seconds.
-            // A short warm-up therefore compares two rooms that are still hearing
+            // A short warm-up therefore compares rooms that are still hearing
             // different histories; 600 blocks (3.2 s) decay that history far below
             // the tolerance, which is what makes this comparison mean something.
             const int warmUp = 600;
 
             for (int k = 0; k < warmUp; ++k)
             {
-                juce::AudioBuffer<float> src = roomSignal (2, kBlock, k);
-                sendPath.processPadSend (src, 1.0f);
+                // Every path gets its own copy of the same block: process() writes in place, so
+                // sharing one buffer would make the second insert hear the first one's output.
+                juce::AudioBuffer<float> forSend = roomSignal (2, kBlock, k);
+                juce::AudioBuffer<float> forFull = roomSignal (2, kBlock, k);
+                juce::AudioBuffer<float> forHalf = roomSignal (2, kBlock, k);
+
+                sendPath.processPadSend (forSend, 1.0f);
 
                 juce::AudioBuffer<float> m (2, kBlock);
                 m.clear();
                 sendPath.processReturn (m, 1.0f);
 
-                insertPath.process (src, true, 1.0f);
+                insertFull.process (forFull, true, 1.0f);
+                insertHalf.process (forHalf, true, 0.5f);
             }
 
-            juce::AudioBuffer<float> src = roomSignal (2, kBlock, warmUp);
-            const juce::AudioBuffer<float> dry = src;
+            const juce::AudioBuffer<float> voice = roomSignal (2, kBlock, warmUp);
 
-            sendPath.processPadSend (src, 1.0f);
+            juce::AudioBuffer<float> forSend = roomSignal (2, kBlock, warmUp);
+            sendPath.processPadSend (forSend, 1.0f);
+
             juce::AudioBuffer<float> m (2, kBlock);
             m.clear();
             sendPath.processReturn (m, 1.0f);
 
-            insertPath.process (src, true, 1.0f);
+            juce::AudioBuffer<float> fullOut = roomSignal (2, kBlock, warmUp);
+            juce::AudioBuffer<float> halfOut = roomSignal (2, kBlock, warmUp);
+            insertFull.process (fullOut, true, 1.0f);
+            insertHalf.process (halfOut, true, 0.5f);
 
-            float maxDiff = 0.0f;
+            float maxDiffFull = 0.0f;
+            float maxDiffHalf = 0.0f;
             float wetPeak = 0.0f;
-            for (int c = 0; c < src.getNumChannels(); ++c)
-                for (int i = 0; i < src.getNumSamples(); ++i)
+            const float voicePeak = roomPeakOf (voice);
+
+            for (int c = 0; c < fullOut.getNumChannels(); ++c)
+                for (int i = 0; i < fullOut.getNumSamples(); ++i)
                 {
-                    const float insertWet = src.getSample (c, i) - dry.getSample (c, i);
-                    maxDiff = juce::jmax (maxDiff, std::abs (insertWet - m.getSample (c, i)));
-                    wetPeak = juce::jmax (wetPeak, std::abs (insertWet));
+                    // The return is the same wet the insert produces, scaled by the trim.
+                    const float wet = m.getSample (c, i) / kReturnTrimTest;
+
+                    maxDiffFull = juce::jmax (maxDiffFull,
+                        std::abs (fullOut.getSample (c, i) - wet));
+
+                    // Half mix is the crossfade midpoint: half voice + half that same wet.
+                    const float halfExpect = voice.getSample (c, i) * 0.5f + wet * 0.5f;
+                    maxDiffHalf = juce::jmax (maxDiffHalf,
+                        std::abs (halfOut.getSample (c, i) - halfExpect));
+
+                    wetPeak = juce::jmax (wetPeak, std::abs (wet));
                 }
 
             expectGreaterThan (wetPeak, 0.0f);
             // Both paths ramp their level from 0 (the send ramp is linear over 25 ms, the
-            // insert master gain is exponential with the same time constant), so the two
-            // rooms heard slightly different inputs for the first few blocks. Measured
-            // residual after the warm-up is ~2e-5 against a wet peak of ~0.51, i.e. about
-            // 4e-5 relative; the 1e-3 tolerance keeps that history in the comparison
-            // honest without pretending the two paths are bit-identical.
-            expectWithinAbsoluteError (maxDiff, 0.0f, wetPeak * 1.0e-3f);
+            // insert master gain is exponential with the same time constant), so the rooms
+            // heard slightly different inputs for the first few blocks. Measured residual
+            // after the warm-up is ~2e-5 against a wet peak of ~0.51, i.e. about 4e-5
+            // relative; the 1e-3 tolerance keeps that history in the comparison honest
+            // without pretending the two paths are bit-identical.
+            const float tolerance = (wetPeak + voicePeak) * 1.0e-3f;
+
+            expectWithinAbsoluteError (maxDiffFull, 0.0f, tolerance);
+            expectWithinAbsoluteError (maxDiffHalf, 0.0f, tolerance);
         }
 
         // === reset() flushes the line ===
@@ -483,6 +612,129 @@ public:
             }
 
             expectGreaterThan (outPeak, inPeak * 0.95f);
+        }
+
+        // === Level: what the user actually hears ===
+
+        beginTest ("The lead room at full wet is audible against the dry voice");
+        {
+            // A Mix knob has to be audible at its top. Measured on a voice-like signal at steady
+            // state with the plugin's own lead bus settings. Two numbers matter: how loud the
+            // output is, and how far it sits from the dry voice -- the additive sum kept the
+            // ratio near 1.0 AND the difference small, which is exactly "no reverb at full mix".
+            ovtdsp::ReverbEffect lead;
+            lead.prepare (kSr, kBlock);
+            lead.setRoomSize (0.35f);   // the plugin's lead bus settings
+            lead.setDamping (0.50f);
+            lead.setStereoWidth (0.5f);
+
+            const int warmUp = 600;
+            for (int k = 0; k < warmUp; ++k)
+            {
+                juce::AudioBuffer<float> src = roomSignal (2, kBlock, k);
+                lead.process (src, true, 1.0f);
+            }
+
+            const juce::AudioBuffer<float> voice = roomSignal (2, kBlock, warmUp);
+            const float voiceRms = rvxRms (voice, 0);   // input level before the insert
+
+            juce::AudioBuffer<float> out = voice;
+            lead.process (out, true, 1.0f);
+
+            const float wetRms = rvxRms (out, 0);
+            float diffSum = 0.0;
+            for (int i = 0; i < out.getNumSamples(); ++i)
+                diffSum += static_cast<double> (out.getSample (0, i) - voice.getSample (0, i))
+                         * (out.getSample (0, i) - voice.getSample (0, i));
+            const float diffRms = static_cast<float> (std::sqrt (diffSum / out.getNumSamples()));
+
+            std::cout << "lead full-wet RMS ratio: " << (wetRms / voiceRms)
+                      << ", difference RMS: " << (diffRms / voiceRms) << "\n";
+
+            // The room is a short, heavily damped space, so it sits below the voice in level;
+            // what makes full mix audible is that the dry voice is GONE. Measured: RMS ratio 0.33,
+            // difference from the input 0.73 of the input RMS (the whole dry term). Thresholds keep
+            // both facts pinned.
+            expectGreaterThan (wetRms, voiceRms * 0.25f);
+            expectGreaterThan (diffRms, voiceRms * 0.7f);
+        }
+
+        beginTest ("A unity send return sits behind the voice without drowning it");
+        {
+            // The master carries the dry voice and a unity send adds the room's return. Measured
+            // as total-to-dry RMS ratio: raw summing measured ~1.85, i.e. +5 dB in front of the
+            // limiter, which made the output stage pump on every phrase -- the "sons bizarres"
+            // with Pad engaged. The trim has to keep the tail audible while leaving headroom.
+            ovtdsp::ReverbEffect shared;
+            shared.prepare (kSr, kBlock);
+            shared.setRoomSize (0.60f);   // the plugin's shared send room
+            shared.setDamping (0.45f);
+            shared.setStereoWidth (1.0f);
+
+            const int warmUp = 600;
+            for (int k = 0; k < warmUp; ++k)
+            {
+                juce::AudioBuffer<float> src = roomSignal (2, kBlock, k);
+                shared.processPadSend (src, 1.0f);
+
+                juce::AudioBuffer<float> master = roomSignal (2, kBlock, k);
+                shared.processReturn (master, 1.0f);
+            }
+
+            const float dryRms = rvxRms (roomSignal (2, kBlock, warmUp), 0);
+
+            juce::AudioBuffer<float> src = roomSignal (2, kBlock, warmUp);
+            shared.processPadSend (src, 1.0f);
+
+            juce::AudioBuffer<float> master = roomSignal (2, kBlock, warmUp);
+            shared.processReturn (master, 1.0f);
+
+            const float totalRms = rvxRms (master, 0);
+            std::cout << "unity send return level ratio: " << (totalRms / dryRms) << "\n";
+
+            expectGreaterThan (totalRms, dryRms * 1.05f);   // audible behind the voice
+            expectLessThan (totalRms, dryRms * 1.6f);       // leaves the limiter open
+        }
+
+        beginTest ("The pad room tail is short enough not to ring after each phrase");
+        {
+            // The pad room's comb feedback sets how long it rings: a multi-second metallic tail on
+            // a sustained chord reads as flutter, and feeding that tail into a second room through
+            // the send made the stack ring twice. Measured RT60 through the same send / return path.
+            ovtdsp::ReverbEffect shipped;
+            shipped.prepare (kSr, kBlock);
+            shipped.setRoomSize (0.85f);   // the settings that produced the complaint
+            shipped.setDamping (0.40f);
+            shipped.setStereoWidth (1.0f);
+
+            ovtdsp::ReverbEffect tamed;
+            tamed.prepare (kSr, kBlock);
+            tamed.setRoomSize (0.62f);     // the pad room as it is configured now
+            tamed.setDamping (0.55f);
+            tamed.setStereoWidth (1.0f);
+
+            ovtdsp::ReverbEffect shared;
+            shared.prepare (kSr, kBlock);
+            shared.setRoomSize (0.60f);    // the shared send room
+            shared.setDamping (0.45f);
+            shared.setStereoWidth (1.0f);
+
+            const float shippedTail = rvxTailSeconds (shipped);
+            const float tamedTail   = rvxTailSeconds (tamed);
+            const float sharedTail  = rvxTailSeconds (shared);
+
+            std::cout << "pad room RT60 shipped: " << shippedTail
+                      << " s, tamed: " << tamedTail
+                      << " s, shared room RT60: " << sharedTail << " s\n";
+
+            expectGreaterThan (shippedTail, 0.0f);
+            expectGreaterThan (tamedTail, 0.0f);
+            // Taming has to be a real shortening, and the configured pad room has to sit inside a
+            // phrase-length tail so it stops resonating after every syllable. Measured: shipped
+            // (0.85 / 0.40) rings past 8 s, tamed (0.62 / 0.55) lands at ~1.9 s, the shared send
+            // room (0.60 / 0.45) at ~1.8 s.
+            expectGreaterThan (shippedTail, tamedTail * 1.5f);   // shipped rings far longer
+            expectLessThan (tamedTail, 2.0f);
         }
     }
 };

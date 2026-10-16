@@ -142,7 +142,7 @@ LPC cross-synthesis formant preservation (the "exact" approach).
 | `virtual juce::String getName() const` | Human-readable name (e.g. `"Reverb"`). |
 | `virtual void prepare(double sampleRate, int maximumBlockSize)` | Prepare. |
 | `virtual void reset()` | Flush delays/reverb tails. |
-| `virtual void process(juce::AudioBuffer<float>& buffer, bool enabled, float wetMix)` | Apply in place. |
+| `virtual void process(juce::AudioBuffer<float>& buffer, bool enabled, float wetMix)` | Apply in place. `wetMix` is a **dry/wet crossfade**: mix 0 leaves the input bit-identical, mix 1 replaces it with the effect's output. A knob wired to this argument must be a crossfade — an additive wet ("dry + wet * mix") never reaches fully wet and reads as "the effect is inaudible at full mix". |
 | `virtual void processSend (juce::AudioBuffer<float>& sendBuffer, float sendAmount)` | Optional: tap this buffer into the effect's own send line, **in parallel** with the dry path. Defaulted to a no-op, so an insert-only effect needs no change. |
 | `virtual void processReturn (juce::AudioBuffer<float>& masterBuffer, float duckGain)` | Optional: add the effect's send tail into the master buffer, scaled by `duckGain`. Defaulted to a no-op. Summed **additively**, so it declares no latency. |
 
@@ -174,22 +174,32 @@ the enable flag and wet mix for one effect (and may configure the instance), ret
 
 - `setRoomSize(float)` / `setDamping(float)` / `setStereoWidth(float)` — reverb tuning.
 - Wraps `juce::Reverb`; smooths the master enable gain to avoid clicks.
-- **Two bus instances**: a short centred room on the lead bus, a long wide room on the
-  harmony bus. Two instances are the point of the split — one shared insert would force
-  one room on both and wash the tempo-sync delay copies.
-- **A third instance is the shared send room** (`sharedReverb` in the processor): ONE room
-  fed by two parallel sends, so the corrected lead and the blended harmony ring in the same
+- **Two bus instances**: a short centred room on the lead bus (0.35 / 0.50, width 0.5), a wide
+  damped room on the harmony bus (0.62 / 0.55, width 1.0). Two instances are the point of the
+  split — one shared insert would force one room on both and wash the tempo-sync delay copies.
+  The pad size is deliberately not at the top of the range: comb feedback is `roomSize * 0.28 + 0.7`,
+  so the old 0.85 put 0.938 on the delay lines and measured RT60 was ~4 s — a sustained chord rang
+  as a metallic resonator (reported as "sons bizarres" with Pad engaged). 0.62 / 0.55 measures
+  ~1.9 s, inside a phrase.
+- **A third instance is the shared send room** (`sharedReverb` in the processor, 0.60 / 0.45): ONE
+  room fed by two parallel sends, so the corrected lead and the blended harmony ring in the same
   space at their own amounts. It is not an insert, so no latency is declared.
   - `processLeadSend (buffer, amount)` — adds the lead to the send line through a one-pole
     low-cut (`ovtdsp::OnePoleLowCut`, 150 Hz) so body low-end does not ring the room.
-  - `processPadSend (harmony, amount)` — adds the blended harmony, unfiltered.
-  - `processReturn (master, duckGain)` — runs the reverb on the send line and sums the tail
-    into the master buffer, scaled by `duckGain`; then clears the send line, so each block's
-    sends are consumed exactly once.
+  - `processPadSend (harmony, amount)` — adds the blended harmony, unfiltered. **Tapped before the
+    harmony bus insert**: a send taken after an insert feeds that insert's wet tail into a second
+    room, and two modulating tails read as flutter.
+  - `processReturn (master, duckGain)` — runs the reverb on the send line and sums the tail into
+    the master buffer, scaled by `duckGain * kReturnTrim` (`kReturnTrim = 0.7`, ≈ -3 dB); then
+    clears the send line, so each block's sends are consumed exactly once. The trim is what keeps a
+    unity send from sitting at +5 dB over the voice ahead of the trim + limiter, where it would be
+    clamped every block and pump.
 - **Ducking**: `returnGain = 1 - duckDepth * (1 - gateGain)`, where `gateGain` is
   `NoiseGate::getCurrentGain()` when the gate is enabled (1.0 otherwise). Depth 0 leaves the
-  room standing alone, depth 1 drops it to silence when the gate closes. The gain is
-  smoothed per sample inside the return, so the interface stays block-level.
+  room standing alone, depth 1 drops it to silence when the gate closes. The gain is smoothed per
+  sample inside the return, so the interface stays block-level. **The enable flag must be checked**:
+  `NoiseGate::process()` returns early when disabled, so a stale closed-gate gain read without the
+  flag keeps ducking at full depth — silence with the reverb knob at full mix.
 - Send line and wet scratch are sized in `prepare()`: a send tap allocates nothing in the
   audio callback. A mono source adds its channel to both sides of the send line; a mono
   master averages the stereo return.

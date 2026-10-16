@@ -16,15 +16,17 @@ namespace ovtdsp
      * A reverb room, used in two ways.
      *
      * 1. As a normal insert on an effects bus (process()): the tapped signal is
-     *    copied into a scratch buffer, run through the room, and ADDED to the
-     *    tapped signal scaled by wetMix. The dry path is never attenuated -- a
-     *    mix of 0 leaves the input bit-identical, a mix of 1 adds the full room.
+     *    copied into a scratch buffer, run through the room, and crossfaded with it
+     *    by wetMix. A mix of 0 leaves the input bit-identical, a mix of 1 replaces
+     *    it with the room. This is what a Mix knob means: at full wet you hear the
+     *    room, not the voice plus a quiet room.
      * 2. As the SHARED send room (processLeadSend / processPadSend /
      *    processReturn): one instance fed by two parallel sends, so the lead and
      *    the harmony voices hear the SAME room. Each send has its own amount, its
      *    own smoothed ramp, and the lead send passes a one-pole low-cut before
-     *    entering the room. The return is summed additively into the master,
-     *    multiplied by a ducking envelope driven by the noise gate.
+     *    entering the room. A send ADDS, it never steals: the tapped dry path is
+     *    untouched. The return is summed additively into the master, multiplied by
+     *    a ducking envelope driven by the noise gate and by kReturnTrim.
      *
      * Every buffer this class touches is sized in prepare(); process() and the
      * send/return path allocate nothing at block time.
@@ -78,6 +80,14 @@ namespace ovtdsp
             fundamental range of the voice, so it removes breath and mic rumble
             without touching the body of the singing. */
         static constexpr float kLeadSendLowCutHz = 150.0f;
+
+        /** The room returns BEHIND the voice: a send at unity adds about -3 dB to the
+            master, not a copy of the level. Measured on a voice-like signal, the wet
+            of a unity send is ~85 % of the source RMS, so summing it raw put +5 dB on
+            top of the dry voice and drove the output stage into constant limiting --
+            the pumping that read as "sons bizarres" with Pad engaged. This trim keeps
+            the tail audible while leaving headroom for the trim + limiter to stay open. */
+        static constexpr float kReturnTrim = 0.7f;
 
         juce::Reverb reverb;
         juce::Reverb::Parameters params;
