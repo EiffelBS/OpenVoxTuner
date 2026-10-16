@@ -1986,10 +1986,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     reverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbEn));
     addAndMakeVisible (reverbEnableButton);
 
-    // Pad Reverb controls (harmony bus): the second reverb room, wide and heavily damped, on
+    // Harmony Reverb controls (the pad_reverb_* parameters, harmony bus): the second reverb room, wide and heavily damped, on
     // the harmony voices only. Same cell pattern as the lead reverb - one switch and one
     // "Mix" knob. The two rooms are separate instances because a single reverb cannot be
-    // short-and-centred for the lead and wide-and-deep for the pad at the same time.
+    // short-and-centred for the lead and wide-and-deep for the stacked voices at the same time.
     padReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelPadReverbBtn));
     padReverbEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
     padReverbEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
@@ -2018,7 +2018,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     leadSendSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipLeadSend));
     translatableLabels.push_back ({ &leadSendLabel, ovt::Keys::kLabelLeadSendBtn });
 
-    setupKnob (padSendSlider, &padSendLabel, "Pad Send");
+    setupKnob (padSendSlider, &padSendLabel, "Harmony Send");
     padSendSlider.setRange (0.0, 1.0, 0.01);
     padSendSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     padSendSlider.setPopupDisplayEnabled (true, false, this);
@@ -3200,10 +3200,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int effectPowerH  = 18;
     const int rowGap        = 8;
     const int numEffectRows = 2;
-    // Six columns when open (Gate/Reverb, Compress/Doubler, Formant/De-Esser, Pad/Limiter,
+    // Six columns when open (Gate/Reverb, Compress/Doubler, Formant/De-Esser, Harmony Reverb/Limiter,
     // send room, Saturation) and two when folded. This count drives effectColW, so it has to
     // match the number of cells placed below: asking for 5 widths while placing 6 columns
-    // leaves the last column a negative-width rectangle (the Pad / Output Limit cell vanishes).
+    // leaves the last column a negative-width rectangle (the Harmony Reverb / Output Limit cell vanishes).
     const int numEffectCols = effectsOpen ? 6 : 2;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);

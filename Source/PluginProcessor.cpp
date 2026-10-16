@@ -603,7 +603,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                               "lead_send", "Lead Send",
                               juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
                         , std::make_unique<juce::AudioParameterFloat> (
-                              "pad_send", "Pad Send",
+                              "pad_send", "Harmony Send",
                               juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
                         // Ducking: the room follows the noise gate. When the gate closes
                         // on a silent lead, the tail of the room is pulled down with it,
@@ -613,15 +613,17 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                         , std::make_unique<juce::AudioParameterFloat> (
                               "duck_depth", "Duck Depth",
                               juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.50f)
-                        // Pad reverb: the SECOND instance of ReverbEffect, on the harmony
-                        // bus. A long, fully wide room is what a pad wants; the lead keeps
+                        // Harmony reverb (parameter ids stay pad_reverb_*): the SECOND instance of
+                        // ReverbEffect, on the harmony
+                        // bus. A long, fully wide room is what stacked voices want; the lead keeps
                         // its own short centred room (reverb_enable / reverb_mix above).
                         // Two instances, two knobs: no single compromise setting that has
-                        // to serve intelligibility and amplitude at the same time.
+                        // to serve intelligibility and amplitude at the same time. The display names name the
+                        // voice they act on, never a timbre word.
                         , std::make_unique<juce::AudioParameterBool> (
-                              "pad_reverb_enable", "Pad Reverb Enable", false)
+                              "pad_reverb_enable", "Harmony Reverb Enable", false)
                         , std::make_unique<juce::AudioParameterFloat> (
-                              "pad_reverb_mix", "Pad Reverb Mix",
+                              "pad_reverb_mix", "Harmony Reverb Mix",
                               juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
                         // Master output stage. The trim is a plain dB gain (-12..+12), so
                         // setting the plugin level never touches the harmony gain-match;

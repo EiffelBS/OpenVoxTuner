@@ -95,8 +95,8 @@
 | Double Amount | `double_amount` | Float | **0.0** | 0 – 100 % |
 | De-Esser Enable | `deess_enable` | Bool | **false** | false / true |
 | De-Esser Intensity | `deess_amount` | Float | **0.65** (65%) | 0 – 1 (0–100%) |
-| Pad Reverb Enable | `pad_reverb_enable` | Bool | **false** | false / true |
-| Pad Reverb Mix | `pad_reverb_mix` | Float | **0.30** | 0 – 1 |
+| Harmony Reverb Enable | `pad_reverb_enable` | Bool | **false** | false / true |
+| Harmony Reverb Mix | `pad_reverb_mix` | Float | **0.30** | 0 – 1 |
 | Output Trim | `output_trim` | Float | **0.0 dB** | -12 – +12 dB |
 | Limiter Enable | `limiter_enable` | Bool | **true** | false / true |
 | Saturation Enable | `saturation_enable` | Bool | **false** | false / true |
@@ -107,7 +107,10 @@ The effects are applied at three tap points, each with its own parameters: the l
 voice (`deess_*`, `reverb_*`), the harmony bus (`pad_reverb_*`) and the master output
 (`saturation_*`, `output_trim`, `limiter_enable`). `reverb_enable` / `reverb_mix` are the **lead**
 reverb; `pad_reverb_enable` / `pad_reverb_mix` drive the separate long wide room that
-sits on the harmony voices only. The lead reverb's wet mix is additionally ducked by
+sits on the harmony voices only. The screen labels and the host parameter names say
+**Harmony Reverb** and **Harmony Send**: they name the voice the room acts on, never a
+timbre word such as *pad*, which reads as a reverb type to someone who has never mixed
+a vocal stack. The lead reverb's wet mix is additionally ducked by
 the noise-gate envelope, so the tail follows the phrase.
 
 The limiter is **on by default** and **non-lookahead**: it adds no latency, so the

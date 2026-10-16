@@ -40,7 +40,7 @@ the single source of truth for signal-flow details.
                                                      |
                                            +-----------------+ (optional)
                                            |  HarmonyEngine  |  shifted voices -> harmonyBuffer
-             HARMONY BUS  ===================>          |   Pad Reverb
+             HARMONY BUS  ===================>          |   Harmony Reverb
                                            +-----------------+
                                                      |
                                            +-----------------+
