@@ -27,6 +27,7 @@
 #include "dsp/NoiseGate.h"
 #include "dsp/UpwardCompressor.h"
 #include "dsp/DeEsser.h"
+#include "dsp/SaturationEffect.h"   // master drive + warmth, before the reverb return
 #include "dsp/PresetMorpher.h"
 #include "dsp/VibratoPreserver.h"
 #include "dsp/AttackAwareEnv.h"
@@ -498,6 +499,11 @@ private:
     std::atomic<float>* upwardCompAmountParam = nullptr;   // Upward compressor amount (0-1)
     std::atomic<float>* deessEnableParam = nullptr;        // De-esser on/off
     std::atomic<float>* deessAmountParam = nullptr;        // De-esser intensity (0-1)
+    // Master saturation: the drive knob is the shaper strength, warmth is the warm pole.
+    // Named drive / warmth, never "tape": this stage does not model a tape machine.
+    std::atomic<float>* saturationEnableParam = nullptr;   // Saturation on/off
+    std::atomic<float>* saturationDriveParam = nullptr;    // Drive (0-1)
+    std::atomic<float>* saturationToneParam = nullptr;     // Warmth (0-1), 8 kHz -> 5 kHz pole
     std::atomic<float>* flexTuneParam = nullptr;    // FlexTune deadband (0-100 cents)
     std::atomic<float>* humanizeParam = nullptr;    // Humanize random cents (0-50)
     std::atomic<float>* correctionModeParam = nullptr; // 0=Modern, 1=Transparent        

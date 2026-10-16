@@ -46,18 +46,18 @@ are the exact strings in `getFactoryPluginPresetNames()` (`PluginEditor.cpp`),
 in menu order; "Default" carries no overrides and applies the factory defaults
 verbatim.
 
-| Preset | Description | De-Esser |
-|--------|-------------|----------|
-| Default | True factory defaults (all parameters at default). | off |
-| Pure Correction | Pitch correction only, no dynamics on the lead. | off |
-| Transparent / Doubling | Light correction + stereo doubler, no dynamics. | off |
-| Studio Stack | 4-voice unison/octave stack with formant preservation. | on, 55% |
-| Live Scene | Fast correction, direct monitoring, no effects. | off |
-| Spoken Voice / Podcast | Gentle correction, gate, strong upward compression. | on, 65% |
-| Creative Robot | Hard tune with a strong formant shift. | off |
-| Broadcast Voice | Firm gate + 0.8 upward lift for streaming/radio loudness. | on, 80% |
-| Breathy Vocals | Airy lo-fi voice: no gate, gentle upward lift, light reverb. | off |
-| Lead Vocal | Thickened lead: gate, −3/+3 harmony, reverb, upward compression. | on, 65% |
+| Preset | Description | De-Esser | Saturation |
+|--------|-------------|----------|------------|
+| Default | True factory defaults (all parameters at default). | off | off |
+| Pure Correction | Pitch correction only, no dynamics on the lead. | off | off |
+| Transparent / Doubling | Light correction + stereo doubler, no dynamics. | off | off |
+| Studio Stack | 4-voice unison/octave stack with formant preservation. | on, 55% | on, drive 25%, warmth 60% |
+| Live Scene | Fast correction, direct monitoring, no effects. | off | off |
+| Spoken Voice / Podcast | Gentle correction, gate, strong upward compression. | on, 65% | on, drive 25%, warmth 70% |
+| Creative Robot | Hard tune with a strong formant shift. | off | on, drive 45%, warmth 20% |
+| Broadcast Voice | Firm gate + 0.8 upward lift for streaming/radio loudness. | on, 80% | on, drive 30%, warmth 60% |
+| Breathy Vocals | Airy lo-fi voice: no gate, gentle upward lift, light reverb. | off | on, drive 15%, warmth 80% |
+| Lead Vocal | Thickened lead: gate, −3/+3 harmony, reverb, upward compression. | on, 65% | on, drive 35%, warmth 50% |
 
 The presets that add top-end energy (upward compression, stacked harmony
 voices, reverb) switch the De-Esser on; the presets that leave the lead
@@ -67,6 +67,13 @@ Voice Type, which no factory preset touches because it also constrains pitch
 detection. The De-Esser sits **before** the reverb in the effects chain, so a
 preset de-esses the corrected lead voice and never the room tail; the measured
 placement table is in section 8v of `docs/implementation-roadmap.md`.
+
+The master Saturation stage follows the same rule: the presets that promise nothing added
+(Pure Correction, Transparent / Doubling, Live Scene) name it **off** explicitly, so a live
+monitor path never gains loudness from the plugin. The stack and on-air presets take a low
+drive (25–30%) with warmth high enough to keep the added harmonics below the de-esser band;
+Creative Robot is the one preset that wants the edge, at 45% drive and low warmth. Drive and
+warmth are the only saturation values a preset sets.
 
 *(Plugin presets store only APVTS parameter state, never the pitch curve.)*
 

@@ -63,6 +63,9 @@ namespace ovtdsp
         float upwardCompAmount = 0.25f; // 0..1 upward compression amount
         bool deessEnable = false;       // "deess_enable": power switch, knob is kept
         float deessAmount = 0.65f;      // intensity 0..1: -38 x a dB threshold, 19 x a dB depth
+        bool saturationEnable = false;  // "saturation_enable": master drive power switch
+        float saturationDrive = 0.35f;  // "saturation_drive": soft clipper strength, 0 = transparent bypass
+        float saturationTone = 0.40f;   // "saturation_tone": warmth, 8 kHz bright .. 5 kHz warm
         float outputTrim = 0.5f;        // normalized "output_trim" (-12..+12 dB): 0.5 = 0 dB
         bool limiterEnable = true;      // "limiter_enable": master peak limiter on/off
         bool correctionMode = false; // false = Modern
@@ -133,6 +136,9 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("upward_comp_amount"))   s.upwardCompAmount = p->getValue();
         if (auto* p = params.getParameter ("deess_enable"))         s.deessEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("deess_amount"))         s.deessAmount = p->getValue();
+        if (auto* p = params.getParameter ("saturation_enable"))    s.saturationEnable = p->getValue() > 0.5f;
+        if (auto* p = params.getParameter ("saturation_drive"))     s.saturationDrive = p->getValue();
+        if (auto* p = params.getParameter ("saturation_tone"))      s.saturationTone = p->getValue();
         if (auto* p = params.getParameter ("correction_mode"))     s.correctionMode = p->getValue() > 0.5f;
 
         // Curve (copy)
@@ -163,6 +169,8 @@ namespace ovtdsp
                         "noise_gate_enable", "upward_comp_enable", "upward_comp_amount",
                         "deess_amount",
                         "deess_enable",
+                        "saturation_drive", "saturation_tone",
+                        "saturation_enable",
                         "output_trim", "limiter_enable",
                         "correction_mode" });
         return ids;
@@ -234,6 +242,11 @@ namespace ovtdsp
         setParam ("noise_gate_threshold", source.noiseGateThreshold + (target.noiseGateThreshold - source.noiseGateThreshold) * t);
         setParam ("upward_comp_amount", source.upwardCompAmount + (target.upwardCompAmount - source.upwardCompAmount) * t);
         setParam ("deess_amount",        source.deessAmount + (target.deessAmount - source.deessAmount) * t);
+        // Saturation drive and warmth are lerped like a wet mix: a morph takes the master
+        // stage from one drive level to another continuously. Drive 0 is transparent, so a
+        // morph ending at zero fades the stage out through its own bypass ramp.
+        setParam ("saturation_drive",    source.saturationDrive + (target.saturationDrive - source.saturationDrive) * t);
+        setParam ("saturation_tone",     source.saturationTone + (target.saturationTone - source.saturationTone) * t);
         setParam ("output_trim",         source.outputTrim + (target.outputTrim - source.outputTrim) * t);
 
         // Discrete parameters (step at 50%)
@@ -258,6 +271,7 @@ namespace ovtdsp
         setParam ("noise_gate_enable", lerpOrStep ((float) source.noiseGateEnable, (float) target.noiseGateEnable, t) > 0.5f ? 1.0f : 0.0f);
         setParam ("upward_comp_enable", lerpOrStep (source.upwardCompEnable ? 1.0f : 0.0f, target.upwardCompEnable ? 1.0f : 0.0f, t));
         setParam ("deess_enable",      lerpOrStep (source.deessEnable ? 1.0f : 0.0f, target.deessEnable ? 1.0f : 0.0f, t));
+        setParam ("saturation_enable", lerpOrStep (source.saturationEnable ? 1.0f : 0.0f, target.saturationEnable ? 1.0f : 0.0f, t));
         setParam ("limiter_enable",    lerpOrStep (source.limiterEnable ? 1.0f : 0.0f, target.limiterEnable ? 1.0f : 0.0f, t));
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));
     }

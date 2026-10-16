@@ -186,6 +186,10 @@ namespace ovt
         static const char* kLabelLimiterBtn     = "label.limiter_btn";
         static const char* kLabelDouble         = "label.double";
         static const char* kLabelDeesser        = "label.deesser";
+        // Saturation: the master drive stage. Captions sit under a knob, so they stay short.
+        static const char* kLabelSaturation       = "label.saturation";
+        static const char* kLabelSaturationDrive  = "label.saturation_drive";
+        static const char* kLabelSaturationWarmth = "label.saturation_warmth";
         static const char* kLabelTone           = "label.tone";
         static const char* kLabelModernBtn      = "label.modern_btn";
         static const char* kLabelTransparentBtn = "label.transparent_btn";
@@ -284,6 +288,11 @@ namespace ovt
         static const char* kTooltipDoubleEn    = "tooltip.double_enable";
         static const char* kTooltipDeesserEnable       = "tooltip.deesser_enable";
         static const char* kTooltipDeesserAmount       = "tooltip.deesser_amount";
+        // Saturation tooltips: the drive knob is a soft tanh clipper, warmth is the warm
+        // low-pass that tames the harmonics it adds. Naming stays drive / warmth.
+        static const char* kTooltipSaturationEnable    = "tooltip.saturation_enable";
+        static const char* kTooltipSaturationDrive     = "tooltip.saturation_drive";
+        static const char* kTooltipSaturationWarmth    = "tooltip.saturation_warmth";
         static const char* kTooltipReverbEn    = "tooltip.reverb_enable";
         static const char* kTooltipPadReverbEn  = "tooltip.pad_reverb_enable";
         static const char* kTooltipPadReverbMix = "tooltip.pad_reverb_mix";
@@ -658,6 +667,13 @@ namespace ovt
             { kLabelDeesser,          "De-Esser" },
             { kTooltipDeesserEnable,  "Tames the sibilants (s, sh, t) of the corrected lead voice. Switching off leaves the voice untouched." },
             { kTooltipDeesserAmount,  "How hard the de-esser works: one move sets the trigger level and the depth together. 0% does nothing, 100% is the deepest." },
+            // Saturation: soft drive on the master output. Naming stays drive / warmth, never "tape".
+            { kLabelSaturation,          "Saturation" },
+            { kTooltipSaturationEnable,  "Adds soft drive to the master output, after the voice shaping and before the reverb. Switching off leaves the signal untouched." },
+            { kTooltipSaturationDrive,   "How hard the soft clipper works: 0% is transparent, 100% is the hardest. The level is held automatically as you raise it." },
+            { kTooltipSaturationWarmth,  "Warmth of the harmonics the drive creates: 0% keeps them bright, 100% rounds them off." },
+            { kLabelSaturationDrive,     "Drive" },
+            { kLabelSaturationWarmth,    "Warmth" },
             { kTooltipReverbEn,       "Enable/disable reverb effect." },
             { kTooltipPadReverbEn,    "Enable/disable the pad reverb: the second reverb room, sitting on the harmony voices. It is separate from the lead reverb, long and wide, so the stack gains amplitude without washing the lead." },
             { kTooltipPadReverbMix,   "Pad reverb wet mix for the harmony voices." },
@@ -1010,6 +1026,13 @@ namespace ovt
             { kLabelDeesser,          "Désesseur" },
             { kTooltipDeesserEnable,  "Atténue les sibilantes (s, ch, t) de la voix principale corrigée. Éteint, la voix reste intacte." },
             { kTooltipDeesserAmount,  "Intensité du désesseur : il règle d'un seul geste le niveau de déclenchement et la profondeur. 0 % ne change rien, 100 % est le plus profond." },
+            // Saturation : drive doux sur la sortie master. Le nommage reste drive / chaleur, jamais « bande ».
+            { kLabelSaturation,          "Saturation" },
+            { kTooltipSaturationEnable,  "Ajoute un drive doux à la sortie master, après le façonnement de la voix et avant la réverbération. Éteint, le signal reste intact." },
+            { kTooltipSaturationDrive,   "Intensité du limiteur doux : 0 % est transparent, 100 % est le plus dur. Le niveau est maintenu automatiquement quand on le monte." },
+            { kTooltipSaturationWarmth,  "Chaleur des harmoniques créées par le drive : 0 % les laisse brillantes, 100 % les arrondit." },
+            { kLabelSaturationDrive,     "Drive" },
+            { kLabelSaturationWarmth,    "Chaleur" },
             { kTooltipReverbEn,       "Activer/desactiver l'effet de reverberation." },
             { kTooltipPadReverbEn,    "Active/désactive la réverb de nappe : la seconde salle de réverb, posée sur les voix d'harmonie. Elle est séparée de la réverb du lead, longue et large : la pile gagne de l'amplitude sans laver le lead." },
             { kTooltipPadReverbMix,   "Mix de réverb de nappe pour les voix d'harmonie." },
@@ -1364,6 +1387,13 @@ namespace ovt
             { kLabelDeesser,          "De-Esser" },
             { kTooltipDeesserEnable,  "Dämpft die Zischlaute (s, sch, t) der korrigierten Hauptstimme. Beim Ausschalten bleibt die Stimme unberührt." },
             { kTooltipDeesserAmount,  "Intensität des De-Essers: Auslösungspegel und Tiefe werden in einem Zug geregelt. 0 % ändert nichts, 100 % ist die tiefste Reduktion." },
+            // Saturation: sanfter Drive auf dem Master-Ausgang. Die Benennung bleibt Drive / Wärme, niemals «Band».
+            { kLabelSaturation,          "Sättigung" },
+            { kTooltipSaturationEnable,  "Fügt dem Master-Ausgang sanften Drive hinzu, nach der Stimmformung und vor dem Hall. Beim Ausschalten bleibt das Signal unberührt." },
+            { kTooltipSaturationDrive,   "Wie stark der weiche Clipper arbeitet: 0 % ist transparent, 100 % ist am härtesten. Der Pegel wird beim Hochregeln automatisch gehalten." },
+            { kTooltipSaturationWarmth,  "Wärme der vom Drive erzeugten Obertöne: 0 % lässt sie hell, 100 % rundet sie ab." },
+            { kLabelSaturationDrive,     "Drive" },
+            { kLabelSaturationWarmth,    "Wärme" },
             { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
             { kTooltipPadReverbEn,    "Aktiviert/deaktiviert die Pad-Reverb: der zweite Hall-Raum, auf den Harmoniestimmen. Er ist getrennt von der Lead-Reverb, lang und breit – der Stapel gewinnt Lautstärke, ohne die Lead-Stimme zu verwischen." },
             { kTooltipPadReverbMix,   "Pad-Reverb-Anteil der Harmoniestimmen." },
@@ -1716,6 +1746,13 @@ namespace ovt
             { kLabelDeesser,          "Dessersor" },
             { kTooltipDeesserEnable,  "Suaviza las sibilantes (s, sh, t) de la voz principal corregida. Al apagarlo, la voz queda intacta." },
             { kTooltipDeesserAmount,  "Intensidad del dessersor: fija a la vez el nivel de activacion y la profundidad. 0% no cambia nada, 100% es lo mas profundo." },
+            // Saturation: drive suave en la salida master. El nombre sigue siendo drive / calidez, nunca «cinta».
+            { kLabelSaturation,          "Saturación" },
+            { kTooltipSaturationEnable,  "Añade drive suave a la salida master, después del modelado de la voz y antes de la reverberación. Al apagarlo, la señal queda intacta." },
+            { kTooltipSaturationDrive,   "Intensidad del limitador suave: 0% es transparente, 100% es lo más duro. El nivel se mantiene automáticamente al subirlo." },
+            { kTooltipSaturationWarmth,  "Calidez de los armónicos que crea el drive: 0% los deja brillantes, 100% los redondea." },
+            { kLabelSaturationDrive,     "Drive" },
+            { kLabelSaturationWarmth,    "Calidez" },
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberacion." },
             { kTooltipPadReverbEn,    "Activa/desactiva la reverberación de napa: la segunda sala de reverberación, sobre las voces de armonía. Separada de la del lead, larga y ancha; la pila gana amplitud sin lavar el lead." },
             { kTooltipPadReverbMix,   "Mezcla de reverberación de napa para las voces de armonía." },
@@ -2067,6 +2104,13 @@ namespace ovt
             { kLabelDeesser,          "デエッサー" },
             { kTooltipDeesserEnable,  "補正済みのリード音声のサ行音（s, sh, t）を和らげます。オフでは音声はそのままです。" },
             { kTooltipDeesserAmount,  "デエッサーの強さです。トリガーレベルと減衰量を同時に設定します。0%は何も変化せず、100%が最も深く減衰します。" },
+            // サチュレーション：マスター出力へのソフトドライブ。命名はドライブ／ウォームのまま、「テープ」とは呼びません。
+            { kLabelSaturation,          "サチュレーション" },
+            { kTooltipSaturationEnable,  "マスター出力にソフトなドライブを加えます。音声補正の後、リバーブの前で掛かります。オフでは信号はそのままです。" },
+            { kTooltipSaturationDrive,   "ソフトクリッパーの強さ：0%は透明、100%が最も強い。上げてもレベルは自動的に保たれます。" },
+            { kTooltipSaturationWarmth,  "ドライブが生む倍音の温かみ：0%は明るいまま、100%は丸めます。" },
+            { kLabelSaturationDrive,     "ドライブ" },
+            { kLabelSaturationWarmth,    "ウォーム" },
             { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
             { kTooltipPadReverbEn,    "パッド・リバーブのオン/オフ：ハーモニー声に掛ける第二のリバーブ部屋です。リード用とは別で、長く広い設定。スタックは音量を得てもリードが滲みません。" },
             { kTooltipPadReverbMix,   "ハーモニー声のパッド・リバーブのミックス量。" },
@@ -2418,6 +2462,13 @@ namespace ovt
             { kLabelDeesser,          "齿音消除器" },
             { kTooltipDeesserEnable,  "柔化已修正主声部的齿音（s、sh、t）。关闭时声音保持原样。" },
             { kTooltipDeesserAmount,  "齿音消除强度：同时设定触发电平和衰减深度。0% 无变化，100% 最深。" },
+            // 饱和：主输出上的柔和驱动。命名保持 drive / warmth，绝不写成「磁带」。
+            { kLabelSaturation,          "饱和" },
+            { kTooltipSaturationEnable,  "在主输出上加入柔和的驱动，位于人声塑形之后、混响之前。关闭时信号保持原样。" },
+            { kTooltipSaturationDrive,   "软削波的强度：0% 为透明，100% 最强。提高时电平会自动保持。" },
+            { kTooltipSaturationWarmth,  "驱动所产生的谐波的温暖度：0% 保持明亮，100% 使其圆润。" },
+            { kLabelSaturationDrive,     "驱动" },
+            { kLabelSaturationWarmth,    "温暖" },
             { kTooltipReverbEn,       "启用/禁用混响效果。" },
             { kTooltipPadReverbEn,    "开关 Pad 混响：第二间混响房间，架在和声声部上。它与主声混响分开，长而宽；和声堆叠获得音量而不淹没主声。" },
             { kTooltipPadReverbMix,   "和声声部的 Pad 混响混合量。" },

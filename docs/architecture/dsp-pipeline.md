@@ -224,7 +224,7 @@ Effects are not stacked on one global list any more: the processor owns **three*
 |-----|-----------|--------------------|------------------|
 | Lead | corrected lead voice, **before** any harmony is added | `DeEsser`, `ReverbEffect` (short room: size 0.35, damping 0.50, width 0.5) | `deess_enable`, `deess_amount`, `reverb_enable`, `reverb_mix` |
 | Harmony | `harmonyBuffer`, **before** it is mixed into the output | `ReverbEffect` (long wide room: size 0.85, damping 0.40, width 1.0) | `pad_reverb_enable`, `pad_reverb_mix` |
-| Master | final mixed buffer, **after** the blend | none today (the home for shared sends / glue), then `OutputLimiter` | `output_trim`, `limiter_enable` |
+| Master | final mixed buffer, **after** the blend | `SaturationEffect` (drive + warmth), then `OutputLimiter` | `saturation_enable`, `saturation_drive`, `saturation_tone`, `output_trim`, `limiter_enable` |
 
 - Each bus owns its OWN effect instances, so one class can run twice with different
   fixed settings. The enable flag and wet mix of every effect come from a per-bus
@@ -239,6 +239,25 @@ Effects are not stacked on one global list any more: the processor owns **three*
 - Splitting the reverb is what makes it usable: one shared room forces one size on two
   roles, and in `ReverbEffect` a rising wet mix attenuates the dry signal — so a long
   pad room would wash out the lead's intelligibility and any tempo-synced copy.
+
+**The master bus runs `ovtdsp::SaturationEffect` first**, ahead of `sharedReverb.processReturn`,
+so the shared room's tail is summed into an already-shaped path and never passes through the
+clipper itself. The stage is a soft clipper, `y = tanh(k x x) / tanh(k)` with `k = 1 + 9 x drive`:
+that form keeps unity gain for quiet signals at every setting, so loudness comes from the baked
+makeup curve (measured through the whole stage on a -18 dBFS sine, never estimated), not from the
+curve. Drive **0** is a transparent bypass — `tanh(x)/tanh(1)` is not linear, so drive 0 short-
+circuits the stage instead of running it. The shaper runs at **2x oversampling** through a 33-tap
+Blackman half-band polyphase interpolator/decimator pair (group delay 16 samples at the base rate),
+which is what keeps the added harmonics under Nyquist; no plugin latency is declared. A one-pole
+low-pass at the oversampled rate, corner smoothed from 8000 Hz to 5000 Hz by `saturation_tone`,
+rolls off the top of the distortion, and a subtractive high-pass near 20 Hz after decimation keeps
+the output DC-free. Inputs beyond full scale (an ARA buffer can exceed ±1) are compressed into the
+curve before shaping, so a hot master does not clip hard.
+
+One consequence is documented on purpose: because the reverb return is summed into a path carrying
+that 16-sample filter delay, the two add with a comb ripple spaced ~4 kHz (first notch near 2 kHz).
+It is inaudible on voice at normal drive and was accepted over adding an alignment delay line; no
+latency is declared to the host.
 
 `ovtdsp::OutputLimiter` runs **last** on the master bus: an output trim in dB
 (`-12 .. +12`) followed by a peak limiter with a linked-channel one-pole envelope

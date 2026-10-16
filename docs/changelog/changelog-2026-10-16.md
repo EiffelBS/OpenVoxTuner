@@ -101,7 +101,109 @@ harmonies" and "on the master" are those places.
 
 - The master bus is intentionally **empty** today. It is the home for shared sends to a common
   reverb (the card that adds them waits on this one) and for tape saturation as master glue (#135).
+  *(Filled later the same day by the soft saturation stage documented below — the send room arrived first,
+  so this line was true when it was written.)*
 - Deferred, not implemented here: ducking an effect return by the gate envelope, a shared
   `DelayLine` primitive for chorus/flanger/phaser.
 - Observed gap, outside this scope: the A/B slot XML carries no `deess_enable` / `deess_amount`
   attributes (left over from #130), so the de-esser is not stored in slots.
+
+## Feature — Soft saturation on the master output (`saturation_drive` + `saturation_tone`)
+
+### Context
+
+The master bus built yesterday was left empty on purpose: it is the home for glue. This card fills
+it with a soft clipper and a warm corner, named **Drive** and **Warmth**. The naming rule is part of
+the delivery: never "tape", because nothing here promises tape behaviour — no hysteresis curve, no
+compression, no head-print. A name that over-promises is a defect, not a marketing choice.
+
+Three constraints decided the design before any code was written:
+1. **Aliasing is the only real DSP risk.** `tanh` on a voice at 50 % drive or more generates energy
+   above Nyquist, which folds back as inharmonic mud. So the shaper runs at 2x oversampling.
+2. **Drive 0 must be a transparent bypass, not a shaper value.** `tanh(x)/tanh(1)` is not linear — an
+   amplitude-1 sine loses −3.3 dB through it — so drive 0 short-circuits the stage entirely.
+3. **Makeup must be measured, not estimated.** The loudness added by a clipper is not the small-signal
+   gain; guessing it produces a knob that makes the track louder than the bypassed signal.
+
+### Changes
+
+- **New `ovtdsp::SaturationEffect`** (`Source/dsp/SaturationEffect.h`, 397 lines, header-only, so no
+  CMake entry; included from `PluginProcessor.h` next to `DeEsser.h`). Shaper
+  `y = tanh(k x u) x shaperScale` with `k = 1 + 9 x drive` and `shaperScale = makeup / k`, which keeps
+  unity gain for quiet signals at every `k`: the knob changes colour, not level.
+- **2x oversampling through a polyphase half-band pair**: Blackman-windowed sinc at ω = π/2 in the 2fs
+  domain, **L = 33** taps normalized to Σh = 1 (measured before shipping: centre tap 0.4999686,
+  Σ interpOdd 1.0000627, Σ decimOdd 0.5000313 — DC in gives DC out at unity; stopband −68 dB beyond
+  1.6x). L = 25 measured only −39 dB and was rejected. Ring buffer of 32 samples per channel, group
+  delay **16 samples** at the base rate, no plugin latency declared.
+- **Warm corner**: one-pole low-pass on both shaped streams at the oversampled rate,
+  `coeff = 1 − exp(−2π fc / 2fs)`, fc from 8000 Hz (warmth 0) to 5000 Hz (warmth 1), smoothed once per
+  block by `BlockAwareOnePole` (tau 60 ms, prepared at the base rate). Measured −3.38 dB at 5400 Hz with
+  warmth 1 against theory −3.2 dB. One pole state per channel, walked in stream order.
+- **DC blocked by construction**: subtractive one-pole high-pass near 20 Hz after decimation
+  (`OnePoleLowCut` per channel). Residual ≤ 2.2e−4 on a sine and on a ramp.
+- **Headroom for ARA buffers** (which can exceed ±1): input clamped to ±4, then compressed above full
+  scale as `u = x x 2 / (1 + |x|)` — continuous at unity, monotonic, so a hot master enters the curve
+  soft.
+- **Bypass**: gate `enabled && drive > 0`, 25 ms crossfade computed per block as
+  `1 − exp(−(numSamples/fs)/tau)`. The first version computed the coefficient in `prepare()` and applied
+  it once per block, which made the fade ~6.4 s; fixed to time-based. Once the fade reaches zero the
+  stage is skipped entirely, so drive 0 costs nothing and is bit-transparent from the first block.
+- **Makeup baked from measurement**: a 21-point curve taken through the FULL stage (upsample → shaper →
+  warm pole → decimate) on a −18 dBFS sine at warmth 0.4, interpolated over `drive x 20`. Drive 0 is
+  exactly unity and every setting lands within **0.012 dB** of it. The near-linear estimate was far too
+  small: the raw loss of `tanh(k x x)/k` on that sine reaches −6.39 dB at drive 1.
+- **Wiring**: registered on the master bus in `applyMasterEffects`, which runs **before**
+  `sharedReverb.processReturn`, so the shared room's tail is summed into a shaped path and never passes
+  through the clipper; trim + limiter stay after it, so added loudness is guarded.
+- **Three APVTS parameters**: `saturation_enable` (bool, default **false**), `saturation_drive`
+  (0–1, default **0.35**), `saturation_tone` (labelled **Saturation Warmth**, 0–1, default **0.40**);
+  raw pointers cached in `PluginProcessor.h`.
+- **UI**: Effects block grows to **6 columns** — column 6 carries the power toggle (which carries the
+  effect name) and Drive / Warmth as stacked labelled knobs, same pattern as the send room. Open band
+  width chevron + 504 px, closed chevron + 176 px; row grows by column only. Grey-out on disable keeps
+  knob values; tooltips and labels refresh in the i18n pass.
+- **i18n × 6 locales**: `label.saturation`, `label.saturation_drive`, `label.saturation_warmth` and the
+  three enable/drive/warmth tooltips (en Saturation / Drive / Warmth, fr Saturation / Drive / Chaleur,
+  de Sättigung / Drive / Wärme, es Saturación / Drive / Calidez, ja サチュレーション / ドライブ / ウォーム,
+  zh 饱和 / 驱动 / 温暖). Bytes verified as strict UTF-8, no BOM, no U+FFFD.
+- **Persistence**: `MorphState.saturationEnable` / `saturationDrive` (0.35) / `saturationTone` (0.40),
+  capture lines, ids in `getMorphParameterIds()`, lerps for the floats and `lerpOrStep` at 50 % for the
+  bool; A/B slot XML gains `saturationEnable` / `saturationDrive` / `saturationTone` written and read back
+  with defaults (false / 0.35 / 0.40), so an old slot file loads cleanly; preset apply maps the two
+  sliders and the toggle.
+- **Factory presets**: the three presets that promise nothing added (`correctionPure`, `transparentDub`,
+  `liveScene`) name saturation **off** explicitly — on stage the plugin sits in a live monitor path, so
+  nothing here adds loudness. `studioStack` 0.25 / 0.6, `spokenPodcast` 0.25 / 0.7 (warmth high keeps the
+  added harmonics under the de-esser band), `broadcastVoice` 0.3 / 0.6, `breathyVocals` 0.15 / 0.8,
+  `leadVocal` 0.35 / 0.5; `creativeRobot` is the deliberate exception at drive 0.45 with warmth 0.2, which
+  is the effect's point.
+
+### Tests
+
+- **New `test/dsp/SaturationEffectTest.cpp`** — 11 suites, 816 assertions:
+  - drive 0 leaves the buffer **bit-identical**, and disabling fades out to bit-identical;
+  - makeup within ±1 dB of unity on a −18 dBFS sine at 200 Hz and 1 kHz for drives 0 / 0.25 / 0.5 / 0.75 / 1
+    (measured worst deviation **0.012 dB**);
+  - DC offset zero on a sine and on a ramp, measured over whole periods only;
+  - headroom: continuity across the ±1 crossing and lower gain for a hot (+6 dBFS) input than for a full-scale one;
+  - aliasing: with drive 1 at 7 kHz, the third harmonic is above the fundamental's 3 % (the shaper works)
+    and the alias bins sit under 1.78 % of the fundamental (the oversampling kills them);
+  - warmth: HF energy at 5400 / 9000 / 12600 Hz drops to ratio 0.84 when warmth goes from 0 to 1;
+  - drive rises monotonically, stereo channels are independent, wet mix 0 gives unity, and the measured
+    peak delay equals `getInternalDelaySamples()` = **16 samples** at the base rate.
+- **Measurement lesson**: spectral ratios must be taken with Goertzel/DFT over **integer-cycle windows**
+  (orthogonal bins). An earlier probe used a two-pole resonator with ~229 Hz bandwidth; its skirt leaked
+  the huge fundamental into distant bins at ~−26 dB, and that contamination — not real aliasing — produced
+  failures. The DFT helper self-checks: bin amplitude reads exactly 0.5 for a 0.5-amplitude integer-cycle
+  sine, orthogonal bin 6e-16.
+- Suite: **174 OK / 0 FAILED**, exit 0. Plugin target (`OpenVoxTuner`) builds green in Release.
+
+### Notes
+
+- Accepted consequence, documented in `docs/architecture/dsp-pipeline.md`: the reverb return is summed into
+  a path carrying the 16-sample filter delay, so lead and return add with a comb ripple spaced ~4 kHz
+  (first notch near 2 kHz). Inaudible on voice at normal drive; an alignment delay line stays the option if
+  it ever needs killing. No plugin latency is declared.
+- Deferred by design: per-bus saturation on the lead only, and a full "console" mode (crosstalk + mixer
+  compression). Neither is promised by the current knob set.

@@ -269,6 +269,18 @@ private:
     ebs::PowerToggle deessEnableButton;
     juce::Slider       deessAmountSlider;        // intensity (0-1)
 
+    // Saturation: a soft tanh drive on the master output, after the formant stage and
+    // before the reverb return, so the tail stays clean. One power switch
+    // (saturation_enable), one drive knob (saturation_drive 0..1) and one warmth knob
+    // (saturation_tone 0..1 = a warm low-pass at 8 kHz .. 5 kHz). The name is drive /
+    // warmth, never "tape": the stage is a soft clipper with a warm pole, not an emulation.
+    // Drive 0 is a transparent bypass, so the knob at zero changes nothing.
+    ebs::PowerToggle saturationEnableButton;
+    juce::Slider       saturationDriveSlider;     // drive (0-1)
+    juce::Slider       saturationToneSlider;      // warmth (0-1)
+    juce::Label        saturationDriveLabel;       // "Drive" caption above the drive knob
+    juce::Label        saturationToneLabel;        // "Warmth" caption above the warmth knob
+
     // Reverb controls (lead bus: the reverb that sits on the corrected lead)
     ebs::PowerToggle reverbEnableButton;
     juce::Slider       reverbMixSlider;
@@ -436,6 +448,9 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> doubleEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> deessEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> deessAmountAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> saturationEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> saturationDriveAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> saturationToneAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;

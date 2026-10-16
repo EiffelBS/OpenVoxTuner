@@ -104,6 +104,7 @@ Trades latency against processing quality:
 - **Pop / tight**: use **Modern** correction with a low **Speed**.
 - **Background vocal layers**: lower **Amount** (60–80%) so they sit naturally behind the lead.
 - **Sibilant takes**: when you push **Upward Comp** (the quiet "s" gets lifted to the same level as the vowels), switch the **De-Esser** on with it — Intensity around 65%, and Voice Type on the register you sing (a low voice is tamed around 5 kHz, a soprano around 8.4 kHz). It works on the corrected lead, before the reverb, so the room you add stays bright.
+- **Master glue**: switch **Saturation** on with **Drive** around 20–35% and **Warmth** around 60%. It sits on the master output, ahead of the shared reverb return, so it thickens the whole voice and never the room tail. Drive 0 adds nothing at all — the stage is bypassed — and loudness stays matched at every setting, so judge it by tone, not by level: turn **Warmth** up if the added harmonics read as harsh on your monitors.
 
 ---
 

@@ -632,6 +632,24 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                               juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f)
                         , std::make_unique<juce::AudioParameterBool> (
                               "limiter_enable", "Limiter Enable", true)
+                        // Soft saturation on the master output, after every voice has been
+                        // blended and BEFORE the shared reverb return: the tail stays clean,
+                        // only the voice is driven. Drive 0 is a transparent bypass -- the
+                        // shaper curve tanh(k*x)/tanh(k) is NOT unity at k = 1, so the stage
+                        // skips its whole pass instead of evaluating it. Loudness is matched
+                        // by a measured makeup table (the shaper loses up to 2.6 dB RMS at
+                        // full drive), never by an estimate, and the stage runs at 2x with a
+                        // half-band filter so harmonics above fs/2 cannot fold back. Warmth
+                        // moves the warm pole between 8 kHz (bright) and 5 kHz (warm). The
+                        // default is OFF: existing projects must not change sound on load.
+                        , std::make_unique<juce::AudioParameterBool> (
+                              "saturation_enable", "Saturation Enable", false)
+                        , std::make_unique<juce::AudioParameterFloat> (
+                              "saturation_drive", "Saturation Drive",
+                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.35f)
+                        , std::make_unique<juce::AudioParameterFloat> (
+                              "saturation_tone", "Saturation Warmth",
+                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.40f)
                        // De-esser: tames the sibilance of the corrected lead. One knob
                        // (Intensity, 0..1) drives the detector threshold and the depth
                        // cap together (-38 x amount dB, 19 x amount dB), the way a
@@ -780,6 +798,9 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     upwardCompAmountParam = parameters.getRawParameterValue ("upward_comp_amount");
     deessEnableParam = parameters.getRawParameterValue ("deess_enable");
     deessAmountParam = parameters.getRawParameterValue ("deess_amount");
+    saturationEnableParam = parameters.getRawParameterValue ("saturation_enable");
+    saturationDriveParam = parameters.getRawParameterValue ("saturation_drive");
+    saturationToneParam = parameters.getRawParameterValue ("saturation_tone");
     flexTuneParam = parameters.getRawParameterValue ("flex_tune");
     humanizeParam = parameters.getRawParameterValue ("humanize");
     correctionModeParam = parameters.getRawParameterValue ("correction_mode");
@@ -871,9 +892,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     sharedReverb.setDamping (0.45f);
     sharedReverb.setStereoWidth (1.0f);
 
-    // MASTER bus: no effect registered yet. It is the tap point after every bus has
-    // been blended, where shared sends and glue land; the output trim + limiter runs
-    // immediately after it, as the last stage of the chain.
+    // MASTER bus: the tap point after every bus has been blended, where shared sends and
+    // glue land; the output trim + limiter runs immediately after it, as the last stage of
+    // the chain. Saturation is registered here so it shapes the blended voice BEFORE the
+    // reverb return is summed in -- a saturated tail would smear the room, and the added
+    // loudness is then guarded by the same output stage as every other level.
+    masterBus.addEffect (std::make_unique<ovtdsp::SaturationEffect>());
+
     OVT_LOG ("Effects buses initialized: lead=" + juce::String (leadBus.size())
              + " harmony=" + juce::String (harmonyBus.size())
              + " master=" + juce::String (masterBus.size()));
@@ -4237,9 +4262,20 @@ void OpenVoxTunerAudioProcessor::applyMasterEffects (juce::AudioBuffer<float>& b
 {
     masterBus.apply (buffer, [&] (ovtdsp::IEffect& effect, bool& enabled, float& wetMix)
     {
-        // No effect is registered on the master bus yet: shared sends and glue land
-        // here. The mapping stays explicit so a new effect has one obvious home.
-        (void) effect; (void) enabled; (void) wetMix;
+        if (effect.getId() == "saturation")
+        {
+            // Master saturation. The stage carries its own measured makeup, so the knob is
+            // a drive amount and not a mix: wetMix stays 1 and the master trim downstream
+            // remains the user's level control. Drive 0 inside the effect is a transparent
+            // bypass, so switching off is what makes it silent -- enabled is the switch.
+            auto* sat = static_cast<ovtdsp::SaturationEffect*> (&effect);
+            sat->setDrive ((saturationDriveParam != nullptr) ? saturationDriveParam->load() : 0.0f);
+            sat->setTone ((saturationToneParam != nullptr) ? saturationToneParam->load() : 0.4f);
+            enabled = (saturationEnableParam != nullptr && saturationEnableParam->load() > 0.5f);
+            wetMix = 1.0f;
+            return true;
+        }
+
         return false;
     });
 
@@ -4957,6 +4993,13 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("upwardCompEnable", ms.upwardCompEnable);
         slotXml->setAttribute ("upwardCompAmount", (double) ms.upwardCompAmount);
 
+        // Saturation belongs to a slot's sound: drive 0 is transparent, so switching slots
+        // fades the stage through its own bypass ramp. A slot saved before these attributes
+        // existed reads back as off with the parameter defaults.
+        slotXml->setAttribute ("saturationEnable", ms.saturationEnable);
+        slotXml->setAttribute ("saturationDrive",  (double) ms.saturationDrive);
+        slotXml->setAttribute ("saturationTone",   (double) ms.saturationTone);
+
         // Serialize the pitch curve so the slot restores its exact line (not an
         // empty PitchCurve) after a project reload / standalone restart.
         auto curveXml = ms.curve.toXml();
@@ -5053,6 +5096,11 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.375);
             ms.upwardCompEnable   = slotXml->getBoolAttribute ("upwardCompEnable", false);
             ms.upwardCompAmount   = (float) slotXml->getDoubleAttribute ("upwardCompAmount", 0.25);
+            // Saturation attributes: absent in a state saved before this stage existed, which
+            // reads back as off at the parameter defaults (drive 0.35, warmth 0.40).
+            ms.saturationEnable   = slotXml->getBoolAttribute ("saturationEnable", false);
+            ms.saturationDrive    = (float) slotXml->getDoubleAttribute ("saturationDrive", 0.35);
+            ms.saturationTone     = (float) slotXml->getDoubleAttribute ("saturationTone", 0.40);
             // Restore the pitch curve (absent in pre-curve states -> empty curve).
             auto* curveXml = slotXml->getChildByName ("PITCH_CURVE");
             if (curveXml != nullptr)

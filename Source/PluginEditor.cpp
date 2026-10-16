@@ -750,6 +750,37 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     deessEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserEnable));
     addAndMakeVisible (deessEnableButton);
 
+    // Saturation: a soft tanh drive on the master output, after the formant stage and before
+    // the reverb return, so the tail stays clean. The power toggle carries the name; Drive and
+    // Warmth are two labelled knobs in one column, the same shape the send-room cells use.
+    // Drive 0 is a transparent unity bypass (the stage is skipped), so the knob at zero changes
+    // nothing. Warmth is the warm low-pass (8 kHz bright .. 5 kHz warm) that tames the
+    // harmonics the clipper adds. The name is drive / warmth, never "tape".
+    setupKnob (saturationDriveSlider, &saturationDriveLabel, "Drive");
+    saturationDriveSlider.setRange (0.0, 1.0, 0.01);
+    saturationDriveSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    saturationDriveSlider.setPopupDisplayEnabled (true, false, this);
+    saturationDriveSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0)) + "%"; };
+    saturationDriveSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationDrive));
+    translatableLabels.push_back ({ &saturationDriveLabel, ovt::Keys::kLabelSaturationDrive });
+
+    setupKnob (saturationToneSlider, &saturationToneLabel, "Warmth");
+    saturationToneSlider.setRange (0.0, 1.0, 0.01);
+    saturationToneSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    saturationToneSlider.setPopupDisplayEnabled (true, false, this);
+    saturationToneSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0)) + "%"; };
+    saturationToneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationWarmth));
+    translatableLabels.push_back ({ &saturationToneLabel, ovt::Keys::kLabelSaturationWarmth });
+
+    // Saturation power toggle: a real parameter (saturation_enable), attached to the button
+    // like every sibling effect in this block. Switching off greys both knobs and keeps their
+    // values; the stage fades out over 25 ms, so no click is added on the way out.
+    saturationEnableButton.setButtonText (ovt::tr (ovt::Keys::kLabelSaturation));
+    saturationEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    saturationEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
+    saturationEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationEnable));
+    addAndMakeVisible (saturationEnableButton);
+
     // "Use Voice": the shared iOS-style sliding switch. It paints only the pill,
     // so the caption is a separate label placed to its left in resized().
     useVoiceLabel.setText (ovt::tr(ovt::Keys::kLabelUseVoice), juce::dontSendNotification);
@@ -2104,6 +2135,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&formantSlider),
                                 static_cast<juce::Component*> (&deessEnableButton),
                                 static_cast<juce::Component*> (&deessAmountSlider),
+                                static_cast<juce::Component*> (&saturationEnableButton),
+                                static_cast<juce::Component*> (&saturationDriveSlider),
+                                static_cast<juce::Component*> (&saturationDriveLabel),
+                                static_cast<juce::Component*> (&saturationToneSlider),
+                                static_cast<juce::Component*> (&saturationToneLabel),
                                 static_cast<juce::Component*> (&padReverbEnableButton),
                                 static_cast<juce::Component*> (&padReverbMixSlider),
                                 static_cast<juce::Component*> (&leadSendSlider),
@@ -2279,6 +2315,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // greys it, exactly as it does for reverb_mix behind reverb_enable.
     deessEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "deess_enable", deessEnableButton);
     deessAmountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "deess_amount", deessAmountSlider);
+    saturationEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "saturation_enable", saturationEnableButton);
+    saturationDriveAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "saturation_drive", saturationDriveSlider);
+    saturationToneAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "saturation_tone", saturationToneSlider);
     // Keep the Follow Lead and Gain Match sub-toggles in sync with the parent
     // Harmony switch. onStateChange fires on a direct click, so we re-run
     // refreshLabels() (which now also disables those two sub-toggles based on
@@ -2786,12 +2825,12 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     const int corrClosedW = corrBaseW + 2 * kCorrPad + chevron;
 
     // Effects: its width IS the cell count, so it is fixed in both directions. Open shows
-    // five columns now: the two always-visible ones, Formant/De-Esser, Pad Reverb over
-    // Output Limit, and the shared send room column. The row grows by column only, so the
-    // new column costs exactly one kEffectsColW plus one gap.
+    // six columns now: the two always-visible ones, Formant/De-Esser, Pad Reverb over
+    // Output Limit, the shared send room column, and Saturation. The row grows by column
+    // only, so each new column costs exactly one kEffectsColW plus one gap.
     const int effectW = chevron + 2 * kEffectsPad
-                      + (effectsFrame.expanded() ? 5 : 2) * kEffectsColW
-                      + (effectsFrame.expanded() ? 4 : 1) * kEffectsColGap;
+                      + (effectsFrame.expanded() ? 6 : 2) * kEffectsColW
+                      + (effectsFrame.expanded() ? 5 : 1) * kEffectsColGap;
 
     // Correction re-states its width when the advanced zone opens. The width comes from
     // the content, so the closed block is never squeezed and an open block never shrinks:
@@ -3149,6 +3188,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     padSendLabel.setVisible (effectsOpen);
     duckDepthSlider.setVisible (effectsOpen);
     duckDepthLabel.setVisible (effectsOpen);
+    saturationEnableButton.setVisible (effectsOpen);
+    saturationDriveSlider.setVisible (effectsOpen);
+    saturationDriveLabel.setVisible (effectsOpen);
+    saturationToneSlider.setVisible (effectsOpen);
+    saturationToneLabel.setVisible (effectsOpen);
 
     auto b4 = effectsFrame.interior().reduced (kEffectsPad);   // frame-local coordinates
     const int effectPowerH  = 18;
@@ -3209,8 +3253,22 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         col3.removeFromTop (rowGap);
         placeToggledKnob (col3, deessEnableButton, deessAmountSlider);
 
-        // Column 5, the rightmost, reserved from the right so column 4 keeps its own width.
-        // The shared send room: lead send, pad send and duck depth in one column, because
+        // Column 6, the new rightmost : Saturation. One power switch carrying the name and two
+        // labelled knobs (Drive, Warmth) stacked in one cell, the same shape the send-room column
+        // uses: rows stay frozen at two, so this cell pays for its second knob inside its own
+        // column, exactly like the send room pays for its third. It is reserved from the right
+        // BEFORE column 5, so every existing column keeps its width.
+        auto col6 = b4.removeFromRight (effectColW);
+        b4.removeFromRight (kEffectsColGap);
+
+        saturationEnableButton.setBounds (col6.removeFromTop (effectPowerH));
+        const int satCellH = (col6.getHeight() - rowGap) / 2;
+        placeLabelledKnob (col6.removeFromTop (satCellH), saturationDriveLabel, saturationDriveSlider);
+        col6.removeFromTop (rowGap);
+        placeLabelledKnob (col6, saturationToneLabel, saturationToneSlider);
+
+        // Column 5, second from the right, reserved from the right so column 4 keeps its own
+        // width. The shared send room: lead send, pad send and duck depth in one column, because
         // they are one effect (one room, two amounts, one duck depth) and not three effects.
         auto col5 = b4.removeFromRight (effectColW);
         b4.removeFromRight (kEffectsColGap);
@@ -3726,6 +3784,13 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // intensity. The band centre is not a control, so nothing else greys here.
     bool isDeesserEnabled = deessEnableButton.getToggleState();
     deessAmountSlider.setEnabled (isDeesserEnabled);
+
+    // Gray out both saturation knobs if disabled: saturation_enable gates the whole stage,
+    // and drive / warmth keep their values so switching back on re-arms the shaper at the
+    // same level. The labels grey with their knobs, as for every labelled cell.
+    bool isSaturationEnabled = saturationEnableButton.getToggleState();
+    saturationDriveSlider.setEnabled (isSaturationEnabled);
+    saturationToneSlider.setEnabled (isSaturationEnabled);
 
     // Harmony controls enable/disable
     bool isHarmonyEnabled = harmonyEnableButton.getToggleState();
@@ -4720,6 +4785,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     noiseGateEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelNoiseGate));
     doubleEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelDouble));
     deessEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelDeesser));
+    saturationEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelSaturation));
     noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
 
     // Refresh all translatable tooltips
@@ -4769,6 +4835,9 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     doubleEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDoubleEn));
     deessEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserEnable));
     deessAmountSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDeesserAmount));
+    saturationEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationEnable));
+    saturationDriveSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationDrive));
+    saturationToneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationWarmth));
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
     buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
     buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));
@@ -5099,6 +5168,8 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("noise_gate_threshold", saved.noiseGateThreshold, noiseGateThresholdSlider);
     setSlider ("upward_comp_amount",   saved.upwardCompAmount,   upwardCompAmountSlider);
     setSlider ("deess_amount",       saved.deessAmount,      deessAmountSlider);
+    setSlider ("saturation_drive",   saved.saturationDrive,  saturationDriveSlider);
+    setSlider ("saturation_tone",    saved.saturationTone,   saturationToneSlider);
     setSlider ("flex_tune",          saved.flexTune,           flexTuneSlider);
     setSlider ("humanize",           saved.humanize,           humanizeSlider);
     setSlider ("vibrato_preserve",    saved.vibratoPreserve,    vibratoPreserveSlider);
@@ -5146,6 +5217,7 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("noise_gate_enable", saved.noiseGateEnable ? 1.0f : 0.0f);
     setChoice ("upward_comp_enable", saved.upwardCompEnable ? 1.0f : 0.0f);
     setChoice ("deess_enable",       saved.deessEnable ? 1.0f : 0.0f);
+    setChoice ("saturation_enable",  saved.saturationEnable ? 1.0f : 0.0f);
     setChoice ("correction_mode",   saved.correctionMode ? 1.0f : 0.0f);
 
     // Restore the pitch curve
@@ -5211,8 +5283,10 @@ namespace
             { "vibrato_preserve", 0.0f }, { "attack_aware", 0.0f },
             { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
             // Nothing dynamic on the lead: pitch correction only, so the de-esser
-            // stays off and the sibilance keeps its natural level.
-            { "deess_enable", 0.0f }
+            // stays off and the sibilance keeps its natural level. The saturation stage
+            // is named in the same spirit: drive 0 is a transparent bypass, and this
+            // preset promises nothing added to the signal at all.
+            { "deess_enable", 0.0f }, { "saturation_enable", 0.0f }
         };
         static const std::map<juce::String, float> transparentDub = {
             { "amount", 0.85f }, { "flex_tune", 25.0f }, { "humanize", 15.0f },
@@ -5225,8 +5299,8 @@ namespace
             // on for that amount to be heard.
             { "double_enable", 1.0f }, { "double_amount", 35.0f },
             // Transparency means no dynamics: the doubler widens the lead, the
-            // sibilance is left exactly as recorded.
-            { "deess_enable", 0.0f }
+            // sibilance is left exactly as recorded, and the master stage stays off.
+            { "deess_enable", 0.0f }, { "saturation_enable", 0.0f }
         };
         static const std::map<juce::String, float> studioStack = {
             { "amount", 0.9f }, { "flex_tune", 15.0f }, { "humanize", 20.0f },
@@ -5242,13 +5316,21 @@ namespace
             // The pad room is the harmony-only reverb: a 4-voice stack is where a long,
             // wide room pays, because it fattens the voices without washing the lead
             // (the lead keeps its own short room on reverb_mix).
-            { "pad_reverb_enable", 1.0f }, { "pad_reverb_mix", 0.35f }
+            { "pad_reverb_enable", 1.0f }, { "pad_reverb_mix", 0.35f },
+            // Light drive on the master: a stack of four voices is where a little soft
+            // clipping pays, because it glues the voices together ahead of the room. Low
+            // drive (k = 1 + 9 x 0.25) and warmth at 0.6 keep the added harmonics low in
+            // the band, so the stack gains body without gaining hiss on top of the de-esser.
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.25f }, { "saturation_tone", 0.6f }
         };
         static const std::map<juce::String, float> liveScene = {
             { "amount", 0.9f }, { "flex_tune", 10.0f }, { "humanize", 30.0f },
             { "harmony_enable", 0.0f }, { "attack_aware", 1.0f },
             { "latency_mode", 0.0f }, // Direct Monitoring
-            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f }
+            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
+            // On stage the plugin sits in a live monitor path: nothing here adds loudness,
+            // so the master drive stays off and the level matches the house mix directly.
+            { "saturation_enable", 0.0f }
         };
         static const std::map<juce::String, float> spokenPodcast = {
             { "amount", 0.7f }, { "speed", 40.0f }, { "flex_tune", 35.0f },
@@ -5264,13 +5346,21 @@ namespace
             // every quiet "s" and a close mic on a podcast rig makes it worse.
             // Medium intensity; the band centre follows the Voice Type, which for
             // spoken material is usually Universal (7 kHz).
-            { "deess_enable", 1.0f }, { "deess_amount", 0.65f }
+            { "deess_enable", 1.0f }, { "deess_amount", 0.65f },
+            // Spoken voice is where a little drive pays: at low drive the stage adds the
+            // presence harmonics a close mic loses, and warmth at 0.7 keeps them under the
+            // de-esser band so the lift reads as body, not as hiss.
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.25f }, { "saturation_tone", 0.7f }
         };
         static const std::map<juce::String, float> creativeRobot = {
             { "amount", 1.0f }, { "flex_tune", 0.0f }, { "humanize", 0.0f },
             { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
             { "formant_mode", 1.0f }, { "formant", 3.0f }, // strong formant shift
-            { "vibrato_preserve", 0.0f }
+            { "vibrato_preserve", 0.0f },
+            // The hard-tuned robot voice is the one preset that wants added harmonics:
+            // drive at 0.45 (k = 1 + 9 x 0.45) pushes the locked pitch through the soft
+            // clipper, and low warmth keeps the edge bright, which is the effect's point.
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.45f }, { "saturation_tone", 0.2f }
         };
         // Broadcast Voice: strong, consistent level for streaming/radio. A firm
         // gate cuts room tone between phrases and the upward compressor lifts
@@ -5286,7 +5376,11 @@ namespace
             // level, which is what makes a broadcast voice sound harsh on small
             // speakers. High intensity (15 dB of depth at full pull) keeps the level
             // even and clean; the band centre follows the Voice Type.
-            { "deess_enable", 1.0f }, { "deess_amount", 0.8f }
+            { "deess_enable", 1.0f }, { "deess_amount", 0.8f },
+            // On air the voice must stay present without getting loud: a low drive adds
+            // the density a radio voice needs, and warmth at 0.6 keeps that added energy
+            // out of the band the de-esser is already working on.
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.3f }, { "saturation_tone", 0.6f }
         };
         // Breathy Vocals: airy, weak indie/lo-fi voice. No gate (keep the natural
         // breath), just a gentle upward lift so the quiet, breathy parts stay
@@ -5297,7 +5391,11 @@ namespace
             { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
             { "formant_mode", 1.0f }, { "formant", 0.0f },
             { "reverb_enable", 1.0f }, { "reverb_mix", 0.25f }, { "noise_gate_enable", 0.0f },
-            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.6f }
+            { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.6f },
+            // The lo-fi character is the point of this preset: a whisper of drive gives
+            // the breathy voice a little body, and warmth at 0.8 keeps it soft, so the
+            // stage never adds the top end an airy recording already has too much of.
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.15f }, { "saturation_tone", 0.8f }
         };
         // Lead Vocal: the flagship "thickened lead" sound. A light gate tames
         // room tone, "-3 / +3" harmony (3rd below + above) fattens the lead
@@ -5321,7 +5419,11 @@ namespace
             { "deess_enable", 1.0f }, { "deess_amount", 0.65f },
             // The "-3 / +3" voices get their own long room: the pad reverb fattens the
             // harmony without smearing the lead, which keeps its short room at 0.25.
-            { "pad_reverb_enable", 1.0f }, { "pad_reverb_mix", 0.30f }
+            { "pad_reverb_enable", 1.0f }, { "pad_reverb_mix", 0.30f },
+            // The thickened lead is also where the master stage belongs: drive at 0.35 glues
+            // the lead and its "-3 / +3" voices ahead of the room, and warmth at 0.5 keeps the
+            // added harmonics in the presence region, below the de-esser's band centre.
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.35f }, { "saturation_tone", 0.5f }
         };
 
         if (name == "Pure Correction")       return &correctionPure;
@@ -5981,6 +6083,8 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (leadSendLabel);
     applyLabelColours (padSendLabel);
     applyLabelColours (duckDepthLabel);
+    applyLabelColours (saturationDriveLabel);
+    applyLabelColours (saturationToneLabel);
     applyLabelColours (outputTrimLabel);
     applyLabelColours (noiseGateThresholdLabel);
     applyLabelColours (harmonyToneColorLabel);

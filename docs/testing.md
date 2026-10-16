@@ -20,6 +20,7 @@ test/
 │  ├─ BlockAwareOnePoleTest.cpp
 │  ├─ DeEsserTest.cpp
 │  ├─ DoublerTest.cpp
+│  ├─ EffectsBusTest.cpp
 │  ├─ FormantPreserverTest.cpp
 │  ├─ FormantPreserverModulationTest.cpp
 │  ├─ HarmonyAttackTest.cpp
@@ -37,6 +38,8 @@ test/
 │  ├─ PluginPresetTest.cpp
 │  ├─ PluginUndoTest.cpp
 │  ├─ RetargetEnvelopeTest.cpp
+│  ├─ ReverbEffectTest.cpp
+│  ├─ SaturationEffectTest.cpp
 │  ├─ ScaleQuantizerTest.cpp
 │  ├─ SidechainBusLayoutTest.cpp
 │  ├─ SpeedFloorTest.cpp
@@ -59,7 +62,14 @@ power toggle, bit-identical bypass), the fixed Unison detune
 (identical voice pair, correlated +6 dB sum decorrelated to +3 dB, beat rate,
 mono L+R sum), key detection and the key
 bridge, sidechain bus layout, speed floor, block-aware one-pole filtering,
-performance budgets, plugin preset/undo, upward compression, and vibrato.
+performance budgets, plugin preset/undo, upward compression, the effects-bus dispatch
+(empty bus bit-identical, master all-on equal to the legacy single loop, trim, linked
+channels), the shared send room, and vibrato. The master saturation stage is covered by
+11 suites: drive 0 as a transparent bypass, disable fading out, measured makeup within
+1 dB across the drive range, DC blocked on a sine and on a ramp, a hot ARA buffer kept
+inside full scale, aliasing bins killed by the 2x oversampling, warmth rolling off the
+added harmonics, drive rising monotonically, stereo independence, wet-mix neutrality, and
+the internal delay equal to the measured filter centre.
 
 ## Building the tests
 
@@ -97,9 +107,10 @@ The runner runs all registered tests and prints one line per suite
 [ OK ] ScaleQuantizer (28 assertions)
 [ OK ] PitchShifterOutput (12 assertions)
 [ OK ] DeEsser (1024 assertions)
+[ OK ] Saturation (512 assertions)
 ...
 =========================
-Result: 136 OK, 0 FAILED
+Result: 174 OK, 0 FAILED
 =========================
 ```
 

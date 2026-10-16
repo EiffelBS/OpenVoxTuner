@@ -99,10 +99,13 @@
 | Pad Reverb Mix | `pad_reverb_mix` | Float | **0.30** | 0 – 1 |
 | Output Trim | `output_trim` | Float | **0.0 dB** | -12 – +12 dB |
 | Limiter Enable | `limiter_enable` | Bool | **true** | false / true |
+| Saturation Enable | `saturation_enable` | Bool | **false** | false / true |
+| Saturation Drive | `saturation_drive` | Float | **0.35** (35%) | 0 – 1 (0–100%) |
+| Saturation Warmth | `saturation_tone` | Float | **0.40** (40%) | 0 – 1 (0–100%) |
 
 The effects are applied at three tap points, each with its own parameters: the lead
 voice (`deess_*`, `reverb_*`), the harmony bus (`pad_reverb_*`) and the master output
-(`output_trim`, `limiter_enable`). `reverb_enable` / `reverb_mix` are the **lead**
+(`saturation_*`, `output_trim`, `limiter_enable`). `reverb_enable` / `reverb_mix` are the **lead**
 reverb; `pad_reverb_enable` / `pad_reverb_mix` drive the separate long wide room that
 sits on the harmony voices only. The lead reverb's wet mix is additionally ducked by
 the noise-gate envelope, so the tail follows the phrase.
@@ -117,6 +120,17 @@ depth cap (`19 x amount` dB) together, so 0% is inert and 100% is the deepest. T
 centre is not a parameter: it follows `voice_type` (Universal 7000 Hz, Bass 5200 Hz,
 Baritone 6000 Hz, Tenor 6800 Hz, Alto 7600 Hz, Soprano 8400 Hz), with the band edges at
 70% and 130% of that centre.
+
+Saturation has two knobs and sits on the master output, **before** the shared reverb return, so
+the room you add is never saturated. Drive sets `k = 1 + 9 x drive` and the shaper
+`y = tanh(k x x) / tanh(k)`; that form keeps unity gain for quiet signals at every setting, and a
+measured makeup curve (baked in the header, taken through the whole stage on a -18 dBFS sine)
+keeps the loudness within 1 dB of the bypassed level. Drive **0** is not a shaper value: it is a
+transparent unity bypass that touches nothing. Warmth maps the low-pass corner from 8000 Hz (0%)
+to 5000 Hz (100%), rolling off the top harmonics the clipper adds. The stage runs at 2x
+oversampling so the added harmonics stay under Nyquist, and it declares **no** plugin latency; a
+subtractive high-pass at ~20 Hz after the shaper keeps the output DC-free, and inputs above full
+scale (an ARA buffer can exceed ±1) are compressed into the curve before shaping.
 
 ## Vibrato
 

@@ -663,6 +663,65 @@ Validation (UI.17): library smoke PASS (0 failures) with the FrameBand block rew
 
 Validation (UI.18): library smoke PASS (0 failures) with the strip block — at view 250 the track measures 242 px and the thumb 178 px at x 0; `snapScroll(45)` moves the thumb to x 32 and `snapScroll(90)` puts it at `trackWidth - thumbLength`; at view 500 the strip is hidden and its length is 0; z-order asserted with `getIndexOfChildComponent` (strip in front of the frames, cues in front of the strip). OVT Release rebuild 0 errors, exit 0; tests **136 OK / 0 FAILED**, exit 0; pin `v0.15.1` verified by `git describe --tags` on the fetched source. Live numbers from a temporary probe (synthetic input is blocked here), minimum window with both blocks open: view 1080, `maxScroll() == 158`, track 1072 px, thumb 935 px at x 0, strip visible, child index 4 against frame index 0. Pixel scan of the strip rows (window y 615 and 617, x 30..990 step 40) reads luminance **112 / 115** across the whole width — ink over the frames; the same rows with all blocks closed read **58** everywhere, i.e. no strip. Capture `.dbg/b13_open.png` (1116x639, PrintWindow flag 2 with a +1/-1 px width nudge as the forced full repaint) and crop `.dbg/b13_strip3.png`. The probe was removed and rebuilt. Runtime checks owed to real clicks: drag the thumb, press in the trough, wheel over a knob changes the knob and does not pan.
 
+### 8y. Soft saturation on the master output (drive + warmth, 2026-10-16)
+
+The master bus gets its first effect: a soft clipper with a warm corner, named **Drive** and
+**Warmth** — never "tape", because nothing here promises tape behaviour (no hysteresis, no
+compression curve, no head-print). `Source/dsp/SaturationEffect.h` (397 lines, header-only),
+wired on the master bus **before** `sharedReverb.processReturn`, so the room tail is never shaped.
+
+- [x] **SA.1 (Shaper form)** — `y = tanh(k x x) / tanh(k)` with `k = 1 + 9 x drive`. Dividing by
+  `tanh(k)` keeps unity gain for quiet signals at every `k`, so the knob changes colour, not level.
+  Drive **0** is NOT a shaper value: `tanh(x)/tanh(1)` is not linear (an amplitude-1 sine loses
+  −3.3 dB through it), so drive 0 short-circuits the stage as a transparent unity bypass.
+- [x] **SA.2 (2x oversampling)** — the only real DSP risk of a clipper is aliasing above ~50% drive,
+  so the shaper runs at `2 x sampleRate` through a polyphase half-band pair: Blackman-windowed sinc
+  at ω = π/2, **L = 33** taps, normalized Σh = 1. Measured in PowerShell before shipping: centre tap
+  0.4999686, Σ interpOdd 1.0000627, Σ decimOdd 0.5000313 (DC in → DC out at unity), stopband −68 dB
+  beyond 1.6x — L = 25 measured only −39 dB and was rejected. Group delay **16 samples** at the base
+  rate; no plugin latency is declared, so `setLatencySamples` is untouched.
+- [x] **SA.3 (Warm corner)** — one-pole low-pass on both shaped streams at the oversampled rate,
+  `coeff = 1 − exp(−2π fc / 2fs)`, fc from 8000 Hz (warmth 0) to 5000 Hz (warmth 1), smoothed once
+  per block by `BlockAwareOnePole` (tau 60 ms, prepared at the base rate). Measured −3.38 dB at
+  5400 Hz with warmth 1 against theory −3.2 dB.
+- [x] **SA.4 (DC)** — subtractive one-pole high-pass near 20 Hz after decimation (`OnePoleLowCut` per
+  channel). Residual measured ≤ 2.2e−4 on a sine and on a ramp, inside the −60 dBFS budget; windows
+  are period-aligned so the mean is taken over whole cycles only.
+- [x] **SA.5 (Headroom)** — an ARA buffer can exceed ±1. Input is clamped to ±4 (+12 dBFS) and then
+  compressed above full scale, `u = x × 2 / (1 + |x|)` — continuous at unity, monotonic, so a hot
+  master enters the curve soft instead of clipping hard.
+- [x] **SA.6 (Bypass ramp)** — gate `enabled && drive > 0`, 25 ms crossfade computed per block as
+  `1 − exp(−(numSamples/fs)/tau)`. First version computed the coefficient in `prepare()` and applied it
+  once per block, which made the fade ~6.4 s; fixed to time-based. With drive 0 the stage is bit-
+  transparent from the first block, and the fade-out ends with the stage skipped entirely.
+- [x] **SA.7 (Makeup measured, not estimated)** — a baked curve of 21 points taken through the FULL
+  stage (upsample → shaper → warm pole → decimate) on a −18 dBFS sine: drive 0 is exactly unity and
+  every setting lands within **0.012 dB** of it, inside the ±1 dB acceptance. The near-linear-region
+  estimate was far too small — the raw loss of `tanh(k x x)/k` on that sine reaches −6.39 dB at drive 1.
+- [x] **SA.8 (Comb consequence, documented)** — the reverb return is summed into a path carrying the
+  16-sample filter delay, so lead and return add with a comb ripple spaced ~4 kHz (first notch near
+  2 kHz). Accepted over adding an alignment delay line; recorded in `docs/architecture/dsp-pipeline.md`.
+- [x] **SA.9 (UI)** — Effects column 6: power toggle carrying the name, Drive and Warmth as stacked
+  labelled knobs (same pattern as the send room). Open band width chevron + 504 px, closed chevron +
+  176 px; row grows by column only.
+- [x] **SA.10 (i18n)** — `label.saturation`, `label.saturation_drive`, `label.saturation_warmth` and the
+  three tooltips in all 6 locales (en Saturation/Drive/Warmth, fr Désaturateur… see `OVTLanguages.h`).
+- [x] **SA.11 (Persistence)** — `MorphState.saturationEnable/saturationDrive/saturationTone`, morph ids,
+  lerps, A/B slot XML write + read (`saturationEnable`/`saturationDrive`/`saturationTone`), preset apply
+  mapping, and factory presets: off in the three "nothing added" presets, low drive with high warmth in
+  the stack/on-air presets, 45% drive on Creative Robot.
+- [x] **SA.12 (Tests)** — `test/dsp/SaturationEffectTest.cpp`, 11 suites / 816 assertions: drive-0
+  transparency, disable fade-out, makeup ±1 dB over the drive range, DC zero, hot-input headroom and
+  continuity, aliasing bins under the fundamental by 2x oversampling, warmth rolling off the added
+  harmonics, monotonicity, stereo independence, wet-mix neutrality, internal delay = filter centre.
+  Spectral ratios are measured with Goertzel over **integer-cycle windows** (orthogonal bins): an
+  earlier resonator-based probe leaked the fundamental's skirt (~−26 dB at 1 kHz distance) into distant
+  bins and produced failures that were measurement artifacts, not aliasing.
+
+Validation: full suite **174 groups OK / 0 FAILED**, exit 0; plugin SharedCode target builds clean in
+Release (`PluginEditor.cpp`, `PluginProcessor.cpp` recompiled); OVTLanguages.h verified as strict UTF-8,
+no BOM, no U+FFFD.
+
 ## 9. Documentation
 
 - [x] Architecture overview
