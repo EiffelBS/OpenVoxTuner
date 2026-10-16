@@ -135,6 +135,11 @@ juce_add_plugin(OpenVoxTuner
     VST3_CATEGORIES "Fx" "Pitch"
     PRODUCT_NAME "OpenVoxTuner"
     VERSION ${OVT_VERSION}
+    # Standalone build must embed NSMicrophoneUsageDescription in its Info.plist.
+    # Without this key macOS denies microphone access with no permission prompt
+    # (observed on a fresh macOS rebuild: input device opens, capture stays silent).
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "OpenVoxTuner needs microphone access to analyse and correct your pitch."
     ICON_BIG "assets/icon.png"
     ICON_SMALL "assets/icon.png")
 
