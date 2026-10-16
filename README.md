@@ -315,6 +315,15 @@ Some parts of OpenVoxTuner are written with the assistance of AI coding agents, 
 > The macOS build scripts (`scripts/build_macos*.sh`) detect this and exit with a
 > clear message instead.
 
+> **Standalone mic permission (TCC)** — `scripts/build_macos.sh` re-signs the
+> Standalone `.app` with the first available `Developer ID Application` identity
+> (override with `OVT_CODESIGN_IDENTITY=...`, skipped if none exists). JUCE signs
+> ad-hoc, whose code identity changes on every rebuild, which macOS interprets as
+> a new app: microphone access is silently re-denied with no permission prompt.
+> A stable Developer ID identity keys the permission to bundle-id + team so the
+> prompt appears once and survives rebuilds. VST3/AU don't need it (the host DAW
+> owns the TCC permission).
+
 ### Windows (Visual Studio)
 
 Prerequisites:

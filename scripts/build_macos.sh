@@ -105,6 +105,27 @@ done
 
 echo "[OK] Build completed."
 
+# === Step 2b: Developer ID signing of the Standalone app (macOS mic permission) ===
+# The microphone permission (TCC) is bound to the app's code identity. JUCE signs
+# ad-hoc, which makes the identity the binary's cdhash - it changes on EVERY
+# rebuild, and macOS then silently re-denies mic access without a new permission
+# prompt (observed on macOS 26/27 betas). Signing with a stable identity
+# (Developer ID) keys TCC to bundle-id + team instead: the permission prompt
+# appears once and survives future rebuilds. VST3/AU don't need this (the DAW
+# host owns the permission), so only the Standalone is signed here.
+CODESIGN_APP="$BUILD_DIR/OpenVoxTuner_artefacts/$CONFIG/Standalone/OpenVoxTuner.app"
+CODESIGN_IDENTITY="${OVT_CODESIGN_IDENTITY:-$(security find-identity -p codesigning 2>/dev/null | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)}"
+if [[ -d "$CODESIGN_APP" ]]; then
+  if [[ -n "$CODESIGN_IDENTITY" ]]; then
+    echo "[2b] Re-signing Standalone with '$CODESIGN_IDENTITY' (stable TCC mic permission)..."
+    codesign --force --sign "$CODESIGN_IDENTITY" "$CODESIGN_APP"
+  else
+    echo "[2b] No Developer ID identity found - Standalone stays ad-hoc."
+    echo "     Mic permission will be re-requested after every rebuild; set"
+    echo "     OVT_CODESIGN_IDENTITY to a codesigning identity to fix this."
+  fi
+fi
+
 # === Step 3: Installation (optional) ===
 if [[ "$INSTALL" == true ]]; then
   echo "[3/3] Local installation..."
