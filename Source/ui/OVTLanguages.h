@@ -173,6 +173,8 @@ namespace ovt
         static const char* kLabelUpwardComp     = "label.upward_comp";
         static const char* kTooltipUpwardCompEn = "tooltip.upward_comp_enable";
         static const char* kTooltipEffectsMore = "tooltip.effects_more";
+        // The Harmony fold: the chevron on the frame's right edge hides the four knobs.
+        static const char* kTooltipHarmonyMore = "tooltip.harmony_more";
         static const char* kTooltipUpwardCompAmount = "tooltip.upward_comp_amount";
         static const char* kLabelReverbBtn      = "label.reverb_btn";
         static const char* kLabelPadReverbBtn   = "label.pad_reverb_btn";
@@ -559,6 +561,7 @@ namespace ovt
             { kLabelUpwardComp,     "Compress" },
             { kTooltipUpwardCompEn, "Enable/disable upward compression on input audio (lifts quiet passages before tuning)." },
             { kTooltipEffectsMore, "Show Formant and De-Esser" },
+            { kTooltipHarmonyMore, "Show / hide the Harmony knobs (Volume, Blend, Formant, Attack)" },
             { kTooltipUpwardCompAmount, "Amount of upward compression applied to quiet passages." },
             { kLabelThreshold,   "Threshold" },
             { kTooltipThreshold, "Noise gate threshold in dB. Signals below this level are muted." },
@@ -910,6 +913,7 @@ namespace ovt
             { kLabelUpwardComp,     "Compress" },
             { kTooltipUpwardCompEn, "Active/desactive la compression vers le haut sur l'entree (remonte les passages faibles avant le tuning)." },
             { kTooltipEffectsMore, "Afficher Formant et De-Esser" },
+            { kTooltipHarmonyMore, "Afficher / masquer les boutons Harmony (Volume, Blend, Formant, Attack)" },
             { kTooltipUpwardCompAmount, "Intensite de la compression vers le haut sur les passages faibles." },
             { kLabelThreshold,   "Seuil" },
             { kTooltipThreshold, "Seuil du noise gate en dB. Les signaux en dessous sont coupes." },
@@ -1261,6 +1265,7 @@ namespace ovt
             { kLabelUpwardComp,     "Compress" },
             { kTooltipUpwardCompEn, "Upward-Kompression am Eingang aktivieren/deaktivieren (hebt leise Passagen vor dem Tuning an)." },
             { kTooltipEffectsMore, "Formant und De-Esser anzeigen" },
+            { kTooltipHarmonyMore, "Harmony-Regler (Volume, Blend, Formant, Attack) ein-/ausblenden" },
             { kTooltipUpwardCompAmount, "Staerke der Upward-Kompression auf leisen Passagen." },
             { kLabelThreshold,   "Schwelle" },
             { kTooltipThreshold, "Rauschtor-Schwelle in dB. Signale unter diesem Wert werden unterdrueckt." },
@@ -1612,6 +1617,7 @@ namespace ovt
             { kLabelUpwardComp,     "Compress" },
             { kTooltipUpwardCompEn, "Activar/desactivar la compression ascendente en la entrada (eleva los pasajes suaves antes del tuning)." },
             { kTooltipEffectsMore, "Mostrar Formant y De-Esser" },
+            { kTooltipHarmonyMore, "Mostrar / ocultar los botones de Harmony (Volume, Blend, Formant, Attack)" },
             { kTooltipUpwardCompAmount, "Cantidad de compression ascendente en los pasajes suaves." },
             { kLabelThreshold,   "Umbral" },
             { kTooltipThreshold, "Umbral de la puerta de ruido en dB. Las senales por debajo se silencian." },
@@ -1963,6 +1969,7 @@ namespace ovt
             { kLabelUpwardComp,     "Compress" },
             { kTooltipUpwardCompEn, "入力のアップワードコンプレッションを有効/無効にする（チューニング前に小さな音を持ち上げる）。" },
             { kTooltipEffectsMore, "フォルマントとディエッサーを表示" },
+            { kTooltipHarmonyMore, "Harmonyノブ（Volume、Blend、Formant、Attack）の表示 / 非表示を切り替えます" },
             { kTooltipUpwardCompAmount, "小さな音に対するアップワードコンプレッションの量。" },
             { kLabelThreshold,   "しきい値" },
             { kTooltipThreshold, "ノイズゲートのしきい値（dB）。このレベル以下の信号はミュートされます。" },
@@ -2313,6 +2320,7 @@ namespace ovt
             { kLabelUpwardComp,      "Compress" },
             { kTooltipUpwardCompEn,  "启用/禁用输入音频的向上压缩（在调音前提升较弱的段落）。" },
             { kTooltipEffectsMore, "显示共振峰和去寴音。" },
+            { kTooltipHarmonyMore, "显示/隐藏 Harmony 旋钮（Volume、Blend、Formant、Attack）。" },
             { kTooltipUpwardCompAmount, "应用于较弱段落的向上压缩量。" },
             { kLabelThreshold,      "阈值" },
             { kTooltipThreshold,    "噪声门阈值（dB）。低于此电平的信号将被静音。" },

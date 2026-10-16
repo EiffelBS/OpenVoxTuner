@@ -337,6 +337,12 @@ public:
     bool getAdvancedExpanded() const { return advancedExpandedState; }
     void setAdvancedExpanded (bool expanded) { advancedExpandedState = expanded; }
 
+    // Harmony block fold state (persisted across sessions, same contract as the correction
+    // block): folded, the four knob columns are hidden and the block narrows to its left
+    // column. It is a UI state, not a parameter, so it never enters the morph state.
+    bool getHarmonyExpanded() const { return harmonyExpandedState; }
+    void setHarmonyExpanded (bool expanded) { harmonyExpandedState = expanded; }
+
     // Morph slider amount accessors (backed by the automatable "morph_amount" parameter).
     float getMorphAmount() const { return morphAmountParam != nullptr ? morphAmountParam->load (std::memory_order_relaxed) : 0.0f; }
     void setMorphAmount (float v);
@@ -699,6 +705,11 @@ private:
 
     // Correction block "Advanced" expand/collapse state (persisted across sessions).
     bool advancedExpandedState = false;
+
+    // Harmony block fold state (persisted across sessions). Open by default: the four knobs
+    // are what a singer dials, so a fresh session shows them, and folding is the user's own
+    // choice recorded in the XML.
+    bool harmonyExpandedState = true;
 
     // Morph slider amount (automatable parameter "morph_amount").
     std::atomic<float>* morphAmountParam = nullptr;

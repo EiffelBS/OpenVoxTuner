@@ -563,13 +563,28 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Restore the state persisted in the plugin XML BEFORE the callback is armed, so
     // restoring a saved session does not fire a re-layout.
     correctionFrame.setExpanded (processorRef.getAdvancedExpanded());
+    // Harmony obeys the same rule: its chevron folds the four knob columns (Volume / Blend /
+    // Formant / Attack) away and the block narrows to its left column, handing that room back
+    // to the band. The flag must land before the width model below runs, otherwise a session
+    // saved with Harmony folded would open sized for the wide block.
+    harmonyFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyMore));
+    harmonyFrame.setExpanded (processorRef.getHarmonyExpanded());
     // The width model is the single source of truth for every block size, so it runs right
-    // after the restored fold flag and before any layout.
+    // after the restored fold flags and before any layout.
     updateBottomBandWidths();
     correctionFrame.onExpandedChanged = [this]
     {
         processorRef.setAdvancedExpanded (correctionFrame.expanded());
         updateBottomBandWidths();   // the fold changes what this block asks for
+        resized();
+    };
+    // The frame owns the flag; the editor answers by re-stating every block width and re-laying
+    // out. Unlike the Effects fold, this one is persisted in the plugin XML, so a row folded to
+    // fit a narrow window stays folded when the session reopens.
+    harmonyFrame.onExpandedChanged = [this]
+    {
+        processorRef.setHarmonyExpanded (harmonyFrame.expanded());
+        updateBottomBandWidths();
         resized();
     };
 
@@ -2788,11 +2803,16 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     bottomBand.setFrameWidths (&effectsFrame, effectW, effectW, false);
     // Root/Scale: pref is the keyboard strip plus padding, the floor is the strip itself.
     bottomBand.setFrameWidths (&scaleFrame, kScalePrefW, kScaleMinW, false);
-    // Harmony is never stretched: its knob columns are laid out inside the frame, so
-    // widening them would move every knob away from its own label. It is the only block
-    // that can give, because its knobs survive at the 300 px floor, so it shrinks
-    // before the row ever starts to scroll.
-    bottomBand.setFrameWidths (&harmonyFrame, kHarmonyPrefW, kHarmonyMinW, true);
+    // Harmony folds. Closed its content is the left column (type combo, voice selectors, two
+    // power toggles) plus the chevron strip, so it asks for exactly that and is NOT growable:
+    // spare room stays empty at the right edge rather than stretching knobs off their labels.
+    // Open it adds the four knob columns and may shrink to kHarmonyMinW, where the knobs are
+    // still readable - that floor is what keeps the row from scrolling as soon as Harmony opens.
+    const int harmonyClosedW = chevron + 2 * kHarmonyPad + kHarmonyLeftW;
+    if (harmonyFrame.expanded())
+        bottomBand.setFrameWidths (&harmonyFrame, kHarmonyPrefW, kHarmonyMinW, true);
+    else
+        bottomBand.setFrameWidths (&harmonyFrame, harmonyClosedW, harmonyClosedW, false);
 }
 
 void OpenVoxTunerAudioProcessorEditor::resized()
@@ -3232,12 +3252,26 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         placeLabelledKnob (col5, duckDepthLabel, duckDepthSlider);
     }
 
-    // Harmony controls block (rightmost block)
+    // Harmony controls block (rightmost block), an ebs::ExpansibleFrame.
     // Split into left/right columns FIRST, then fill each column.
-    // Left: enable button + type + voices + toggles
-    // Right: Volume/Blend/Formant knobs
+    // Left: enable button + type + voices + toggles - visible in BOTH states.
+    // Right: Volume / Blend / Formant / Attack knobs - the folded zone, hidden not painted over.
     {
-        auto h = harmonyFrame.getLocalBounds().reduced(10);
+        const bool harmonyOpen = harmonyFrame.expanded();
+
+        // A folded zone is a setVisible() away from gone, never an overwritten one: an
+        // invisible child of the frame takes no clicks and leaves its cell empty.
+        harmonyGainLabel.setVisible   (harmonyOpen);
+        harmonyGainSlider.setVisible  (harmonyOpen);
+        harmonyBlendLabel.setVisible  (harmonyOpen);
+        harmonyBlendSlider.setVisible (harmonyOpen);
+        harmonyFormantLabel.setVisible(harmonyOpen);
+        harmonyFormantSlider.setVisible(harmonyOpen);
+        harmonyAttackLabel.setVisible (harmonyOpen);
+        harmonyAttackSlider.setVisible(harmonyOpen);
+
+        // interior() excludes the chevron strip, so what is left IS the content area.
+        auto h = harmonyFrame.interior().reduced (kHarmonyPad);
 
         auto powerButtonWidth = [&] (juce::Button& b) -> int
         {
@@ -3249,9 +3283,14 @@ void OpenVoxTunerAudioProcessorEditor::resized()
             return static_cast<int> (std::ceil (iconWidth + textW + 4.0f));
         };
 
-        // Split left/right columns from the full height.
-        auto leftCol = h.removeFromLeft ((int) std::round (h.getWidth() * 0.58f));
-        h.removeFromLeft (8);
+        // Open, the columns split 58 / 42 of the content width. Closed, the interior IS the
+        // left column: nothing is removed from it, so rightCol comes back empty and the knob
+        // block below is skipped by its own width guard - the same rule the correction frame's
+        // advanced zone uses.
+        auto leftCol = harmonyOpen ? h.removeFromLeft ((int) std::round (h.getWidth() * 0.58f))
+                                   : h;
+        if (harmonyOpen)
+            h.removeFromLeft (8);
         auto rightCol = h;
 
         // --- Left column: enable button, type, voices, toggles ---
@@ -3284,46 +3323,51 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         const int gmW = powerButtonWidth (harmonyGainMatchButton);
         harmonyGainMatchButton.setBounds (gmRow.removeFromLeft (gmW).reduced (0, 1));
 
-        // --- Right column: Volume + Blend side-by-side, Formant + Attack below.
+        // --- Right column: Volume + Blend side-by-side, Formant + Attack below. This whole
+        // zone is the folded part of the block, so it is laid out only when open and only
+        // when there is room for two knob columns; closed, rightCol is empty by construction.
         // The knob size is derived from the block height so both rows always fit;
         // the bottom strip is a fixed 190 px and the Harmony block has no room to
         // grow. The Doubler knob lives in the Effects block (row 2), not here: it
         // doubles the dry lead, not the harmony voices.
-        const int harmLabelH = 14;
-        const int harmRowGap = 6;
-        const int harmKnobGap = 8;
-        const int numKnobRows = 2;
-        int harmKnobD = (h.getHeight() - numKnobRows * (harmLabelH + 2) - (numKnobRows - 1) * harmRowGap) / numKnobRows;
-        harmKnobD = juce::jmin (44, juce::jmax (30, harmKnobD));
-        const int harmRowH = harmLabelH + harmKnobD + 2;
-        auto knobColW = (rightCol.getWidth() - harmKnobGap) / 2;
+        if (harmonyOpen && rightCol.getWidth() > 4)
+        {
+            const int harmLabelH = 14;
+            const int harmRowGap = 6;
+            const int harmKnobGap = 8;
+            const int numKnobRows = 2;
+            int harmKnobD = (h.getHeight() - numKnobRows * (harmLabelH + 2) - (numKnobRows - 1) * harmRowGap) / numKnobRows;
+            harmKnobD = juce::jmin (44, juce::jmax (30, harmKnobD));
+            const int harmRowH = harmLabelH + harmKnobD + 2;
+            auto knobColW = (rightCol.getWidth() - harmKnobGap) / 2;
 
-        auto knobRow1 = rightCol.removeFromTop (harmRowH);
-        {
-            const int kx = knobRow1.getX() + juce::jmax (0, (knobColW - harmKnobD) / 2);
-            harmonyGainLabel.setBounds (kx, knobRow1.getY(), harmKnobD, harmLabelH);
-            harmonyGainSlider.setBounds (kx, knobRow1.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
-        }
-        {
-            const int kx = knobRow1.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
-            harmonyBlendLabel.setBounds (kx, knobRow1.getY(), harmKnobD, harmLabelH);
-            harmonyBlendSlider.setBounds (kx, knobRow1.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
-        }
+            auto knobRow1 = rightCol.removeFromTop (harmRowH);
+            {
+                const int kx = knobRow1.getX() + juce::jmax (0, (knobColW - harmKnobD) / 2);
+                harmonyGainLabel.setBounds (kx, knobRow1.getY(), harmKnobD, harmLabelH);
+                harmonyGainSlider.setBounds (kx, knobRow1.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+            }
+            {
+                const int kx = knobRow1.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
+                harmonyBlendLabel.setBounds (kx, knobRow1.getY(), harmKnobD, harmLabelH);
+                harmonyBlendSlider.setBounds (kx, knobRow1.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+            }
 
-        rightCol.removeFromTop (harmRowGap);
-        auto knobRow2 = rightCol.removeFromTop (harmRowH);
-        {
-            // Formant stays under the Volume knob (left column).
-            const int kxL = knobRow2.getX() + juce::jmax (0, (knobColW - harmKnobD) / 2);
-            harmonyFormantLabel.setBounds (kxL, knobRow2.getY(), harmKnobD, harmLabelH);
-            harmonyFormantSlider.setBounds (kxL, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
-        }
-        {
-            // Harmony Attack (per-voice fade-in) is placed directly under the
-            // Blend knob (right column), as requested.
-            const int kxR = knobRow2.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
-            harmonyAttackLabel.setBounds (kxR, knobRow2.getY(), harmKnobD, harmLabelH);
-            harmonyAttackSlider.setBounds (kxR, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+            rightCol.removeFromTop (harmRowGap);
+            auto knobRow2 = rightCol.removeFromTop (harmRowH);
+            {
+                // Formant stays under the Volume knob (left column).
+                const int kxL = knobRow2.getX() + juce::jmax (0, (knobColW - harmKnobD) / 2);
+                harmonyFormantLabel.setBounds (kxL, knobRow2.getY(), harmKnobD, harmLabelH);
+                harmonyFormantSlider.setBounds (kxL, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+            }
+            {
+                // Harmony Attack (per-voice fade-in) is placed directly under the
+                // Blend knob (right column), as requested.
+                const int kxR = knobRow2.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
+                harmonyAttackLabel.setBounds (kxR, knobRow2.getY(), harmKnobD, harmLabelH);
+                harmonyAttackSlider.setBounds (kxR, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
+            }
         }
 
 
@@ -5487,6 +5531,7 @@ void OpenVoxTunerAudioProcessorEditor::writePluginPresetFile (const juce::String
     juce::XmlElement root ("OVT_PLUGIN_PRESET");
     root.setAttribute ("name", name);
     root.setAttribute ("advancedExpanded", correctionFrame.expanded() ? 1 : 0);
+    root.setAttribute ("harmonyExpanded", harmonyFrame.expanded() ? 1 : 0);
     // stateXml already carries the real parameters.state root type (e.g.
     // "OpenVoxTuner") with <PARAM id=.. value=..> children, so restoreState()
     // via replaceState() keeps the tree type consistent.
@@ -6006,9 +6051,11 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     correctionFrame.repaint();
     correctionFrame.disclosure().repaint();
     // The two plain framed bodies read palette tokens inside their own paint, so a theme
-    // switch needs the same repaint as the ExpansibleFrames.
+    // switch needs the same repaint as the ExpansibleFrames. Harmony is an ExpansibleFrame
+    // too, so its chevron strip gets the disclosure repaint the other two get.
     scaleFrame.repaint();
     harmonyFrame.repaint();
+    harmonyFrame.disclosure().repaint();
     // The band cues dissolve the panel colour into the edge and draw the shared glyph in
     // accent, so they need the same repaint as the frames they sit over.
     bottomBand.leftCueStrip().repaint();

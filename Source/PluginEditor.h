@@ -132,8 +132,13 @@ private:
     static constexpr int kEffectsColGap = 8;
     static constexpr int kScalePrefW    = 236;  // narrowed to fit the Root combo
     static constexpr int kScaleMinW     = 200;  // floor for the 180 px keyboard strip
-    static constexpr int kHarmonyPrefW  = 384;
-    static constexpr int kHarmonyMinW   = 300;
+    static constexpr int kHarmonyPad    = 10;   // frame interior padding
+    static constexpr int kHarmonyLeftW  = 196;   // folded content: type combo + voice selectors + two toggles.
+                                                  // Measured from the open block: interior (384 - 28 chevron strip - 20 padding)
+                                                  // * 0.58 = 195, so folding removes ONLY the knobs and nothing in the left
+                                                  // column reflows -- at 128 the type combo truncated "Unison + Octaves (4 voices)".
+    static constexpr int kHarmonyPrefW  = 384;  // open block: left column + the four knob columns
+    static constexpr int kHarmonyMinW   = 300;  // floor for the open block, knobs still readable
 
     /** Re-state every bottom-row block widths from each frame own fold flag. Called at
      *  construction, on every fold, and at the start of resized(). */
@@ -321,11 +326,16 @@ private:
     // The Correction block is the same component: one chevron, one fold flag, one
     // host re-layout. Both bottom-row frames are ExpansibleFrame, not two bespoke handles.
     ebs::ExpansibleFrame correctionFrame;
-    // Root/Scale and Harmony are plain framed bodies (ebs::FramedBody): the same frame
-    // language as the two ExpansibleFrames, with no fold. Every bottom-row block is a
-    // component, so it repaints itself when the row re-lays out.
+    // Root/Scale is a plain framed body (ebs::FramedBody): the same frame language as the
+    // ExpansibleFrames, with no fold. Every bottom-row block is a component, so it repaints
+    // itself when the row re-lays out.
     ebs::FramedBody scaleFrame;
-    ebs::FramedBody harmonyFrame;
+    // Harmony is the third ebs::ExpansibleFrame: the chevron on its right edge folds the
+    // four knob columns (Volume / Blend / Formant / Attack) away and the frame narrows to
+    // its left column, giving that room back to the band. The selectors, the two power
+    // toggles and the enable button stay live in both states - a folded block hides what
+    // you dial, not what you choose.
+    ebs::ExpansibleFrame harmonyFrame;
     // The bottom row is one ebs::FrameBand: every block states the width its content asks
     // for and the floor below which its widgets collide. Spare room goes only to blocks
     // that can use it, and below the hard floor the row scrolls instead of stretching the
