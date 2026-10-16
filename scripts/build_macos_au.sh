@@ -82,6 +82,13 @@ fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Fail fast if the ARA submodule was not initialised (fresh clone / worktree).
+if [ -f ".gitmodules" ] && [ ! -f "external/ARA_SDK/ARA_Library/Debug/ARADebug.h" ]; then
+  echo "Error: git submodule external/ARA_SDK is not initialised." >&2
+  echo "       Run:  git submodule update --init --recursive" >&2
+  exit 1
+fi
+
 echo "[1/3] Configuring CMake (AU enabled)..."
 cmake -S . -B "$BUILD_DIR" -G "$GENERATOR" \
   -DCMAKE_BUILD_TYPE="$CONFIG" \

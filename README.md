@@ -303,6 +303,18 @@ Some parts of OpenVoxTuner are written with the assistance of AI coding agents, 
 
 ## Build
 
+> **Git submodules first** — `external/ARA_SDK` is a git submodule. On a fresh clone
+> (or a new `git worktree add`, which does **not** copy submodule state), always run:
+>
+> ```bash
+> git submodule update --init --recursive
+> ```
+>
+> If you skip this, the macOS build fails with the misleading error
+> `'ARA_Library/Debug/ARADebug.h' file not found` (from JUCE's `juce_ARADebug.h`).
+> The macOS build scripts (`scripts/build_macos*.sh`) detect this and exit with a
+> clear message instead.
+
 ### Windows (Visual Studio)
 
 Prerequisites:
