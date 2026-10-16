@@ -176,6 +176,11 @@ namespace ovt
         static const char* kTooltipUpwardCompAmount = "tooltip.upward_comp_amount";
         static const char* kLabelReverbBtn      = "label.reverb_btn";
         static const char* kLabelPadReverbBtn   = "label.pad_reverb_btn";
+        // The shared room: how much of each voice is sent to it, and how far the
+        // return follows the gate. Captions stay short -- they sit under a knob.
+        static const char* kLabelLeadSendBtn    = "label.lead_send";
+        static const char* kLabelPadSendBtn     = "label.pad_send";
+        static const char* kLabelDuckBtn        = "label.duck_depth";
         static const char* kLabelLimiterBtn     = "label.limiter_btn";
         static const char* kLabelDouble         = "label.double";
         static const char* kLabelDeesser        = "label.deesser";
@@ -280,6 +285,9 @@ namespace ovt
         static const char* kTooltipReverbEn    = "tooltip.reverb_enable";
         static const char* kTooltipPadReverbEn  = "tooltip.pad_reverb_enable";
         static const char* kTooltipPadReverbMix = "tooltip.pad_reverb_mix";
+        static const char* kTooltipLeadSend     = "tooltip.lead_send";
+        static const char* kTooltipPadSend      = "tooltip.pad_send";
+        static const char* kTooltipDuckDepth    = "tooltip.duck_depth";
         static const char* kTooltipLimiterEn    = "tooltip.limiter_enable";
         static const char* kTooltipOutputTrim   = "tooltip.output_trim";
         static const char* kTooltipOutputMeter  = "tooltip.output_meter";
@@ -395,6 +403,9 @@ namespace ovt
         static const char* kMidiLearnAmount        = "midi_learn.amount";
         static const char* kMidiLearnFormant       = "midi_learn.formant";
         static const char* kMidiLearnReverbMix     = "midi_learn.reverb_mix";
+        static const char* kMidiLearnLeadSend      = "midi_learn.lead_send";
+        static const char* kMidiLearnPadSend       = "midi_learn.pad_send";
+        static const char* kMidiLearnDuckDepth     = "midi_learn.duck_depth";
         static const char* kMidiLearnOutputTrim    = "midi_learn.output_trim";
         static const char* kMidiLearnFlexTune      = "midi_learn.flex_tune";
         static const char* kMidiLearnHumanize      = "midi_learn.humanize";
@@ -553,6 +564,9 @@ namespace ovt
             { kTooltipThreshold, "Noise gate threshold in dB. Signals below this level are muted." },
             { kLabelReverbBtn,      "Reverb" },
             { kLabelPadReverbBtn,   "Pad" },
+            { kLabelLeadSendBtn,    "Lead Send" },
+            { kLabelPadSendBtn,     "Pad Send" },
+            { kLabelDuckBtn,        "Duck" },
             { kLabelLimiterBtn,     "Limit" },
             { kLabelDouble,         "Doubler" },
             { kLabelTone,           "Tone" },
@@ -644,6 +658,9 @@ namespace ovt
             { kTooltipReverbEn,       "Enable/disable reverb effect." },
             { kTooltipPadReverbEn,    "Enable/disable the pad reverb: the second reverb room, sitting on the harmony voices. It is separate from the lead reverb, long and wide, so the stack gains amplitude without washing the lead." },
             { kTooltipPadReverbMix,   "Pad reverb wet mix for the harmony voices." },
+            { kTooltipLeadSend,       "Amount of the corrected lead sent to the shared room. The lead dry stays at full level: a send only adds." },
+            { kTooltipPadSend,        "Amount of the blended harmony sent to the same room, so the stack rings in one space." },
+            { kTooltipDuckDepth,      "How far the room's return follows the noise gate: at full depth the reverb falls to silence when the gate closes." },
             { kTooltipLimiterEn,      "Peak limiter on the output. Non-lookahead, so it adds no latency: it catches peaks above -1.7 dBFS instead of letting them clip." },
             { kTooltipOutputTrim,     "Output trim in dB: the gain applied before the limiter. Use it to fit the plugin into a mix without touching the harmony balance." },
             { kTooltipOutputMeter,    "Bar: the level that leaves the plugin. Red: how much the limiter is pulling it down. Trim: your output trim." },
@@ -744,6 +761,9 @@ namespace ovt
             { kMidiLearnAmount,       "Amount" },
             { kMidiLearnFormant,      "Formant" },
             { kMidiLearnReverbMix,    "Reverb Mix" },
+            { kMidiLearnLeadSend,     "Lead Send" },
+            { kMidiLearnPadSend,      "Pad Send" },
+            { kMidiLearnDuckDepth,    "Duck Depth" },
             { kMidiLearnOutputTrim,   "Output Trim" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanize" },
@@ -895,6 +915,9 @@ namespace ovt
             { kTooltipThreshold, "Seuil du noise gate en dB. Les signaux en dessous sont coupes." },
             { kLabelReverbBtn,      "Reverb" },
             { kLabelPadReverbBtn,   "Nappe" },
+            { kLabelLeadSendBtn,    "Envoi lead" },
+            { kLabelPadSendBtn,     "Envoi nappe" },
+            { kLabelDuckBtn,        "Duck" },
             { kLabelLimiterBtn,     "Limiteur" },
             { kLabelDouble,         "Doubler" },
             { kLabelTone,           "Timbre" },
@@ -986,6 +1009,9 @@ namespace ovt
             { kTooltipReverbEn,       "Activer/desactiver l'effet de reverberation." },
             { kTooltipPadReverbEn,    "Active/désactive la réverb de nappe : la seconde salle de réverb, posée sur les voix d'harmonie. Elle est séparée de la réverb du lead, longue et large : la pile gagne de l'amplitude sans laver le lead." },
             { kTooltipPadReverbMix,   "Mix de réverb de nappe pour les voix d'harmonie." },
+            { kTooltipLeadSend,       "Quantité du lead corrigé envoyée à la salle de réverb partagée. Le lead sec reste à plein niveau : l'envoi ajoute, il ne retire rien." },
+            { kTooltipPadSend,        "Quantité d'harmonie mélangée envoyée dans la même salle : la pile sonne dans un seul espace." },
+            { kTooltipDuckDepth,      "Profondeur du suivi de la porte par le retour de la salle : à fond, la réverb se tait quand la porte se ferme." },
             { kTooltipLimiterEn,      "Limiteur de crête sur la sortie. Sans anticipation, donc il n'ajoute aucune latence : il retient les crêtes au-dessus de -1,7 dBFS au lieu de les faire crisper." },
             { kTooltipOutputTrim,     "Trim de sortie en dB : le gain appliqué avant le limiteur. Il ajuste le niveau du plugin dans le mix sans toucher l'équilibre des harmonies." },
             { kTooltipOutputMeter,    "Barre : le niveau qui sort du plugin. Rouge : la réduction que le limiteur lui applique. Trim : votre trim de sortie." },
@@ -1086,6 +1112,9 @@ namespace ovt
             { kMidiLearnAmount,       "Intensite" },
             { kMidiLearnFormant,      "Formant" },
             { kMidiLearnReverbMix,    "Mix Reverb" },
+            { kMidiLearnLeadSend,     "Envoi lead" },
+            { kMidiLearnPadSend,      "Envoi nappe" },
+            { kMidiLearnDuckDepth,    "Profondeur duck" },
             { kMidiLearnOutputTrim,   "Trim sortie" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humaniser" },
@@ -1237,6 +1266,9 @@ namespace ovt
             { kTooltipThreshold, "Rauschtor-Schwelle in dB. Signale unter diesem Wert werden unterdrueckt." },
             { kLabelReverbBtn,      "Reverb" },
             { kLabelPadReverbBtn,   "Pad" },
+            { kLabelLeadSendBtn,    "Lead-Send" },
+            { kLabelPadSendBtn,     "Pad-Send" },
+            { kLabelDuckBtn,        "Ducking" },
             { kLabelLimiterBtn,     "Limit" },
             { kLabelDouble,         "Doubler" },
             { kLabelTone,           "Klangfarbe" },
@@ -1330,6 +1362,9 @@ namespace ovt
             { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
             { kTooltipPadReverbEn,    "Aktiviert/deaktiviert die Pad-Reverb: der zweite Hall-Raum, auf den Harmoniestimmen. Er ist getrennt von der Lead-Reverb, lang und breit – der Stapel gewinnt Lautstärke, ohne die Lead-Stimme zu verwischen." },
             { kTooltipPadReverbMix,   "Pad-Reverb-Anteil der Harmoniestimmen." },
+            { kTooltipLeadSend,       "Anteil des korrigierten Lead, der in den geteilten Hall-Raum gesendet wird. Der trockene Lead bleibt auf voller Höhe: ein Send fügt nur hinzu." },
+            { kTooltipPadSend,        "Anteil der gemischten Harmoniestimmen, die in denselben Raum gesendet werden – der Stapel klingt in einem einzigen Raum." },
+            { kTooltipDuckDepth,      "Wie stark der Rückkanal dem Noise Gate folgt: bei voller Tiefe wird der Hall stumm, sobald das Gate schließt." },
             { kTooltipLimiterEn,      "Peak-Limiter am Ausgang. Ohne Lookahead, also ohne zusätzliche Latenz: Er fängt Peaks über -1,7 dBFS ab, statt sie ins Clipping laufen zu lassen." },
             { kTooltipOutputTrim,     "Output-Trim in dB: die Verstärkung vor dem Limiter. Passt das Plugin in den Mix an, ohne die Harmonie-Balance zu ändern." },
             { kTooltipOutputMeter,    "Balken: der Pegel, der das Plugin verlässt. Rot: wie weit der Limiter ihn absenkt. Trim: dein Output-Trim." },
@@ -1428,6 +1463,9 @@ namespace ovt
             { kMidiLearnAmount,       "Intensitaet" },
             { kMidiLearnFormant,      "Formant" },
             { kMidiLearnReverbMix,    "Reverb-Mix" },
+            { kMidiLearnLeadSend,     "Lead-Send" },
+            { kMidiLearnPadSend,      "Pad-Send" },
+            { kMidiLearnDuckDepth,    "Duck-Tiefe" },
             { kMidiLearnOutputTrim,   "Output-Trim" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanisieren" },
@@ -1579,6 +1617,9 @@ namespace ovt
             { kTooltipThreshold, "Umbral de la puerta de ruido en dB. Las senales por debajo se silencian." },
             { kLabelReverbBtn,      "Reverb" },
             { kLabelPadReverbBtn,   "Napa" },
+            { kLabelLeadSendBtn,    "Envío lead" },
+            { kLabelPadSendBtn,     "Envío napa" },
+            { kLabelDuckBtn,        "Duck" },
             { kLabelLimiterBtn,     "Limitador" },
             { kLabelDouble,         "Doblador" },
             { kLabelTone,           "Tono" },
@@ -1672,6 +1713,9 @@ namespace ovt
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberacion." },
             { kTooltipPadReverbEn,    "Activa/desactiva la reverberación de napa: la segunda sala de reverberación, sobre las voces de armonía. Separada de la del lead, larga y ancha; la pila gana amplitud sin lavar el lead." },
             { kTooltipPadReverbMix,   "Mezcla de reverberación de napa para las voces de armonía." },
+            { kTooltipLeadSend,       "Cantidad del lead corregido enviada a la sala compartida. El lead seco mantiene su nivel completo: un envío solo añade." },
+            { kTooltipPadSend,        "Cantidad de armonía mezclada enviada a la misma sala: la pila suena en un solo espacio." },
+            { kTooltipDuckDepth,      "Hasta qué punto la devolución de la sala sigue a la puerta de ruido: al máximo, la reverberación se calla cuando la puerta se cierra." },
             { kTooltipLimiterEn,      "Limitador de picos en la salida. Sin anticipación, así que no añade latencia: retiene los picos por encima de -1,7 dBFS en lugar de dejarlos recortar." },
             { kTooltipOutputTrim,     "Trim de salida en dB: la ganancia aplicada antes del limitador. Ajusta el nivel del plugin en la mezcla sin tocar el equilibrio de las armonías." },
             { kTooltipOutputMeter,    "Barra: el nivel que sale del plugin. Rojo: cuánto lo baja el limitador. Trim: tu trim de salida." },
@@ -1770,6 +1814,9 @@ namespace ovt
             { kMidiLearnAmount,       "Intensidad" },
             { kMidiLearnFormant,      "Formante" },
             { kMidiLearnReverbMix,    "Mix Reverb" },
+            { kMidiLearnLeadSend,     "Envío lead" },
+            { kMidiLearnPadSend,      "Envío napa" },
+            { kMidiLearnDuckDepth,    "Profundidad duck" },
             { kMidiLearnOutputTrim,   "Trim de salida" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanizar" },
@@ -1921,6 +1968,9 @@ namespace ovt
             { kTooltipThreshold, "ノイズゲートのしきい値（dB）。このレベル以下の信号はミュートされます。" },
             { kLabelReverbBtn,      "リバーブ" },
             { kLabelPadReverbBtn,   "パッド" },
+            { kLabelLeadSendBtn,    "リード送り" },
+            { kLabelPadSendBtn,     "パッド送り" },
+            { kLabelDuckBtn,        "ダック" },
             { kLabelLimiterBtn,     "リミッター" },
             { kLabelDouble,         "ダブラー" },
             { kLabelTone,           "音色" },
@@ -2013,6 +2063,9 @@ namespace ovt
             { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
             { kTooltipPadReverbEn,    "パッド・リバーブのオン/オフ：ハーモニー声に掛ける第二のリバーブ部屋です。リード用とは別で、長く広い設定。スタックは音量を得てもリードが滲みません。" },
             { kTooltipPadReverbMix,   "ハーモニー声のパッド・リバーブのミックス量。" },
+            { kTooltipLeadSend,       "補正済みリードを共有リバーブ部屋へ送る量。リードのドライは満レベルのまま、送りは加算のみです。" },
+            { kTooltipPadSend,        "ブレンドしたハーモニーを同じ部屋へ送る量。スタックはひとつの空間で鳴ります。" },
+            { kTooltipDuckDepth,      "部屋の戻りがノイズゲートに従う深さ。最大では、ゲートが閉じればリバーブは無音になります。" },
             { kTooltipLimiterEn,      "出力のピーク・リミッター。先読みがないのでレイテンシは増えません。-1.7 dBFS を超えるピークをクリップ前に抑えます。" },
             { kTooltipOutputTrim,     "出力トリム（dB）：リミッターの前に掛かるゲイン。和声のバランスを変えずにプラグインのレベルをミックスに合わせます。" },
             { kTooltipOutputMeter,    "バー：プラグインから出ていくレベル。赤：リミッターが下げる量。トリム：出力トリム。" },
@@ -2111,6 +2164,9 @@ namespace ovt
             { kMidiLearnAmount,       "量" },
             { kMidiLearnFormant,      "フォルマント" },
             { kMidiLearnReverbMix,    "リバーブミックス" },
+            { kMidiLearnLeadSend,     "リード送り" },
+            { kMidiLearnPadSend,      "パッド送り" },
+            { kMidiLearnDuckDepth,    "ダック深度" },
             { kMidiLearnOutputTrim,   "出力トリム" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "人性化" },
@@ -2262,6 +2318,9 @@ namespace ovt
             { kTooltipThreshold,    "噪声门阈值（dB）。低于此电平的信号将被静音。" },
             { kLabelReverbBtn,      "混响" },
             { kLabelPadReverbBtn,   "Pad" },
+            { kLabelLeadSendBtn,    "主声发送" },
+            { kLabelPadSendBtn,     "和声发送" },
+            { kLabelDuckBtn,        "闪降" },
             { kLabelLimiterBtn,     "限制器" },
             { kLabelDouble,         "加倍器" },
             { kLabelTone,           "音色" },
@@ -2354,6 +2413,9 @@ namespace ovt
             { kTooltipReverbEn,       "启用/禁用混响效果。" },
             { kTooltipPadReverbEn,    "开关 Pad 混响：第二间混响房间，架在和声声部上。它与主声混响分开，长而宽；和声堆叠获得音量而不淹没主声。" },
             { kTooltipPadReverbMix,   "和声声部的 Pad 混响混合量。" },
+            { kTooltipLeadSend,       "送入共享混响房间的主声量（已校正）。主声干声保持满电平：发送只做叠加。" },
+            { kTooltipPadSend,        "送入同一房间的混合和声量：堆叠在同一个空间里发声。" },
+            { kTooltipDuckDepth,      "房间返回跟随噪声门的深度：满深度时，门关闭则混响静音。" },
             { kTooltipLimiterEn,      "输出峰值限制器。无预读，因此不增加延迟；它把超过 -1.7 dBFS 的峰值收住，而不是让其削波。" },
             { kTooltipOutputTrim,     "输出微调（dB）：限制器之前的增益。用于让插件贴合混音，而不改变和声平衡。" },
             { kTooltipOutputMeter,    "条：离开插件的电平。红色：限制器压下的量。微调：你的输出微调。" },
@@ -2452,6 +2514,9 @@ namespace ovt
             { kMidiLearnAmount,       "量" },
             { kMidiLearnFormant,      "共振峰" },
             { kMidiLearnReverbMix,    "混响混合" },
+            { kMidiLearnLeadSend,     "主声发送" },
+            { kMidiLearnPadSend,      "和声发送" },
+            { kMidiLearnDuckDepth,    "闪降深度" },
             { kMidiLearnOutputTrim,   "输出微调" },
             { kMidiLearnFlexTune,     "灵活调音" },
             { kMidiLearnHumanize,     "人性化" },

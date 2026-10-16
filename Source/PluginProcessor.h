@@ -22,6 +22,7 @@
 #include "dsp/PitchCurve.h"
 #include "dsp/IEffect.h"
 #include "dsp/EffectsBus.h"
+#include "dsp/ReverbEffect.h"   // the shared send room is a direct member, not a bus instance
 #include "dsp/OutputLimiter.h"
 #include "dsp/NoiseGate.h"
 #include "dsp/UpwardCompressor.h"
@@ -478,6 +479,9 @@ private:
     std::atomic<float>* editorPlayheadLoopParam = nullptr; // Curve Editor playhead loop (0=follow host, 1=loop on Measures)
     std::atomic<float>* reverbEnableParam = nullptr; // Lead reverb on/off
     std::atomic<float>* reverbMixParam = nullptr;   // Lead reverb wet mix (0-1)
+    std::atomic<float>* leadSendParam = nullptr;     // Amount of the processed lead sent to the shared room (0-1)
+    std::atomic<float>* padSendParam = nullptr;      // Amount of the harmony voices sent to the shared room (0-1)
+    std::atomic<float>* duckDepthParam = nullptr;    // How far the shared room follows the noise gate (0-1)
     std::atomic<float>* padReverbEnableParam = nullptr; // Harmony-pad reverb on/off
     std::atomic<float>* padReverbMixParam = nullptr;    // Harmony-pad reverb wet mix (0-1)
     std::atomic<float>* outputTrimParam = nullptr;      // Master output trim (-12..+12 dB)
@@ -565,6 +569,16 @@ private:
     ovtdsp::EffectsBus leadBus;
     ovtdsp::EffectsBus harmonyBus;
     ovtdsp::EffectsBus masterBus;
+
+    // === Shared send room: ONE reverb instance, fed by two parallel sends ===
+    // The lead and the harmony voices are SENT to the same room, so they ring in
+    // one coherent space instead of two independent ones. Each bus keeps its own
+    // insert reverb (the short lead room, the long pad room); this is the third,
+    // shared room, and it is a send, not an insert: the dry paths are untouched and
+    // no latency is declared, because nothing delays a dry signal.
+    // It is not registered on a bus: the sends are taken at two tap points and the
+    // return is summed into the master before the output stage.
+    ovtdsp::ReverbEffect sharedReverb;
 
     // Master output stage, applied AFTER every effect: trim + non-lookahead peak
     // limiter. It is not an IEffect: it is the last stage of the chain and must
@@ -992,6 +1006,13 @@ private:
     void applyLeadEffects (juce::AudioBuffer<float>& buffer);
     void applyHarmonyEffects (juce::AudioBuffer<float>& harmony);
     void applyMasterEffects (juce::AudioBuffer<float>& buffer);
+
+    // Shared send room taps. The lead send is taken from the processed lead, the
+    // pad send from the blended harmony voices BEFORE it is mixed into the output;
+    // the return is summed into the master inside applyMasterEffects, so the
+    // additive wet is guarded by the same trim + limiter as everything else.
+    void applyLeadSend (juce::AudioBuffer<float>& buffer);
+    void applyPadSend (juce::AudioBuffer<float>& harmony);
 
     // Updates DSP parameters from the value tree.
     void syncParameters();

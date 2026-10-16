@@ -27,6 +27,9 @@ namespace ovtdsp
         bool doubleEnable = false;   // "double_enable": power switch, amount is kept
         float reverbMix = 0.0f;      // lead reverb wet mix ("reverb_mix")
         float padReverbMix = 0.30f;  // harmony-bus (pad) reverb wet mix ("pad_reverb_mix")
+        float leadSend = 0.0f;       // amount of the corrected lead sent to the shared room ("lead_send")
+        float padSend = 0.0f;        // amount of the blended harmony sent to the shared room ("pad_send")
+        float duckDepth = 0.50f;     // how far the shared room follows the noise gate ("duck_depth")
         float flexTune = 0.0f;
         float humanize = 0.0f;
         float vibratoPreserve = 0.0f;
@@ -92,6 +95,9 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("double_enable"))      s.doubleEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("reverb_mix"))         s.reverbMix = p->getValue();
         if (auto* p = params.getParameter ("pad_reverb_mix"))     s.padReverbMix = p->getValue();
+        if (auto* p = params.getParameter ("lead_send"))          s.leadSend = p->getValue();
+        if (auto* p = params.getParameter ("pad_send"))           s.padSend = p->getValue();
+        if (auto* p = params.getParameter ("duck_depth"))         s.duckDepth = p->getValue();
         if (auto* p = params.getParameter ("flex_tune"))          s.flexTune = p->getValue();
         if (auto* p = params.getParameter ("humanize"))           s.humanize = p->getValue();
         if (auto* p = params.getParameter ("vibrato_preserve"))   s.vibratoPreserve = p->getValue();
@@ -153,6 +159,7 @@ namespace ovtdsp
                         "editor_measures", "voice_type", "formant_enable", "bypass", "harmony_enable",
                         "harmony_use_voice", "harmony_follow_lead", "reverb_enable",
                         "pad_reverb_mix", "pad_reverb_enable",
+                        "lead_send", "pad_send", "duck_depth",
                         "noise_gate_enable", "upward_comp_enable", "upward_comp_amount",
                         "deess_amount",
                         "deess_enable",
@@ -210,6 +217,12 @@ namespace ovtdsp
         setParam ("double_amount",      source.doubleAmount + (target.doubleAmount - source.doubleAmount) * t);
         setParam ("reverb_mix",         source.reverbMix + (target.reverbMix - source.reverbMix) * t);
         setParam ("pad_reverb_mix",     source.padReverbMix + (target.padReverbMix - source.padReverbMix) * t);
+        // Send amounts are lerped like a wet mix: a morph moves the room from one bus
+        // balance to another continuously, and duck depth lerps so a morph can take the
+        // room from following the gate to standing alone.
+        setParam ("lead_send",          source.leadSend + (target.leadSend - source.leadSend) * t);
+        setParam ("pad_send",           source.padSend + (target.padSend - source.padSend) * t);
+        setParam ("duck_depth",         source.duckDepth + (target.duckDepth - source.duckDepth) * t);
         setParam ("flex_tune",          source.flexTune + (target.flexTune - source.flexTune) * t);
         setParam ("humanize",           source.humanize + (target.humanize - source.humanize) * t);
         setParam ("vibrato_preserve",   source.vibratoPreserve + (target.vibratoPreserve - source.vibratoPreserve) * t);

@@ -410,6 +410,9 @@ target_sources(OpenVoxTunerTests PRIVATE
     Source/dsp/PitchShifter.cpp
     Source/dsp/HarmonyEngine.cpp
     Source/dsp/Doubler.cpp
+    # The shared send room: the test drives ReverbEffect directly, so its TU is compiled
+    # here. juce::Reverb lives in juce_dsp, which this target did not link before.
+    Source/dsp/ReverbEffect.cpp
     Source/ui/ScaleKeyboardComponent.cpp
 )
 target_link_libraries(OpenVoxTunerTests PRIVATE
@@ -420,6 +423,7 @@ target_link_libraries(OpenVoxTunerTests PRIVATE
     juce::juce_events
     juce::juce_graphics
     juce::juce_gui_extra              # eiffelbs-ui >= v0.12.7 links it INTERFACE
+    juce::juce_dsp                    # ReverbEffect.cpp uses juce::Reverb
 )
 
 # NOMINMAX is kept as protection for this project's own TUs, which include

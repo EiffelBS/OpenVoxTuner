@@ -277,6 +277,17 @@ private:
     juce::Slider       padReverbMixSlider;
     juce::Label        padReverbMixLabel;
 
+    // Shared send room: ONE reverb instance fed by two parallel sends, so the corrected
+    // lead and the blended harmony ring in the same space. These three knobs are the
+    // amounts of those sends and how far the room's return follows the noise gate.
+    // There is no enable switch: a send at zero is silent, so the amount IS the switch.
+    juce::Slider       leadSendSlider;   // amount of the corrected lead sent to the room
+    juce::Label        leadSendLabel;
+    juce::Slider       padSendSlider;    // amount of the blended harmony sent to the room
+    juce::Label        padSendLabel;
+    juce::Slider       duckDepthSlider;  // how far the return follows the gate
+    juce::Label        duckDepthLabel;
+
     // Output stage: trim is the pre-limiter gain (-12..+12 dB), the limiter is the
     // non-lookahead peak guard that runs last on the master bus.
     ebs::PowerToggle limiterEnableButton;
@@ -423,6 +434,11 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbMixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> padReverbEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> padReverbMixAttachment;
+    // Shared send room: the two send amounts and the duck depth. Slider attachments only,
+    // because a send has no enable switch to attach.
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> leadSendAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> padSendAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> duckDepthAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> limiterEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputTrimAttachment;
     // 2026-07-24 (Deprecation): FlexTune and Attack-Aware attachments are

@@ -40,6 +40,7 @@
 #include "dsp/UnisonDetuneTest.cpp"
 #include "dsp/DeEsserTest.cpp"
 #include "dsp/EffectsBusTest.cpp"
+#include "dsp/ReverbEffectTest.cpp"
 
 /** Console logger for the test runner.
  *  With no logger installed, JUCE sends Logger::writeToLog to OutputDebugString,

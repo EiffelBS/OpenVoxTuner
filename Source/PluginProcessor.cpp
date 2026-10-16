@@ -592,6 +592,27 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterFloat> (
                             "reverb_mix", "Reverb Mix",
                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
+                        // Shared send room: ONE reverb instance fed by two parallel
+                        // sends, so the lead and the harmony voices ring in the SAME
+                        // room. The amounts are per bus, next to the mix knob they
+                        // sit beside. A send is additive: the dry voice stays at unity
+                        // and no latency is declared (nothing delays the dry path).
+                        // Defaults are SILENT -- a shared room is opt-in, so loading an
+                        // existing state changes nobody's sound until a knob is moved.
+                        , std::make_unique<juce::AudioParameterFloat> (
+                              "lead_send", "Lead Send",
+                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
+                        , std::make_unique<juce::AudioParameterFloat> (
+                              "pad_send", "Pad Send",
+                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
+                        // Ducking: the room follows the noise gate. When the gate closes
+                        // on a silent lead, the tail of the room is pulled down with it,
+                        // which is the classic vocal ducking -- a room that keeps ringing
+                        // over a gated voice reads as hiss. Depth 0 = no ducking, depth 1
+                        // = the room follows the gate completely.
+                        , std::make_unique<juce::AudioParameterFloat> (
+                              "duck_depth", "Duck Depth",
+                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.50f)
                         // Pad reverb: the SECOND instance of ReverbEffect, on the harmony
                         // bus. A long, fully wide room is what a pad wants; the lead keeps
                         // its own short centred room (reverb_enable / reverb_mix above).
@@ -746,6 +767,9 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     voiceTypeParam = parameters.getRawParameterValue ("voice_type");
     reverbEnableParam = parameters.getRawParameterValue ("reverb_enable");
     reverbMixParam = parameters.getRawParameterValue ("reverb_mix");
+    leadSendParam = parameters.getRawParameterValue ("lead_send");
+    padSendParam = parameters.getRawParameterValue ("pad_send");
+    duckDepthParam = parameters.getRawParameterValue ("duck_depth");
     padReverbEnableParam = parameters.getRawParameterValue ("pad_reverb_enable");
     padReverbMixParam = parameters.getRawParameterValue ("pad_reverb_mix");
     outputTrimParam = parameters.getRawParameterValue ("output_trim");
@@ -837,6 +861,15 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         padReverb->setStereoWidth (1.0f);
         harmonyBus.addEffect (std::move (padReverb));
     }
+
+    // SHARED send room: ONE instance, fed by the lead send and the pad send. This is
+    // the space both voices share, so the room has to read as a single believable
+    // space rather than two effects: medium-large, moderate damping, fully wide. It
+    // is NOT on a bus -- the sends are taken at two tap points and the return is
+    // summed into the master before the output stage.
+    sharedReverb.setRoomSize (0.60f);
+    sharedReverb.setDamping (0.45f);
+    sharedReverb.setStereoWidth (1.0f);
 
     // MASTER bus: no effect registered yet. It is the tap point after every bus has
     // been blended, where shared sends and glue land; the output trim + limiter runs
@@ -1082,10 +1115,13 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     currentFlexTuneAmount = 1.0f;
     currentHumanizeCents = 0.0f;
 
-    // Prepare every effects bus and the master output stage.
+    // Prepare every effects bus, the shared send room and the master output stage.
     leadBus.prepare (sampleRate, samplesPerBlock);
     harmonyBus.prepare (sampleRate, samplesPerBlock);
     masterBus.prepare (sampleRate, samplesPerBlock);
+    // The shared room sizes its own send line and wet scratch from this block size,
+    // so a send tap and its return allocate nothing inside the audio callback.
+    sharedReverb.prepare (sampleRate, samplesPerBlock);
     outputLimiter.prepare (sampleRate, samplesPerBlock);
 
     // Prepare temporary buffers for shifted voices
@@ -1323,6 +1359,9 @@ void OpenVoxTunerAudioProcessor::reset()
     leadBus.reset();
     harmonyBus.reset();
     masterBus.reset();
+    // Flushing the shared room clears its send line and its tail, so a transport
+    // restart does not carry a room from the previous take.
+    sharedReverb.reset();
     outputLimiter.reset();
     // The meter shows what the stage is doing, so a reset clears its readings as well: a
     // peak left on screen after a transport stop is a reading the stage no longer makes.
@@ -1590,6 +1629,15 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // path uses, so a tail fades out at exactly the level the user hears.
         applyLeadEffects (buffer);
         applyHarmonyEffects (harmonyBuffer);
+
+        // Shared send room in sleep mode: the lead buffer is cleared, so the lead send
+        // contributes nothing and is tapped on the same code path as the live signal.
+        // The pad send is NOT tapped here -- harmonyBuffer still holds the last blended
+        // take, and re-sending a voice that has stopped would keep the room ringing over
+        // silence, which is exactly what ducking exists to prevent. applyMasterEffects
+        // below runs the return, so the room's tail decays through its own state.
+        applyLeadSend (buffer);
+
         applyMasterEffects (buffer);
 
         harmonyFrequencies.clear();
@@ -2618,6 +2666,12 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // before this tap: the split changes where effects act, not what harmony hears.
     applyLeadEffects (buffer);
 
+    // The lead send is taken at the same tap point, right after the lead's own effects:
+    // what rings in the shared room is the corrected, de-essed voice. A send adds to the
+    // room, never to the dry path, so the lead in `buffer` stays exactly as the tap left
+    // it and no latency is declared -- nothing delays a dry signal to make a send.
+    applyLeadSend (buffer);
+
     // Harmony voices: formant preservation follows the same strategy as the
     // lead (Current / P0 / P1 / P2), selected by the formant_strategy param.
     //
@@ -3075,6 +3129,12 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // pad room acts on the blended voices only, so the lead keeps its own short
         // room and the two rooms never fight each other for one shared setting.
         applyHarmonyEffects (harmonyBuffer);
+
+        // The pad send is taken here, on the blended harmony voices BEFORE they are mixed
+        // into the master output: the send sees the voices at their own level, not the sum
+        // of lead plus pad. Mixing first would send the lead twice (once from its own tap,
+        // once through the mixed output), which is what makes a shared room read as two rooms.
+        applyPadSend (harmonyBuffer);
 
         // Now mix harmonyBuffer into main output below
         const float hGain = (harmonyGainParam ? harmonyGainParam->load() : 1.0f);
@@ -4152,6 +4212,27 @@ void OpenVoxTunerAudioProcessor::applyHarmonyEffects (juce::AudioBuffer<float>& 
     });
 }
 
+void OpenVoxTunerAudioProcessor::applyLeadSend (juce::AudioBuffer<float>& buffer)
+{
+    // The lead is sent to the shared room AFTER its own insert effects have run, so what
+    // rings in the room is the corrected, de-essed voice the user actually hears. The
+    // amount is a send: the dry lead in the buffer is left exactly as it was.
+    const float leadSend = (leadSendParam != nullptr) ? leadSendParam->load() : 0.0f;
+
+    if (leadSend > 0.0f)
+        sharedReverb.processLeadSend (buffer, leadSend);
+}
+
+void OpenVoxTunerAudioProcessor::applyPadSend (juce::AudioBuffer<float>& harmony)
+{
+    // The harmony voices are tapped from the harmony bus BEFORE they are mixed into the
+    // output, so the send sees the blended voices at their own level, not the sum.
+    const float padSend = (padSendParam != nullptr) ? padSendParam->load() : 0.0f;
+
+    if (padSend > 0.0f)
+        sharedReverb.processPadSend (harmony, padSend);
+}
+
 void OpenVoxTunerAudioProcessor::applyMasterEffects (juce::AudioBuffer<float>& buffer)
 {
     masterBus.apply (buffer, [&] (ovtdsp::IEffect& effect, bool& enabled, float& wetMix)
@@ -4161,6 +4242,19 @@ void OpenVoxTunerAudioProcessor::applyMasterEffects (juce::AudioBuffer<float>& b
         (void) effect; (void) enabled; (void) wetMix;
         return false;
     });
+
+    // Shared room return, summed into the master BEFORE the trim + limiter, so the
+    // additive wet is guarded by exactly the same output stage as every other level in
+    // the plugin. Ducking follows the noise gate: depth 0 leaves the room alone, depth 1
+    // makes the room follow the gate completely. The gate is read the same way the
+    // harmony mix reads it -- when the gate is off, getCurrentGain() is neutral.
+    const float duckGateGain = (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f)
+                               ? noiseGate.getCurrentGain() : 1.0f;
+    const float duckDepth = (duckDepthParam != nullptr) ? duckDepthParam->load() : 0.0f;
+
+    // Called every block, even with silent sends: the room needs its blocks to let the
+    // tail decay, and it skips its own work once the tail is inaudible.
+    sharedReverb.processReturn (buffer, 1.0f - duckDepth * (1.0f - duckGateGain));
 
     // Output stage, applied LAST: trim, then non-lookahead limiting. Reading the
     // parameters here keeps the whole master tap in one place.
@@ -4823,6 +4917,12 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("doubleEnable",     ms.doubleEnable);
         slotXml->setAttribute ("reverbMix",        (double) ms.reverbMix);
         slotXml->setAttribute ("padReverbMix",     (double) ms.padReverbMix);
+        // Send and duck amounts are written with the state, so a slot carries the room
+        // balance it was built with. A slot saved before these attributes existed reads
+        // back as silent sends -- the same defaults the parameters carry.
+        slotXml->setAttribute ("leadSend",         (double) ms.leadSend);
+        slotXml->setAttribute ("padSend",          (double) ms.padSend);
+        slotXml->setAttribute ("duckDepth",        (double) ms.duckDepth);
         slotXml->setAttribute ("flexTune",         (double) ms.flexTune);
         slotXml->setAttribute ("humanize",         (double) ms.humanize);
         slotXml->setAttribute ("vibratoPreserve",  (double) ms.vibratoPreserve);
@@ -4915,6 +5015,11 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.doubleEnable       = slotXml->getBoolAttribute ("doubleEnable", false);
             ms.reverbMix          = (float) slotXml->getDoubleAttribute ("reverbMix", 0.3);
             ms.padReverbMix       = (float) slotXml->getDoubleAttribute ("padReverbMix", 0.3);
+            // Defaults match the parameter defaults, so an older slot loads as it did
+            // before the shared room existed: silent sends, half duck depth.
+            ms.leadSend           = (float) slotXml->getDoubleAttribute ("leadSend", 0.0);
+            ms.padSend            = (float) slotXml->getDoubleAttribute ("padSend", 0.0);
+            ms.duckDepth          = (float) slotXml->getDoubleAttribute ("duckDepth", 0.5);
             ms.flexTune           = (float) slotXml->getDoubleAttribute ("flexTune", 0.25);
             ms.humanize           = (float) slotXml->getDoubleAttribute ("humanize", 0.0);
             ms.vibratoPreserve    = (float) slotXml->getDoubleAttribute ("vibratoPreserve", 0.0);

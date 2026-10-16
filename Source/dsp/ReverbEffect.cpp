@@ -19,30 +19,67 @@ namespace ovtdsp
         params.freezeMode = 0.0f;
     }
 
-    void ReverbEffect::prepare (double sr, int /*maximumBlockSize*/)
+    void ReverbEffect::prepare (double sr, int maximumBlockSize)
     {
         sampleRate = sr;
+        const int maxBlock = juce::jmax (maximumBlockSize, 1);
+
         reverb.reset();
         reverb.setSampleRate (sampleRate);
         reverb.setParameters (params);
+
+        // Every buffer this class uses is sized HERE, once. process() and the send /
+        // return path reuse them for the whole session, so a block boundary
+        // allocates nothing on the audio thread.
+        wetScratch.setSize (2, maxBlock, false, true, false);
+        sendAccum.setSize (2, maxBlock, false, true, true);
+
+        // 25 ms ramps: long enough to be click-free when a knob moves or the gate
+        // closes, short enough that a change feels immediate.
+        rampSamples = juce::jmax (1, static_cast<int> (0.025 * sampleRate));
+        leadSendRamp.reset (rampSamples);
+        padSendRamp.reset (rampSamples);
+        duckRamp.reset (rampSamples);
+
+        for (auto& filter : leadLowCut)
+            filter.prepare (sampleRate, kLeadSendLowCutHz);
+
         // 25 ms master enable ramp -- long enough to be click-free, short
         // enough that toggling feels instant.
         const double tau = 0.025;
         masterCoeff = 1.0f - std::exp (-1.0 / (tau * sampleRate));
         masterGain = 0.0f;
         masterTarget = 0.0f;
+
         prepared = true;
     }
 
     void ReverbEffect::reset()
     {
         reverb.reset();
+        sendAccum.clear();
+        for (auto& filter : leadLowCut)
+            filter.reset();
+
+        // Flush the ramps to their neutral state: sends silent, return unducked.
+        leadSendRamp.reset (rampSamples);
+        padSendRamp.reset (rampSamples);
+        duckRamp.reset (rampSamples);
+        leadSendRamp.setCurrentAndTargetValue (0.0f);
+        padSendRamp.setCurrentAndTargetValue (0.0f);
+        duckRamp.setCurrentAndTargetValue (1.0f);
+
+        tailPeak = 0.0f;
         masterGain = masterTarget;
     }
 
     void ReverbEffect::process (juce::AudioBuffer<float>& buffer, bool enabled, float wetMix)
     {
         if (!prepared || buffer.getNumSamples() == 0)
+            return;
+
+        const int numSamples = juce::jmin (buffer.getNumSamples(), wetScratch.getNumSamples());
+        if (numSamples <= 0)
             return;
 
         const float mix = juce::jlimit (0.0f, 1.0f, wetMix);
@@ -70,50 +107,161 @@ namespace ovtdsp
             return;
         }
 
-        if (buffer.getNumChannels() == 1)
+        const int numChannels = buffer.getNumChannels();
+
+        // Copy the dry signal into the prepared scratch and run the room on it.
+        wetScratch.clear();
+        for (int ch = 0; ch < numChannels; ++ch)
+            wetScratch.copyFrom (ch, 0, buffer, ch, 0, numSamples);
+
+        if (numChannels == 1)
+            reverb.processMono (wetScratch.getWritePointer (0), numSamples);
+        else
+            reverb.processStereo (wetScratch.getWritePointer (0), wetScratch.getWritePointer (1), numSamples);
+
+        // The wet is ADDED to the dry, never swapped for it: a mix of 0 leaves the
+        // input bit-identical and a mix of 1 adds the full room. The old code
+        // multiplied the dry by (1 - mix), which attenuated the voice as the room
+        // opened up -- that is the behaviour this card corrects. A send must not
+        // steal from the dry path.
+        for (int ch = 0; ch < numChannels; ++ch)
         {
-            // Mono: process through the reverb, mix dry + wet
-            auto* data = buffer.getWritePointer (0);
-            const int numSamples = buffer.getNumSamples();
+            float* data = buffer.getWritePointer (ch);
+            const float* wet = wetScratch.getReadPointer (ch);
 
-            // Create a temporary wet buffer
-            juce::AudioBuffer<float> wetBuffer (1, numSamples);
-            wetBuffer.clear();
-            wetBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
-            auto* wetData = wetBuffer.getWritePointer (0);
-            reverb.processMono (wetData, numSamples);
-
-            // Mix dry + wet, scaled by the smoothed master enable gain.
             for (int i = 0; i < numSamples; ++i)
             {
                 masterGain += (masterTarget - masterGain) * masterCoeff;
-                data[i] = data[i] * (1.0f - mix * masterGain) + wetData[i] * mix * masterGain;
+                data[i] += wet[i] * mix * masterGain;
+            }
+        }
+    }
+
+    void ReverbEffect::processSend (juce::AudioBuffer<float>& sendBuffer, float sendAmount)
+    {
+        // Interface hook: the shared room's lead slot is the one carrying the
+        // pre-send low-cut, so a generic send lands there.
+        processLeadSend (sendBuffer, sendAmount);
+    }
+
+    void ReverbEffect::processLeadSend (juce::AudioBuffer<float>& sendBuffer, float sendAmount)
+    {
+        if (!prepared)
+            return;
+
+        const int numSamples = juce::jmin (sendBuffer.getNumSamples(), sendAccum.getNumSamples());
+        if (numSamples <= 0 || sendBuffer.getNumChannels() <= 0)
+            return;
+
+        leadSendRamp.setTargetValue (juce::jlimit (0.0f, 1.0f, sendAmount));
+
+        const int srcChannels = sendBuffer.getNumChannels();
+
+        for (int ch = 0; ch < sendAccum.getNumChannels(); ++ch)
+        {
+            // A mono source feeding a stereo room: the same voice drives both sides,
+            // so the send stays centred instead of vanishing from one channel.
+            const int srcCh = juce::jmin (ch, srcChannels - 1);
+            const float* src = sendBuffer.getReadPointer (srcCh);
+            float* dst = sendAccum.getWritePointer (ch);
+            OnePoleLowCut& lowCut = leadLowCut[ch];
+
+            for (int i = 0; i < numSamples; ++i)
+                dst[i] += lowCut.process (src[i]) * leadSendRamp.getNextValue();
+        }
+    }
+
+    void ReverbEffect::processPadSend (juce::AudioBuffer<float>& sendBuffer, float sendAmount)
+    {
+        if (!prepared)
+            return;
+
+        const int numSamples = juce::jmin (sendBuffer.getNumSamples(), sendAccum.getNumSamples());
+        if (numSamples <= 0 || sendBuffer.getNumChannels() <= 0)
+            return;
+
+        padSendRamp.setTargetValue (juce::jlimit (0.0f, 1.0f, sendAmount));
+
+        const int srcChannels = sendBuffer.getNumChannels();
+
+        for (int ch = 0; ch < sendAccum.getNumChannels(); ++ch)
+        {
+            const int srcCh = juce::jmin (ch, srcChannels - 1);
+            const float* src = sendBuffer.getReadPointer (srcCh);
+            float* dst = sendAccum.getWritePointer (ch);
+
+            for (int i = 0; i < numSamples; ++i)
+                dst[i] += src[i] * padSendRamp.getNextValue();
+        }
+    }
+
+    void ReverbEffect::processReturn (juce::AudioBuffer<float>& masterBuffer, float duckGain)
+    {
+        if (!prepared || masterBuffer.getNumSamples() == 0)
+            return;
+
+        const int numSamples = juce::jmin (masterBuffer.getNumSamples(), sendAccum.getNumSamples());
+        if (numSamples <= 0)
+            return;
+
+        float* sendL = sendAccum.getWritePointer (0);
+        float* sendR = sendAccum.getWritePointer (1);
+
+        // Nothing is being sent and the tail has already decayed: skip the room
+        // entirely. This is what keeps the sleep path at ~1 % CPU -- a cleared
+        // send buffer drives the tail down, and once it is inaudible the room is
+        // simply not run.
+        float sendPeak = 0.0f;
+        for (int i = 0; i < numSamples; ++i)
+            sendPeak = juce::jmax (sendPeak, juce::jmax (std::abs (sendL[i]), std::abs (sendR[i])));
+
+        duckRamp.setTargetValue (juce::jlimit (0.0f, 1.0f, duckGain));
+
+        if (sendPeak <= 0.0f && tailPeak < 1.0e-5f)
+        {
+            duckRamp.skip (numSamples);
+            return;
+        }
+
+        // The send line becomes the wet: the room runs in place on the accumulated
+        // sends, so no extra buffer is needed.
+        reverb.processStereo (sendL, sendR, numSamples);
+
+        tailPeak = 0.0f;
+
+        if (masterBuffer.getNumChannels() == 1)
+        {
+            // Mono master: the stereo room is down-mixed to the centre, so the
+            // return level matches what a stereo listener hears.
+            float* out = masterBuffer.getWritePointer (0);
+
+            for (int i = 0; i < numSamples; ++i)
+            {
+                const float g = duckRamp.getNextValue();
+                const float wet = (sendL[i] + sendR[i]) * 0.5f * g;
+                out[i] += wet;
+                tailPeak = juce::jmax (tailPeak, std::abs (wet));
             }
         }
         else
         {
-            // Stereo: process each channel through the reverb, mix
-            auto* dataL = buffer.getWritePointer (0);
-            auto* dataR = buffer.getWritePointer (1);
-            const int numSamples = buffer.getNumSamples();
+            float* outL = masterBuffer.getWritePointer (0);
+            float* outR = masterBuffer.getWritePointer (1);
 
-            // Create temporary wet buffer
-            juce::AudioBuffer<float> wetBuffer (2, numSamples);
-            wetBuffer.clear();
-            wetBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
-            wetBuffer.copyFrom (1, 0, buffer, 1, 0, numSamples);
-            auto* wetL = wetBuffer.getWritePointer (0);
-            auto* wetR = wetBuffer.getWritePointer (1);
-            reverb.processStereo (wetL, wetR, numSamples);
-
-            // Mix dry + wet, scaled by the smoothed master enable gain.
             for (int i = 0; i < numSamples; ++i)
             {
-                masterGain += (masterTarget - masterGain) * masterCoeff;
-                dataL[i] = dataL[i] * (1.0f - mix * masterGain) + wetL[i] * mix * masterGain;
-                dataR[i] = dataR[i] * (1.0f - mix * masterGain) + wetR[i] * mix * masterGain;
+                const float g = duckRamp.getNextValue();
+                const float wetL = sendL[i] * g;
+                const float wetR = sendR[i] * g;
+                outL[i] += wetL;
+                outR[i] += wetR;
+                tailPeak = juce::jmax (tailPeak, juce::jmax (std::abs (wetL), std::abs (wetR)));
             }
         }
+
+        // The sends are consumed: the next block starts with an empty line, so a
+        // send amount is applied exactly once and never accumulates across blocks.
+        sendAccum.clear();
     }
 
     void ReverbEffect::setRoomSize (float size)
@@ -137,5 +285,4 @@ namespace ovtdsp
             reverb.setParameters (params);
     }
 }
-
 

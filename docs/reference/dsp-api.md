@@ -143,11 +143,18 @@ LPC cross-synthesis formant preservation (the "exact" approach).
 | `virtual void prepare(double sampleRate, int maximumBlockSize)` | Prepare. |
 | `virtual void reset()` | Flush delays/reverb tails. |
 | `virtual void process(juce::AudioBuffer<float>& buffer, bool enabled, float wetMix)` | Apply in place. |
+| `virtual void processSend (juce::AudioBuffer<float>& sendBuffer, float sendAmount)` | Optional: tap this buffer into the effect's own send line, **in parallel** with the dry path. Defaulted to a no-op, so an insert-only effect needs no change. |
+| `virtual void processReturn (juce::AudioBuffer<float>& masterBuffer, float duckGain)` | Optional: add the effect's send tail into the master buffer, scaled by `duckGain`. Defaulted to a no-op. Summed **additively**, so it declares no latency. |
 
 Effects are registered on one of the three tap points (`ovtdsp::EffectsBus`): the lead
 voice, the harmony bus, or the master output. Each bus owns its own instances, so the
 same class can run twice with different fixed settings; `enabled` and `wetMix` are
 computed by the caller's wiring callback from APVTS parameters.
+
+A send is not an insert: the tapped buffer keeps its full dry level and nothing is
+attenuated, so a send tap never declares latency. The processor drives sends and returns
+directly (the bus wiring callback stays inside `apply`), and the return is summed into the
+master buffer before the output trim + limiter.
 
 ### `ovtdsp::EffectsBus`
 
@@ -167,7 +174,27 @@ the enable flag and wet mix for one effect (and may configure the instance), ret
 
 - `setRoomSize(float)` / `setDamping(float)` / `setStereoWidth(float)` — reverb tuning.
 - Wraps `juce::Reverb`; smooths the master enable gain to avoid clicks.
-- Two instances: a short centred room on the lead bus, a long wide room on the harmony bus.
+- **Two bus instances**: a short centred room on the lead bus, a long wide room on the
+  harmony bus. Two instances are the point of the split — one shared insert would force
+  one room on both and wash the tempo-sync delay copies.
+- **A third instance is the shared send room** (`sharedReverb` in the processor): ONE room
+  fed by two parallel sends, so the corrected lead and the blended harmony ring in the same
+  space at their own amounts. It is not an insert, so no latency is declared.
+  - `processLeadSend (buffer, amount)` — adds the lead to the send line through a one-pole
+    low-cut (`ovtdsp::OnePoleLowCut`, 150 Hz) so body low-end does not ring the room.
+  - `processPadSend (harmony, amount)` — adds the blended harmony, unfiltered.
+  - `processReturn (master, duckGain)` — runs the reverb on the send line and sums the tail
+    into the master buffer, scaled by `duckGain`; then clears the send line, so each block's
+    sends are consumed exactly once.
+- **Ducking**: `returnGain = 1 - duckDepth * (1 - gateGain)`, where `gateGain` is
+  `NoiseGate::getCurrentGain()` when the gate is enabled (1.0 otherwise). Depth 0 leaves the
+  room standing alone, depth 1 drops it to silence when the gate closes. The gain is
+  smoothed per sample inside the return, so the interface stays block-level.
+- Send line and wet scratch are sized in `prepare()`: a send tap allocates nothing in the
+  audio callback. A mono source adds its channel to both sides of the send line; a mono
+  master averages the stereo return.
+- The return skips the reverb pass when the send line is silent and the tail has decayed,
+  which is what keeps sleep-mode CPU at ~1 %.
 
 ### `ovtdsp::OutputLimiter`
 

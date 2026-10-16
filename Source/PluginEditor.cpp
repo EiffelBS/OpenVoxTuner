@@ -1113,6 +1113,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                     {"amount", ovt::tr(ovt::Keys::kMidiLearnAmount).toStdString()},
                     {"formant", ovt::tr(ovt::Keys::kMidiLearnFormant).toStdString()},
                     {"reverb_mix", ovt::tr(ovt::Keys::kMidiLearnReverbMix).toStdString()},
+                    {"lead_send", ovt::tr(ovt::Keys::kMidiLearnLeadSend).toStdString()},
+                    {"pad_send", ovt::tr(ovt::Keys::kMidiLearnPadSend).toStdString()},
+                    {"duck_depth", ovt::tr(ovt::Keys::kMidiLearnDuckDepth).toStdString()},
                     {"output_trim", ovt::tr(ovt::Keys::kMidiLearnOutputTrim).toStdString()},
                     {"flex_tune", ovt::tr(ovt::Keys::kMidiLearnFlexTune).toStdString()},
                     {"humanize", ovt::tr(ovt::Keys::kMidiLearnHumanize).toStdString()},
@@ -1412,6 +1415,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     padReverbMixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "pad_reverb_mix", padReverbMixSlider);
     limiterEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "limiter_enable", limiterEnableButton);
     outputTrimAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "output_trim", outputTrimSlider);
+
+    // Shared send room attachments: the two send amounts and the duck depth. A send has no
+    // enable switch, so these are slider attachments only.
+    leadSendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "lead_send", leadSendSlider);
+    padSendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "pad_send", padSendSlider);
+    duckDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "duck_depth", duckDepthSlider);
 
     noiseGateEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processorRef.getParameters(), "noise_gate_enable", noiseGateEnableButton);
@@ -1950,6 +1959,34 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     padReverbMixSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipPadReverbMix));
     padReverbMixLabel.setVisible (false); // the toggle carries the name, as for Reverb/De-Esser
 
+    // Shared send room controls. ONE reverb instance, fed by two sends: the corrected lead
+    // and the blended harmony ring in the same space, each at its own amount. These cells
+    // carry a label instead of a power toggle, because a send has no switch: a send at zero
+    // is silent, so the amount IS the on/off, and the dry path never changes (a send adds).
+    setupKnob (leadSendSlider, &leadSendLabel, "Lead Send");
+    leadSendSlider.setRange (0.0, 1.0, 0.01);
+    leadSendSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    leadSendSlider.setPopupDisplayEnabled (true, false, this);
+    leadSendSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    leadSendSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipLeadSend));
+    translatableLabels.push_back ({ &leadSendLabel, ovt::Keys::kLabelLeadSendBtn });
+
+    setupKnob (padSendSlider, &padSendLabel, "Pad Send");
+    padSendSlider.setRange (0.0, 1.0, 0.01);
+    padSendSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    padSendSlider.setPopupDisplayEnabled (true, false, this);
+    padSendSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    padSendSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipPadSend));
+    translatableLabels.push_back ({ &padSendLabel, ovt::Keys::kLabelPadSendBtn });
+
+    setupKnob (duckDepthSlider, &duckDepthLabel, "Duck");
+    duckDepthSlider.setRange (0.0, 1.0, 0.01);
+    duckDepthSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    duckDepthSlider.setPopupDisplayEnabled (true, false, this);
+    duckDepthSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    duckDepthSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipDuckDepth));
+    translatableLabels.push_back ({ &duckDepthLabel, ovt::Keys::kLabelDuckBtn });
+
     // Output stage (master bus): the trim is a raw dB gain applied before the limiter,
     // and the limiter is a non-lookahead peak guard. Trim stays live with the limiter
     // off - it is the level match into the mix, not the safety net.
@@ -2054,6 +2091,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&deessAmountSlider),
                                 static_cast<juce::Component*> (&padReverbEnableButton),
                                 static_cast<juce::Component*> (&padReverbMixSlider),
+                                static_cast<juce::Component*> (&leadSendSlider),
+                                static_cast<juce::Component*> (&leadSendLabel),
+                                static_cast<juce::Component*> (&padSendSlider),
+                                static_cast<juce::Component*> (&padSendLabel),
+                                static_cast<juce::Component*> (&duckDepthSlider),
+                                static_cast<juce::Component*> (&duckDepthLabel),
                                 static_cast<juce::Component*> (&limiterEnableButton),
                                 static_cast<juce::Component*> (&outputTrimSlider),
                                 static_cast<juce::Component*> (&outputMeter) })
@@ -2727,9 +2770,13 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     const int corrBaseW   = kKnobBlockW - 22 - 2 * kCorrPad;
     const int corrClosedW = corrBaseW + 2 * kCorrPad + chevron;
 
+    // Effects: its width IS the cell count, so it is fixed in both directions. Open shows
+    // five columns now: the two always-visible ones, Formant/De-Esser, Pad Reverb over
+    // Output Limit, and the shared send room column. The row grows by column only, so the
+    // new column costs exactly one kEffectsColW plus one gap.
     const int effectW = chevron + 2 * kEffectsPad
-                      + (effectsFrame.expanded() ? 4 : 2) * kEffectsColW
-                      + (effectsFrame.expanded() ? 3 : 1) * kEffectsColGap;
+                      + (effectsFrame.expanded() ? 5 : 2) * kEffectsColW
+                      + (effectsFrame.expanded() ? 4 : 1) * kEffectsColGap;
 
     // Correction re-states its width when the advanced zone opens. The width comes from
     // the content, so the closed block is never squeezed and an open block never shrinks:
@@ -3076,12 +3123,18 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     limiterEnableButton.setVisible (effectsOpen);
     outputTrimSlider.setVisible (effectsOpen);
     outputMeter.setVisible (effectsOpen);
+    leadSendSlider.setVisible (effectsOpen);
+    leadSendLabel.setVisible (effectsOpen);
+    padSendSlider.setVisible (effectsOpen);
+    padSendLabel.setVisible (effectsOpen);
+    duckDepthSlider.setVisible (effectsOpen);
+    duckDepthLabel.setVisible (effectsOpen);
 
     auto b4 = effectsFrame.interior().reduced (kEffectsPad);   // frame-local coordinates
     const int effectPowerH  = 18;
     const int rowGap        = 8;
     const int numEffectRows = 2;
-    const int numEffectCols = effectsOpen ? 4 : 2;
+    const int numEffectCols = effectsOpen ? 5 : 2;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
     const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;
@@ -3092,6 +3145,18 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         toggle.setBounds (cell.removeFromTop (effectPowerH));
         const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - effKnobD) / 2);
         knob.setBounds (kx, cell.getY() + 2, effKnobD, effKnobD);
+    };
+
+    // Cell with a label on top and a knob below. The shared send room has no power switch,
+    // so its name sits in the same strip a toggle occupies in every other cell: the column
+    // reads as three cells of the same shape, not as a strip of text bolted onto knobs.
+    const int sendLabelH = 14;
+    auto placeLabelledKnob = [&] (juce::Rectangle<int> cell, juce::Label& label, juce::Slider& knob)
+    {
+        label.setBounds (cell.removeFromTop (sendLabelH));
+        const int d = juce::jlimit (30, effKnobD, cell.getHeight() - 2);
+        const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - d) / 2);
+        knob.setBounds (kx, cell.getY() + 2, d, d);
     };
 
     // Column 1 : Noise Gate on top, Reverb below.
@@ -3124,6 +3189,12 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         col3.removeFromTop (rowGap);
         placeToggledKnob (col3, deessEnableButton, deessAmountSlider);
 
+        // Column 5, the rightmost, reserved from the right so column 4 keeps its own width.
+        // The shared send room: lead send, pad send and duck depth in one column, because
+        // they are one effect (one room, two amounts, one duck depth) and not three effects.
+        auto col5 = b4.removeFromRight (effectColW);
+        b4.removeFromRight (kEffectsColGap);
+
         // Column 4, also only when open : Pad Reverb on top, Output Limit below. These
         // two cells are the last stage of the chain: pad_reverb_mix is the wet mix of the
         // harmony-only reverb room, and output_trim + limiter_enable are the master level
@@ -3147,6 +3218,18 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         const int meterTop = outputTrimSlider.getBounds().getBottom() + 1;
         outputMeter.setBounds (col4.getX(), meterTop, col4.getWidth(),
                                juce::jmax (0, col4.getBottom() - meterTop));
+
+        // Column 5 cells: lead send on top, pad send in the middle, duck depth below. Three
+        // cells share one column, so these knobs are the smallest in the block - the same
+        // trade the Output Limit cell makes for its meter strip. Rows stay frozen at two: a
+        // third ROW would shrink EVERY knob in the block, a fifth COLUMN shrinks only its
+        // own three, and they are send amounts, not the controls you dial while singing.
+        const int sendCellH = (col5.getHeight() - 2 * rowGap) / 3;
+        placeLabelledKnob (col5.removeFromTop (sendCellH), leadSendLabel, leadSendSlider);
+        col5.removeFromTop (rowGap);
+        placeLabelledKnob (col5.removeFromTop (sendCellH), padSendLabel, padSendSlider);
+        col5.removeFromTop (rowGap);
+        placeLabelledKnob (col5, duckDepthLabel, duckDepthSlider);
     }
 
     // Harmony controls block (rightmost block)
@@ -4384,6 +4467,9 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     morphSlider.addListener (this);
     reverbMixSlider.addListener (this);
     padReverbMixSlider.addListener (this);
+    leadSendSlider.addListener (this);
+    padSendSlider.addListener (this);
+    duckDepthSlider.addListener (this);
     outputTrimSlider.addListener (this);
     // 2026-07-24 (Deprecation): FlexTune listener disabled (UI hidden).
     // flexTuneSlider.addListener (this);
@@ -4614,6 +4700,9 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     padReverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipPadReverbMix));
     limiterEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipLimiterEn));
     outputTrimSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputTrim));
+    leadSendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipLeadSend));
+    padSendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipPadSend));
+    duckDepthSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDuckDepth));
     outputMeter.setCaptions (ovt::tr (ovt::Keys::kLabelMeterGr), ovt::tr (ovt::Keys::kLabelMeterTrim));
     outputMeter.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputMeter));
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
@@ -4959,6 +5048,9 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("double_amount",      saved.doubleAmount,       doubleAmountSlider);
     setSlider ("reverb_mix",         saved.reverbMix,          reverbMixSlider);
     setSlider ("pad_reverb_mix",     saved.padReverbMix,       padReverbMixSlider);
+    setSlider ("lead_send",          saved.leadSend,           leadSendSlider);
+    setSlider ("pad_send",           saved.padSend,            padSendSlider);
+    setSlider ("duck_depth",         saved.duckDepth,          duckDepthSlider);
     setSlider ("output_trim",        saved.outputTrim,         outputTrimSlider);
     setSlider ("noise_gate_threshold", saved.noiseGateThreshold, noiseGateThresholdSlider);
     setSlider ("upward_comp_amount",   saved.upwardCompAmount,   upwardCompAmountSlider);
@@ -5815,6 +5907,9 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applySliderColours (formantSlider);
     applySliderColours (reverbMixSlider);
     applySliderColours (padReverbMixSlider);
+    applySliderColours (leadSendSlider);
+    applySliderColours (padSendSlider);
+    applySliderColours (duckDepthSlider);
     applySliderColours (outputTrimSlider);
     applySliderColours (noiseGateThresholdSlider);
     applySliderColours (flexTuneSlider);
@@ -5838,6 +5933,9 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (attackReleaseLabel);
     applyLabelColours (reverbMixLabel);
     applyLabelColours (padReverbMixLabel);
+    applyLabelColours (leadSendLabel);
+    applyLabelColours (padSendLabel);
+    applyLabelColours (duckDepthLabel);
     applyLabelColours (outputTrimLabel);
     applyLabelColours (noiseGateThresholdLabel);
     applyLabelColours (harmonyToneColorLabel);
