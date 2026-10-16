@@ -2109,10 +2109,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     upwardCompAmountSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipUpwardCompAmount));
     addAndMakeVisible (upwardCompAmountSlider);
 
-    // Effects frame (ebs::ExpansibleFrame): the six effect cells live inside the frame
-    // body, so the chevron on its right edge folds the third column (Formant over
-    // De-Esser) away. The frame owns the open flag; the editor re-lays out when it
-    // flips, and the frame widens to take the extra column, pushing the Harmony block.
+    // Effects frame (ebs::ExpansibleFrame): the effect cells live inside the frame body, so
+    // the chevron on its right edge folds everything past the two always-visible columns away
+    // - Formant/De-Esser, Pad Reverb over Output Limit, the send room and Saturation. The frame
+    // owns the open flag; the editor re-lays out when it flips, and the frame widens to take the
+    // extra columns, pushing the Harmony block.
     // The band registered this frame in the constructor, so it is already a band child.
     effectsFrame.onExpandedChanged = [this]
     {
@@ -3198,7 +3199,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int effectPowerH  = 18;
     const int rowGap        = 8;
     const int numEffectRows = 2;
-    const int numEffectCols = effectsOpen ? 5 : 2;
+    // Six columns when open (Gate/Reverb, Compress/Doubler, Formant/De-Esser, Pad/Limiter,
+    // send room, Saturation) and two when folded. This count drives effectColW, so it has to
+    // match the number of cells placed below: asking for 5 widths while placing 6 columns
+    // leaves the last column a negative-width rectangle (the Pad / Output Limit cell vanishes).
+    const int numEffectCols = effectsOpen ? 6 : 2;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
     const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;

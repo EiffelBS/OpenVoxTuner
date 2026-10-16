@@ -207,3 +207,36 @@ Three constraints decided the design before any code was written:
   it ever needs killing. No plugin latency is declared.
 - Deferred by design: per-bus saturation on the lead only, and a full "console" mode (crosstalk + mixer
   compression). Neither is promised by the current knob set.
+
+## Fix — A/B slots keep the de-esser, and the effects band keeps its fourth column
+
+### Context
+
+Two defects surfaced while preparing the standalone for acceptance, both found by reading the seams
+rather than by listening: the A/B slot XML never stored the de-esser, and the effects block asked for
+five column widths while placing six.
+
+### Changes
+
+- **De-esser in the A/B slot XML** (`Source/PluginProcessor.cpp`): `deessEnable` / `deessAmount` are now
+  written next to the saturation attributes (write side at lines 4996–5000, read-back at 5105–5108) with
+  defaults **false** and **0.65**, matching the parameter definitions at lines 664–668. The de-esser was
+  already morphed (`MorphState.deessEnable` / `deessAmount`, ids, lerps) and restored by the preset path,
+  so a slot that switched the de-esser off did not restore it off: switching A→B silently re-enabled it at
+  the intensity default. An old slot file without these attributes reads back as off, which is the shipped
+  parameter default.
+- **Column count in the effects layout** (`Source/PluginEditor.cpp` line 3206): `numEffectCols` was
+  `effectsOpen ? 5 : 2`, so `effectColW` was computed for five columns while six are placed — column 4
+  (Pad Reverb over Output Limit) received a negative-width rectangle and vanished whenever the frame was
+  open. Fixed to `effectsOpen ? 6 : 2`. At the minimum editor width the interior is 444 px, which gives
+  `effectColW = (444 − 40) / 6 = 67` and leaves column 4 **69 px** — the cell that previously disappeared.
+- Comments restated to match: the effects frame comment in `PluginEditor.cpp` names all four columns the
+  chevron folds, and `PluginEditor.h` counts **nine** effect cells (Saturation added).
+
+### Tests
+
+- Full suite re-run after both fixes: **174 OK / 0 FAILED**, exit 0. Plugin (`OpenVoxTuner`) and standalone
+  (`OpenVoxTuner_Standalone`) targets rebuild green in Release.
+- Visual check at the minimum editor width (outer 1132 px): all six columns render — Gate/Compress/Formant/Pad,
+  Reverb/Doubler/De-Esser/Limit, the send room, and Saturation with Drive over Warmth; captures
+  `build/ui_check_sat_default.png` and `build/ui_check_sat_min.png`.

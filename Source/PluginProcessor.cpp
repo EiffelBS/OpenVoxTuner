@@ -4993,6 +4993,12 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("upwardCompEnable", ms.upwardCompEnable);
         slotXml->setAttribute ("upwardCompAmount", (double) ms.upwardCompAmount);
 
+        // The de-esser is morphed and captured, so it has to be stored too: a slot that
+        // switches the de-esser off must restore it off. Attributes absent in an old slot
+        // file read back as off at the parameter default (intensity 0.65).
+        slotXml->setAttribute ("deessEnable",      ms.deessEnable);
+        slotXml->setAttribute ("deessAmount",      (double) ms.deessAmount);
+
         // Saturation belongs to a slot's sound: drive 0 is transparent, so switching slots
         // fades the stage through its own bypass ramp. A slot saved before these attributes
         // existed reads back as off with the parameter defaults.
@@ -5096,6 +5102,10 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.375);
             ms.upwardCompEnable   = slotXml->getBoolAttribute ("upwardCompEnable", false);
             ms.upwardCompAmount   = (float) slotXml->getDoubleAttribute ("upwardCompAmount", 0.25);
+            // De-esser attributes: absent in a state saved before #130 stored them, which reads
+            // back as off at the parameter default (intensity 0.65).
+            ms.deessEnable        = slotXml->getBoolAttribute ("deessEnable", false);
+            ms.deessAmount        = (float) slotXml->getDoubleAttribute ("deessAmount", 0.65);
             // Saturation attributes: absent in a state saved before this stage existed, which
             // reads back as off at the parameter defaults (drive 0.35, warmth 0.40).
             ms.saturationEnable   = slotXml->getBoolAttribute ("saturationEnable", false);

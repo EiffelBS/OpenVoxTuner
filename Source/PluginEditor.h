@@ -329,11 +329,12 @@ private:
     juce::Slider       upwardCompAmountSlider;
     juce::Label        upwardCompAmountLabel;
 
-    // Effects frame: the eight effect cells (Gate, Compress, Reverb, Doubler, Formant,
-    // De-Esser, Pad Reverb, Output Limit) live inside this ebs::ExpansibleFrame. Closed
-    // it shows two columns of two cells; the chevron on its right edge opens the extra
-    // columns and widens the frame, which the editor answers by re-laying out the bottom
-    // row. The block grows by COLUMN, never by adding a third row.
+    // Effects frame: the nine effect cells (Gate, Compress, Reverb, Doubler, Formant,
+    // De-Esser, Pad Reverb, Output Limit, Saturation) live inside this ebs::ExpansibleFrame.
+    // Closed it shows two columns of two cells; the chevron on its right edge opens the extra
+    // four columns (Formant/De-Esser, Pad/Limiter, the send room, Saturation) and widens the
+    // frame, which the editor answers by re-laying out the bottom row. The block grows by
+    // COLUMN, never by adding a third row.
     ebs::ExpansibleFrame effectsFrame;
     // The Correction block is the same component: one chevron, one fold flag, one
     // host re-layout. Both bottom-row frames are ExpansibleFrame, not two bespoke handles.
