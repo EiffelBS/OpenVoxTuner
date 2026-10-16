@@ -1324,6 +1324,11 @@ void OpenVoxTunerAudioProcessor::reset()
     harmonyBus.reset();
     masterBus.reset();
     outputLimiter.reset();
+    // The meter shows what the stage is doing, so a reset clears its readings as well: a
+    // peak left on screen after a transport stop is a reading the stage no longer makes.
+    meterPeak.store   (0.0f);
+    meterGrDb.store   (0.0f);
+    meterTrimDb.store (0.0f);
     silenceSamples = 0;
     lastInputPitch.store (0.0f);
     lastOutputPitch.store (0.0f);
@@ -4163,6 +4168,13 @@ void OpenVoxTunerAudioProcessor::applyMasterEffects (juce::AudioBuffer<float>& b
     outputLimiter.setLimiterEnabled (limiterEnableParam == nullptr
                                         || limiterEnableParam->load() > 0.5f);
     outputLimiter.process (buffer);
+
+    // Meter snapshot: three plain numbers, written here on the audio thread and read by
+    // the editor timer. The readings come from the limiter's own state, so the meter
+    // cannot show anything the stage is not actually doing.
+    meterPeak.store   (outputLimiter.currentOutputPeak());
+    meterGrDb.store   (outputLimiter.currentGainReductionDb());
+    meterTrimDb.store ((outputTrimParam != nullptr) ? outputTrimParam->load() : 0.0f);
 }
 
 // === Sync user parameters into the DSP modules ===

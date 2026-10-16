@@ -362,6 +362,21 @@ public:
     // CPU usage meter (0.0 - 1.0) for the editor header display.
     float getCpuUsage() const { return cpuUsage.load(); }
 
+    // Readings of the master output stage, for the editor meter under the trim knob.
+    // The bus and the limiter are private, so the display gets three numbers written
+    // by the audio thread, never an object it can drive.
+    struct OutputMeterState
+    {
+        float peakLinear = 0.0f;   // smoothed peak leaving the stage, 0 .. 1
+        float grDb       = 0.0f;   // gain reduction in dB, 0 = the limiter is inactive
+        float trimDb     = 0.0f;   // the trim the user set, in dB
+    };
+
+    OutputMeterState getOutputMeterState() const
+    {
+        return { meterPeak.load(), meterGrDb.load(), meterTrimDb.load() };
+    }
+
     void getTimeSignatureAt(double ppq, int& num, int& den) const;
 
     void resetTransportTime() {
@@ -914,6 +929,12 @@ private:
 
     // CPU usage tracking (smoothed ratio of processBlock time to available time).
     std::atomic<float> cpuUsage { 0.0f };
+
+    // Output stage snapshot: written by the audio thread after each block, read by the
+    // editor timer at ~30 Hz. Nothing is painted from the audio thread.
+    std::atomic<float> meterPeak   { 0.0f };
+    std::atomic<float> meterGrDb   { 0.0f };
+    std::atomic<float> meterTrimDb { 0.0f };
 
     // Silence counter for Sleep mode (CPU saving).
     int silenceSamples = 0;

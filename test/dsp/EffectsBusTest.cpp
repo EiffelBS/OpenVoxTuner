@@ -403,6 +403,122 @@ public:
             expect (std::abs (impulse.getSample (0, 100)) > 1.0e-3f,
                     "The impulse must stay at its own index, got " + juce::String (impulse.getSample (0, 100), 6));
         }
+
+        // === Test 11: currentGain() is the exact attenuation above the ceiling ===
+        // The meter is a display of this stage, so every reading it shows must be
+        // derivable from the limiter's own state in closed form.
+        {
+            beginTest ("currentGain() reports the exact gain reduction");
+
+            OutputLimiter limiter;
+            limiter.prepare (sampleRate, blockSize);
+            limiter.reset();
+            limiter.setTrimDb (0.0f);
+            limiter.setLimiterEnabled (true);
+
+            // The spike is the LAST sample, so the envelope is still exactly the peak
+            // when process() returns: no release has eaten into it yet.
+            juce::AudioBuffer<float> buf (1, blockSize);
+            buf.clear();
+            for (int i = 0; i < blockSize - 1; ++i)
+                buf.setSample (0, i, 0.20f);
+            buf.setSample (0, blockSize - 1, 1.40f);
+
+            limiter.process (buf);
+
+            expectWithinAbsoluteError (limiter.currentEnvelope(), 1.40f, 1.0e-6f,
+                    "The envelope must reach the peak at the peak, got " + juce::String (limiter.currentEnvelope(), 6));
+            expectWithinAbsoluteError (limiter.currentGain(), OutputLimiter::ceilingLinear / 1.40f, 1.0e-6f,
+                    "Above the ceiling, gain must be exactly ceiling / envelope");
+
+            const float expectedGr = -20.0f * std::log10 (OutputLimiter::ceilingLinear / 1.40f);
+            expectWithinAbsoluteError (limiter.currentGainReductionDb(), expectedGr, 1.0e-4f,
+                    "Gain reduction must read in dB, got " + juce::String (limiter.currentGainReductionDb(), 4));
+
+            // The meter's peak is the level leaving the stage: envelope x attenuation.
+            expectWithinAbsoluteError (limiter.currentOutputPeak(), OutputLimiter::ceilingLinear, 1.0e-5f,
+                    "While limiting, the output peak must sit on the ceiling");
+        }
+
+        // === Test 12: below the ceiling the reported gain is the trim, exactly ===
+        {
+            beginTest ("Below the ceiling currentGain() is the trim, untouched");
+
+            OutputLimiter limiter;
+            limiter.prepare (sampleRate, blockSize);
+            limiter.reset();
+            limiter.setTrimDb (-6.0f);
+            limiter.setLimiterEnabled (true);
+
+            juce::AudioBuffer<float> buf (2, blockSize);
+            for (int c = 0; c < 2; ++c)
+                for (int i = 0; i < blockSize; ++i)
+                    buf.setSample (c, i, 0.30f);
+
+            limiter.process (buf);
+
+            const float expectedTrim = std::pow (10.0f, -6.0f / 20.0f);
+            expectWithinAbsoluteError (limiter.currentGain(), expectedTrim, 1.0e-6f,
+                    "A quiet signal must report the trim as the whole gain");
+            expect (limiter.currentGain() == limiter.currentTrimLinear(),
+                    "Below the ceiling the reported gain must be the trim bit-for-bit");
+            expect (limiter.currentGainReductionDb() == 0.0f,
+                    "A signal under the ceiling must show zero gain reduction, got "
+                    + juce::String (limiter.currentGainReductionDb(), 4));
+
+            // The meter peak is the trimmed level: envelope x unity attenuation.
+            expectWithinAbsoluteError (limiter.currentOutputPeak(), 0.30f * expectedTrim, 1.0e-5f,
+                    "The output peak must be the trimmed signal level, got "
+                    + juce::String (limiter.currentOutputPeak(), 6));
+        }
+
+        // === Test 13: on silence the meter falls, it never plateaus ===
+        // The sleep path clears the buffer and still runs this stage, so a held block
+        // peak would show a frozen bar long after the sound stopped. The release is the
+        // only thing moving the envelope, and both readings must follow it down.
+        {
+            beginTest ("Silence drives gain reduction and peak down to zero");
+
+            OutputLimiter limiter;
+            limiter.prepare (sampleRate, blockSize);
+            limiter.reset();
+            limiter.setTrimDb (0.0f);
+            limiter.setLimiterEnabled (true);
+
+            juce::AudioBuffer<float> spike (1, blockSize);
+            spike.clear();
+            spike.setSample (0, blockSize - 1, 1.40f);
+            limiter.process (spike);
+
+            expect (limiter.currentGainReductionDb() > 1.0f,
+                    "The spike must show gain reduction, got " + juce::String (limiter.currentGainReductionDb(), 4));
+
+            // 800 silent blocks is ~ 8.5 s at 44.1 kHz / 512: long enough for the
+            // 120 ms release to walk the envelope from 1.40 down to zero.
+            juce::AudioBuffer<float> silence (2, blockSize);
+            silence.clear();
+
+            float previousPeak = limiter.currentOutputPeak();
+            float previousGr   = limiter.currentGainReductionDb();
+            bool falling = true;
+            for (int b = 0; b < 800; ++b)
+            {
+                limiter.process (silence);
+                const float p = limiter.currentOutputPeak();
+                const float g = limiter.currentGainReductionDb();
+                if (p > previousPeak + 1.0e-6f || g > previousGr + 1.0e-6f)
+                    falling = false;
+                previousPeak = p;
+                previousGr   = g;
+            }
+
+            expect (falling, "The meter must fall with the tail, never plateau");
+            expect (previousPeak < 1.0e-3f,
+                    "The output peak must reach zero on silence, got " + juce::String (previousPeak, 6));
+            expect (previousGr == 0.0f,
+                    "Gain reduction must read zero once the envelope is under the ceiling, got "
+                    + juce::String (previousGr, 4));
+        }
     }
 };
 

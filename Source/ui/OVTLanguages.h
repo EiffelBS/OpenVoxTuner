@@ -189,6 +189,8 @@ namespace ovt
         static const char* kLabelMeasures       = "label.measures";
         static const char* kLabelMorph          = "label.morph";
         static const char* kLabelCpu            = "label.cpu";
+        static const char* kLabelMeterGr        = "label.meter_gr";
+        static const char* kLabelMeterTrim      = "label.meter_trim";
 
         // Scale keys
         static const char* kScaleChromatic      = "scale.chromatic";
@@ -280,6 +282,7 @@ namespace ovt
         static const char* kTooltipPadReverbMix = "tooltip.pad_reverb_mix";
         static const char* kTooltipLimiterEn    = "tooltip.limiter_enable";
         static const char* kTooltipOutputTrim   = "tooltip.output_trim";
+        static const char* kTooltipOutputMeter  = "tooltip.output_meter";
         static const char* kTooltipFormant     = "tooltip.formant_enable";
         static const char* kTooltipFlexTune    = "tooltip.flex_tune";
         static const char* kTooltipHumanize    = "tooltip.humanize";
@@ -562,6 +565,8 @@ namespace ovt
             { kLabelMeasures,       "Measures" },
             { kLabelMorph,          "Morph" },
             { kLabelCpu,            "CPU " },
+            { kLabelMeterGr,        "GR" },
+            { kLabelMeterTrim,      "TRIM" },
             { kScaleChromatic,        "Chromatic" },
             { kScaleMajor,            "Major" },
             { kScaleMelodicMinor,     "Melodic Minor" },
@@ -641,6 +646,7 @@ namespace ovt
             { kTooltipPadReverbMix,   "Pad reverb wet mix for the harmony voices." },
             { kTooltipLimiterEn,      "Peak limiter on the output. Non-lookahead, so it adds no latency: it catches peaks above -1.7 dBFS instead of letting them clip." },
             { kTooltipOutputTrim,     "Output trim in dB: the gain applied before the limiter. Use it to fit the plugin into a mix without touching the harmony balance." },
+            { kTooltipOutputMeter,    "Bar: the level that leaves the plugin. Red: how much the limiter is pulling it down. Trim: your output trim." },
             { kTooltipFormant,        "Enable/disable formant shifting." },
             { kTooltipFlexTune,       "Deadband in cents: input pitch within this range is left uncorrected." },
             { kTooltipHumanize,       "Random pitch fluctuations in cents, added when correction is applied." },
@@ -901,6 +907,8 @@ namespace ovt
             { kLabelMeasures,       "Mesures" },
             { kLabelMorph,          "Morph" },
             { kLabelCpu,            "CPU " },
+            { kLabelMeterGr,        "GR" },
+            { kLabelMeterTrim,      "TRIM" },
             { kScaleChromatic,        "Chromatique" },
             { kScaleMajor,            "Majeur" },
             { kScaleMelodicMinor,     "Mineur melodique" },
@@ -980,6 +988,7 @@ namespace ovt
             { kTooltipPadReverbMix,   "Mix de réverb de nappe pour les voix d'harmonie." },
             { kTooltipLimiterEn,      "Limiteur de crête sur la sortie. Sans anticipation, donc il n'ajoute aucune latence : il retient les crêtes au-dessus de -1,7 dBFS au lieu de les faire crisper." },
             { kTooltipOutputTrim,     "Trim de sortie en dB : le gain appliqué avant le limiteur. Il ajuste le niveau du plugin dans le mix sans toucher l'équilibre des harmonies." },
+            { kTooltipOutputMeter,    "Barre : le niveau qui sort du plugin. Rouge : la réduction que le limiteur lui applique. Trim : votre trim de sortie." },
             { kTooltipFormant,        "Activer/desactiger le deplacement de formant." },
             { kTooltipFlexTune,       "Deadband en cents : les entrees dans cette plage ne sont pas corrigees." },
             { kTooltipHumanize,       "Fluctuations aleatoires de hauteur en cents, ajoutees lors de la correction." },
@@ -1240,6 +1249,8 @@ namespace ovt
             { kLabelMeasures,       "Takte" },
             { kLabelMorph,          "Morph" },
             { kLabelCpu,            "CPU " },
+            { kLabelMeterGr,        "GR" },
+            { kLabelMeterTrim,      "TRIM" },
             { kScaleChromatic,        "Chromatisch" },
             { kScaleMajor,            "Dur" },
             { kScaleMelodicMinor,     "Melodisch Moll" },
@@ -1321,6 +1332,7 @@ namespace ovt
             { kTooltipPadReverbMix,   "Pad-Reverb-Anteil der Harmoniestimmen." },
             { kTooltipLimiterEn,      "Peak-Limiter am Ausgang. Ohne Lookahead, also ohne zusätzliche Latenz: Er fängt Peaks über -1,7 dBFS ab, statt sie ins Clipping laufen zu lassen." },
             { kTooltipOutputTrim,     "Output-Trim in dB: die Verstärkung vor dem Limiter. Passt das Plugin in den Mix an, ohne die Harmonie-Balance zu ändern." },
+            { kTooltipOutputMeter,    "Balken: der Pegel, der das Plugin verlässt. Rot: wie weit der Limiter ihn absenkt. Trim: dein Output-Trim." },
             { kTooltipFormant,        "Formantenverschiebung aktivieren/deaktivieren." },
             { kTooltipFlexTune,       "Deadband in Cents: Eingaenge in diesem Bereich werden nicht korrigiert." },
             { kTooltipHumanize,       "Zufaellige Tonhoehen-Schwankungen in Cents bei Korrektur." },
@@ -1579,6 +1591,8 @@ namespace ovt
             { kLabelMeasures,       "Compases" },
             { kLabelMorph,          "Morph" },
             { kLabelCpu,            "CPU " },
+            { kLabelMeterGr,        "GR" },
+            { kLabelMeterTrim,      "TRIM" },
             { kScaleChromatic,        "Cromatica" },
             { kScaleMajor,            "Mayor" },
             { kScaleMelodicMinor,     "Menor melodica" },
@@ -1660,6 +1674,7 @@ namespace ovt
             { kTooltipPadReverbMix,   "Mezcla de reverberación de napa para las voces de armonía." },
             { kTooltipLimiterEn,      "Limitador de picos en la salida. Sin anticipación, así que no añade latencia: retiene los picos por encima de -1,7 dBFS en lugar de dejarlos recortar." },
             { kTooltipOutputTrim,     "Trim de salida en dB: la ganancia aplicada antes del limitador. Ajusta el nivel del plugin en la mezcla sin tocar el equilibrio de las armonías." },
+            { kTooltipOutputMeter,    "Barra: el nivel que sale del plugin. Rojo: cuánto lo baja el limitador. Trim: tu trim de salida." },
             { kTooltipFormant,        "Activar/desactivar desplazamiento de formante." },
             { kTooltipFlexTune,       "Deadband en cents: las entradas en este rango no se corrigen." },
             { kTooltipHumanize,       "Fluctuaciones aleatorias de tono en cents al aplicar correccion." },
@@ -1917,6 +1932,8 @@ namespace ovt
             { kLabelMeasures,       "小節" },
             { kLabelMorph,          "モーフ" },
             { kLabelCpu,            "CPU " },
+            { kLabelMeterGr,        "GR" },
+            { kLabelMeterTrim,      "トリム" },
             { kScaleChromatic,        "クロマティック" },
             { kScaleMajor,            "メジャー" },
             { kScaleMelodicMinor,     "メロディックマイナー" },
@@ -1998,6 +2015,7 @@ namespace ovt
             { kTooltipPadReverbMix,   "ハーモニー声のパッド・リバーブのミックス量。" },
             { kTooltipLimiterEn,      "出力のピーク・リミッター。先読みがないのでレイテンシは増えません。-1.7 dBFS を超えるピークをクリップ前に抑えます。" },
             { kTooltipOutputTrim,     "出力トリム（dB）：リミッターの前に掛かるゲイン。和声のバランスを変えずにプラグインのレベルをミックスに合わせます。" },
+            { kTooltipOutputMeter,    "バー：プラグインから出ていくレベル。赤：リミッターが下げる量。トリム：出力トリム。" },
             { kTooltipFormant,        "フォルマントシフトの有効/無効。" },
             { kTooltipFlexTune,       "デッドバンド(セント): この範囲内のピッチは補正されません。" },
             { kTooltipHumanize,       "補正時に追加されるランダムなピッチ変動(セント)。" },
@@ -2255,6 +2273,8 @@ namespace ovt
             { kLabelMeasures,       "小节" },
             { kLabelMorph,          "变形" },
             { kLabelCpu,            "CPU " },
+            { kLabelMeterGr,        "GR" },
+            { kLabelMeterTrim,      "微调" },
             { kScaleChromatic,        "半音" },
             { kScaleMajor,            "大调" },
             { kScaleMelodicMinor,     "旋律小调" },
@@ -2336,6 +2356,7 @@ namespace ovt
             { kTooltipPadReverbMix,   "和声声部的 Pad 混响混合量。" },
             { kTooltipLimiterEn,      "输出峰值限制器。无预读，因此不增加延迟；它把超过 -1.7 dBFS 的峰值收住，而不是让其削波。" },
             { kTooltipOutputTrim,     "输出微调（dB）：限制器之前的增益。用于让插件贴合混音，而不改变和声平衡。" },
+            { kTooltipOutputMeter,    "条：离开插件的电平。红色：限制器压下的量。微调：你的输出微调。" },
             { kTooltipFormant,        "启用/禁用共振峰偏移。" },
             { kTooltipFlexTune,       "死区（音分）：此范围内的输入音高保持不校正。" },
             { kTooltipHumanize,       "随机音高波动（音分），在校正应用时添加。" },

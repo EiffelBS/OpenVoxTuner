@@ -1968,6 +1968,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     outputTrimSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipOutputTrim));
     outputTrimLabel.setVisible (false); // same reason as padReverbMixLabel
 
+    // The meter is display only: it takes no mouse, and its numbers arrive from the
+    // processor's atomic snapshot in timerCallback, never from the audio thread.
+    outputMeter.setBarHeight (5);
+    outputMeter.setCaptions (ovt::tr(ovt::Keys::kLabelMeterGr), ovt::tr(ovt::Keys::kLabelMeterTrim));
+    outputMeter.setTooltip (ovt::tr(ovt::Keys::kTooltipOutputMeter));
+
     // Noise Gate
     noiseGateEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelNoiseGate));
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
@@ -2049,7 +2055,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&padReverbEnableButton),
                                 static_cast<juce::Component*> (&padReverbMixSlider),
                                 static_cast<juce::Component*> (&limiterEnableButton),
-                                static_cast<juce::Component*> (&outputTrimSlider) })
+                                static_cast<juce::Component*> (&outputTrimSlider),
+                                static_cast<juce::Component*> (&outputMeter) })
         effectsFrame.addAndMakeVisible (c);
 
     // 2026-07-24 (Deprecation): FlexTune and Attack-Aware UI setup
@@ -3068,6 +3075,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     padReverbMixSlider.setVisible (effectsOpen);
     limiterEnableButton.setVisible (effectsOpen);
     outputTrimSlider.setVisible (effectsOpen);
+    outputMeter.setVisible (effectsOpen);
 
     auto b4 = effectsFrame.interior().reduced (kEffectsPad);   // frame-local coordinates
     const int effectPowerH  = 18;
@@ -3124,6 +3132,13 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         placeToggledKnob (col4.removeFromTop (rowH), padReverbEnableButton, padReverbMixSlider);
         col4.removeFromTop (rowGap);
         placeToggledKnob (col4, limiterEnableButton, outputTrimSlider);
+
+        // The meter goes in the strip the knob leaves under it, in the SAME cell: rows are
+        // frozen at two and the cell width is the cell width, so the meter costs the frame
+        // no pixel of width. It takes the full 74 px column, which is what one dB line needs.
+        const int meterTop = outputTrimSlider.getBounds().getBottom() + 1;
+        outputMeter.setBounds (col4.getX(), meterTop, col4.getWidth(),
+                               juce::jmax (0, col4.getBottom() - meterTop));
     }
 
     // Harmony controls block (rightmost block)
@@ -3345,6 +3360,17 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         return;
 
     currentCpuUsage = processorRef.getCpuUsage();
+
+    // The output meter: three plain numbers read from the processor's atomic snapshot at
+    // this timer's 30 Hz. The audio thread writes them and never paints; the setters are
+    // called only when a number actually moved, so an idle plugin repaints nothing.
+    const auto meterState = processorRef.getOutputMeterState();
+    if (meterState.peakLinear != outputMeter.getPeak())
+        outputMeter.setPeak (meterState.peakLinear);
+    if (meterState.grDb != outputMeter.getGainReduction())
+        outputMeter.setGainReduction (meterState.grDb);
+    if (meterState.trimDb != outputMeter.getTrim())
+        outputMeter.setTrim (meterState.trimDb);
 
     // One-shot diagnostic dump on the first tick, after all restore/attachment
     // messages have settled, to verify what is actually restored at startup.
@@ -4580,6 +4606,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     padReverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipPadReverbMix));
     limiterEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipLimiterEn));
     outputTrimSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputTrim));
+    outputMeter.setCaptions (ovt::tr (ovt::Keys::kLabelMeterGr), ovt::tr (ovt::Keys::kLabelMeterTrim));
+    outputMeter.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputMeter));
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
     flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune));

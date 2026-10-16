@@ -283,6 +283,12 @@ private:
     juce::Slider       outputTrimSlider;
     juce::Label        outputTrimLabel;
 
+    // The meter sits in the SAME cell as the trim knob, directly under it: the peak that
+    // leaves the stage, the gain reduction the limiter is applying, and the trim the user
+    // set. It is fed by the editor timer from the processor's atomic snapshot, so nothing
+    // is ever painted from the audio thread.
+    ebs::LevelMeter outputMeter;
+
     // Noise Gate
     ebs::PowerToggle noiseGateEnableButton;
     juce::Slider noiseGateThresholdSlider;

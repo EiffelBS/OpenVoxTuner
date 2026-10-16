@@ -67,6 +67,40 @@ namespace ovtdsp
         float currentTrimLinear() const { return trimLinear; }
 
         /**
+         * The gain this stage is applying right now, in linear: the trim, times the
+         * limiter's attenuation when the envelope sits above the ceiling. Exactly the
+         * expression `process` uses per sample, so a reader can trust it.
+         */
+        float currentGain() const
+        {
+            return (limiterOn && env > ceilingLinear) ? trimLinear * (ceilingLinear / env) : trimLinear;
+        }
+
+        /**
+         * The smoothed peak of the signal LEAVING the limiter: the envelope of the
+         * trimmed signal times the attenuation the limiter is adding on top of the
+         * trim. It follows the release, so a meter fed from it falls with the tail
+         * instead of holding a block peak.
+         */
+        float currentOutputPeak() const
+        {
+            return (trimLinear > 0.0f) ? env * (currentGain() / trimLinear) : 0.0f;
+        }
+
+        /**
+         * Gain reduction in dB, reported as a positive attenuation, 0 when the limiter
+         * is not touching the gain. It is the ratio between what the signal asked for
+         * and what it got, so `peak * 10^(gr/20)` is the level that was caught.
+         */
+        float currentGainReductionDb() const
+        {
+            const float g = currentGain();
+            if (trimLinear <= 0.0f || g >= trimLinear)
+                return 0.0f;
+            return static_cast<float> (-20.0 * std::log10 (static_cast<double> (g) / static_cast<double> (trimLinear)));
+        }
+
+        /**
          * Applies trim, then limiting, in place on every channel.
          * A silent buffer passes through untouched, so the sleep path stays cheap.
          */
