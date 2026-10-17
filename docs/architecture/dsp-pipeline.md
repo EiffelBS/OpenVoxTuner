@@ -50,7 +50,7 @@ the single source of truth for signal-flow details.
                                                      v
                                            +-----------------+
                                            | OutputLimiter   |  trim (-12..+12 dB),
-                                           |                 |  non-lookahead limiter
+                                           |                 |  true-peak limiter, -1 dBFS
                                            +-----------------+
  Audio Out <--------------------------------------------------------+
 ```
@@ -260,10 +260,20 @@ It is inaudible on voice at normal drive and was accepted over adding an alignme
 latency is declared to the host.
 
 `ovtdsp::OutputLimiter` runs **last** on the master bus: an output trim in dB
-(`-12 .. +12`) followed by a peak limiter with a linked-channel one-pole envelope
-(0.7 ms attack, 120 ms release) and a `0.98` linear ceiling. It is deliberately
-**non-lookahead**: the gain at sample *i* is computed only from samples ≤ *i*, so the
-stage adds **no latency** and `setLatencySamples` is never touched by it. The trim
+(`-12 .. +12`) followed by a true-peak limiter with a linked-channel one-pole envelope
+(instantaneous attack, 120 ms release) and a `0.891` linear ceiling = **-1 dBFS**. The detector
+reconstructs the inter-sample crest through a **65-tap** 4x oversampling FIR, so the gain closes on what a
+DAC outputs, not only on stored samples: measured on a full-scale square wave the reconstructed
+crest sits +2.1 dB above the sample peak, and up to +4.6 dB on broadband material. A shorter window
+(33 taps) under-reported that overshoot — it saw +2.4 dB where a wider estimator saw +4.4 dB — so the
+tap count is what lets the ceiling be met against the right number. Reconstructing
+a crest needs the samples after it, so the stage looks ahead by its filter group delay (**8 samples**,
+about **0.17 ms**) and that latency IS declared through `setLatencySamples`, added to the pitch shifter's.
+The gain closes on a target slightly below the ceiling (`targetLinear` = -1.22 dBFS, `kSafetyMargin` 0.975):
+the detector reads the input crest while the soft clip shapes the output and adds ringing the detector
+cannot see (measured +0.19 dB on noise, +0.07 dB on a square), so closing on the ceiling itself landed
+true peaks at -0.81 dBFS. With the margin, measured true peaks are -1.15 dBFS (square) and -1.03 dBFS
+(noise burst). A soft-clip stage after the gain bounds residual crests toward the ceiling. The trim
 scales the final result only, leaving the harmony `1/sqrt(1+N)` gain-match intact.
 
 The sleep path runs all three buses on the cleared buffer so tails decay, then

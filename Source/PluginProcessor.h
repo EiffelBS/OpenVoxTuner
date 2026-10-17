@@ -592,8 +592,9 @@ private:
     // return is summed into the master before the output stage.
     ovtdsp::ReverbEffect sharedReverb;
 
-    // Master output stage, applied AFTER every effect: trim + non-lookahead peak
-    // limiter. It is not an IEffect: it is the last stage of the chain and must
+    // Master output stage, applied AFTER every effect: trim + true-peak limiter with a
+    // declared 8-sample lookahead, then the soft clip that bounds residual crests.
+    // It is not an IEffect: it is the last stage of the chain and must
     // run even when no effect is enabled.
     ovtdsp::OutputLimiter outputLimiter;
 

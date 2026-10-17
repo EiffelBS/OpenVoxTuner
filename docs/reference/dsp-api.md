@@ -212,10 +212,18 @@ Not an `IEffect`: the last stage of the master bus, applied after every effect.
 
 - `void prepare(double sampleRate, int maxBlockSize)`, `void reset()`.
 - `void setTrimDb(float)` — output gain in dB, clamped to `-12 .. +12`.
-- `void setLimiterEnabled(bool)` — off leaves a pure trim.
-- `void process(juce::AudioBuffer<float>& buffer)` — trim then limit, in place, channels linked.
-- `static constexpr float ceilingLinear = 0.98f` (~ -1.68 dBFS).
-- **Non-lookahead**: instantaneous attack, one-pole release (120 ms), so no latency is added.
+- `void setLimiterEnabled(bool)` — off leaves a pure trim (no true-peak limiting, no soft clip).
+- `void process(juce::AudioBuffer<float>& buffer)` — trim, true-peak limit and soft clip, in place, channels linked.
+- `static constexpr float ceilingLinear = 0.891f` (= **-1 dBFS**, read on the reconstructed true peak).
+- `static constexpr float kSafetyMargin = 0.975f`, `targetLinear = ceilingLinear * kSafetyMargin` (=-1.22 dBFS):
+  the gain closes on this target, because the soft clip shapes the output and adds ringing the input-side
+  detector cannot see; closing on the ceiling itself measured true peaks above -1 dBFS.
+- `int getLatencySamples()` — the stage's declared lookahead (8 samples, the FIR group delay),
+  added to the pitch shifter's latency by `applyLatencyMode()`.
+- **True-peak detector**: a 65-tap unnormalized sinc FIR at 4x oversampling; each phase group sums
+  to unity gain (partition of unity), so a full-scale bandlimited sine reconstructs at its own amplitude.
+  The emitted sample is the phase-0 reconstruction, i.e. the centre tap: the stage is a delay of exactly
+  `getLatencySamples()`, and phases 1..3 read samples up to the current input — that is the lookahead.
 
 ### `ovtdsp::NoiseGate`
 

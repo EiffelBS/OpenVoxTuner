@@ -627,8 +627,9 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                               juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
                         // Master output stage. The trim is a plain dB gain (-12..+12), so
                         // setting the plugin level never touches the harmony gain-match;
-                        // the limiter is non-lookahead, so it adds NO latency and the
-                        // plugin's declared latency stays exactly as it is today.
+                        // the limiter detects true peaks through a 4x reconstruction filter, so it
+                        // looks ahead by its group delay (8 samples) and that latency IS declared to
+                        // the host, on top of the pitch shifter's.
                         , std::make_unique<juce::AudioParameterFloat> (
                               "output_trim", "Output Trim",
                               juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f)
@@ -1313,7 +1314,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // already called it with the mode-correct value; calling it again
     // would overwrite the mode with the shifter's hard-coded 20 ms
     // default and re-trigger the Live 12 re-setActive loop.
-    latencySamples = pitchShifter->getLatencySamples();
+    latencySamples = pitchShifter->getLatencySamples() + outputLimiter.getLatencySamples();
 
     // Debug: log prepareToPlay info
     OVT_LOG ("prepareToPlay: sampleRate=" + juce::String(sampleRate) +
@@ -3406,8 +3407,8 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     // === MASTER EFFECTS TAP + OUTPUT STAGE ===
     // The master bus is the tap point AFTER every bus has been blended: shared sends
-    // and glue land here. The output trim + non-lookahead limiter runs last, on the
-    // fully mixed signal, so it guards the ceiling of what the user finally hears.
+    // and glue land here. The output trim + true-peak limiter (declared 8-sample lookahead)
+    // runs last, on the fully mixed signal, so it guards the ceiling of what the user finally hears.
     applyMasterEffects (buffer);
 
     // CPU usage: ratio of time spent in processBlock to available block time.
@@ -4175,7 +4176,9 @@ void OpenVoxTunerAudioProcessor::applyLatencyMode()
     if (doublerPitchShifter != nullptr)
         doublerPitchShifter->setLatencyMs (latencyMs);
 
-    setLatencySamples (pitchShifter->getLatencySamples());
+    // The output limiter looks ahead by its reconstruction filter group delay (8 samples),
+    // declared here so the host compensates it; it is a constant, independent of the mode.
+    setLatencySamples (pitchShifter->getLatencySamples() + outputLimiter.getLatencySamples());
     appliedLatencyMode = mode;
 
     const char* modeNames[] = { "Direct Monitoring", "Low Latency", "Quality", "Safe" };
@@ -4306,7 +4309,8 @@ void OpenVoxTunerAudioProcessor::applyMasterEffects (juce::AudioBuffer<float>& b
     // tail decay, and it skips its own work once the tail is inaudible.
     sharedReverb.processReturn (buffer, 1.0f - duckDepth * (1.0f - duckGateGain));
 
-    // Output stage, applied LAST: trim, then non-lookahead limiting. Reading the
+    // Output stage, applied LAST: trim, then true-peak limiting with its declared 8-sample
+    // lookahead, then the soft clip that bounds any residual crest. Reading the
     // parameters here keeps the whole master tap in one place.
     outputLimiter.setTrimDb ((outputTrimParam != nullptr) ? outputTrimParam->load() : 0.0f);
     outputLimiter.setLimiterEnabled (limiterEnableParam == nullptr
