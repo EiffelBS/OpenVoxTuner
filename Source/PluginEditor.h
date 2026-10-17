@@ -140,6 +140,14 @@ private:
     static constexpr int kHarmonyPrefW  = 384;  // open block: left column + the four knob columns
     static constexpr int kHarmonyMinW   = 300;  // floor for the open block, knobs still readable
 
+    /** Width one room name needs inside its power toggle, measured in the CURRENT language: the tick well,
+     *  a gap and the text drawn in ebs::fontToggleButton(). The Reverb frame's folded columns are sized by this
+     *  measurement because JUCE clips a ToggleButton label with an ellipsis instead of wrapping it. Measured over
+     *  all six shipped locales (lead <= 43 px, harmony <= 67 px in Spanish "Armonías", ducking <= 59 px), every
+     *  name rides the kEffectsColW = 74 px cell floor, so no label ever clips; keeping the measurement live is
+     *  what lets a future rename change the frame width instead of silently truncating a word. */
+    int reverbHeaderNeed (const juce::String& text) const;
+
     /** Re-state every bottom-row block widths from each frame own fold flag. Called at
      *  construction, on every fold, and at the start of resized(). */
     void updateBottomBandWidths();
@@ -212,6 +220,10 @@ private:
     // === i18n label refresh ===
     struct TranslatableLabel { juce::Label* label; const char* key; };
     std::vector<TranslatableLabel> translatableLabels;
+    // The left title spine of a frame carries the same i18n rule: its text is refreshed with
+    // the interface language, so it joins the refresh list next to the labels.
+    struct TranslatableBand { ebs::FrameTitleBand* band; const char* key; };
+    std::vector<TranslatableBand> translatableBands;
     void refreshLabels();
 
     // === Export image file chooser ===
@@ -306,7 +318,8 @@ private:
     juce::Label        duckDepthLabel;
 
     // Output stage: trim is the pre-limiter gain (-12..+12 dB), the limiter is the
-    // non-lookahead peak guard that runs last on the master bus.
+    // true-peak guard that runs last on the master bus, looking ahead by its declared
+    // 8-sample group delay.
     ebs::PowerToggle limiterEnableButton;
     juce::Slider       outputTrimSlider;
     juce::Label        outputTrimLabel;
@@ -329,13 +342,20 @@ private:
     juce::Slider       upwardCompAmountSlider;
     juce::Label        upwardCompAmountLabel;
 
-    // Effects frame: the nine effect cells (Gate, Compress, Reverb, Doubler, Formant,
-    // De-Esser, Pad Reverb, Output Limit, Saturation) live inside this ebs::ExpansibleFrame.
-    // Closed it shows two columns of two cells; the chevron on its right edge opens the extra
-    // four columns (Formant/De-Esser, Pad/Limiter, the send room, Saturation) and widens the
-    // frame, which the editor answers by re-laying out the bottom row. The block grows by
-    // COLUMN, never by adding a third row.
+    // Effects frame: the effect cells (Gate, Compress, Doubler, Formant, De-Esser, Output
+    // Limit, Saturation) live inside this ebs::ExpansibleFrame. Closed it shows two columns
+    // of two cells; the chevron on its right edge opens the extra three columns
+    // (Formant/De-Esser, Saturation, Limiter + meter) and widens the frame, which the editor
+    // answers by re-laying out the bottom row. The block grows by COLUMN, never by adding a
+    // third row. The two rooms and their sends are NOT here: they live in reverbFrame.
     ebs::ExpansibleFrame effectsFrame;
+    // Reverb frame: the two rooms and their send room. Lead Reverb (enable + mix) and
+    // Harmony Reverb (enable + mix) stay visible in BOTH states - those are what you dial
+    // while singing. The chevron folds the send room away: Lead Send, Harmony Send and Duck
+    // depth are one effect (one shared room, two send amounts, one duck depth), not three
+    // effects. duck_depth is consumed ONLY by that shared room's return in the processor, so
+    // it belongs in this frame; the lead's own ducking comes from the gate gain directly.
+    ebs::ExpansibleFrame reverbFrame;
     // The Correction block is the same component: one chevron, one fold flag, one
     // host re-layout. Both bottom-row frames are ExpansibleFrame, not two bespoke handles.
     ebs::ExpansibleFrame correctionFrame;
@@ -354,6 +374,15 @@ private:
     // that can use it, and below the hard floor the row scrolls instead of stretching the
     // last block. Registration order IS left to right; the band sets every frame bounds.
     ebs::FrameBand bottomBand { 10 };
+    // Every bottom-row frame carries a left title spine naming its block. Each band is a child of
+    // the frame it names, so it paints inside that frame's rounded corner and moves with it when
+    // the row re-lays out. It costs the frame WIDTH (ebs::FrameTitleBand::bandWidth(), fixed for
+    // every locale); a longer translated name pays in length along the spine, never in width.
+    ebs::FrameTitleBand correctionTitleBand;
+    ebs::FrameTitleBand scaleTitleBand;
+    ebs::FrameTitleBand effectsTitleBand;
+    ebs::FrameTitleBand reverbTitleBand;
+    ebs::FrameTitleBand harmonyTitleBand;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> upwardCompEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> upwardCompAmountAttachment;
 

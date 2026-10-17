@@ -107,14 +107,21 @@ The effects are applied at three tap points, each with its own parameters: the l
 voice (`deess_*`, `reverb_*`), the harmony bus (`pad_reverb_*`) and the master output
 (`saturation_*`, `output_trim`, `limiter_enable`). `reverb_enable` / `reverb_mix` are the **lead**
 reverb; `pad_reverb_enable` / `pad_reverb_mix` drive the separate long wide room that
-sits on the harmony voices only. The screen labels and the host parameter names say
-**Harmony Reverb** and **Harmony Send**: they name the voice the room acts on, never a
-timbre word such as *pad*, which reads as a reverb type to someone who has never mixed
+sits on the harmony voices only. On screen the two room toggles read **Lead** and
+**Harmony**, their sends read **Lead Send** / **Harmony Send**, and the ducking knob reads
+**Ducking**: the short names fit one cell column in every locale, measured at 14 pt. The
+host parameter names keep **Harmony Reverb Enable** / **Harmony Reverb Mix**, because a
+mixer automating a plugin needs to see which voice the room acts on, never a timbre word
+such as *pad*, which reads as a reverb type to someone who has never mixed
 a vocal stack. The lead reverb's wet mix is additionally ducked by
 the noise-gate envelope, so the tail follows the phrase.
 
-The limiter is **on by default** and **non-lookahead**: it adds no latency, so the
-declared plugin latency is unchanged. `output_trim` scales the final result only, after
+The limiter is **on by default** and caps the **true peak** at **-1 dBFS**: it detects the
+inter-sample crest through a 65-tap, 4x oversampling reconstruction filter, so it looks ahead by its group
+delay (8 samples, about 0.17 ms) and that latency IS declared to the host on top of the pitch shifter's.
+The gain closes slightly below the ceiling (-1.22 dBFS target) so the soft clip's own ringing stays under
+-1 dBFS; measured true peaks are -1.15 dBFS on a full-scale square and -1.03 dBFS on a noise burst.
+`output_trim` scales the final result only, after
 every effect, and works with the limiter off (the Output Trim knob is not greyed out by
 the limiter switch).
 

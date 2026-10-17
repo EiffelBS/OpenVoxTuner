@@ -344,6 +344,13 @@ public:
     bool getHarmonyExpanded() const { return harmonyExpandedState; }
     void setHarmonyExpanded (bool expanded) { harmonyExpandedState = expanded; }
 
+    // Reverb frame fold state (persisted across sessions, same contract as Harmony): folded the two
+    // room columns stay and the send-room column - lead_send, pad_send, duck_depth - is hidden, so
+    // the frame narrows by one column. It is a UI state, not a parameter, so it never enters the
+    // morph state and no audio behaviour changes when it flips.
+    bool getReverbExpanded() const { return reverbExpandedState; }
+    void setReverbExpanded (bool expanded) { reverbExpandedState = expanded; }
+
     // Morph slider amount accessors (backed by the automatable "morph_amount" parameter).
     float getMorphAmount() const { return morphAmountParam != nullptr ? morphAmountParam->load (std::memory_order_relaxed) : 0.0f; }
     void setMorphAmount (float v);
@@ -713,10 +720,19 @@ private:
     // Correction block "Advanced" expand/collapse state (persisted across sessions).
     bool advancedExpandedState = false;
 
-    // Harmony block fold state (persisted across sessions). Open by default: the four knobs
-    // are what a singer dials, so a fresh session shows them, and folding is the user's own
-    // choice recorded in the XML.
-    bool harmonyExpandedState = true;
+    // Harmony block fold state (persisted across sessions). FOLDED by default: at the minimum host width an open
+    // Harmony frame is 300 px of floor, and it sits at the right edge where the row already scrolls. Folding is the
+    // user's own choice recorded in the XML.
+    bool harmonyExpandedState = false;
+
+    // Reverb frame fold state (persisted across sessions). FOLDED by default, like every other expansible frame: a
+    // fresh session shows a bottom row that needs no scrolling. Measured on screen at the minimum host width
+    // (1100 px client), all five frames folded: correction 199 + Effects 204 + Reverb ~156 (EN) + Scale ~236
+    // + Harmony closed = chevron 28 + 2 pads + 196 = 244, plus four 6 px gaps = ~1063 px of content in English.
+    // French costs the wider measured room column (~178 px), so the row scrolls by a few pixels there - accepted.
+    // Opening Reverb puts it at ~383 px (three columns), which pushes Scale and Harmony right; that widening is the
+    // user's choice, recorded in the XML.
+    bool reverbExpandedState = false;
 
     // Morph slider amount (automatable parameter "morph_amount").
     std::atomic<float>* morphAmountParam = nullptr;

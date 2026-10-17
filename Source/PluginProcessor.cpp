@@ -4954,6 +4954,7 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
     // Persist UI-only preferences that are not AudioParameters.
     xml->setAttribute ("advancedExpanded", advancedExpandedState ? 1 : 0);
     xml->setAttribute ("harmonyExpanded", harmonyExpandedState ? 1 : 0);
+    xml->setAttribute ("reverbExpanded", reverbExpandedState ? 1 : 0);
     xml->setAttribute ("abActiveSlot", abActiveSlot);
 
     // Persist A/B slot MorphStates as compact flat attributes (no nested XML).
@@ -5157,9 +5158,11 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
         }
 
         advancedExpandedState = xmlState->getBoolAttribute ("advancedExpanded", false);
-        // Default true: a state file written before this fold existed keeps the Harmony knobs
-        // visible, exactly as they were on screen when that file was saved.
-        harmonyExpandedState = xmlState->getBoolAttribute ("harmonyExpanded", true);
+        // Every expansible frame starts FOLDED, including a state file written before the fold existed: a missing
+        // attribute is not evidence of an opening the user chose, and the row at minimum width fits folded. The
+        // knobs are one chevron click away, so nothing is lost - only the initial width of the bottom band.
+        harmonyExpandedState = xmlState->getBoolAttribute ("harmonyExpanded", false);
+        reverbExpandedState = xmlState->getBoolAttribute ("reverbExpanded", false);
         abActiveSlot = juce::jlimit (0, 1, xmlState->getIntAttribute ("abActiveSlot", 0));
         parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
     }

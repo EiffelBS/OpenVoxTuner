@@ -552,10 +552,40 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // and scrolls below the hard floor instead of stretching the last block. It reparents
     // each frame, so the widgets already inside a frame body stay there.
     addAndMakeVisible (bottomBand);
-    bottomBand.addFrame (&correctionFrame, kKnobBlockW, kKnobBlockW, true);   // restated by the width model below
-    bottomBand.addFrame (&effectsFrame, 2 * kEffectsColW + 2 * kEffectsPad, 2 * kEffectsColW + 2 * kEffectsPad, false);
-    bottomBand.addFrame (&scaleFrame, kScalePrefW, kScaleMinW, false);
-    bottomBand.addFrame (&harmonyFrame, kHarmonyPrefW, kHarmonyMinW, true);
+    // Every frame now carries a left title spine, so the width each block asks for includes it:
+    // ebs::FrameTitleBand::bandWidth() is one fixed number for every locale.
+    const int kTitleBandW = ebs::FrameTitleBand::bandWidth();
+    bottomBand.addFrame (&correctionFrame, kKnobBlockW + kTitleBandW, kKnobBlockW + kTitleBandW, true);   // restated by the width model below
+    // Key/Scale takes the SECOND position: registration order IS left-to-right, so the keyboard - the block a user
+    // reads before dialling anything - sits inside the non-scrolling part of the row and Harmony stays at the right
+    // edge as the only growable frame. Final order: Correction | Key & Scale | Effects | Reverb | Harmony.
+    bottomBand.addFrame (&scaleFrame, kScalePrefW + kTitleBandW, kScaleMinW + kTitleBandW, false);
+    bottomBand.addFrame (&effectsFrame, 2 * kEffectsColW + 2 * kEffectsPad + kTitleBandW, 2 * kEffectsColW + 2 * kEffectsPad + kTitleBandW, false);
+    // The Reverb frame sits immediately right of Effects: folded it is ONE stacked column carrying both rooms
+    // (the lead room labelled Lead on top, the harmony room labelled Harmony below), and opening it puts the rooms
+    // side by side with each room's own send under its mix knob plus Ducking alone in a third column. Registration
+    // order IS left-to-right order in the band, so this line puts the frame next to the Harmony block its sends feed.
+    // Non-growable like Effects: its width is its cell count when open and the measured width of the room names when
+    // folded - the numbers below are only an initial placeholder, updateBottomBandWidths() restates them from the
+    // loaded language right away.
+    const int reverbChevronW = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
+    const int reverbFoldedW  = kEffectsColW + 2 * kEffectsPad + reverbChevronW + kTitleBandW;
+    bottomBand.addFrame (&reverbFrame, reverbFoldedW, reverbFoldedW, false);
+    bottomBand.addFrame (&harmonyFrame, kHarmonyPrefW + kTitleBandW, kHarmonyMinW + kTitleBandW, true);
+    // Each title band is a CHILD of the frame it names, so it paints inside that frame's rounded corner and travels
+    // with the frame when the row re-lays out. The keys ride the i18n list: refreshLabels() restates every spine
+    // when the interface language changes, exactly as it does for labels.
+    correctionFrame.addAndMakeVisible (correctionTitleBand);
+    scaleFrame.addAndMakeVisible (scaleTitleBand);
+    effectsFrame.addAndMakeVisible (effectsTitleBand);
+    reverbFrame.addAndMakeVisible (reverbTitleBand);
+    harmonyFrame.addAndMakeVisible (harmonyTitleBand);
+    translatableBands.push_back ({ &correctionTitleBand, ovt::Keys::kFrameTitleCorrection });
+    translatableBands.push_back ({ &scaleTitleBand,      ovt::Keys::kFrameTitleKeyScale   });
+    translatableBands.push_back ({ &effectsTitleBand,    ovt::Keys::kFrameTitleEffects     });
+    translatableBands.push_back ({ &reverbTitleBand,     ovt::Keys::kFrameTitleReverb      });
+    translatableBands.push_back ({ &harmonyTitleBand,    ovt::Keys::kFrameTitleHarmony     });
+    // The row ends with Harmony: it is the only growable frame, so the spare room the band has left goes to it.
     // Root/Scale and Harmony are framed components too, so every bottom-row block is a
     // component: a re-layout moves components, never a painted region.
 
@@ -569,6 +599,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // saved with Harmony folded would open sized for the wide block.
     harmonyFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyMore));
     harmonyFrame.setExpanded (processorRef.getHarmonyExpanded());
+    // The Reverb frame obeys the same rule, and for the same reason: its flag must land before
+    // the width model runs, so a session saved with the send room folded opens at the folded size.
+    reverbFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipReverbMore));
+    reverbFrame.setExpanded (processorRef.getReverbExpanded());
     // The width model is the single source of truth for every block size, so it runs right
     // after the restored fold flags and before any layout.
     updateBottomBandWidths();
@@ -584,6 +618,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyFrame.onExpandedChanged = [this]
     {
         processorRef.setHarmonyExpanded (harmonyFrame.expanded());
+        updateBottomBandWidths();
+        resized();
+    };
+    // Same contract for the Reverb frame: opening it adds one column to the right, so the band
+    // has to be re-stated and the row re-laid out. Its fold is persisted like Harmony's, because
+    // a send room folded to fit a narrow window must stay folded when the session reopens.
+    reverbFrame.onExpandedChanged = [this]
+    {
+        processorRef.setReverbExpanded (reverbFrame.expanded());
         updateBottomBandWidths();
         resized();
     };
@@ -2035,7 +2078,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     translatableLabels.push_back ({ &duckDepthLabel, ovt::Keys::kLabelDuckBtn });
 
     // Output stage (master bus): the trim is a raw dB gain applied before the limiter,
-    // and the limiter is a non-lookahead peak guard. Trim stays live with the limiter
+    // and the limiter is a true-peak guard with a declared 8-sample lookahead. Trim stays
+    // live with the limiter
     // off - it is the level match into the mix, not the safety net.
     limiterEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelLimiterBtn));
     limiterEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
@@ -2112,10 +2156,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Effects frame (ebs::ExpansibleFrame): the effect cells live inside the frame body, so
     // the chevron on its right edge folds everything past the two always-visible columns away
-    // - Formant/De-Esser, Pad Reverb over Output Limit, the send room and Saturation. The frame
-    // owns the open flag; the editor re-lays out when it flips, and the frame widens to take the
-    // extra columns, pushing the Harmony block.
-    // The band registered this frame in the constructor, so it is already a band child.
+    // - Formant/De-Esser, Saturation and Output Limit + meter. The frame owns the open flag;
+    // the editor re-lays out when it flips, and the frame widens to take the extra columns,
+    // pushing the Reverb block (registered right of Effects) and then Harmony.
+    // The band registered this frame in the constructor, so it is already a band child. Its
+    // fold is NOT persisted: Effects is the always-on effect rack, not a zone you fit to a
+    // narrow window. The Reverb frame IS persisted, armed in the constructor next to Harmony's.
     effectsFrame.onExpandedChanged = [this]
     {
         updateBottomBandWidths();   // the fold changes what this block asks for
@@ -2125,23 +2171,35 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // The cells move into the frame: as children of the body they paint above it and
     // are clipped by it, so a folded column disappears with the frame's own fold.
+    // The list runs in the order the columns read on screen: Gate, Compressor, Doubler, Formant (the two folded
+    // columns), then Output Limit + meter, De-Esser and Saturation in the open zone. A screen reader follows this
+    // insertion order, so a limit control placed after Saturation here would be announced out of position.
     for (juce::Component* c : { static_cast<juce::Component*> (&noiseGateEnableButton),
                                 static_cast<juce::Component*> (&noiseGateThresholdSlider),
                                 static_cast<juce::Component*> (&upwardCompEnableButton),
                                 static_cast<juce::Component*> (&upwardCompAmountSlider),
-                                static_cast<juce::Component*> (&reverbEnableButton),
-                                static_cast<juce::Component*> (&reverbMixSlider),
                                 static_cast<juce::Component*> (&doubleEnableButton),
                                 static_cast<juce::Component*> (&doubleAmountSlider),
                                 static_cast<juce::Component*> (&formantEnableButton),
                                 static_cast<juce::Component*> (&formantSlider),
+                                static_cast<juce::Component*> (&limiterEnableButton),
+                                static_cast<juce::Component*> (&outputTrimSlider),
+                                static_cast<juce::Component*> (&outputMeter),
                                 static_cast<juce::Component*> (&deessEnableButton),
                                 static_cast<juce::Component*> (&deessAmountSlider),
                                 static_cast<juce::Component*> (&saturationEnableButton),
                                 static_cast<juce::Component*> (&saturationDriveSlider),
                                 static_cast<juce::Component*> (&saturationDriveLabel),
                                 static_cast<juce::Component*> (&saturationToneSlider),
-                                static_cast<juce::Component*> (&saturationToneLabel),
+                                static_cast<juce::Component*> (&saturationToneLabel) })
+        effectsFrame.addAndMakeVisible (c);
+
+    // The Reverb frame owns the two rooms and their send room. Both rooms keep their power
+    // toggle + mix knob as children here; the three send/duck knobs join them, and the layout
+    // code hides exactly those when the frame is folded. Nothing reverb-related stays a child
+    // of effectsFrame: a widget parented to Effects would be clipped by the wrong fold.
+    for (juce::Component* c : { static_cast<juce::Component*> (&reverbEnableButton),
+                                static_cast<juce::Component*> (&reverbMixSlider),
                                 static_cast<juce::Component*> (&padReverbEnableButton),
                                 static_cast<juce::Component*> (&padReverbMixSlider),
                                 static_cast<juce::Component*> (&leadSendSlider),
@@ -2149,11 +2207,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&padSendSlider),
                                 static_cast<juce::Component*> (&padSendLabel),
                                 static_cast<juce::Component*> (&duckDepthSlider),
-                                static_cast<juce::Component*> (&duckDepthLabel),
-                                static_cast<juce::Component*> (&limiterEnableButton),
-                                static_cast<juce::Component*> (&outputTrimSlider),
-                                static_cast<juce::Component*> (&outputMeter) })
-        effectsFrame.addAndMakeVisible (c);
+                                static_cast<juce::Component*> (&duckDepthLabel) })
+        reverbFrame.addAndMakeVisible (c);
 
     // 2026-07-24 (Deprecation): FlexTune and Attack-Aware UI setup
     // is disabled. The slider/label members still exist (in
@@ -2817,22 +2872,57 @@ void OpenVoxTunerAudioProcessorEditor::paint (juce::Graphics& g)
     }
 }
 
+// How much width a room name needs inside its power toggle, measured in the language currently loaded.
+// ebs LookAndFeel draws a ToggleButton as a 16 px tick well, a 6 px gap and centred-left text in
+// fontToggleButton() (eiffelbs/LookAndFeel.h drawToggleButton), so the strip is 18 px before the first glyph;
+// +2 keeps the last glyph off the frame edge. Measuring here, not hard-coding per locale, is what lets one
+// layout serve EN "Lead" / "Harmony" / "Ducking", FR "Lead" / "Harmonie", DE "Lead" / "Harmonie", JA
+// "リード" / "ハーモニー" / "ダッキンィ" and ZH "主唱" / "和声" at once. Short names make the folded Reverb room
+// narrower than the old long ones were, which is what the measurement reports - no constant is tuned per language.
+int OpenVoxTunerAudioProcessorEditor::reverbHeaderNeed (const juce::String& text) const
+{
+    return 18 + ebs::fontToggleButton().getStringWidth (text) + 2;
+}
+
 // The single source of truth for every bottom-row block width. Each frame states the
 // width its content asks for and the floor below which its widgets collide. The band
 // lays every frame at that width: spare room is left empty and nothing is stretched.
 void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
 {
     const int chevron = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
+    // Every frame carries a title spine on its left edge, so the spine width is part of what each block asks for.
+    // It is one fixed number (ebs::FrameTitleBand::bandWidth()) for every locale: a long translated name pays in
+    // length along the spine, never in width, so adding it here keeps the row model exact in all six languages.
+    const int bandW = ebs::FrameTitleBand::bandWidth();
     const int corrBaseW   = kKnobBlockW - 22 - 2 * kCorrPad;
-    const int corrClosedW = corrBaseW + 2 * kCorrPad + chevron;
+    const int corrClosedW = corrBaseW + 2 * kCorrPad + chevron + bandW;
 
-    // Effects: its width IS the cell count, so it is fixed in both directions. Open shows
-    // six columns now: the two always-visible ones, Formant/De-Esser, Pad Reverb over
-    // Output Limit, the shared send room column, and Saturation. The row grows by column
-    // only, so each new column costs exactly one kEffectsColW plus one gap.
-    const int effectW = chevron + 2 * kEffectsPad
-                      + (effectsFrame.expanded() ? 6 : 2) * kEffectsColW
-                      + (effectsFrame.expanded() ? 5 : 1) * kEffectsColGap;
+    // Effects: its width IS the cell count, so it is fixed in both directions. Open shows four
+    // columns: Gate/Compressor, Doubler/Formant, Output Limit + meter over De-Esser, and Saturation. Folded it keeps
+    // the first two columns, i.e. Gate, Compressor, Doubler and Formant - the controls you dial while singing. The
+    // Output Limit control is in the open zone, so a folded frame does not show the ceiling; that is the accepted
+    // cost of swapping Limit and Formant, and it changes no width: the count stays 2 folded / 4 open. The two rooms,
+    // their sends and Duck are NOT here; they are the Reverb frame's own columns. The row grows by column only, so
+    // each new column costs one kEffectsColW plus gap.
+    const int effectW = chevron + 2 * kEffectsPad + bandW
+                      + (effectsFrame.expanded() ? 4 : 2) * kEffectsColW
+                      + (effectsFrame.expanded() ? 3 : 1) * kEffectsColGap;
+
+    // Reverb: ONE column per room, so folded the frame asks for one measured column - the widest of the two room
+    // names - and open it asks for three columns: Lead with its send, Harmony with its send, Ducking alone. Open it is
+    // NOT growable: a fixed width keeps every knob under its label. Folded the width comes from the MEASURED names,
+    // measured through `reverbHeaderNeed` at the real 14 pt toggle font. Measured maxima over all six shipped locales
+    // (library smoke, eiffelbs-ui v0.15.15): lead <= 43 px ("Lead" / "Lead" / "Lead" / "Lead"), harmony <= 67 px
+    // (Spanish "Armonías"; French and German "Harmonie" 66), ducking <= 59 px, ideographs 34 px. Every one rides the
+    // fixed kEffectsColW = 74 px cell floor, so a rename cannot widen the frame in any language: the same locale stays
+    // compact and a fully folded row fits the minimum-width client without scrolling.
+    const int leadNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (reverbEnableButton.getButtonText()));
+    const int harmNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (padReverbEnableButton.getButtonText()));
+    const int duckNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (duckDepthLabel.getText()));
+    const int reverbW = chevron + 2 * kEffectsPad + bandW
+                      + (reverbFrame.expanded()
+                         ? leadNeed + harmNeed + duckNeed + 2 * kEffectsColGap
+                         : juce::jmax (leadNeed, harmNeed));
 
     // Correction re-states its width when the advanced zone opens. The width comes from
     // the content, so the closed block is never squeezed and an open block never shrinks:
@@ -2842,16 +2932,18 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
                              corrClosedW, false);
     // Effects: its width IS the cell count, so it is fixed in both directions.
     bottomBand.setFrameWidths (&effectsFrame, effectW, effectW, false);
-    // Root/Scale: pref is the keyboard strip plus padding, the floor is the strip itself.
-    bottomBand.setFrameWidths (&scaleFrame, kScalePrefW, kScaleMinW, false);
+    // Reverb: same rule as Effects - pref and floor are the cell count in the current fold state.
+    bottomBand.setFrameWidths (&reverbFrame, reverbW, reverbW, false);
+    // Root/Scale: pref is the keyboard strip plus padding, the floor is the strip itself. Both carry the spine.
+    bottomBand.setFrameWidths (&scaleFrame, kScalePrefW + bandW, kScaleMinW + bandW, false);
     // Harmony folds. Closed its content is the left column (type combo, voice selectors, two
     // power toggles) plus the chevron strip, so it asks for exactly that and is NOT growable:
     // spare room stays empty at the right edge rather than stretching knobs off their labels.
     // Open it adds the four knob columns and may shrink to kHarmonyMinW, where the knobs are
     // still readable - that floor is what keeps the row from scrolling as soon as Harmony opens.
-    const int harmonyClosedW = chevron + 2 * kHarmonyPad + kHarmonyLeftW;
+    const int harmonyClosedW = chevron + 2 * kHarmonyPad + kHarmonyLeftW + bandW;
     if (harmonyFrame.expanded())
-        bottomBand.setFrameWidths (&harmonyFrame, kHarmonyPrefW, kHarmonyMinW, true);
+        bottomBand.setFrameWidths (&harmonyFrame, kHarmonyPrefW + bandW, kHarmonyMinW + bandW, true);
     else
         bottomBand.setFrameWidths (&harmonyFrame, harmonyClosedW, harmonyClosedW, false);
 }
@@ -3030,7 +3122,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     const bool correctionOpen = correctionFrame.expanded();
     // --- Block 2 : Correction - an ebs::ExpansibleFrame; Speed + Amount always visible ---
-    auto b2 = correctionFrame.interior().reduced (kCorrPad);   // frame-local coordinates
+    // The spine sits at the left edge of the frame body, inside its rounded corner; every content cell starts right of it.
+    auto corrArea = correctionFrame.interior();
+    correctionTitleBand.setBounds (corrArea.getX(), corrArea.getY(), ebs::FrameTitleBand::bandWidth(), corrArea.getHeight());
+    corrArea.removeFromLeft (ebs::FrameTitleBand::bandWidth());
+    auto b2 = corrArea.reduced (kCorrPad);   // frame-local coordinates
 
     // The chevron strip is excluded by interior(), so the content area IS the interior:
     // the base knobs on the left, the advanced zone in what is left over.
@@ -3161,50 +3257,53 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         formantStrategyLabel.setBounds (0, 0, 0, 0);
     }
 
-    // --- Block 4 : Effects - an ebs::ExpansibleFrame with two columns of two cells ---
-    // Column 1 shows Noise Gate over Reverb, column 2 Upward Compressor over Doubler.
-    // The chevron on the frame's right edge opens the extra columns (Formant over
-    // De-Esser, then Pad Reverb over Output Limit): the frame WIDENS and pushes the
-    // Harmony block, which is what the host re-layout on onExpandedChanged is for. Every
-    // cell is a power toggle carrying its name on top and a knob below; the knob size
-    // comes from the row height, so it stays at its full 54 px: adding a COLUMN is how
-    // this block grows, never a row (a third row would shrink every knob). The value
-    // shows in the popup display while dragging (no textbox).
+    // --- Block 4 : Effects - an ebs::ExpansibleFrame of two columns, growing by column ---
+    // Column 1 shows Noise Gate over Upward Compressor, column 2 Doubler over Formant. Those four cells are what a
+    // folded frame keeps. The chevron on the frame's right edge opens the extra columns (Output Limit + meter over
+    // De-Esser, then Saturation): the frame WIDENS and pushes the Reverb frame registered right of it, which is
+    // what the host re-layout on onExpandedChanged is for. Every cell is a power toggle carrying its name on top and
+    // a knob below; the knob size comes from the row height, so it stays at its full 54 px: adding a COLUMN is how
+    // this block grows, never a row (a third row would shrink every knob). The value shows in the popup display
+    // while dragging (no textbox). Limit and Formant exchanged places by design: the dial you shape a voice with
+    // stays on screen folded, the ceiling control goes to the open zone.
+    // The two rooms and their send room are NOT in this block - they live in the Reverb frame.
 
     const bool effectsOpen = effectsFrame.expanded();
 
-    // The folded column's widgets are hidden, not painted over: an invisible child of
-    // the frame takes no clicks and leaves its cell empty.
-    formantEnableButton.setVisible (effectsOpen);
-    formantSlider.setVisible (effectsOpen);
-    deessEnableButton.setVisible (effectsOpen);
-    deessAmountSlider.setVisible (effectsOpen);
-    padReverbEnableButton.setVisible (effectsOpen);
-    padReverbMixSlider.setVisible (effectsOpen);
+    // The folded columns' widgets are hidden, not painted over: an invisible child of
+    // the frame takes no clicks and leaves its cell empty. Only the Effects zone folds here -
+    // the two rooms and their send room are gated by reverbOpen in the Reverb block below.
+    // Formant is a folded-visible cell now that it sits under the Doubler in column 2: dialling the vowel shape is
+    // lead-side work you do while singing, so its toggle and knob stay visible in BOTH states.
+    formantEnableButton.setVisible (true);
+    formantSlider.setVisible (true);
+    // The Output Limit + meter control lives in the open-only column 3, so a folded frame does not show the ceiling.
+    // That is the accepted consequence of swapping it with Formant: folding hides the CONTROL, never the processing -
+    // limiter_enable keeps guarding every sample and outputMeter keeps reading the same state; an invisible meter
+    // bar updates exactly as a visible one does.
     limiterEnableButton.setVisible (effectsOpen);
     outputTrimSlider.setVisible (effectsOpen);
     outputMeter.setVisible (effectsOpen);
-    leadSendSlider.setVisible (effectsOpen);
-    leadSendLabel.setVisible (effectsOpen);
-    padSendSlider.setVisible (effectsOpen);
-    padSendLabel.setVisible (effectsOpen);
-    duckDepthSlider.setVisible (effectsOpen);
-    duckDepthLabel.setVisible (effectsOpen);
+    deessEnableButton.setVisible (effectsOpen);
+    deessAmountSlider.setVisible (effectsOpen);
     saturationEnableButton.setVisible (effectsOpen);
     saturationDriveSlider.setVisible (effectsOpen);
     saturationDriveLabel.setVisible (effectsOpen);
     saturationToneSlider.setVisible (effectsOpen);
     saturationToneLabel.setVisible (effectsOpen);
 
-    auto b4 = effectsFrame.interior().reduced (kEffectsPad);   // frame-local coordinates
+    auto effArea = effectsFrame.interior();
+    effectsTitleBand.setBounds (effArea.getX(), effArea.getY(), ebs::FrameTitleBand::bandWidth(), effArea.getHeight());
+    effArea.removeFromLeft (ebs::FrameTitleBand::bandWidth());
+    auto b4 = effArea.reduced (kEffectsPad);   // frame-local coordinates
     const int effectPowerH  = 18;
     const int rowGap        = 8;
     const int numEffectRows = 2;
-    // Six columns when open (Gate/Reverb, Compress/Doubler, Formant/De-Esser, Harmony Reverb/Limiter,
-    // send room, Saturation) and two when folded. This count drives effectColW, so it has to
-    // match the number of cells placed below: asking for 5 widths while placing 6 columns
-    // leaves the last column a negative-width rectangle (the Harmony Reverb / Output Limit cell vanishes).
-    const int numEffectCols = effectsOpen ? 6 : 2;
+    // Four columns when open (Gate/Compress, Doubler/Formant, Output Limit+meter over De-Esser, Saturation)
+    // and two when folded. This count drives effectColW, so it has to match the number of columns
+    // placed below: asking for 4 widths while placing 5 columns leaves the last column a
+    // negative-width rectangle, and that cell vanishes without any warning in the layout log.
+    const int numEffectCols = effectsOpen ? 4 : 2;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
     const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;
@@ -3229,70 +3328,39 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         knob.setBounds (kx, cell.getY() + 2, d, d);
     };
 
-    // Column 1 : Noise Gate on top, Reverb below.
+    // Column 1 : Noise Gate on top, Upward Compressor below. Both stay visible when folded - they
+    // are the two input-stage processors you dial while singing, and this is what the frame keeps
+    // when its chevron folds everything to the right away.
     auto col1 = b4.removeFromLeft (effectColW);
     b4.removeFromLeft (kEffectsColGap);
     placeToggledKnob (col1.removeFromTop (rowH), noiseGateEnableButton, noiseGateThresholdSlider);
     col1.removeFromTop (rowGap);
-    placeToggledKnob (col1, reverbEnableButton, reverbMixSlider);
+    placeToggledKnob (col1, upwardCompEnableButton, upwardCompAmountSlider);
 
-    // Column 2 : Upward Compressor on top, Doubler below. The Doubler cell is built
-    // exactly like its siblings (power toggle carrying the name, knob below):
-    // double_enable is a real parameter, so switching off greys the knob and stops the
-    // copy without clearing double_amount. It lives here because it is an effect of the
-    // processed signal, not a harmony voice; nothing Harmony does touches this cell.
+    // Column 2 : Doubler on top, Formant below. The Doubler cell is built exactly like
+    // its siblings (power toggle carrying the name, knob below): double_enable is a real parameter,
+    // so switching off greys the knob and stops the copy without clearing double_amount. It lives
+    // here because it is an effect of the processed signal, not a harmony voice; nothing Harmony
+    // does touches this cell. Formant goes under it: shaping the vowel is lead-side work you dial while singing, so
+    // both cells stay visible in BOTH states and the folded frame stays at two columns.
     auto col2 = b4.removeFromLeft (effectColW);
     b4.removeFromLeft (kEffectsColGap);
-    placeToggledKnob (col2.removeFromTop (rowH), upwardCompEnableButton, upwardCompAmountSlider);
+    placeToggledKnob (col2.removeFromTop (rowH), doubleEnableButton, doubleAmountSlider);
     col2.removeFromTop (rowGap);
-    placeToggledKnob (col2, doubleEnableButton, doubleAmountSlider);
+    placeToggledKnob (col2, formantEnableButton, formantSlider);
 
-    // Column 3, only when the frame is open : Formant on top, De-Esser below. The
-    // De-Esser cell is one switch (deess_enable) and one Intensity knob: that knob
-    // drives the detector threshold and the depth cap together, and the band centre
-    // follows voice_type, so there is nothing else to place in this cell.
     if (effectsOpen)
     {
+        // Column 3 : Output Limit + meter on top, De-Esser below. This cell is the half of the swapped pair that
+        // moved out of column 2: folding hides its CONTROL (see the visibility block above), never the processing -
+        // limiter_enable keeps guarding every sample behind the fold. It is the only cell in this block that carries
+        // something under its knob: the output meter. Rows are frozen at two and the frame grows by column only, so
+        // the strip is paid for by THIS cell's knob - the one knob in the block that is smaller than its siblings. A
+        // 5 px bar plus one 8 pt dB line needs 16 px; the knob takes the rest of the cell. output_trim reads in dB
+        // (-12 to +12), not percent, and limiter_enable switches the peak guard on.
         auto col3 = b4.removeFromLeft (effectColW);
         b4.removeFromLeft (kEffectsColGap);
-        placeToggledKnob (col3.removeFromTop (rowH), formantEnableButton, formantSlider);
-        col3.removeFromTop (rowGap);
-        placeToggledKnob (col3, deessEnableButton, deessAmountSlider);
-
-        // Column 6, the new rightmost : Saturation. One power switch carrying the name and two
-        // labelled knobs (Drive, Warmth) stacked in one cell, the same shape the send-room column
-        // uses: rows stay frozen at two, so this cell pays for its second knob inside its own
-        // column, exactly like the send room pays for its third. It is reserved from the right
-        // BEFORE column 5, so every existing column keeps its width.
-        auto col6 = b4.removeFromRight (effectColW);
-        b4.removeFromRight (kEffectsColGap);
-
-        saturationEnableButton.setBounds (col6.removeFromTop (effectPowerH));
-        const int satCellH = (col6.getHeight() - rowGap) / 2;
-        placeLabelledKnob (col6.removeFromTop (satCellH), saturationDriveLabel, saturationDriveSlider);
-        col6.removeFromTop (rowGap);
-        placeLabelledKnob (col6, saturationToneLabel, saturationToneSlider);
-
-        // Column 5, second from the right, reserved from the right so column 4 keeps its own
-        // width. The shared send room: lead send, pad send and duck depth in one column, because
-        // they are one effect (one room, two amounts, one duck depth) and not three effects.
-        auto col5 = b4.removeFromRight (effectColW);
-        b4.removeFromRight (kEffectsColGap);
-
-        // Column 4, also only when open : Pad Reverb on top, Output Limit below. These
-        // two cells are the last stage of the chain: pad_reverb_mix is the wet mix of the
-        // harmony-only reverb room, and output_trim + limiter_enable are the master level
-        // match and the peak guard. The trim knob reads in dB (-12 to +12), not percent.
-        auto col4 = b4;
-        placeToggledKnob (col4.removeFromTop (rowH), padReverbEnableButton, padReverbMixSlider);
-        col4.removeFromTop (rowGap);
-
-        // The Output Limit cell is the only cell in this block that carries something
-        // under its knob: the output meter. Rows are frozen at two and the frame grows by
-        // column only, so the strip is paid for by THIS cell's knob - the one knob in the
-        // block that is smaller than its siblings. A 5 px bar plus one 8 pt dB line needs
-        // 16 px; the knob takes the rest of the cell.
-        auto limitCell = col4;
+        auto limitCell = col3.removeFromTop (rowH);
         limiterEnableButton.setBounds (limitCell.removeFromTop (effectPowerH));
         const int meterStripH = 16;
         const int limitKnobD  = juce::jmax (30, limitCell.getHeight() - 2 - meterStripH);
@@ -3300,20 +3368,125 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         outputTrimSlider.setBounds (kx, limitCell.getY() + 2, limitKnobD, limitKnobD);
 
         const int meterTop = outputTrimSlider.getBounds().getBottom() + 1;
-        outputMeter.setBounds (col4.getX(), meterTop, col4.getWidth(),
-                               juce::jmax (0, col4.getBottom() - meterTop));
+        outputMeter.setBounds (limitCell.getX(), meterTop, limitCell.getWidth(),
+                               juce::jmax (0, limitCell.getBottom() - meterTop));
 
-        // Column 5 cells: lead send on top, pad send in the middle, duck depth below. Three
-        // cells share one column, so these knobs are the smallest in the block - the same
-        // trade the Output Limit cell makes for its meter strip. Rows stay frozen at two: a
-        // third ROW would shrink EVERY knob in the block, a fifth COLUMN shrinks only its
-        // own three, and they are send amounts, not the controls you dial while singing.
-        const int sendCellH = (col5.getHeight() - 2 * rowGap) / 3;
-        placeLabelledKnob (col5.removeFromTop (sendCellH), leadSendLabel, leadSendSlider);
-        col5.removeFromTop (rowGap);
-        placeLabelledKnob (col5.removeFromTop (sendCellH), padSendLabel, padSendSlider);
-        col5.removeFromTop (rowGap);
-        placeLabelledKnob (col5, duckDepthLabel, duckDepthSlider);
+        // The De-Esser cell is one switch (deess_enable) and one Intensity knob: that knob drives the detector
+        // threshold and the depth cap together, and the band centre follows voice_type, so there is nothing else to
+        // place in this cell.
+        col3.removeFromTop (rowGap);
+        placeToggledKnob (col3, deessEnableButton, deessAmountSlider);
+
+        // Column 4, the rightmost : Saturation. One power switch carrying the name and two labelled
+        // knobs (Drive, Warmth) stacked in one cell - the same shape the send-room column uses in
+        // the Reverb frame. It pays for its second knob inside its own column, so rows stay frozen
+        // at two everywhere in the block.
+        auto col4 = b4;   // the last column takes whatever is left
+        saturationEnableButton.setBounds (col4.removeFromTop (effectPowerH));
+        const int satCellH = (col4.getHeight() - rowGap) / 2;
+        placeLabelledKnob (col4.removeFromTop (satCellH), saturationDriveLabel, saturationDriveSlider);
+        col4.removeFromTop (rowGap);
+        placeLabelledKnob (col4, saturationToneLabel, saturationToneSlider);
+    }
+
+    // --- Block 5 : Reverb - an ebs::ExpansibleFrame right of Effects ---
+    // One column per room. Folded, the two rooms stack in ONE column: the lead room (label Lead) on top, the harmony
+    // room (label Harmony) below, each with its own toggle carrying its name and its mix knob under it. Open, they
+    // stand side by side and each room gets its own send under a label - Lead Send under Lead, Harmony Send under
+    // Harmony - and Ducking stands alone in column 3. Stacking is what the height allows: the band row gives every
+    // frame 150 px of content, and header (18) + knob (<= 54) + gap (8) + label (14) + knob (<= 54) fits inside it,
+    // which is the same shape Effects' column 1 uses for Doubler over Formant. It also saves width: one measured
+    // column needs the widest of
+    // the two names, not their sum, which keeps the fully folded row inside a few pixels of the 1100 px client.
+    // Why the columns are sized by the MEASURED name: a ToggleButton draws its tick well then centred-left text with
+    // no wrap (ebs LookAndFeel::drawToggleButton), so a long room name inside one 74 px cell would clip. Measured at
+    // the real 14 pt toggle font (library smoke, eiffelbs-ui v0.15.15) every shipped locale rides that floor: lead
+    // <= 43 px, harmony <= 67 px (Spanish "Armonías"), ducking <= 59 px, Japanese リード/ハーモニー/ダッキンィ at
+    // 41/54/54 and Chinese 主唱/和声/闪降 at 34 px. So the folded Reverb frame measures the SAME width in all six
+    // languages (the floor dominates), no label clips at any window width, and reverbHeaderNeed() +
+    // updateBottomBandWidths() keep proving that offline instead of trusting an eyeball.
+    // duck_depth is consumed ONLY by the shared room's return in the processor (PluginProcessor.cpp), which is why
+    // Duck lives here and not in Effects; the lead reverb's own ducking comes from the noise-gate gain directly,
+    // never through this knob. The frame WIDENS when its chevron opens, pushing Scale and Harmony right - which is
+    // what updateBottomBandWidths() and resized() on onExpandedChanged are for.
+    const bool reverbOpen = reverbFrame.expanded();
+
+    // Same rule as Effects: the send and duck widgets are hidden when folded, not painted over.
+    leadSendSlider.setVisible (reverbOpen);
+    leadSendLabel.setVisible (reverbOpen);
+    padSendSlider.setVisible (reverbOpen);
+    padSendLabel.setVisible (reverbOpen);
+    duckDepthSlider.setVisible (reverbOpen);
+    duckDepthLabel.setVisible (reverbOpen);
+
+    auto rvArea = reverbFrame.interior();
+    reverbTitleBand.setBounds (rvArea.getX(), rvArea.getY(), ebs::FrameTitleBand::bandWidth(), rvArea.getHeight());
+    rvArea.removeFromLeft (ebs::FrameTitleBand::bandWidth());
+    auto rv = rvArea.reduced (kEffectsPad);   // frame-local coordinates
+
+    const int headerH  = effectPowerH;                 // the toggle strip, same height as every other cell's
+    const int sendMinH = sendLabelH + 2 + 30;          // label + gap + smallest knob a send cell can take
+
+    auto placeRoomKnob = [&] (juce::Rectangle<int> cell, juce::Slider& knob)
+    {
+        const int d = juce::jlimit (30, 54, cell.getHeight() - 2);
+        const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - d) / 2);
+        knob.setBounds (kx, cell.getY(), d, d);
+    };
+
+    // One room column: header toggle carrying the name, mix knob under it, and when open that room's own send
+    // below. The mix knob keeps the block's full size whenever the send cell can still take its minimum; the send
+    // knob takes what is left, so a room with a send pays for it inside its own column.
+    auto placeRoomColumn = [&] (juce::Rectangle<int> col, juce::ToggleButton& toggle, juce::Slider& mixKnob,
+                                juce::Label* sendLabel, juce::Slider* sendSlider)
+    {
+        toggle.setBounds (col.removeFromTop (headerH));
+
+        if (sendLabel != nullptr)
+        {
+            const int mixD = juce::jlimit (30, 54, col.getHeight() - rowGap - sendMinH);
+            const int kx = col.getX() + juce::jmax (0, (col.getWidth() - mixD) / 2);
+            mixKnob.setBounds (kx, col.getY(), mixD, mixD);
+            col.removeFromTop (mixD + rowGap);
+            placeLabelledKnob (col, *sendLabel, *sendSlider);
+        }
+        else
+            placeRoomKnob (col, mixKnob);
+    };
+
+    const int leadNeed = reverbHeaderNeed (reverbEnableButton.getButtonText());
+    const int harmNeed = reverbHeaderNeed (padReverbEnableButton.getButtonText());
+
+    if (! reverbOpen)
+    {
+        // Folded: ONE stacked column. Its width is the widest of the two measured names, so neither header clips;
+        // updateBottomBandWidths() writes exactly that floor, which makes rv.getWidth() the column width and
+        // leaves nothing to the right. Lead Reverb on top, Harmony Reverb below - the order the rooms appear in
+        // the signal chain (the lead room is the one the voice feeds directly).
+        const int stackedW = juce::jmax (kEffectsColW, juce::jmax (leadNeed, harmNeed));
+        auto rvCol = rv.removeFromLeft (stackedW);
+
+        const int roomH = (rvCol.getHeight() - rowGap) / 2;
+        placeRoomColumn (rvCol.removeFromTop (roomH), reverbEnableButton, reverbMixSlider, nullptr, nullptr);
+        rvCol.removeFromTop (rowGap);
+        placeRoomColumn (rvCol, padReverbEnableButton, padReverbMixSlider, nullptr, nullptr);
+    }
+    else
+    {
+        // Open: three columns. The two room columns are sized by their measured names so the headers never clip,
+        // and Duck takes the remainder - one labelled knob, no toggle of its own, centred in its own cell. It is
+        // not a third send: it is the duck ramp applied to the shared room's return, so it gets its own column
+        // instead of being stacked as a send, which keeps each room's send directly under its own mix knob.
+        const int leadW = juce::jmax (kEffectsColW, leadNeed);
+        const int harmW = juce::jmax (kEffectsColW, harmNeed);
+
+        auto rvCol1 = rv.removeFromLeft (leadW);   rv.removeFromLeft (kEffectsColGap);
+        auto rvCol2 = rv.removeFromLeft (harmW);   rv.removeFromLeft (kEffectsColGap);
+        auto duckCol = rv;   // the last column takes whatever is left
+
+        placeRoomColumn (rvCol1, reverbEnableButton, reverbMixSlider, &leadSendLabel, &leadSendSlider);
+        placeRoomColumn (rvCol2, padReverbEnableButton, padReverbMixSlider, &padSendLabel, &padSendSlider);
+        placeLabelledKnob (duckCol, duckDepthLabel, duckDepthSlider);
     }
 
     // Harmony controls block (rightmost block), an ebs::ExpansibleFrame.
@@ -3335,7 +3508,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         harmonyAttackSlider.setVisible(harmonyOpen);
 
         // interior() excludes the chevron strip, so what is left IS the content area.
-        auto h = harmonyFrame.interior().reduced (kHarmonyPad);
+        auto harmArea = harmonyFrame.interior();
+        harmonyTitleBand.setBounds (harmArea.getX(), harmArea.getY(), ebs::FrameTitleBand::bandWidth(), harmArea.getHeight());
+        harmArea.removeFromLeft (ebs::FrameTitleBand::bandWidth());
+        auto h = harmArea.reduced (kHarmonyPad);
 
         auto powerButtonWidth = [&] (juce::Button& b) -> int
         {
@@ -3438,7 +3614,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     }
 
     // --- Block 1 : Key, Scale, Keyboard (middle) ---
-    auto b1 = scaleFrame.getLocalBounds().reduced(10);
+    auto scaleArea = scaleFrame.getLocalBounds();
+    scaleTitleBand.setBounds (scaleArea.getX(), scaleArea.getY(), ebs::FrameTitleBand::bandWidth(), scaleArea.getHeight());
+    scaleArea.removeFromLeft (ebs::FrameTitleBand::bandWidth());
+    auto b1 = scaleArea.reduced(10);
 
     auto topRow = b1.removeFromTop(44); // Key + Scale row (20 label + 24 combobox)
 
@@ -4715,6 +4894,14 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
             tl.label->setText (ovt::tr (tl.key), juce::dontSendNotification);
     }
 
+    // The left title spines obey the same rule as the labels: a longer translated name pays in length along the
+    // spine, never in width, so switching language re-states every band text here.
+    for (auto& tb : translatableBands)
+    {
+        if (tb.band != nullptr)
+            tb.band->setTitle (ovt::tr (tb.key));
+    }
+
     // Update scale combo box items
     {
         const char* scaleKeys[] = {
@@ -5640,6 +5827,10 @@ void OpenVoxTunerAudioProcessorEditor::writePluginPresetFile (const juce::String
     root.setAttribute ("name", name);
     root.setAttribute ("advancedExpanded", correctionFrame.expanded() ? 1 : 0);
     root.setAttribute ("harmonyExpanded", harmonyFrame.expanded() ? 1 : 0);
+    // The Reverb frame's fold is persisted exactly like Harmony's: the attribute rides on the preset
+    // root and is read back by restoreState(), so a preset opens with the send room in the state you
+    // saved it in. (The Effects frame deliberately does NOT persist its fold.)
+    root.setAttribute ("reverbExpanded", reverbFrame.expanded() ? 1 : 0);
     // stateXml already carries the real parameters.state root type (e.g.
     // "OpenVoxTuner") with <PARAM id=.. value=..> children, so restoreState()
     // via replaceState() keeps the tree type consistent.
@@ -6166,6 +6357,14 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     scaleFrame.repaint();
     harmonyFrame.repaint();
     harmonyFrame.disclosure().repaint();
+    // Effects and Reverb are ExpansibleFrames too. Both were missing here: a theme switch left the
+    // chevron strip of these two frames painted with the OLD palette until something else repainted
+    // them, because an ExpansibleFrame draws its body and chevron from palette tokens in its own
+    // paint. Adding the new frame made this gap visible; both get the same pair as Harmony.
+    effectsFrame.repaint();
+    effectsFrame.disclosure().repaint();
+    reverbFrame.repaint();
+    reverbFrame.disclosure().repaint();
     // The band cues dissolve the panel colour into the edge and draw the shared glyph in
     // accent, so they need the same repaint as the frames they sit over.
     bottomBand.leftCueStrip().repaint();

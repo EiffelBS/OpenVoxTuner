@@ -175,12 +175,23 @@ namespace ovt
         static const char* kTooltipEffectsMore = "tooltip.effects_more";
         // The Harmony fold: the chevron on the frame's right edge hides the four knobs.
         static const char* kTooltipHarmonyMore = "tooltip.harmony_more";
+
+        // The Reverb frame chevron: the send room (both sends + Duck) folds away, the two rooms stay.
+        static const char* kTooltipReverbMore  = "tooltip.reverb_more";
         static const char* kTooltipUpwardCompAmount = "tooltip.upward_comp_amount";
         static const char* kLabelReverbBtn      = "label.reverb_btn";
         static const char* kLabelPadReverbBtn   = "label.pad_reverb_btn";
         // The shared room: how much of each voice is sent to it, and how far the
         // return follows the gate. Captions stay short -- they sit under a knob.
         static const char* kLabelLeadSendBtn    = "label.lead_send";
+
+        // Frame names: each bottom-row frame carries a vertical spine on its left edge naming it.
+        // The band width is fixed, so the translation pays in length along the spine, never in width.
+        static const char* kFrameTitleCorrection   = "frame.title.correction";
+        static const char* kFrameTitleKeyScale     = "frame.title.keyscale";
+        static const char* kFrameTitleEffects      = "frame.title.effects";
+        static const char* kFrameTitleReverb       = "frame.title.reverb";
+        static const char* kFrameTitleHarmony      = "frame.title.harmony";
         static const char* kLabelPadSendBtn     = "label.pad_send";
         static const char* kLabelDuckBtn        = "label.duck_depth";
         static const char* kLabelLimiterBtn     = "label.limiter_btn";
@@ -572,14 +583,15 @@ namespace ovt
             { kTooltipUpwardCompEn, "Enable/disable upward compression on input audio (lifts quiet passages before tuning)." },
             { kTooltipEffectsMore, "Show Formant and De-Esser" },
             { kTooltipHarmonyMore, "Show / hide the Harmony knobs (Volume, Blend, Formant, Attack)" },
+            { kTooltipReverbMore, "Show / hide the Reverb send room (Lead Send, Harmony Send, Duck)" },
             { kTooltipUpwardCompAmount, "Amount of upward compression applied to quiet passages." },
             { kLabelThreshold,   "Threshold" },
             { kTooltipThreshold, "Noise gate threshold in dB. Signals below this level are muted." },
-            { kLabelReverbBtn,      "Reverb" },
-            { kLabelPadReverbBtn,   "Harmony Reverb" },
+            { kLabelReverbBtn,      "Lead" },          // the room is named for the voice it carries, not for the effect
+            { kLabelPadReverbBtn,   "Harmony" },
             { kLabelLeadSendBtn,    "Lead Send" },
             { kLabelPadSendBtn,     "Harmony Send" },
-            { kLabelDuckBtn,        "Duck" },
+            { kLabelDuckBtn,        "Ducking" },
             { kLabelLimiterBtn,     "Limit" },
             { kLabelDouble,         "Doubler" },
             { kLabelTone,           "Tone" },
@@ -794,6 +806,11 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "Harmony Gain" },
             { kMidiLearnHarmonyBlend, "Harmony Blend" },
             { kMidiLearnHarmonyTone,  "Harmony Tone" },
+            { kFrameTitleCorrection,   "Correction" },
+            { kFrameTitleKeyScale,     "Key & Scale" },
+            { kFrameTitleEffects,      "Effects" },
+            { kFrameTitleReverb,       "Reverb" },
+            { kFrameTitleHarmony,      "Harmony" },
             { kHintScrollZoom,        "MouseWheel: Scroll | " },
             { kHintZoom,              "+MouseWheel: Zoom" },
             { kHintAddPoint,          "Double-click: Add point | Right-click: Curve presets" },
@@ -932,14 +949,15 @@ namespace ovt
             { kTooltipUpwardCompEn, "Active/desactive la compression vers le haut sur l'entree (remonte les passages faibles avant le tuning)." },
             { kTooltipEffectsMore, "Afficher Formant et De-Esser" },
             { kTooltipHarmonyMore, "Afficher / masquer les boutons Harmony (Volume, Blend, Formant, Attack)" },
+            { kTooltipReverbMore, "Afficher / masquer la salle d'envoi de la réverb (Envoi lead, Envoi harmonies, Duck)" },
             { kTooltipUpwardCompAmount, "Intensite de la compression vers le haut sur les passages faibles." },
             { kLabelThreshold,   "Seuil" },
             { kTooltipThreshold, "Seuil du noise gate en dB. Les signaux en dessous sont coupes." },
-            { kLabelReverbBtn,      "Reverb" },
-            { kLabelPadReverbBtn,   "Réverb harmonies" },
+            { kLabelReverbBtn,      "Lead" },          // jargon kept in French: the room carries the lead voice
+            { kLabelPadReverbBtn,   "Harmonie" },
             { kLabelLeadSendBtn,    "Envoi lead" },
             { kLabelPadSendBtn,     "Envoi harmonies" },
-            { kLabelDuckBtn,        "Duck" },
+            { kLabelDuckBtn,        "Ducking" },
             { kLabelLimiterBtn,     "Limiteur" },
             { kLabelDouble,         "Doubler" },
             { kLabelTone,           "Timbre" },
@@ -1154,6 +1172,11 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "Gain harmonie" },
             { kMidiLearnHarmonyBlend, "Mixage harmonie" },
             { kMidiLearnHarmonyTone,  "Timbre harmonie" },
+            { kFrameTitleCorrection,   "Correction" },
+            { kFrameTitleKeyScale,     "Tonalité et gamme" },
+            { kFrameTitleEffects,      "Effets" },
+            { kFrameTitleReverb,       "Réverbération" },
+            { kFrameTitleHarmony,      "Harmonie" },
             { kHintScrollZoom,        "Molette: Defiler | " },
             { kHintZoom,              "+Molette: Zoom" },
             { kHintAddPoint,          "Double-clic: Ajouter point | Clic droit: Presets de courbe" },
@@ -1292,11 +1315,12 @@ namespace ovt
             { kTooltipUpwardCompEn, "Upward-Kompression am Eingang aktivieren/deaktivieren (hebt leise Passagen vor dem Tuning an)." },
             { kTooltipEffectsMore, "Formant und De-Esser anzeigen" },
             { kTooltipHarmonyMore, "Harmony-Regler (Volume, Blend, Formant, Attack) ein-/ausblenden" },
+            { kTooltipReverbMore, "Senderraum der Reverb ein-/ausblenden (Lead-Send, Harmonie-Send, Ducking)" },
             { kTooltipUpwardCompAmount, "Staerke der Upward-Kompression auf leisen Passagen." },
             { kLabelThreshold,   "Schwelle" },
             { kTooltipThreshold, "Rauschtor-Schwelle in dB. Signale unter diesem Wert werden unterdrueckt." },
-            { kLabelReverbBtn,      "Reverb" },
-            { kLabelPadReverbBtn,   "Harmonie-Hall" },
+            { kLabelReverbBtn,      "Lead" },          // the -Hall suffix is gone: the room is named for its voice
+            { kLabelPadReverbBtn,   "Harmonie" },
             { kLabelLeadSendBtn,    "Lead-Send" },
             { kLabelPadSendBtn,     "Harmonie-Send" },
             { kLabelDuckBtn,        "Ducking" },
@@ -1514,6 +1538,11 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "Harmonie-Lautstaerke" },
             { kMidiLearnHarmonyBlend, "Harmonie-Mischung" },
             { kMidiLearnHarmonyTone,  "Harmonie-Klangfarbe" },
+            { kFrameTitleCorrection,   "Korrektur" },
+            { kFrameTitleKeyScale,     "Tonart & Tonleiter" },
+            { kFrameTitleEffects,      "Effekte" },
+            { kFrameTitleReverb,       "Hall" },
+            { kFrameTitleHarmony,      "Harmonie" },
             { kHintScrollZoom,        "Rad: Scrollen | " },
             { kHintZoom,              "+Rad: Zoom" },
             { kHintAddPoint,          "Doppelklick: Punkt hinzufuegen | Rechtsklick: Kurven-Presets" },
@@ -1652,14 +1681,15 @@ namespace ovt
             { kTooltipUpwardCompEn, "Activar/desactivar la compression ascendente en la entrada (eleva los pasajes suaves antes del tuning)." },
             { kTooltipEffectsMore, "Mostrar Formant y De-Esser" },
             { kTooltipHarmonyMore, "Mostrar / ocultar los botones de Harmony (Volume, Blend, Formant, Attack)" },
+            { kTooltipReverbMore, "Mostrar / ocultar la sala de envío de la reverb (Envío lead, Envío armonías, Duck)" },
             { kTooltipUpwardCompAmount, "Cantidad de compression ascendente en los pasajes suaves." },
             { kLabelThreshold,   "Umbral" },
             { kTooltipThreshold, "Umbral de la puerta de ruido en dB. Las senales por debajo se silencian." },
-            { kLabelReverbBtn,      "Reverb" },
-            { kLabelPadReverbBtn,   "Reverb armonías" },
+            { kLabelReverbBtn,      "Lead" },          // jargon kept in Spanish: the room carries the lead voice
+            { kLabelPadReverbBtn,   "Armonías" },
             { kLabelLeadSendBtn,    "Envío lead" },
             { kLabelPadSendBtn,     "Envío armonías" },
-            { kLabelDuckBtn,        "Duck" },
+            { kLabelDuckBtn,        "Ducking" },
             { kLabelLimiterBtn,     "Limitador" },
             { kLabelDouble,         "Doblador" },
             { kLabelTone,           "Tono" },
@@ -1874,6 +1904,11 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "Ganancia de armonia" },
             { kMidiLearnHarmonyBlend, "Mezcla de armonia" },
             { kMidiLearnHarmonyTone,  "Tono de armonia" },
+            { kFrameTitleCorrection,   "Corrección" },
+            { kFrameTitleKeyScale,     "Tono y escala" },
+            { kFrameTitleEffects,      "Efectos" },
+            { kFrameTitleReverb,       "Reverb" },
+            { kFrameTitleHarmony,      "Armonía" },
             { kHintScrollZoom,        "Rueda: Desplazar | " },
             { kHintZoom,              "+Rueda: Zoom" },
             { kHintAddPoint,          "Doble clic: Agregar punto | Clic derecho: Presets de curva" },
@@ -2012,14 +2047,15 @@ namespace ovt
             { kTooltipUpwardCompEn, "入力のアップワードコンプレッションを有効/無効にする（チューニング前に小さな音を持ち上げる）。" },
             { kTooltipEffectsMore, "フォルマントとディエッサーを表示" },
             { kTooltipHarmonyMore, "Harmonyノブ（Volume、Blend、Formant、Attack）の表示 / 非表示を切り替えます" },
+            { kTooltipReverbMore, "リバーブの送り部屋（リード送り、ハーモニー送り、ダック）を表示 / 非表示に切り替えます" },
             { kTooltipUpwardCompAmount, "小さな音に対するアップワードコンプレッションの量。" },
             { kLabelThreshold,   "しきい値" },
             { kTooltipThreshold, "ノイズゲートのしきい値（dB）。このレベル以下の信号はミュートされます。" },
-            { kLabelReverbBtn,      "リバーブ" },
-            { kLabelPadReverbBtn,   "ハーモニー・リバーブ" },
+            { kLabelReverbBtn,      "リード" },          // the room is named for the voice it carries
+            { kLabelPadReverbBtn,   "ハーモニー" },
             { kLabelLeadSendBtn,    "リード送り" },
             { kLabelPadSendBtn,     "ハーモニー送り" },
-            { kLabelDuckBtn,        "ダック" },
+            { kLabelDuckBtn,        "ダッキンィ" },
             { kLabelLimiterBtn,     "リミッター" },
             { kLabelDouble,         "ダブラー" },
             { kLabelTone,           "音色" },
@@ -2233,6 +2269,11 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "ハーモニー音量" },
             { kMidiLearnHarmonyBlend, "ハーモニーブレンド" },
             { kMidiLearnHarmonyTone,  "ハーモニー音色" },
+            { kFrameTitleCorrection,   "補正" },
+            { kFrameTitleKeyScale,     "キーとスケール" },
+            { kFrameTitleEffects,      "エフェクト" },
+            { kFrameTitleReverb,       "リバーブ" },
+            { kFrameTitleHarmony,      "ハーモニー" },
             { kHintScrollZoom,        "ホイール: スクロール | " },
             { kHintZoom,              "+ホイール: ズーム" },
             { kHintAddPoint,          "ダブルクリック: ポイント追加 | 右クリック: カーブプリセット" },
@@ -2371,12 +2412,13 @@ namespace ovt
             { kTooltipUpwardCompEn,  "启用/禁用输入音频的向上压缩（在调音前提升较弱的段落）。" },
             { kTooltipEffectsMore, "显示共振峰和去寴音。" },
             { kTooltipHarmonyMore, "显示/隐藏 Harmony 旋钮（Volume、Blend、Formant、Attack）。" },
+            { kTooltipReverbMore, "显示/隐藏混响发送室（主声发送、和声发送、闪降）。" },
             { kTooltipUpwardCompAmount, "应用于较弱段落的向上压缩量。" },
             { kLabelThreshold,      "阈值" },
             { kTooltipThreshold,    "噪声门阈值（dB）。低于此电平的信号将被静音。" },
-            { kLabelReverbBtn,      "混响" },
-            { kLabelPadReverbBtn,   "和声混响" },
-            { kLabelLeadSendBtn,    "主声发送" },
+            { kLabelReverbBtn,      "主唱" },          // lead term unified on 主唱: the room is named for the voice it carries
+            { kLabelPadReverbBtn,   "和声" },
+            { kLabelLeadSendBtn,    "主唱发送" },
             { kLabelPadSendBtn,     "和声发送" },
             { kLabelDuckBtn,        "闪降" },
             { kLabelLimiterBtn,     "限制器" },
@@ -2590,6 +2632,11 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "和声增益" },
             { kMidiLearnHarmonyBlend, "和声混合" },
             { kMidiLearnHarmonyTone,  "和声音色" },
+            { kFrameTitleCorrection,   "校正" },
+            { kFrameTitleKeyScale,     "根音与音阶" },
+            { kFrameTitleEffects,      "效果器" },
+            { kFrameTitleReverb,       "混响" },
+            { kFrameTitleHarmony,      "和声" },
             { kHintScrollZoom,        "鼠标滚轮：滚动 | " },
             { kHintZoom,              "+鼠标滚轮：缩放" },
             { kHintAddPoint,          "双击：添加点 | 右键：曲线预设" },

@@ -78,9 +78,12 @@ add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/_juce_build)
 # line is decorative. Clear it with an empty value to make the pin authoritative.
 # ---------------------------------------------------------------
 include(FetchContent)
+# The bottom-row frames use ebs::FrameTitleBand (a left vertical title spine naming a frame), introduced in v0.15.11;
+# v0.15.14 draws its captions as accent-free tracked capitals and v0.15.15 measures every shipped room name against
+# the fixed cell floor. The pin must stay at or above the newest feature used, and adding components is a patch bump.
 FetchContent_Declare(eiffelbs-ui
     GIT_REPOSITORY https://github.com/EiffelBS/eiffelbs-ui.git
-    GIT_TAG        v0.15.5
+    GIT_TAG        v0.15.15
     GIT_SHALLOW    TRUE)
 FetchContent_MakeAvailable(eiffelbs-ui)
 
