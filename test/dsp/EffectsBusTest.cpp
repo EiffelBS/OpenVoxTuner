@@ -47,6 +47,19 @@ namespace
         bool prepared = false;
     };
 
+    /**
+     * The level a crest lands on when the gain closes exactly on it: the soft clip shapes the value
+     * that sits right on targetLinear, so the emitted crest is slightly under the closing target.
+     * Prefixed like the other helpers in this shared namespace.
+     */
+    float ebxCrest()
+    {
+        static constexpr float kneeFraction = 0.95f;   // must match OutputLimiter::softClip
+        const float a = OutputLimiter::targetLinear / OutputLimiter::ceilingLinear;
+        const float t = (a - kneeFraction) / (1.0f - kneeFraction);
+        return OutputLimiter::ceilingLinear * (kneeFraction + (1.0f - kneeFraction) * std::tanh (static_cast<double> (t)));
+    }
+
     /** A deterministic signal: two tones plus a saw ramp, no RNG, no host state. */
     juce::AudioBuffer<float> makeSignal (int channels, int samples)
     {
@@ -260,9 +273,9 @@ public:
                     "Each registered instance runs exactly once per block");
         }
 
-        // === Test 6: the output limiter never anticipates a peak (non-lookahead) ===
+        // === Test 6: the limiter looks ahead by exactly its declared latency ===
         {
-            beginTest ("Output limiter does not look ahead of a peak");
+            beginTest ("Output limiter looks ahead by its declared latency");
 
             OutputLimiter limiter;
             limiter.prepare (sampleRate, blockSize);
@@ -270,6 +283,8 @@ public:
             limiter.setTrimDb (0.0f);
             limiter.setLimiterEnabled (true);
 
+            const int L = OutputLimiter::kLatencySamples;                       // emitted sample delay
+            const int preWindow = OutputLimiter::kFilterTaps / 2 / OutputLimiter::kOversamplingFactor;
             const int spikeIndex = 300;
             juce::AudioBuffer<float> buf (1, blockSize);
             for (int i = 0; i < blockSize; ++i)
@@ -278,22 +293,24 @@ public:
             auto input = buf;
             limiter.process (buf);
 
-            // Before the spike, the gain must be exactly unity: nothing can duck a
-            // sample that has not happened yet.
+            // The emitted sample is the reconstruction at lag L, so every sample leaves the stage L
+            // samples later than it entered. Ahead of the crest the gain is unity, so the output is a
+            // pure delayed copy of the input -- no shaping, no smear.
             bool quietBefore = true;
-            for (int i = 0; i < spikeIndex; ++i)
-                if (! juce::approximatelyEqual (buf.getSample (0, i), input.getSample (0, i)))
+            for (int i = L; i < spikeIndex; ++i)
+                if (! juce::approximatelyEqual (buf.getSample (0, i), input.getSample (0, i - L)))
                     quietBefore = false;
-            expect (quietBefore, "Samples before the peak must pass through at unity gain");
+            expect (quietBefore, "Samples ahead of the detector window must pass through as a delayed copy at unity gain");
 
-            // At the spike, the gain closes exactly on it: output sits on the ceiling.
-            expectWithinAbsoluteError (buf.getSample (0, spikeIndex), OutputLimiter::ceilingLinear, 1.0e-5f,
-                    "The peak must be caught at the ceiling, not above it");
+            // At the crest, the gain closes exactly on it: the soft clip shapes the value that sits on
+            // targetLinear, so the emitted crest lands right where that curve puts it.
+            expectWithinAbsoluteError (buf.getSample (0, spikeIndex + L), ebxCrest(), 1.0e-5f,
+                    "The peak must be caught at the closing target, not above it");
 
-            // After the spike the release is one-pole: the gain climbs back monotonically.
-            float previous = buf.getSample (0, spikeIndex + 1);
+            // After the crest the release is one-pole: the gain climbs back monotonically.
+            float previous = buf.getSample (0, spikeIndex + L + 2);
             bool rising = true;
-            for (int i = spikeIndex + 2; i < blockSize; ++i)
+            for (int i = spikeIndex + L + 3; i < blockSize; ++i)
             {
                 const float v = buf.getSample (0, i);
                 if (v < previous - 1.0e-6f)
@@ -306,6 +323,10 @@ public:
             expect (peakOf (buf) <= OutputLimiter::ceilingLinear + 1.0e-5f,
                     "Peak after limiting is " + juce::String (peakOf (buf), 6)
                     + ", must stay at or below the ceiling");
+
+            // The lookahead is not free: it IS the declared latency, and the stage reports it.
+            expect (L == limiter.getLatencySamples(),
+                    "The detector's lookahead equals the latency the stage declares (" + juce::String (L) + ")");
         }
 
         // === Test 7: trim applies an exact gain when the limiter is off ===
@@ -341,6 +362,7 @@ public:
             limiter.setTrimDb (0.0f);
             limiter.setLimiterEnabled (true);
 
+            const int L = OutputLimiter::kLatencySamples;
             const int spikeIndex = 200;
             juce::AudioBuffer<float> buf (2, blockSize);
             for (int i = 0; i < blockSize; ++i)
@@ -352,11 +374,11 @@ public:
 
             limiter.process (buf);
 
-            const float expectedGain = OutputLimiter::ceilingLinear / 1.40f;
-            expectWithinAbsoluteError (buf.getSample (0, spikeIndex), 0.10f * expectedGain, 1.0e-5f,
+            const float expectedGain = OutputLimiter::targetLinear / 1.40f;
+            expectWithinAbsoluteError (buf.getSample (0, spikeIndex + L), 0.10f * expectedGain, 1.0e-5f,
                     "The quiet channel must be ducked by the same gain as the loud one");
-            expectWithinAbsoluteError (buf.getSample (1, spikeIndex), OutputLimiter::ceilingLinear, 1.0e-5f,
-                    "The loud channel lands on the ceiling");
+            expectWithinAbsoluteError (buf.getSample (1, spikeIndex + L), ebxCrest(), 1.0e-5f,
+                    "The loud channel lands on the closing target, shaped by the soft clip");
         }
 
         // === Test 9: a silent buffer passes through untouched ===
@@ -380,28 +402,34 @@ public:
                     "The envelope must decay toward zero on silence, got " + juce::String (limiter.currentEnvelope(), 6));
         }
 
-        // === Test 10: the limiter adds no latency to the plugin ===
+        // === Test 10: the stage delays by exactly its declared latency ===
         {
-            beginTest ("Non-lookahead stage keeps the declared latency at zero");
+            beginTest ("The emitted delay equals the declared latency");
 
-            // The plugin declares its latency through setLatencySamples; the output stage
-            // must not be the reason for any of it, so the processor reports no extra delay.
+            // The plugin declares its latency through setLatencySamples, so the delay this stage
+            // adds must be the number it reports -- not zero, and not something unaccounted.
             OutputLimiter limiter;
             limiter.prepare (sampleRate, blockSize);
             limiter.reset();
             limiter.setTrimDb (0.0f);
             limiter.setLimiterEnabled (true);
 
+            const int L = limiter.getLatencySamples();
+            expect (L == OutputLimiter::kLatencySamples,
+                    "The stage must report its own filter group delay (" + juce::String (OutputLimiter::kLatencySamples) + ")");
+
             juce::AudioBuffer<float> impulse (1, blockSize);
             impulse.clear();
             impulse.setSample (0, 100, 1.40f);
             limiter.process (impulse);
 
-            // Energy must appear at the same index it entered: no shift, no smear.
-            expect (std::abs (impulse.getSample (0, 99)) < 1.0e-6f,
-                    "Nothing may be produced before the impulse");
-            expect (std::abs (impulse.getSample (0, 100)) > 1.0e-3f,
-                    "The impulse must stay at its own index, got " + juce::String (impulse.getSample (0, 100), 6));
+            // The reconstruction at phase 0 is the centre tap of the filter: an impulse leaves the
+            // stage L samples later than it entered, and nothing can be produced before that.
+            expect (std::abs (impulse.getSample (0, 100 + L - 1)) < 1.0e-6f,
+                    "Nothing may be produced ahead of the declared delay");
+            expectWithinAbsoluteError (impulse.getSample (0, 100 + L), ebxCrest(), 1.0e-5f,
+                    "The impulse must leave the stage exactly L samples later, got "
+                    + juce::String (impulse.getSample (0, 100 + L), 6));
         }
 
         // === Test 11: currentGain() is the exact attenuation above the ceiling ===
@@ -416,28 +444,30 @@ public:
             limiter.setTrimDb (0.0f);
             limiter.setLimiterEnabled (true);
 
-            // The spike is the LAST sample, so the envelope is still exactly the peak
-            // when process() returns: no release has eaten into it yet.
+            // The spike sits L samples before the last sample, so at the moment process() returns
+            // the detector has it exactly on its centre tap: the envelope is still the peak and no
+            // release has eaten into it yet.
+            const int L = limiter.getLatencySamples();
             juce::AudioBuffer<float> buf (1, blockSize);
             buf.clear();
             for (int i = 0; i < blockSize - 1; ++i)
                 buf.setSample (0, i, 0.20f);
-            buf.setSample (0, blockSize - 1, 1.40f);
+            buf.setSample (0, blockSize - 1 - L, 1.40f);
 
             limiter.process (buf);
 
             expectWithinAbsoluteError (limiter.currentEnvelope(), 1.40f, 1.0e-6f,
                     "The envelope must reach the peak at the peak, got " + juce::String (limiter.currentEnvelope(), 6));
-            expectWithinAbsoluteError (limiter.currentGain(), OutputLimiter::ceilingLinear / 1.40f, 1.0e-6f,
-                    "Above the ceiling, gain must be exactly ceiling / envelope");
+            expectWithinAbsoluteError (limiter.currentGain(), OutputLimiter::targetLinear / 1.40f, 1.0e-6f,
+                    "Above the closing target, gain must be exactly target / envelope");
 
-            const float expectedGr = -20.0f * std::log10 (OutputLimiter::ceilingLinear / 1.40f);
+            const float expectedGr = -20.0f * std::log10 (OutputLimiter::targetLinear / 1.40f);
             expectWithinAbsoluteError (limiter.currentGainReductionDb(), expectedGr, 1.0e-4f,
                     "Gain reduction must read in dB, got " + juce::String (limiter.currentGainReductionDb(), 4));
 
             // The meter's peak is the level leaving the stage: envelope x attenuation.
-            expectWithinAbsoluteError (limiter.currentOutputPeak(), OutputLimiter::ceilingLinear, 1.0e-5f,
-                    "While limiting, the output peak must sit on the ceiling");
+            expectWithinAbsoluteError (limiter.currentOutputPeak(), OutputLimiter::targetLinear, 1.0e-5f,
+                    "While limiting, the output peak must sit on the closing target");
         }
 
         // === Test 12: below the ceiling the reported gain is the trim, exactly ===
@@ -466,8 +496,11 @@ public:
                     "A signal under the ceiling must show zero gain reduction, got "
                     + juce::String (limiter.currentGainReductionDb(), 4));
 
-            // The meter peak is the trimmed level: envelope x unity attenuation.
-            expectWithinAbsoluteError (limiter.currentOutputPeak(), 0.30f * expectedTrim, 1.0e-5f,
+            // The meter peak is the trimmed level: envelope x unity attenuation. The detector reads
+            // the reconstructed crest, so a DC through the filter sums to unity gain per phase group;
+            // the finite 65-tap window truncates that sum by a few percent and the step at the buffer
+            // start rings, which is why this reading carries a tolerance the trim-only tests do not.
+            expectWithinAbsoluteError (limiter.currentOutputPeak(), 0.30f * expectedTrim, 2.0e-2f,
                     "The output peak must be the trimmed signal level, got "
                     + juce::String (limiter.currentOutputPeak(), 6));
         }
@@ -485,9 +518,12 @@ public:
             limiter.setTrimDb (0.0f);
             limiter.setLimiterEnabled (true);
 
+            // The spike sits L samples before the last sample, so when process() returns the detector
+            // has it on its centre tap and the envelope is exactly the peak.
+            const int L = limiter.getLatencySamples();
             juce::AudioBuffer<float> spike (1, blockSize);
             spike.clear();
-            spike.setSample (0, blockSize - 1, 1.40f);
+            spike.setSample (0, blockSize - 1 - L, 1.40f);
             limiter.process (spike);
 
             expect (limiter.currentGainReductionDb() > 1.0f,
