@@ -137,7 +137,7 @@ private:
                                                   // Measured from the open block: interior (384 - 28 chevron strip - 20 padding)
                                                   // * 0.58 = 195, so folding removes ONLY the knobs and nothing in the left
                                                   // column reflows -- at 128 the type combo truncated "Unison + Octaves (4 voices)".
-    static constexpr int kHarmonyPrefW  = 384;  // open block: left column + the four knob columns
+    static constexpr int kHarmonyPrefW  = 384;  // open block: left column + the two knob columns (Volume/Blend over Formant/Attack)
     static constexpr int kHarmonyMinW   = 300;  // floor for the open block, knobs still readable
 
     /** Width one room name needs inside its power toggle, measured in the CURRENT language: the tick well,
@@ -342,19 +342,21 @@ private:
     juce::Slider       upwardCompAmountSlider;
     juce::Label        upwardCompAmountLabel;
 
-    // Effects frame: the effect cells (Gate, Compress, Doubler, Formant, De-Esser, Output
-    // Limit, Saturation) live inside this ebs::ExpansibleFrame. Closed it shows two columns
-    // of two cells; the chevron on its right edge opens the extra three columns
-    // (Formant/De-Esser, Saturation, Limiter + meter) and widens the frame, which the editor
-    // answers by re-laying out the bottom row. The block grows by COLUMN, never by adding a
-    // third row. The two rooms and their sends are NOT here: they live in reverbFrame.
+    // Effects frame: the effect cells (Gate, Compressor, Doubler, Formant, Output Limit + meter, De-Esser, Saturation)
+    // live inside this ebs::ExpansibleFrame. Closed it shows TWO columns of two cells - Gate over Compressor in column 1,
+    // Doubler over Formant in column 2: the input-stage dials you set while singing. The chevron on its right edge opens
+    // TWO extra columns (Output Limit + meter over De-Esser as column 3, Saturation as column 4), which the editor answers
+    // by re-laying out the bottom row. The block grows by COLUMN, never by adding a third row, and folding hides the
+    // limiter's control, not its processing. The two rooms and their sends are NOT here: they live in reverbFrame.
     ebs::ExpansibleFrame effectsFrame;
-    // Reverb frame: the two rooms and their send room. Lead Reverb (enable + mix) and
-    // Harmony Reverb (enable + mix) stay visible in BOTH states - those are what you dial
-    // while singing. The chevron folds the send room away: Lead Send, Harmony Send and Duck
-    // depth are one effect (one shared room, two send amounts, one duck depth), not three
-    // effects. duck_depth is consumed ONLY by that shared room's return in the processor, so
-    // it belongs in this frame; the lead's own ducking comes from the gate gain directly.
+    // Reverb frame: the two rooms and their send room. Folded it is ONE stacked column - the lead room (label Lead) on
+    // top, the harmony room (label Harmony) below, each carrying its enable toggle and mix knob - and that column stays
+    // visible in BOTH states, because those are what you dial while singing. The chevron opens the frame into three
+    // columns: both rooms side by side, each with its own send directly under its mix knob, plus Ducking alone on the
+    // right. Lead Send, Harmony Send and Ducking are one effect (one shared room, two send amounts, one duck depth),
+    // not three effects; their width comes from reverbHeaderNeed(), measured in the current language. duck_depth is
+    // consumed ONLY by that shared room's return in the processor, so it belongs in this frame; the lead's own ducking
+    // comes from the gate gain directly.
     ebs::ExpansibleFrame reverbFrame;
     // The Correction block is the same component: one chevron, one fold flag, one
     // host re-layout. Both bottom-row frames are ExpansibleFrame, not two bespoke handles.
@@ -363,11 +365,12 @@ private:
     // ExpansibleFrames, with no fold. Every bottom-row block is a component, so it repaints
     // itself when the row re-lays out.
     ebs::FramedBody scaleFrame;
-    // Harmony is the third ebs::ExpansibleFrame: the chevron on its right edge folds the
-    // four knob columns (Volume / Blend / Formant / Attack) away and the frame narrows to
-    // its left column, giving that room back to the band. The selectors, the two power
-    // toggles and the enable button stay live in both states - a folded block hides what
-    // you dial, not what you choose.
+    // Harmony is the third ebs::ExpansibleFrame: the chevron on its right edge folds away the two knob columns (Volume
+    // over Formant, Blend over Attack) and the frame narrows to its left column, giving that room back to the band. The
+    // enable button, the type combo, the voice selectors and the two power toggles stay live in both states - a folded
+    // block hides what you dial, not what you choose. Both zones ride the band grid: the open knobs go through
+    // placeLabelledKnob() exactly like every other labelled cell, so they share the row split, label strip, gap and knob
+    // diameter with Effects and Reverb, and in the left column the height the rows do not use becomes their spacing.
     ebs::ExpansibleFrame harmonyFrame;
     // The bottom row is one ebs::FrameBand: every block states the width its content asks
     // for and the floor below which its widgets collide. Spare room goes only to blocks

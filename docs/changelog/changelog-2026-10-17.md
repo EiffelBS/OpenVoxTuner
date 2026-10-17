@@ -330,3 +330,17 @@ Asked verbatim: *"Il ne faut pas d'accent pour les textes en majuscule. Maintena
   `.dbg/ui_min_1705.png` keeps the pre-swap pairing (Compress/Limit + GR/TRIM) for comparison.
 - The open Effects row cannot be driven from settings — synthetic input is blocked and the Effects fold is deliberately not persisted — so the
   open state is proven by code and by the width model; language rendering and the open columns are checked in-app by the human, who asked for no extra captures (*"Pas besoin de rentrer dans le détail et faire des captures"*).
+
+## Harmony alignment: spacing in the main zone, knobs on the band grid (UI.24)
+
+Asked verbatim: *"Il faudrait revoir l'alignement dans la frame Harmony. Tous les composants de la zone principale sont collés vertifcalement alors qu'il y a de la place pour avoir une espacement. Dans la zone dépliée, les knobs ne sont pas alignés comme les autres knobs équivalents des autres frames."*
+
+- **The main zone is distributed, not glued.** The six rows that stay visible in BOTH states (enable strip 18 px, type combo 26 px, use-voice pill row 22 px, voice/tone selectors 28 px, Follow-Lead toggle 20 px, Gain-Match toggle 20 px — `mainRowsH = 114` px) were placed back-to-back and the height the band row gave this frame that they did not use sat empty at the bottom edge. Row heights stay fixed by what each row carries; the leftover is inserted as spacing **between** groups: `mainGap = juce::jlimit (3, 12, (h.getHeight() - mainRowsH) / 5)` — scales with window width, floor 3 px, cap 12 px, so the column reads as five breathing groups.
+- **The open knobs ride the band grid.** The private formula is gone (`harmLabelH = 14`, knob `jmin (44, jmax (30, …))`, gaps 6 and 8): Volume/Blend over Formant/Attack go through `placeLabelledKnob()`, the helper the Reverb sends and Saturation use — label strip 14 px, 2 px gap, knob centred inside `effKnobD`, rows split by the band's own `rowGap = 8`, columns by `kEffectsColGap = 8`. Both frames start from a pad-10 interior of the same band height, so row lines, label strips and knob diameter match Effects and Reverb cells in any window.
+- **Width untouched on purpose.** Harmony remains the band's only growable frame (`kHarmonyPrefW = 384`, `kHarmonyMinW = 300`, left/right split 58 / 42, same 8 px separator): at floor width each knob column measures (105 − 8) / 2 ≈ 48 px and knobs clamp to ≥ 30 px, so alignment was bought without taking room from Correction.
+- **Header prose repaired in the same commit:** `kHarmonyPrefW` said "four knob columns" — it is two columns carrying four knobs; the Effects comment claimed the chevron opens THREE extra columns starting with Formant/De-Esser, which contradicts the accepted Limit/Formant swap (it opens TWO: Output Limit + meter over De-Esser, then Saturation); the Reverb comment named rooms visible in BOTH states without saying folded is ONE stacked Lead-over-Harmony column.
+
+### Validation
+
+- OVT Release rebuilt with fresh link lines for `OpenVoxTunerTests.exe` and `Standalone\OpenVoxTuner.exe`, 0 errors; tests **180 OK / 0 FAILED**, `[ OK ] OutputLimiterTruePeak (17 assertions)`.
+- Standalone relaunched from that binary (mtime 2026-10-17 19:36:25, PID 84520). No captures were taken — the human checks alignment and languages in-app (*"Pas besoin de rentrer dans le détail et faire des captures"*), and no editor-level UI test exists in `test/`.

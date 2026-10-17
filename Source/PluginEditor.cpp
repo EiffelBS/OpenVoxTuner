@@ -3533,81 +3533,78 @@ void OpenVoxTunerAudioProcessorEditor::resized()
             h.removeFromLeft (8);
         auto rightCol = h;
 
-        // --- Left column: enable button, type, voices, toggles ---
-        {
-            auto enableRow = leftCol.removeFromTop (18);
-            const int harmonyEnableW = powerButtonWidth (harmonyEnableButton);
-            harmonyEnableButton.setBounds (enableRow.removeFromLeft (harmonyEnableW).reduced (0, 0));
-        }
+        // --- Left column: enable button, type, voices, toggles. These six rows are the frame's main zone and they
+        // stay visible in BOTH states. Each row height is fixed by what it carries; the height the band row gives this
+        // frame that they do not use becomes the SPACING between them, so the column reads as five breathing groups
+        // instead of one glued stack: a glued stack hides which control belongs to which group, and the leftover
+        // height sat empty at the bottom edge. The spacing scales with the window, never below 3 px, capped at 12.
+        const int voiceRowH  = 18;   // enable strip, same height as every power strip in the band
+        const int typeRowH   = 26;   // the harmony type combo
+        const int pillRowH   = 22;   // "use voice" caption + pill + tone colour swatch
+        const int selectorH  = 28;   // voices + tone selectors
+        const int toggleH    = 20;   // follow-lead and gain-match power buttons, twice
+        const int mainRowsH  = voiceRowH + typeRowH + pillRowH + selectorH + 2 * toggleH;
+        const int mainGap    = juce::jlimit (3, 12, (h.getHeight() - mainRowsH) / 5);
 
-        harmonyTypeBox.setBounds (leftCol.removeFromTop(26));
+        auto enableRow = leftCol.removeFromTop (voiceRowH);
+        const int harmonyEnableW = powerButtonWidth (harmonyEnableButton);
+        harmonyEnableButton.setBounds (enableRow.removeFromLeft (harmonyEnableW).reduced (0, 0));
 
-        auto uvRow = leftCol.removeFromTop(22);
+        leftCol.removeFromTop (mainGap);
+        harmonyTypeBox.setBounds (leftCol.removeFromTop (typeRowH));
+
+        leftCol.removeFromTop (mainGap);
+        auto uvRow = leftCol.removeFromTop (pillRowH);
         // Caption first, then the pill: the switch is sized to its own sweet spot.
         const int uvLabelW = useVoiceLabel.getFont().getStringWidth (useVoiceLabel.getText()) + 4;
         useVoiceLabel.setBounds (uvRow.removeFromLeft (uvLabelW).reduced (0, 3));
         useVoiceButton.setBounds (uvRow.removeFromLeft (44));
         harmonyToneColorLabel.setBounds (uvRow.removeFromRight(34));
 
-        auto selectorRow = leftCol.removeFromTop(28);
+        leftCol.removeFromTop (mainGap);
+        auto selectorRow = leftCol.removeFromTop (selectorH);
         auto selectorBox = selectorRow.removeFromLeft (juce::jmax (90, leftCol.getWidth() - 34));
         shiftedVoicesBox.setBounds (selectorBox.reduced (0, 2));
         harmonyToneBox.setBounds (selectorBox.reduced (0, 2));
         harmonyToneColorSlider.setBounds (selectorRow.withSizeKeepingCentre (28, 24));
 
-        auto flRow = leftCol.removeFromTop (20);
+        leftCol.removeFromTop (mainGap);
+        auto flRow = leftCol.removeFromTop (toggleH);
         const int flW = powerButtonWidth (harmonyFollowLeadButton);
         harmonyFollowLeadButton.setBounds (flRow.removeFromLeft (flW).reduced (0, 1));
 
-        auto gmRow = leftCol.removeFromTop (20);
+        leftCol.removeFromTop (mainGap);
+        auto gmRow = leftCol.removeFromTop (toggleH);
         const int gmW = powerButtonWidth (harmonyGainMatchButton);
         harmonyGainMatchButton.setBounds (gmRow.removeFromLeft (gmW).reduced (0, 1));
 
-        // --- Right column: Volume + Blend side-by-side, Formant + Attack below. This whole
-        // zone is the folded part of the block, so it is laid out only when open and only
-        // when there is room for two knob columns; closed, rightCol is empty by construction.
-        // The knob size is derived from the block height so both rows always fit;
-        // the bottom strip is a fixed 190 px and the Harmony block has no room to
-        // grow. The Doubler knob lives in the Effects block (row 2), not here: it
-        // doubles the dry lead, not the harmony voices.
+        // --- Right column: Volume + Blend side-by-side, Formant + Attack below. This whole zone is the folded part
+        // of the frame, so it is laid out only when open and only when there is room for two knob columns; closed,
+        // rightCol is empty by construction. The cells go through placeLabelledKnob(), the SAME helper the Reverb
+        // sends and Saturation use: 14 px label strip, 2 px gap, one knob centred inside effKnobD, two rows split by
+        // the band's own rowGap of 8 px. That is what puts a Harmony dial on the same grid as an Effects dial - the
+        // same interior top, the same row split, the same diameter - where this frame used to run its own private row
+        // formula (label 14 + knob capped at 44, gap 6) and landed its knobs at heights no other frame in the band uses.
+        // Harmony is the band's only growable frame, so spare width lands here; kHarmonyMinW keeps two readable
+        // columns at minimum window width. The Doubler knob lives in the Effects block (row 2), not here: it doubles
+        // the dry lead, not the harmony voices.
         if (harmonyOpen && rightCol.getWidth() > 4)
         {
-            const int harmLabelH = 14;
-            const int harmRowGap = 6;
-            const int harmKnobGap = 8;
-            const int numKnobRows = 2;
-            int harmKnobD = (h.getHeight() - numKnobRows * (harmLabelH + 2) - (numKnobRows - 1) * harmRowGap) / numKnobRows;
-            harmKnobD = juce::jmin (44, juce::jmax (30, harmKnobD));
-            const int harmRowH = harmLabelH + harmKnobD + 2;
-            auto knobColW = (rightCol.getWidth() - harmKnobGap) / 2;
+            const int harmRowH = (rightCol.getHeight() - rowGap) / 2;
+            auto knobCol1 = rightCol.removeFromLeft ((rightCol.getWidth() - kEffectsColGap) / 2);
+            rightCol.removeFromLeft (kEffectsColGap);
+            auto knobCol2 = rightCol;
 
-            auto knobRow1 = rightCol.removeFromTop (harmRowH);
-            {
-                const int kx = knobRow1.getX() + juce::jmax (0, (knobColW - harmKnobD) / 2);
-                harmonyGainLabel.setBounds (kx, knobRow1.getY(), harmKnobD, harmLabelH);
-                harmonyGainSlider.setBounds (kx, knobRow1.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
-            }
-            {
-                const int kx = knobRow1.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
-                harmonyBlendLabel.setBounds (kx, knobRow1.getY(), harmKnobD, harmLabelH);
-                harmonyBlendSlider.setBounds (kx, knobRow1.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
-            }
+            placeLabelledKnob (knobCol1.removeFromTop (harmRowH), harmonyGainLabel, harmonyGainSlider);
+            placeLabelledKnob (knobCol2.removeFromTop (harmRowH), harmonyBlendLabel, harmonyBlendSlider);
 
-            rightCol.removeFromTop (harmRowGap);
-            auto knobRow2 = rightCol.removeFromTop (harmRowH);
-            {
-                // Formant stays under the Volume knob (left column).
-                const int kxL = knobRow2.getX() + juce::jmax (0, (knobColW - harmKnobD) / 2);
-                harmonyFormantLabel.setBounds (kxL, knobRow2.getY(), harmKnobD, harmLabelH);
-                harmonyFormantSlider.setBounds (kxL, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
-            }
-            {
-                // Harmony Attack (per-voice fade-in) is placed directly under the
-                // Blend knob (right column), as requested.
-                const int kxR = knobRow2.getX() + knobColW + harmKnobGap + juce::jmax (0, (knobColW - harmKnobD) / 2);
-                harmonyAttackLabel.setBounds (kxR, knobRow2.getY(), harmKnobD, harmLabelH);
-                harmonyAttackSlider.setBounds (kxR, knobRow2.getY() + harmLabelH + 2, harmKnobD, harmKnobD);
-            }
+            knobCol1.removeFromTop (rowGap);
+            knobCol2.removeFromTop (rowGap);
+
+            // Formant stays under the Volume knob (left column) and Harmony Attack - the per-voice fade-in - sits
+            // directly under Blend (right column), as requested.
+            placeLabelledKnob (knobCol1, harmonyFormantLabel, harmonyFormantSlider);
+            placeLabelledKnob (knobCol2, harmonyAttackLabel, harmonyAttackSlider);
         }
 
 
