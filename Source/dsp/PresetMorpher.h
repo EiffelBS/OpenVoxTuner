@@ -21,6 +21,7 @@ namespace ovtdsp
         float harmonyGain = 1.0f;
         float harmonyBlend = 0.5f;
         float harmonyAttack = 0.1137f; // normalized value of "harmony_attack" (35 ms in 1..300 ms range)
+        bool  harmonyGainMatch = false; // "harmony_gain_match": 1/sqrt(1+N) gain match on the harmony mix
         float harmonyFormant = 0.0f;
         float harmonyToneColor = 0.5f;
         float doubleAmount = 0.0f;   // normalized "double_amount" (0..100 %)
@@ -100,6 +101,7 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("harmony_gain"))       s.harmonyGain = p->getValue();
         if (auto* p = params.getParameter ("harmony_blend"))      s.harmonyBlend = p->getValue();
         if (auto* p = params.getParameter ("harmony_attack"))     s.harmonyAttack = p->getValue();
+        if (auto* p = params.getParameter ("harmony_gain_match")) s.harmonyGainMatch = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("harmony_formant"))    s.harmonyFormant = p->getValue();
         if (auto* p = params.getParameter ("harmony_tone_color")) s.harmonyToneColor = p->getValue();
         if (auto* p = params.getParameter ("double_amount"))      s.doubleAmount = p->getValue();
@@ -176,7 +178,7 @@ namespace ovtdsp
                         "noise_gate_threshold", "key", "scale", "harmony_type",
                         "harmony_tone", "harmony_shifted_voices", "latency_mode",
                         "editor_measures", "voice_type", "formant_enable", "bypass", "harmony_enable",
-                        "harmony_use_voice", "harmony_follow_lead", "reverb_enable",
+                        "harmony_use_voice", "harmony_follow_lead", "harmony_attack", "harmony_gain_match", "reverb_enable",
                         "pad_reverb_mix", "pad_reverb_enable",
                         "lead_send", "pad_send", "duck_depth",
                         "noise_gate_enable", "upward_comp_enable", "upward_comp_amount",
@@ -235,6 +237,9 @@ namespace ovtdsp
         setParam ("formant",            source.formant + (target.formant - source.formant) * t);
         setParam ("harmony_gain",       source.harmonyGain + (target.harmonyGain - source.harmonyGain) * t);
         setParam ("harmony_blend",      source.harmonyBlend + (target.harmonyBlend - source.harmonyBlend) * t);
+        // The per-voice fade-in was CAPTURED but never applied: a morph carried the value in its
+        // state and never wrote it, so an A/B move left the attack where it was.
+        setParam ("harmony_attack",     source.harmonyAttack + (target.harmonyAttack - source.harmonyAttack) * t);
         setParam ("harmony_formant",    source.harmonyFormant + (target.harmonyFormant - source.harmonyFormant) * t);
         setParam ("harmony_tone_color", source.harmonyToneColor + (target.harmonyToneColor - source.harmonyToneColor) * t);
         setParam ("double_amount",      source.doubleAmount + (target.doubleAmount - source.doubleAmount) * t);
@@ -282,6 +287,7 @@ namespace ovtdsp
         setParam ("formant_enable",    lerpOrStep (source.formantEnable ? 1.0f : 0.0f, target.formantEnable ? 1.0f : 0.0f, t));
         setParam ("bypass",            lerpOrStep (source.bypass ? 1.0f : 0.0f, target.bypass ? 1.0f : 0.0f, t));
         setParam ("harmony_enable",    lerpOrStep (source.harmonyEnable ? 1.0f : 0.0f, target.harmonyEnable ? 1.0f : 0.0f, t));
+        setParam ("harmony_gain_match", lerpOrStep (source.harmonyGainMatch ? 1.0f : 0.0f, target.harmonyGainMatch ? 1.0f : 0.0f, t));
         setParam ("harmony_use_voice", lerpOrStep (source.harmonyUseVoice ? 1.0f : 0.0f, target.harmonyUseVoice ? 1.0f : 0.0f, t));
         setParam ("harmony_follow_lead", lerpOrStep (source.harmonyFollowLead ? 1.0f : 0.0f, target.harmonyFollowLead ? 1.0f : 0.0f, t));
         setParam ("reverb_enable",     lerpOrStep (source.reverbEnable ? 1.0f : 0.0f, target.reverbEnable ? 1.0f : 0.0f, t));

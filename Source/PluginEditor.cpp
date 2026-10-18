@@ -3547,25 +3547,33 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // eye lands on - and, on ONE line under it, the two secondary controls as small knobs:
         // Division (detented, the ping length synced to the host tempo) and Feedback. The detented
         // knob replaced a combo strip, which is what frees the height the Mix knob needed: the combo
-        // plus its caption cost 36 px, the pair of small knobs costs 47 and gives Mix 83.
+        // plus its caption cost 36 px, the pair of small knobs costs 50 and gives Mix its full 54.
         auto col5 = rowsArea;   // the last column takes whatever is left
         delayEnableButton.setBounds (col5.removeFromTop (effectPowerH));
 
-        const int smallRowH = sendLabelH + 33;   // caption strip + the tallest a half-column dial can be
-        auto smallRow = col5.removeFromBottom (smallRowH);
-        col5.removeFromBottom (rowGap);
-        placeLabelledKnob (col5, delayMixLabel, delayMixSlider);
+        // The Mix cell is exactly the standard cell (caption + a full-size dial + its 2 px of air),
+        // and the two small dials take the space that is left, CENTRED in it: a row flush against the
+        // frame's bottom edge reads as a footnote, while the same row at mid-distance from the Mix
+        // knob reads as the second half of one component.
+        const int smallLabelH = 12;   // one fitted caption: 8-11 pt, so 12 px carries every locale
+        const int smallKnobD  = 36;   // the biggest a half-column dial can be (36 px wide cells)
+        const int smallRowH   = smallLabelH + smallKnobD + 2;
+
+        auto mixCell = col5.removeFromTop (sendLabelH + 54 + 2);
+        placeLabelledKnob (mixCell, delayMixLabel, delayMixSlider);
+
+        auto smallRow = col5.withSizeKeepingCentre (col5.getWidth(), smallRowH);
 
         // The two small cells: a caption each, fitted to the half column they are given (the shared
         // 11 pt label does not fit 36 px in every language), then the dial centred under it.
         auto placeSmallLabelledKnob = [&] (juce::Rectangle<int> cell, juce::Label& label, juce::Slider& knob)
         {
-            auto labelStrip = cell.removeFromTop (sendLabelH);
+            auto labelStrip = cell.removeFromTop (smallLabelH);
             fitLabelToWidth (label, labelStrip.getWidth());
             label.setBounds (labelStrip);
 
             const int d = juce::jlimit (24, effKnobD,
-                                        juce::jmin (cell.getWidth(), cell.getHeight() - 2));
+                                        juce::jmin (cell.getWidth(), cell.getHeight()));
             const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - d) / 2);
             knob.setBounds (kx, cell.getY() + 1, d, d);
         };

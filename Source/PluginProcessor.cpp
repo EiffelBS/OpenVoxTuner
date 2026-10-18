@@ -5093,6 +5093,7 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("shiftedVoices",    ms.harmonyShiftedVoices);
         slotXml->setAttribute ("harmonyFormant",   (double) ms.harmonyFormant);
         slotXml->setAttribute ("harmonyAttack",    (double) ms.harmonyAttack);
+        slotXml->setAttribute ("harmonyGainMatch", ms.harmonyGainMatch);
         slotXml->setAttribute ("voiceType",        ms.voiceType);
         slotXml->setAttribute ("latencyMode",      ms.latencyMode);
         slotXml->setAttribute ("editorMeasures",   ms.editorMeasures);
@@ -5213,6 +5214,7 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.harmonyShiftedVoices = slotXml->getIntAttribute ("shiftedVoices", 1);
             ms.harmonyFormant     = (float) slotXml->getDoubleAttribute ("harmonyFormant", 0.5);
             ms.harmonyAttack      = (float) slotXml->getDoubleAttribute ("harmonyAttack", 0.1137);
+        ms.harmonyGainMatch   = slotXml->getBoolAttribute ("harmonyGainMatch", false);
             ms.voiceType          = slotXml->getIntAttribute ("voiceType", 0);
             ms.latencyMode        = slotXml->getIntAttribute ("latencyMode", 1);
             ms.editorMeasures     = slotXml->getIntAttribute ("editorMeasures", 8);

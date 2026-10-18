@@ -31,6 +31,7 @@
 #include "dsp/HarmonyAttackTest.cpp"
 #include "dsp/PluginUndoTest.cpp"
 #include "dsp/PluginPresetTest.cpp"
+#include "dsp/MorphCoverageTest.cpp"
 #include "dsp/UpwardCompressorTest.cpp"
 #include "ui/PitchCurveEditorTest.cpp"
 #include "ui/HarmonyLayoutTest.cpp"

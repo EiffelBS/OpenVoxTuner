@@ -449,7 +449,10 @@ target_link_libraries(OpenVoxTunerTests PRIVATE
 # widgets are opt-in includes: this target builds and its 136 tests pass with the
 # define REMOVED, so eiffelbs-ui no longer forces it. Keeping it costs nothing and
 # covers any future path that reaches juce_audio_devices.
-target_compile_definitions(OpenVoxTunerTests PRIVATE NOMINMAX)
+target_compile_definitions(OpenVoxTunerTests PRIVATE NOMINMAX
+    # MorphCoverageTest reads the parameter declarations out of the processor source, so the
+    # tests target has to know where that source lives.
+    OVT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Source")
 
 # === LPC formant framing benchmark (console app) ===
 # tools/bench_formant_lsd.cpp — log-spectral distortion (LSD) of the LPC
