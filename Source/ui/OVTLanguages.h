@@ -201,6 +201,13 @@ namespace ovt
         static const char* kLabelSaturation       = "label.saturation";
         static const char* kLabelSaturationDrive  = "label.saturation_drive";
         static const char* kLabelSaturationWarmth = "label.saturation_warmth";
+        // Delay: the tempo-synced ping-pong stage. Same caption family as saturation's — short
+        // words under knobs; the division combo items are musical fractions, locale-independent,
+        // so they never enter any dictionary.
+        static const char* kLabelDelay           = "label.delay";
+        static const char* kLabelDelayDivision   = "label.delay_division";
+        static const char* kLabelDelayMix        = "label.delay_mix";
+        static const char* kLabelDelayFeedback   = "label.delay_feedback";
         static const char* kLabelTone           = "label.tone";
         static const char* kLabelModernBtn      = "label.modern_btn";
         static const char* kLabelTransparentBtn = "label.transparent_btn";
@@ -438,6 +445,7 @@ namespace ovt
         static const char* kMidiLearnHarmonyGain   = "midi_learn.harmony_gain";
         static const char* kMidiLearnHarmonyBlend  = "midi_learn.harmony_blend";
         static const char* kMidiLearnHarmonyTone   = "midi_learn.harmony_tone";
+        static const char* kMidiLearnDelayMix      = "midi_learn.delay_mix";
 
         // PitchCurveEditor hint keys
         static const char* kHintScrollZoom  = "hint.scroll_zoom";
@@ -687,6 +695,11 @@ namespace ovt
             { kTooltipSaturationWarmth,  "Warmth of the harmonics the drive creates: 0% keeps them bright, 100% rounds them off." },
             { kLabelSaturationDrive,     "Drive" },
             { kLabelSaturationWarmth,    "Warmth" },
+            // Delay captions. The division combo items are musical fractions and stay untranslated.
+            { kLabelDelay,              "Delay" },
+            { kLabelDelayDivision,      "Division" },
+            { kLabelDelayMix,           "Mix" },
+            { kLabelDelayFeedback,      "Feedback" },
             { kTooltipReverbEn,       "Enable/disable reverb effect." },
             { kTooltipReverbMix,      "Lead reverb mix: at 0 the voice stays as it is, at full mix it is REPLACED by the room. It is a crossfade, so turning it up does not stack loudness on top of your voice." },
             { kTooltipPadReverbEn,    "Enable/disable the harmony reverb: the second reverb room, sitting on the harmony voices. It is separate from the lead reverb, wide and heavily damped, so the stack gains amplitude without a long metallic ring." },
@@ -806,6 +819,7 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "Harmony Gain" },
             { kMidiLearnHarmonyBlend, "Harmony Blend" },
             { kMidiLearnHarmonyTone,  "Harmony Tone" },
+            { kMidiLearnDelayMix,     "Delay Mix" },
             { kFrameTitleCorrection,   "Correction" },
             { kFrameTitleKeyScale,     "Key & Scale" },
             { kFrameTitleEffects,      "Effects" },
@@ -1053,6 +1067,12 @@ namespace ovt
             { kTooltipSaturationWarmth,  "Chaleur des harmoniques créées par le drive : 0 % les laisse brillantes, 100 % les arrondit." },
             { kLabelSaturationDrive,     "Drive" },
             { kLabelSaturationWarmth,    "Chaleur" },
+            // Delay captions. Division items are musical fractions and stay untranslated; the
+            // feedback control is named "Retour", the standard French word for an echo return.
+            { kLabelDelay,              "Délai" },
+            { kLabelDelayDivision,      "Division" },
+            { kLabelDelayMix,           "Mélange" },
+            { kLabelDelayFeedback,      "Retour" },
             { kTooltipReverbEn,       "Activer/désactiver l'effet de réverbération." },
             { kTooltipReverbMix,      "Mix de réverb du lead : à 0 la voix reste telle quelle, à fond elle est REMPLACÉE par la salle. C'est un fondu enchaîné, donc monter le potant n'ajoute pas de volume par-dessus la voix." },
             { kTooltipPadReverbEn,    "Active/désactive la réverb des harmonies : la seconde salle de réverb, posée sur les voix d'harmonie. Elle est séparée de la réverb du lead, large et fortement amortie : la pile gagne de l'amplitude sans longue résonance métallique." },
@@ -1172,6 +1192,7 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "Gain harmonie" },
             { kMidiLearnHarmonyBlend, "Mixage harmonie" },
             { kMidiLearnHarmonyTone,  "Timbre harmonie" },
+            { kMidiLearnDelayMix,     "Mix délai" },
             { kFrameTitleCorrection,   "Correction" },
             { kFrameTitleKeyScale,     "Tonalité et gamme" },
             { kFrameTitleEffects,      "Effets" },
@@ -1421,6 +1442,11 @@ namespace ovt
             { kTooltipSaturationWarmth,  "Wärme der vom Drive erzeugten Obertöne: 0 % lässt sie hell, 100 % rundet sie ab." },
             { kLabelSaturationDrive,     "Drive" },
             { kLabelSaturationWarmth,    "Wärme" },
+            // Delay captions. Division items are musical fractions and stay untranslated.
+            { kLabelDelay,              "Delay" },
+            { kLabelDelayDivision,      "Teilung" },
+            { kLabelDelayMix,           "Mix" },
+            { kLabelDelayFeedback,      "Feedback" },
             { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
             { kTooltipReverbMix,      "Lead-Hall-Anteil: bei 0 bleibt die Stimme unverändert, bei voller Stellung wird sie durch den Raum ERSETZT. Es ist ein Crossfade – der Regler stapelt keine Lautstärke über die Stimme." },
             { kTooltipPadReverbEn,    "Aktiviert/deaktiviert den Harmonie-Hall: der zweite Hall-Raum, auf den Harmoniestimmen. Er ist getrennt von der Lead-Reverb, breit und stark gedämpft – der Stapel gewinnt Lautstärke ohne lange metallische Resonanz." },
@@ -1538,6 +1564,7 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "Harmonie-Lautstaerke" },
             { kMidiLearnHarmonyBlend, "Harmonie-Mischung" },
             { kMidiLearnHarmonyTone,  "Harmonie-Klangfarbe" },
+            { kMidiLearnDelayMix,     "Delay-Mix" },
             { kFrameTitleCorrection,   "Korrektur" },
             { kFrameTitleKeyScale,     "Tonart & Tonleiter" },
             { kFrameTitleEffects,      "Effekte" },
@@ -1787,6 +1814,11 @@ namespace ovt
             { kTooltipSaturationWarmth,  "Calidez de los armónicos que crea el drive: 0% los deja brillantes, 100% los redondea." },
             { kLabelSaturationDrive,     "Drive" },
             { kLabelSaturationWarmth,    "Calidez" },
+            // Retardo: eco sincronizado al tempo en el bus del lead, en la barra de efectos.
+            { kLabelDelay,               "Retardo" },
+            { kLabelDelayDivision,       "División" },
+            { kLabelDelayMix,            "Mezcla" },
+            { kLabelDelayFeedback,       "Realimentación" },
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberación." },
             { kTooltipReverbMix,      "Mezcla de reverberación del lead: en 0 la voz queda intacta, al máximo es REMPLAZADA por la sala. Es un fundido cruzado: subir el potenciómetro no apila volumen sobre la voz." },
             { kTooltipPadReverbEn,    "Activa/desactiva la reverberación de las armonías: la segunda sala de reverberación, sobre las voces de armonía. Separada de la del lead, ancha y muy amortiguada; la pila gana amplitud sin larga resonancia metálica." },
@@ -1904,6 +1936,7 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "Ganancia de armonia" },
             { kMidiLearnHarmonyBlend, "Mezcla de armonia" },
             { kMidiLearnHarmonyTone,  "Tono de armonia" },
+            { kMidiLearnDelayMix,     "Mix delay" },
             { kFrameTitleCorrection,   "Corrección" },
             { kFrameTitleKeyScale,     "Tono y escala" },
             { kFrameTitleEffects,      "Efectos" },
@@ -2152,6 +2185,11 @@ namespace ovt
             { kTooltipSaturationWarmth,  "ドライブが生む倍音の温かみ：0%は明るいまま、100%は丸めます。" },
             { kLabelSaturationDrive,     "ドライブ" },
             { kLabelSaturationWarmth,    "ウォーム" },
+            // Delay captions. Division items are musical fractions and stay untranslated.
+            { kLabelDelay,              "ディレイ" },
+            { kLabelDelayDivision,      "ディヴィジョン" },
+            { kLabelDelayMix,           "ミックス" },
+            { kLabelDelayFeedback,      "フィードバック" },
             { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
             { kTooltipReverbMix,      "リード・リバーブのミックス：0 では音声のまま、最大では音声が部屋に「置き換わります」。クロスフェードなので、上げても音声の上に音量を重ねるわけではありません。" },
             { kTooltipPadReverbEn,    "ハーモニー・リバーブのオン/オフ：ハーモニー声に掛ける第二のリバーブ部屋です。リード用とは別で、広く強く減衰しています。スタックは音量を得ますが、長い金属的な共鳴は残しません。" },
@@ -2269,6 +2307,7 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "ハーモニー音量" },
             { kMidiLearnHarmonyBlend, "ハーモニーブレンド" },
             { kMidiLearnHarmonyTone,  "ハーモニー音色" },
+            { kMidiLearnDelayMix,     "ディレイミックス" },
             { kFrameTitleCorrection,   "補正" },
             { kFrameTitleKeyScale,     "キーとスケール" },
             { kFrameTitleEffects,      "エフェクト" },
@@ -2517,6 +2556,11 @@ namespace ovt
             { kTooltipSaturationWarmth,  "驱动所产生的谐波的温暖度：0% 保持明亮，100% 使其圆润。" },
             { kLabelSaturationDrive,     "驱动" },
             { kLabelSaturationWarmth,    "温暖" },
+            // Delay captions. Division items are musical fractions and stay untranslated.
+            { kLabelDelay,              "延迟" },
+            { kLabelDelayDivision,      "分音" },
+            { kLabelDelayMix,           "混合" },
+            { kLabelDelayFeedback,      "反馈" },
             { kTooltipReverbEn,       "启用/禁用混响效果。" },
             { kTooltipReverbMix,      "主声混响混合量：为 0 时声音保持原样，满值时声音被房间“替换”。这是交叉淡变，拧大并不是在干声上叠加音量。" },
             { kTooltipPadReverbEn,    "开关和声混响：第二间混响房间，架在和声声部上。它与主声混响分开，宽而重阻尼；和声堆叠获得音量，不会留下长长的金属共鸣。" },
@@ -2632,6 +2676,7 @@ namespace ovt
             { kMidiLearnHarmonyGain,  "和声增益" },
             { kMidiLearnHarmonyBlend, "和声混合" },
             { kMidiLearnHarmonyTone,  "和声音色" },
+            { kMidiLearnDelayMix,     "延迟混合" },
             { kFrameTitleCorrection,   "校正" },
             { kFrameTitleKeyScale,     "根音与音阶" },
             { kFrameTitleEffects,      "效果器" },

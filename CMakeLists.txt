@@ -237,6 +237,10 @@ target_sources(OpenVoxTuner PRIVATE
     Source/dsp/IEffect.h
     Source/dsp/ReverbEffect.cpp
     Source/dsp/ReverbEffect.h
+    # Tempo-synced ping-pong delay on the lead bus. It is an in-place stage: it
+    # declares no latency, and the shared room is fed by the existing lead send tap.
+    Source/dsp/DelayEffect.cpp
+    Source/dsp/DelayEffect.h
     Source/dsp/FactoryPresets.cpp
     Source/dsp/FactoryPresets.h
     Source/ui/PresetGallery.cpp
@@ -416,6 +420,9 @@ target_sources(OpenVoxTunerTests PRIVATE
     # The shared send room: the test drives ReverbEffect directly, so its TU is compiled
     # here. juce::Reverb lives in juce_dsp, which this target did not link before.
     Source/dsp/ReverbEffect.cpp
+    # The lead delay, driven directly by DelayEffectTest: it needs the same TU
+    # reachable from the console app, plus juce_dsp for LinearSmoothedValue.
+    Source/dsp/DelayEffect.cpp
     Source/ui/ScaleKeyboardComponent.cpp
 )
 target_link_libraries(OpenVoxTunerTests PRIVATE

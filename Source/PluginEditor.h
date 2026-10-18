@@ -293,6 +293,22 @@ private:
     juce::Label        saturationDriveLabel;       // "Drive" caption above the drive knob
     juce::Label        saturationToneLabel;        // "Warmth" caption above the warmth knob
 
+    // Delay: a tempo-synced ping-pong delay on the master output, after saturation and
+    // before the limiter so the copies ride the same tail as the dry signal. One power
+    // switch (delay_enable), one division choice (delay_division, note values from 1/8
+    // dotted to 1/2, synced to the host tempo), one mix knob (delay_mix 0..1) and one
+    // feedback knob (delay_feedback 0..1 = how many pings the tail keeps). Switching off
+    // greys the choice and the two knobs and keeps their values, exactly like saturation
+    // does with its pair. The ARA source panel reads the host tempo already, so the
+    // division is a musical note, never a raw millisecond dial.
+    ebs::PowerToggle delayEnableButton;
+    juce::ComboBox   delayDivisionBox;            // note value of one ping (host-synced)
+    juce::Slider     delayMixSlider;              // dry/wet of the delay bus (0-1)
+    juce::Slider     delayFeedbackSlider;         // feedback amount (0-1)
+    juce::Label      delayDivisionLabel;          // "Division" caption above the combo
+    juce::Label      delayMixLabel;               // "Mix" caption above the mix knob
+    juce::Label      delayFeedbackLabel;          // "Feedback" caption above the feedback knob
+
     // Reverb controls (lead bus: the reverb that sits on the corrected lead)
     ebs::PowerToggle reverbEnableButton;
     juce::Slider       reverbMixSlider;
@@ -484,6 +500,10 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> saturationEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> saturationDriveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> saturationToneAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> delayEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> delayDivisionAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayMixAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayFeedbackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;

@@ -44,6 +44,7 @@
 #include "dsp/NoiseGateEnableTest.cpp"
 #include "dsp/SaturationEffectTest.cpp"
 #include "dsp/OutputLimiterTruePeakTest.cpp"
+#include "dsp/DelayEffectTest.cpp"
 
 /** Console logger for the test runner.
  *  With no logger installed, JUCE sends Logger::writeToLog to OutputDebugString,

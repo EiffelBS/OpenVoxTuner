@@ -36,7 +36,7 @@ the single source of truth for signal-flow details.
                                            +-----------------+
                                            |  PitchShifter   |  PSOLA (formant-preserved)
                                            +-----------------+
-            LEAD BUS  ============================>   |   DeEsser, Lead Reverb
+            LEAD BUS  ============================>   |   DeEsser, Lead Reverb, Delay
                                                      |
                                            +-----------------+ (optional)
                                            |  HarmonyEngine  |  shifted voices -> harmonyBuffer
@@ -222,7 +222,7 @@ Effects are not stacked on one global list any more: the processor owns **three*
 
 | Bus | Tap point | Registered effects | Driving parameters |
 |-----|-----------|--------------------|------------------|
-| Lead | corrected lead voice, **before** any harmony is added | `DeEsser`, `ReverbEffect` (short room: size 0.35, damping 0.50, width 0.5) | `deess_enable`, `deess_amount`, `reverb_enable`, `reverb_mix` |
+| Lead | corrected lead voice, **before** any harmony is added | `DeEsser`, `ReverbEffect` (short room: size 0.35, damping 0.50, width 0.5), then `DelayEffect` (tempo-synced stereo ping-pong) | `deess_enable`, `deess_amount`, `reverb_enable`, `reverb_mix`, `delay_enable`, `delay_division`, `delay_mix`, `delay_feedback` |
 | Harmony | `harmonyBuffer`, **before** it is mixed into the output | `ReverbEffect` (long wide room: size 0.85, damping 0.40, width 1.0) | `pad_reverb_enable`, `pad_reverb_mix` |
 | Master | final mixed buffer, **after** the blend | `SaturationEffect` (drive + warmth), then `OutputLimiter` | `saturation_enable`, `saturation_drive`, `saturation_tone`, `output_trim`, `limiter_enable` |
 
@@ -239,6 +239,15 @@ Effects are not stacked on one global list any more: the processor owns **three*
 - Splitting the reverb is what makes it usable: one shared room forces one size on two
   roles, and in `ReverbEffect` a rising wet mix attenuates the dry signal — so a long
   pad room would wash out the lead's intelligibility and any tempo-synced copy.
+- **The lead chain ends with the tempo-synced Delay: DeEsser → Lead room → Delay.** The stage is an
+  additive send (`out = in + rampedMix x feedback tail`) with the dry path at unity, not a dry/wet crossfade, and it
+  declares **no latency** — `setLatencySamples` stays `pitchShifter + outputLimiter`. Division indices map to beat
+  fractions {0.5, 0.75, 1.0, 1.5, 2.0}, so the copy length is `(60/bpm) x fraction`; a tempo or division change is
+  handed over by a two-tap crossfade over 25 ms, so the read pointer never glides (ramping the pointer itself would
+  pitch-shift the tail). Cross-coupling L→R / R→L alternates the echoes between sides, and
+  each line's feedback path runs through `OnePoleLowCut` at 150 Hz, which blocks DC inside the loop by construction.
+  Because the tap `applyLeadSend` runs **after** `leadBus.apply`, the Delay sits ahead of the shared-room send: echoes
+  ring in the same space as the voice, with no extra room and no second parameter pair.
 
 **The master bus runs `ovtdsp::SaturationEffect` first**, ahead of `sharedReverb.processReturn`,
 so the shared room's tail is summed into an already-shaped path and never passes through the

@@ -28,6 +28,7 @@
 #include "dsp/UpwardCompressor.h"
 #include "dsp/DeEsser.h"
 #include "dsp/SaturationEffect.h"   // master drive + warmth, before the reverb return
+#include "dsp/DelayEffect.h"        // tempo-synced ping-pong delay on the lead effects bus (declares no latency)
 #include "dsp/PresetMorpher.h"
 #include "dsp/VibratoPreserver.h"
 #include "dsp/AttackAwareEnv.h"
@@ -511,6 +512,19 @@ private:
     std::atomic<float>* saturationEnableParam = nullptr;   // Saturation on/off
     std::atomic<float>* saturationDriveParam = nullptr;    // Drive (0-1)
     std::atomic<float>* saturationToneParam = nullptr;     // Warmth (0-1), 8 kHz -> 5 kHz pole
+    // Tempo-synced ping-pong delay on the corrected lead. division is a fraction of a BEAT:
+    // index into {"1/8","1/8.","1/4","1/4.","1/2"} = {0.5,0.75,1.0,1.5,2.0} beats, so the copy
+    // length is (60/bpm) x fraction. mix is the wet of the echo (dry stays at unity), feedback is
+    // the cross-feed between the two lines. No latency: an echo adds, it does not delay the voice.
+    std::atomic<float>* delayEnableParam = nullptr;      // Delay on/off
+    std::atomic<float>* delayDivisionParam = nullptr;    // Division index (0-4), a raw choice value
+    std::atomic<float>* delayMixParam = nullptr;         // Delay Mix (0-1)
+    std::atomic<float>* delayFeedbackParam = nullptr;    // Delay Feedback (0-1)
+    // Division is read through the CHOICE OBJECT, not as round(rawLoad * 5.0f): after a
+    // setStateInformation the stored value can be non-normalized, so a raw load rounded by an
+    // index multiplier is fragile (codebase rule -- see cpp:4336-4338 verbatim comment and the
+    // scaleChoiceParam precedent at cpp:761). getIndex() is the reliable conversion.
+    juce::AudioParameterChoice* delayDivisionChoice = nullptr;   // Division choice object, indexes 0..4
     std::atomic<float>* flexTuneParam = nullptr;    // FlexTune deadband (0-100 cents)
     std::atomic<float>* humanizeParam = nullptr;    // Humanize random cents (0-50)
     std::atomic<float>* correctionModeParam = nullptr; // 0=Modern, 1=Transparent        

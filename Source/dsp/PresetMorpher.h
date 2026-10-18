@@ -66,6 +66,14 @@ namespace ovtdsp
         bool saturationEnable = false;  // "saturation_enable": master drive power switch
         float saturationDrive = 0.35f;  // "saturation_drive": soft clipper strength, 0 = transparent bypass
         float saturationTone = 0.40f;   // "saturation_tone": warmth, 8 kHz bright .. 5 kHz warm
+        // The lead delay is morphed too: the power switch is stepped like its siblings, the
+        // echo level and the feedback lerp, and the division stays a discrete grid so a morph
+        // can never land between two note values (a ramp between grid points would smear the
+        // ping-pong rhythm instead of moving it).
+        bool delayEnable = false;       // "delay_enable": power switch, knobs are kept
+        int delayDivision = 2;          // "delay_division": combo index, 2 = 1/4
+        float delayMix = 0.30f;         // "delay_mix": echo level, 0 = no echo at all
+        float delayFeedback = 0.35f;    // "delay_feedback": repeats, low-cut in the loop
         float outputTrim = 0.5f;        // normalized "output_trim" (-12..+12 dB): 0.5 = 0 dB
         bool limiterEnable = true;      // "limiter_enable": master peak limiter on/off
         bool correctionMode = false; // false = Modern
@@ -139,6 +147,11 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("saturation_enable"))    s.saturationEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("saturation_drive"))     s.saturationDrive = p->getValue();
         if (auto* p = params.getParameter ("saturation_tone"))      s.saturationTone = p->getValue();
+        if (auto* p = params.getParameter ("delay_enable"))         s.delayEnable = p->getValue() > 0.5f;
+        if (auto* p = params.getParameter ("delay_mix"))            s.delayMix = p->getValue();
+        if (auto* p = params.getParameter ("delay_feedback"))       s.delayFeedback = p->getValue();
+        // Discrete (snap to int): five divisions, so the normalised value scales by 4.
+        if (auto* p = params.getParameter ("delay_division"))       s.delayDivision = (int) std::round (p->getValue() * 4.0f);
         if (auto* p = params.getParameter ("correction_mode"))     s.correctionMode = p->getValue() > 0.5f;
 
         // Curve (copy)
@@ -171,6 +184,8 @@ namespace ovtdsp
                         "deess_enable",
                         "saturation_drive", "saturation_tone",
                         "saturation_enable",
+                        "delay_mix", "delay_feedback",
+                        "delay_enable", "delay_division",
                         "output_trim", "limiter_enable",
                         "correction_mode" });
         return ids;
@@ -247,6 +262,9 @@ namespace ovtdsp
         // morph ending at zero fades the stage out through its own bypass ramp.
         setParam ("saturation_drive",    source.saturationDrive + (target.saturationDrive - source.saturationDrive) * t);
         setParam ("saturation_tone",     source.saturationTone + (target.saturationTone - source.saturationTone) * t);
+        // Echo level and feedback lerp like the other continuous effect controls.
+        setParam ("delay_mix",           source.delayMix + (target.delayMix - source.delayMix) * t);
+        setParam ("delay_feedback",      source.delayFeedback + (target.delayFeedback - source.delayFeedback) * t);
         setParam ("output_trim",         source.outputTrim + (target.outputTrim - source.outputTrim) * t);
 
         // Discrete parameters (step at 50%)
@@ -258,6 +276,7 @@ namespace ovtdsp
         setParam ("latency_mode",           lerpOrStep ((float) source.latencyMode / 3.0f, (float) target.latencyMode / 3.0f, t));
         setParam ("editor_measures",        lerpOrStep ((float) (source.editorMeasures - 1) / 31.0f, (float) (target.editorMeasures - 1) / 31.0f, t));
         setParam ("voice_type",             lerpOrStep ((float) source.voiceType / 5.0f, (float) target.voiceType / 5.0f, t));
+        setParam ("delay_division",         lerpOrStep ((float) source.delayDivision / 4.0f, (float) target.delayDivision / 4.0f, t));
 
         // Boolean parameters (step at 50%)
         setParam ("formant_enable",    lerpOrStep (source.formantEnable ? 1.0f : 0.0f, target.formantEnable ? 1.0f : 0.0f, t));
@@ -272,6 +291,7 @@ namespace ovtdsp
         setParam ("upward_comp_enable", lerpOrStep (source.upwardCompEnable ? 1.0f : 0.0f, target.upwardCompEnable ? 1.0f : 0.0f, t));
         setParam ("deess_enable",      lerpOrStep (source.deessEnable ? 1.0f : 0.0f, target.deessEnable ? 1.0f : 0.0f, t));
         setParam ("saturation_enable", lerpOrStep (source.saturationEnable ? 1.0f : 0.0f, target.saturationEnable ? 1.0f : 0.0f, t));
+        setParam ("delay_enable",      lerpOrStep (source.delayEnable ? 1.0f : 0.0f, target.delayEnable ? 1.0f : 0.0f, t));
         setParam ("limiter_enable",    lerpOrStep (source.limiterEnable ? 1.0f : 0.0f, target.limiterEnable ? 1.0f : 0.0f, t));
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));
     }

@@ -206,6 +206,35 @@ the enable flag and wet mix for one effect (and may configure the instance), ret
 - The return skips the reverb pass when the send line is silent and the tail has decayed,
   which is what keeps sleep-mode CPU at ~1 %.
 
+### `ovtdsp::DelayEffect : public IEffect`
+
+Tempo-synced stereo ping-pong delay, registered as a **lead-bus insert after the Lead room** (chain order
+DeEsser → Lead room → Delay). The existing lead-send tap runs **after** `leadBus.apply`, so the echoes are fed into
+the shared room through it — no second room, no extra parameter pair.
+
+- `setBpm(float)` / `setDivision(int index)` / `setMix(float)` / `setFeedback(float)` (clamped ≤ 1.0).
+- Division indices 0..4 map to **beat fractions** {0.5, 0.75, 1.0, 1.5, 2.0}, labels {"1/8","1/8.","1/4","1/4.","1/2"};
+  `copySamples = round((60/bpm) * fraction * sr)`, so halving the tempo doubles the copy. Clamped to
+  [floor = max(1, round(0.04*sr)) = 1920 samples at 48 kHz, 6 s], with lines sized once in `prepare()`: nothing is
+  allocated inside the audio callback.
+- **In-place additive send, dry path at unity** — not a dry/wet crossfade: `out = in + rampedMix * feedback tail`, so
+  full mix does not attenuate the voice and the stage never reads as "inaudible at full mix". The declared latency is
+  unchanged (**zero**), `setLatencySamples` is never touched by this stage.
+- **Cross-coupling L→R / R→L**: input on L echoes first in R, successive passes alternate sides; a centred source
+  spreads because of the cross-feedback, not because of the input.
+- Each line's feedback path runs through `OnePoleLowCut` at **150 Hz**, so DC drains inside the loop instead of being
+  stored (a pole placed at DC). The wet path has no low-pass filter.
+- Copy changes are handed over by a **two-tap crossfade** over `kRampSeconds = 0.025`: the tap being read is frozen
+  and the new distance is faded in, so the read pointer never glides. Ramping the pointer itself pitch-shifts the
+  tail (measured: a 0.107 worst sample-to-sample jump on a 1/4 → 1/2 change, against 0.0058 with the crossfade).
+  The enable gain is one-pole, so toggling power never clicks; when disabled and `bypassGain` has decayed past the
+  floor, **the buffer is not touched at all** (`isBypassed()` true) while the lines keep feeding.
+- Diagnostics: `getCopySamples()`, `getTargetCopySamples()`, `getLineCapacity()`, `isBypassed()`.
+
+Parameters (ids verbatim): `delay_enable` (bool, default off), `delay_division` (choice index, default 2 = "1/4"),
+`delay_mix` (default **0.30**), `delay_feedback` (default **0.35**). Tempo comes from `getAraTempo()` when an ARA source is bound,
+and from host / standalone BPM when it is not.
+
 ### `ovtdsp::OutputLimiter`
 
 Not an `IEffect`: the last stage of the master bus, applied after every effect.

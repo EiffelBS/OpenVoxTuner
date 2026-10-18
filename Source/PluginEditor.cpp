@@ -824,6 +824,52 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     saturationEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationEnable));
     addAndMakeVisible (saturationEnableButton);
 
+    // Delay: a tempo-synced ping-pong stage on the master output. The power toggle carries
+    // the name, like every sibling effect in this block; switching off greys the division combo
+    // and both knobs via refreshLabels() and keeps their values. Division is a note value synced
+    // to the host tempo (the ARA source panel already reads it), so the items are musical
+    // fractions - locale-independent glyphs, never translated, never dotted per language.
+    setupKnob (delayMixSlider, &delayMixLabel, "Mix");
+    delayMixSlider.setRange (0.0, 1.0, 0.01);
+    delayMixSlider.setValue (0.30);   // matches the APVTS default of delay_mix
+    delayMixSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    delayMixSlider.setPopupDisplayEnabled (true, false, this);
+    delayMixSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0)) + "%"; };
+    translatableLabels.push_back ({ &delayMixLabel, ovt::Keys::kLabelDelayMix });
+
+    setupKnob (delayFeedbackSlider, &delayFeedbackLabel, "Feedback");
+    delayFeedbackSlider.setRange (0.0, 1.0, 0.01);
+    delayFeedbackSlider.setValue (0.35);   // matches the APVTS default of delay_feedback
+    delayFeedbackSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    delayFeedbackSlider.setPopupDisplayEnabled (true, false, this);
+    delayFeedbackSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0)) + "%"; };
+    translatableLabels.push_back ({ &delayFeedbackLabel, ovt::Keys::kLabelDelayFeedback });
+
+    // Division combo: the same population pattern as shiftedVoicesBox above - addItemList with a
+    // start id of 1, so ComboBoxAttachment maps item ids 1..5 straight onto the AudioParameterChoice
+    // indices. Default index 2 ("1/4") = itemId 3, set without notification like shiftedVoicesBox.
+    delayDivisionLabel.setText (ovt::tr (ovt::Keys::kLabelDelayDivision), juce::dontSendNotification);
+    delayDivisionLabel.setJustificationType (juce::Justification::centred);
+    delayDivisionLabel.setColour (juce::Label::textColourId, ebs::text());
+    delayDivisionLabel.setFont (ovt::fontLabelSmall());
+    addAndMakeVisible (delayDivisionLabel);
+    translatableLabels.push_back ({ &delayDivisionLabel, ovt::Keys::kLabelDelayDivision });
+
+    delayDivisionBox.addItemList ({ "1/8", "1/8.", "1/4", "1/4.", "1/2" }, 1);
+    delayDivisionBox.setSelectedId (3, juce::dontSendNotification);   // index 2 = "1/4", the APVTS default
+    delayDivisionBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgPanel());
+    delayDivisionBox.setColour (juce::ComboBox::textColourId, ebs::text());
+    delayDivisionBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
+    addAndMakeVisible (delayDivisionBox);
+
+    // Delay power toggle: a real parameter (delay_enable), attached to the button like every
+    // sibling effect in this block. Switching off greys the combo and both knobs, keeps their
+    // values; the DSP fades its copies out, so no click is added on the way out.
+    delayEnableButton.setButtonText (ovt::tr (ovt::Keys::kLabelDelay));
+    delayEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    delayEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
+    addAndMakeVisible (delayEnableButton);
+
     // "Use Voice": the shared iOS-style sliding switch. It paints only the pill,
     // so the caption is a separate label placed to its left in resized().
     useVoiceLabel.setText (ovt::tr(ovt::Keys::kLabelUseVoice), juce::dontSendNotification);
@@ -1213,7 +1259,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                     {"attack_release", ovt::tr(ovt::Keys::kMidiLearnAttackRelease).toStdString()},
                     {"harmony_gain", ovt::tr(ovt::Keys::kMidiLearnHarmonyGain).toStdString()},
                     {"harmony_blend", ovt::tr(ovt::Keys::kMidiLearnHarmonyBlend).toStdString()},
-                    {"harmony_tone_color", ovt::tr(ovt::Keys::kMidiLearnHarmonyTone).toStdString()}
+                    {"harmony_tone_color", ovt::tr(ovt::Keys::kMidiLearnHarmonyTone).toStdString()},
+                    {"delay_mix", ovt::tr(ovt::Keys::kMidiLearnDelayMix).toStdString()}
                 };
                 for (const auto& p : params)
                 {
@@ -2375,6 +2422,14 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     saturationEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "saturation_enable", saturationEnableButton);
     saturationDriveAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "saturation_drive", saturationDriveSlider);
     saturationToneAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "saturation_tone", saturationToneSlider);
+    // Delay attachments: one power switch, one note-value combo and two knobs. The combo
+    // rides the ComboBoxAttachment pattern of shiftedVoicesBox above - items are populated
+    // with addItemList ({...}, 1), so item ids start at 1 and the attachment maps them to
+    // the AudioParameterChoice index verbatim.
+    delayEnableAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "delay_enable", delayEnableButton);
+    delayDivisionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (tree, "delay_division", delayDivisionBox);
+    delayMixAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "delay_mix", delayMixSlider);
+    delayFeedbackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "delay_feedback", delayFeedbackSlider);
     // Keep the Follow Lead and Gain Match sub-toggles in sync with the parent
     // Harmony switch. onStateChange fires on a direct click, so we re-run
     // refreshLabels() (which now also disables those two sub-toggles based on
@@ -2897,16 +2952,16 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     const int corrBaseW   = kKnobBlockW - 22 - 2 * kCorrPad;
     const int corrClosedW = corrBaseW + 2 * kCorrPad + chevron + bandW;
 
-    // Effects: its width IS the cell count, so it is fixed in both directions. Open shows four
-    // columns: Gate/Compressor, Doubler/Formant, Output Limit + meter over De-Esser, and Saturation. Folded it keeps
+    // Effects: its width IS the cell count, so it is fixed in both directions. Open shows five
+    // columns: Gate/Compressor, Doubler/Formant, Output Limit + meter over De-Esser, Saturation, and Delay. Folded it keeps
     // the first two columns, i.e. Gate, Compressor, Doubler and Formant - the controls you dial while singing. The
     // Output Limit control is in the open zone, so a folded frame does not show the ceiling; that is the accepted
-    // cost of swapping Limit and Formant, and it changes no width: the count stays 2 folded / 4 open. The two rooms,
+    // cost of swapping Limit and Formant, and it changes no width: the count stays 2 folded / 5 open. The two rooms,
     // their sends and Duck are NOT here; they are the Reverb frame's own columns. The row grows by column only, so
     // each new column costs one kEffectsColW plus gap.
     const int effectW = chevron + 2 * kEffectsPad + bandW
-                      + (effectsFrame.expanded() ? 4 : 2) * kEffectsColW
-                      + (effectsFrame.expanded() ? 3 : 1) * kEffectsColGap;
+                      + (effectsFrame.expanded() ? 5 : 2) * kEffectsColW
+                      + (effectsFrame.expanded() ? 4 : 1) * kEffectsColGap;
 
     // Reverb: ONE column per room, so folded the frame asks for one measured column - the widest of the two room
     // names - and open it asks for three columns: Lead with its send, Harmony with its send, Ducking alone. Open it is
@@ -3291,6 +3346,15 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     saturationDriveLabel.setVisible (effectsOpen);
     saturationToneSlider.setVisible (effectsOpen);
     saturationToneLabel.setVisible (effectsOpen);
+    // The Delay column lives in the open zone like Saturation: folding hides its
+    // controls, never the processing - delay_enable keeps gating the ping-pong bus.
+    delayEnableButton.setVisible (effectsOpen);
+    delayDivisionLabel.setVisible (effectsOpen);
+    delayDivisionBox.setVisible (effectsOpen);
+    delayMixSlider.setVisible (effectsOpen);
+    delayMixLabel.setVisible (effectsOpen);
+    delayFeedbackSlider.setVisible (effectsOpen);
+    delayFeedbackLabel.setVisible (effectsOpen);
 
     auto effArea = effectsFrame.interior();
     effectsTitleBand.setBounds (effArea.getX(), effArea.getY(), ebs::FrameTitleBand::bandWidth(), effArea.getHeight());
@@ -3299,11 +3363,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int effectPowerH  = 18;
     const int rowGap        = 8;
     const int numEffectRows = 2;
-    // Four columns when open (Gate/Compress, Doubler/Formant, Output Limit+meter over De-Esser, Saturation)
+    // Five columns when open (Gate/Compress, Doubler/Formant, Output Limit+meter over De-Esser, Saturation, Delay)
     // and two when folded. This count drives effectColW, so it has to match the number of columns
     // placed below: asking for 4 widths while placing 5 columns leaves the last column a
     // negative-width rectangle, and that cell vanishes without any warning in the layout log.
-    const int numEffectCols = effectsOpen ? 4 : 2;
+    const int numEffectCols = effectsOpen ? 5 : 2;
     const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
     const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;
@@ -3377,16 +3441,34 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         col3.removeFromTop (rowGap);
         placeToggledKnob (col3, deessEnableButton, deessAmountSlider);
 
-        // Column 4, the rightmost : Saturation. One power switch carrying the name and two labelled
+        // Column 4 : Saturation. One power switch carrying the name and two labelled
         // knobs (Drive, Warmth) stacked in one cell - the same shape the send-room column uses in
         // the Reverb frame. It pays for its second knob inside its own column, so rows stay frozen
         // at two everywhere in the block.
-        auto col4 = b4;   // the last column takes whatever is left
+        auto col4 = b4.removeFromLeft (effectColW);   // fixed width: a fifth column follows
+        b4.removeFromLeft (kEffectsColGap);
         saturationEnableButton.setBounds (col4.removeFromTop (effectPowerH));
         const int satCellH = (col4.getHeight() - rowGap) / 2;
         placeLabelledKnob (col4.removeFromTop (satCellH), saturationDriveLabel, saturationDriveSlider);
         col4.removeFromTop (rowGap);
         placeLabelledKnob (col4, saturationToneLabel, saturationToneSlider);
+
+        // Column 5, the rightmost : Delay. One power switch carrying the name, one note-value combo
+        // (the ping length synced to the host tempo) in a label+combo strip, then two labelled knobs
+        // (Mix, Feedback) stacked - the exact shape Saturation's column uses, paid inside its own
+        // column so rows stay frozen at two everywhere in the block. The combo rides the same reduced
+        // strip pattern as the harmony selector boxes. When the frame is short, placeLabelledKnob's
+        // jlimit bounds shrink these knobs below their siblings' size; no control is ever dropped.
+        auto col5 = b4;   // the last column takes whatever is left
+        delayEnableButton.setBounds (col5.removeFromTop (effectPowerH));
+        const int divisionComboH = 20;   // smallest strip the ComboBox can render "1/8." at this font
+        delayDivisionLabel.setBounds (col5.removeFromTop (sendLabelH));
+        auto divCell = col5.removeFromTop (divisionComboH + 2);   // same +2 breathing room as a knob cell
+        delayDivisionBox.setBounds (divCell.reduced (0, 1));      // ~20 px combo strip, full column width
+        const int delayCellH = (col5.getHeight() - rowGap) / 2;
+        placeLabelledKnob (col5.removeFromTop (delayCellH), delayMixLabel, delayMixSlider);
+        col5.removeFromTop (rowGap);
+        placeLabelledKnob (col5, delayFeedbackLabel, delayFeedbackSlider);
     }
 
     // --- Block 5 : Reverb - an ebs::ExpansibleFrame right of Effects ---
@@ -3973,6 +4055,17 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     bool isSaturationEnabled = saturationEnableButton.getToggleState();
     saturationDriveSlider.setEnabled (isSaturationEnabled);
     saturationToneSlider.setEnabled (isSaturationEnabled);
+
+    // Gray out the delay controls if disabled: delay_enable gates the whole stage,
+    // and division / mix / feedback keep their values so switching back on re-arms the
+    // ping-pong at the same setting. The labels grey with knobs per existing convention -
+    // setEnabled is not applied to Labels anywhere in this block (saturation does it for
+    // its pair via refreshLabels above), and disabled widgets paint dimmed, so the labels
+    // follow their controls exactly as saturation's do. Only the combo + two sliders gate.
+    bool isDelayEnabled = delayEnableButton.getToggleState();
+    delayDivisionBox.setEnabled (isDelayEnabled);
+    delayMixSlider.setEnabled (isDelayEnabled);
+    delayFeedbackSlider.setEnabled (isDelayEnabled);
 
     // Harmony controls enable/disable
     bool isHarmonyEnabled = harmonyEnableButton.getToggleState();
@@ -4976,6 +5069,7 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     doubleEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelDouble));
     deessEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelDeesser));
     saturationEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelSaturation));
+    delayEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelDelay));
     noiseGateThresholdLabel.setText (ovt::tr(ovt::Keys::kLabelThreshold), juce::dontSendNotification);
 
     // Refresh all translatable tooltips
@@ -5360,6 +5454,8 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("deess_amount",       saved.deessAmount,      deessAmountSlider);
     setSlider ("saturation_drive",   saved.saturationDrive,  saturationDriveSlider);
     setSlider ("saturation_tone",    saved.saturationTone,   saturationToneSlider);
+    setSlider ("delay_mix",          saved.delayMix,         delayMixSlider);
+    setSlider ("delay_feedback",     saved.delayFeedback,    delayFeedbackSlider);
     setSlider ("flex_tune",          saved.flexTune,           flexTuneSlider);
     setSlider ("humanize",           saved.humanize,           humanizeSlider);
     setSlider ("vibrato_preserve",    saved.vibratoPreserve,    vibratoPreserveSlider);
@@ -5386,6 +5482,8 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("latency_mode",             (float) saved.latencyMode / 3.0f);
     setChoice ("editor_measures",          (float) (saved.editorMeasures - 1) / 31.0f);
     setChoice ("voice_type",               (float) saved.voiceType / 5.0f);
+    // Five divisions, so the combo index scales by 4 on the normalised axis.
+    setChoice ("delay_division",           (float) saved.delayDivision / 4.0f);
     // Continuous-style morph params (key_source / companion_group are
     // normalised 0..1; key_detect steps). They were captured by captureState
     // but never re-applied here, so a slot switch left them at the previous
@@ -5408,6 +5506,7 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("upward_comp_enable", saved.upwardCompEnable ? 1.0f : 0.0f);
     setChoice ("deess_enable",       saved.deessEnable ? 1.0f : 0.0f);
     setChoice ("saturation_enable",  saved.saturationEnable ? 1.0f : 0.0f);
+    setChoice ("delay_enable",       saved.delayEnable ? 1.0f : 0.0f);
     setChoice ("correction_mode",   saved.correctionMode ? 1.0f : 0.0f);
 
     // Restore the pitch curve
@@ -5475,8 +5574,9 @@ namespace
             // Nothing dynamic on the lead: pitch correction only, so the de-esser
             // stays off and the sibilance keeps its natural level. The saturation stage
             // is named in the same spirit: drive 0 is a transparent bypass, and this
-            // preset promises nothing added to the signal at all.
-            { "deess_enable", 0.0f }, { "saturation_enable", 0.0f }
+            // preset promises nothing added to the signal at all. The tempo delay rides
+            // the same rule: pitch correction only, no copies on the master.
+            { "deess_enable", 0.0f }, { "saturation_enable", 0.0f }, { "delay_enable", 0.0f }
         };
         static const std::map<juce::String, float> transparentDub = {
             { "amount", 0.85f }, { "flex_tune", 25.0f }, { "humanize", 15.0f },
@@ -5490,7 +5590,8 @@ namespace
             { "double_enable", 1.0f }, { "double_amount", 35.0f },
             // Transparency means no dynamics: the doubler widens the lead, the
             // sibilance is left exactly as recorded, and the master stage stays off.
-            { "deess_enable", 0.0f }, { "saturation_enable", 0.0f }
+            // No tempo copies either - "transparent" promises an echo-free dry signal.
+            { "deess_enable", 0.0f }, { "saturation_enable", 0.0f }, { "delay_enable", 0.0f }
         };
         static const std::map<juce::String, float> studioStack = {
             { "amount", 0.9f }, { "flex_tune", 15.0f }, { "humanize", 20.0f },
@@ -5511,7 +5612,9 @@ namespace
             // clipping pays, because it glues the voices together ahead of the room. Low
             // drive (k = 1 + 9 x 0.25) and warmth at 0.6 keep the added harmonics low in
             // the band, so the stack gains body without gaining hiss on top of the de-esser.
-            { "saturation_enable", 1.0f }, { "saturation_drive", 0.25f }, { "saturation_tone", 0.6f }
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.25f }, { "saturation_tone", 0.6f },
+            // The stack is a tight unison: no tempo copies, the room is the pad reverb alone.
+            { "delay_enable", 0.0f }
         };
         static const std::map<juce::String, float> liveScene = {
             { "amount", 0.9f }, { "flex_tune", 10.0f }, { "humanize", 30.0f },
@@ -5520,7 +5623,8 @@ namespace
             { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
             // On stage the plugin sits in a live monitor path: nothing here adds loudness,
             // so the master drive stays off and the level matches the house mix directly.
-            { "saturation_enable", 0.0f }
+            // A live monitor path is also echo-free by definition - no tempo copies.
+            { "saturation_enable", 0.0f }, { "delay_enable", 0.0f }
         };
         static const std::map<juce::String, float> spokenPodcast = {
             { "amount", 0.7f }, { "speed", 40.0f }, { "flex_tune", 35.0f },
@@ -5540,7 +5644,9 @@ namespace
             // Spoken voice is where a little drive pays: at low drive the stage adds the
             // presence harmonics a close mic loses, and warmth at 0.7 keeps them under the
             // de-esser band so the lift reads as body, not as hiss.
-            { "saturation_enable", 1.0f }, { "saturation_drive", 0.25f }, { "saturation_tone", 0.7f }
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.25f }, { "saturation_tone", 0.7f },
+            // Speech is linear: a podcast rig wants no tempo echoes on the voice.
+            { "delay_enable", 0.0f }
         };
         static const std::map<juce::String, float> creativeRobot = {
             { "amount", 1.0f }, { "flex_tune", 0.0f }, { "humanize", 0.0f },
@@ -5550,7 +5656,10 @@ namespace
             // The hard-tuned robot voice is the one preset that wants added harmonics:
             // drive at 0.45 (k = 1 + 9 x 0.45) pushes the locked pitch through the soft
             // clipper, and low warmth keeps the edge bright, which is the effect's point.
-            { "saturation_enable", 1.0f }, { "saturation_drive", 0.45f }, { "saturation_tone", 0.2f }
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.45f }, { "saturation_tone", 0.2f },
+            // The robot voice stays hard-tuned and dry: a ping-pong tail would smear the
+            // locked pitch, so the delay stage is switched off here explicitly.
+            { "delay_enable", 0.0f }
         };
         // Broadcast Voice: strong, consistent level for streaming/radio. A firm
         // gate cuts room tone between phrases and the upward compressor lifts
@@ -5570,7 +5679,9 @@ namespace
             // On air the voice must stay present without getting loud: a low drive adds
             // the density a radio voice needs, and warmth at 0.6 keeps that added energy
             // out of the band the de-esser is already working on.
-            { "saturation_enable", 1.0f }, { "saturation_drive", 0.3f }, { "saturation_tone", 0.6f }
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.3f }, { "saturation_tone", 0.6f },
+            // A broadcast voice stays dry: copies would blur the diction the preset promises.
+            { "delay_enable", 0.0f }
         };
         // Breathy Vocals: airy, weak indie/lo-fi voice. No gate (keep the natural
         // breath), just a gentle upward lift so the quiet, breathy parts stay
@@ -5585,7 +5696,9 @@ namespace
             // The lo-fi character is the point of this preset: a whisper of drive gives
             // the breathy voice a little body, and warmth at 0.8 keeps it soft, so the
             // stage never adds the top end an airy recording already has too much of.
-            { "saturation_enable", 1.0f }, { "saturation_drive", 0.15f }, { "saturation_tone", 0.8f }
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.15f }, { "saturation_tone", 0.8f },
+            // The lo-fi character stays dry: a ping-pong tail is not part of this sound.
+            { "delay_enable", 0.0f }
         };
         // Lead Vocal: the flagship "thickened lead" sound. A light gate tames
         // room tone, "-3 / +3" harmony (3rd below + above) fattens the lead
@@ -5613,7 +5726,9 @@ namespace
             // The thickened lead is also where the master stage belongs: drive at 0.35 glues
             // the lead and its "-3 / +3" voices ahead of the room, and warmth at 0.5 keeps the
             // added harmonics in the presence region, below the de-esser's band centre.
-            { "saturation_enable", 1.0f }, { "saturation_drive", 0.35f }, { "saturation_tone", 0.5f }
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.35f }, { "saturation_tone", 0.5f },
+            // The flagship lead stays dry: its space comes from the two rooms, not from copies.
+            { "delay_enable", 0.0f }
         };
 
         if (name == "Pure Correction")       return &correctionPure;
@@ -6261,6 +6376,13 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applySliderColours (harmonyBlendSlider);
     applySliderColours (harmonyFormantSlider);
     applySliderColours (doubleAmountSlider);
+    // Gaps closed here: the de-esser and saturation knobs were missing from this pass, so a theme
+    // switch left them painted with construction colours. The delay pair joins them in one list.
+    applySliderColours (deessAmountSlider);
+    applySliderColours (saturationDriveSlider);
+    applySliderColours (saturationToneSlider);
+    applySliderColours (delayMixSlider);
+    applySliderColours (delayFeedbackSlider);
 
     // Re-apply colours to ALL labels
     auto applyLabelColours = [] (juce::Label& l) {
@@ -6279,6 +6401,10 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (duckDepthLabel);
     applyLabelColours (saturationDriveLabel);
     applyLabelColours (saturationToneLabel);
+    // The delay captions join the pass next to their saturation siblings.
+    applyLabelColours (delayDivisionLabel);
+    applyLabelColours (delayMixLabel);
+    applyLabelColours (delayFeedbackLabel);
     applyLabelColours (outputTrimLabel);
     applyLabelColours (noiseGateThresholdLabel);
     applyLabelColours (harmonyToneColorLabel);
@@ -6312,6 +6438,8 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyComboColours (harmonyTypeBox);
     applyComboColours (shiftedVoicesBox);
     applyComboColours (harmonyToneBox);
+    // The division combo rides the same theme pass as every other selector in the editor.
+    applyComboColours (delayDivisionBox);
     // Light-theme completion (2026-08): previously styled once with dark literals at creation.
     applyComboColours (voiceTypeBox);
     applyComboColours (formantStrategyBox);

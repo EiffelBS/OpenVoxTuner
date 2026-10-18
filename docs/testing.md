@@ -19,6 +19,7 @@ test/
 ├─ dsp/                              # DSP test suites (one file per module)
 │  ├─ BlockAwareOnePoleTest.cpp
 │  ├─ DeEsserTest.cpp
+│  ├─ DelayEffectTest.cpp
 │  ├─ DoublerTest.cpp
 │  ├─ EffectsBusTest.cpp
 │  ├─ FormantPreserverTest.cpp
@@ -70,6 +71,18 @@ channels), the shared send room, and vibrato. The master saturation stage is cov
 inside full scale, aliasing bins killed by the 2x oversampling, warmth rolling off the
 added harmonics, drive rising monotonically, stereo independence, wet-mix neutrality, and
 the internal delay equal to the measured filter centre.
+
+The tempo-synced lead delay (`test/dsp/DelayEffectTest.cpp`) is covered by suites asserting:
+bit-identical bypass after the enable ramp + tail decay, and a no-op at `wetMix = 0`; copy length
+equal to `round((60/bpm) * fraction * sr)` for all five division indices, with the L-input echo arriving in R
+within ±3 samples of that target (measured after a silence warm-up, because `reset()` re-seeds the copy ramp to
+the floor); 60 BPM doubling the 120 BPM quarter copy; successive echo peaks stepping down by a ratio following the
+feedback knob, and feedback 0 leaving exactly one echo; L/R energy alternating across echoes (R → L → R) with an
+R-only input mirroring it; mid-stream division change ramped without a single-sample jump and settled inside ~35 ms;
+no DC build-up and no explosion at feedback 0.9 on a sustained low tone; the clamp floor respected at bpm 400, the
+target staying inside `getLineCapacity()` for bpm 20 × "1/2", every sample finite, the dry sample bit-identical, mono
+input echoing on both sides, and `reset()` flushing both lines. **Suite and assertion counts are taken from the green
+run of `OpenVoxTunerTests` — they must not be quoted before that run.**
 
 ## Building the tests
 

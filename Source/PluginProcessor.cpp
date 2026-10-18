@@ -669,6 +669,28 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                        , std::make_unique<juce::AudioParameterFloat> (
                              "deess_amount", "De-Esser Intensity",
                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.65f)
+                       // Tempo-synced ping-pong delay on the corrected lead voice, added after the de-esser in
+                       // the effects bus. The division knob is a fraction OF A BEAT: {"1/8","1/8.","1/4","1/4.",
+                       // "1/2"} map to {0.5, 0.75, 1.0, 1.5, 2.0} beats, so the copy length is (60/bpm) x fraction
+                       // -- with ARA metadata the delay follows the host tempo exactly, without ARA it follows the
+                       // plugin's own BPM register. Two lines cross-feed each other (the L tail lands in the R line),
+                       // which alternates echoes left/right; the feedback loop carries a 150 Hz one-pole low-cut so a
+                       // long ring cannot build sub-bass mud or DC. Mix is the wet of the echo and the dry voice stays
+                       // at unity: this stage ADDS, it never steals the lead (see IEffect.h). No latency is declared for
+                       // it -- an echo does not put the voice behind itself, same rule as Saturation declaring nothing
+                       // for its FIR group delay. Default OFF and defaults 0.30/0.35/1-4: loading an old project on a
+                       // new build changes nothing audible, exactly the de-esser and Saturation precedent.
+                        , std::make_unique<juce::AudioParameterBool> (
+                              "delay_enable", "Delay Enable", false)
+                        , std::make_unique<juce::AudioParameterChoice> (
+                              "delay_division", "Delay Division",
+                              juce::StringArray { "1/8", "1/8.", "1/4", "1/4.", "1/2" }, 2)
+                        , std::make_unique<juce::AudioParameterFloat> (
+                              "delay_mix", "Delay Mix",
+                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
+                        , std::make_unique<juce::AudioParameterFloat> (
+                              "delay_feedback", "Delay Feedback",
+                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.35f)
                       // 2026-07-24 (Deprecation): FlexTune and Attack-Aware
                       // APVTS parameters are KEPT for preset compatibility
                       // (so existing presets don't lose their values) but
@@ -804,6 +826,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     saturationEnableParam = parameters.getRawParameterValue ("saturation_enable");
     saturationDriveParam = parameters.getRawParameterValue ("saturation_drive");
     saturationToneParam = parameters.getRawParameterValue ("saturation_tone");
+    delayEnableParam = parameters.getRawParameterValue ("delay_enable");
+    delayDivisionParam = parameters.getRawParameterValue ("delay_division");
+    delayMixParam = parameters.getRawParameterValue ("delay_mix");
+    delayFeedbackParam = parameters.getRawParameterValue ("delay_feedback");
+    // Division goes through the choice object: getIndex() survives a non-normalized value restored by
+    // setStateInformation, where round(rawLoad * 5.0f) can land on the wrong index (cpp:4336-4338 rule).
+    delayDivisionChoice = dynamic_cast<juce::AudioParameterChoice*> (parameters.getParameter ("delay_division"));
     flexTuneParam = parameters.getRawParameterValue ("flex_tune");
     humanizeParam = parameters.getRawParameterValue ("humanize");
     correctionModeParam = parameters.getRawParameterValue ("correction_mode");
@@ -874,6 +903,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
         leadReverb->setStereoWidth (0.5f);
         leadBus.addEffect (std::move (leadReverb));
     }
+
+    // The delay goes LAST on the lead bus: de-esser -> lead room -> delay. The de-essed, corrected voice is
+    // what enters the room, and echoing a voice that still hisses at 5 kHz echoes the sibilance too; the order
+    // also keeps the plugin's own pitch-tracking signal pure (see IEffect.h). An echo sits BEHIND the voice on
+    // the timeline, so it declares no latency: nothing here touches setLatencySamples -- an echo is additive and
+    // declaring its copy length as plugin latency would put the whole voice behind the echo.
+    leadBus.addEffect (std::make_unique<ovtdsp::DelayEffect>());
 
     // HARMONY bus (the pad): a wide room gives the blended voices amplitude and depth. It is a
     // SEPARATE ReverbEffect instance, so the two rooms are independent -- the same class the lead
@@ -4232,6 +4268,31 @@ void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buf
             return true;
         }
 
+        if (effect.getId() == "delay")
+        {
+            // Tempo-synced ping-pong on the de-essed, corrected voice -- which is exactly why it sits LAST in
+            // the bus order above. The copy length is measured in beats, so tempo comes from ARA metadata when
+            // the host has a tempo map (the delay must land on the grid the user sees in the DAW, not on a knob
+            // that can drift from the project), and from the plugin's own BPM register without ARA.
+            auto* d = static_cast<ovtdsp::DelayEffect*> (&effect);
+            const float tempoBpm = hasAraTempo() ? static_cast<float> (getAraTempo()) : bpm.load();
+            d->setBpm (tempoBpm);
+
+            // Division reads through the choice object: getIndex() is reliable after setStateInformation, where
+            // round(rawLoad * 5.0f) can pick a wrong index on a non-normalized stored value. Default 2 = "1/4".
+            d->setDivision (juce::jlimit (0, 4, delayDivisionChoice != nullptr ? delayDivisionChoice->getIndex() : 2));
+
+            if (delayMixParam != nullptr)
+                d->setMix (delayMixParam->load());
+            if (delayFeedbackParam != nullptr)
+                d->setFeedback (delayFeedbackParam->load());
+
+            enabled = (delayEnableParam != nullptr && delayEnableParam->load() > 0.5f);
+            wetMix = 1.0f;   // the stage mixes internally and ADDS: dry stays at unity, so a full-mix echo never
+                             // ducks the voice the way a reverb crossfade would (see IEffect.h contract)
+            return true;
+        }
+
         return false;
     });
 }
@@ -5025,6 +5086,16 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("saturationDrive",  (double) ms.saturationDrive);
         slotXml->setAttribute ("saturationTone",   (double) ms.saturationTone);
 
+        // The lead delay belongs to a slot's sound as well: a slot that switches the
+        // tempo-synced echo off must restore it off. The division is stored as its combo
+        // index (0..4), not as a normalised value, so an old slot cannot shift the grid.
+        // Attributes absent in a slot saved before this stage read back as off at the
+        // parameter defaults (mix 0.30, feedback 0.35, division 1/4).
+        slotXml->setAttribute ("delayEnable",      ms.delayEnable);
+        slotXml->setAttribute ("delayDivision",    ms.delayDivision);
+        slotXml->setAttribute ("delayMix",         (double) ms.delayMix);
+        slotXml->setAttribute ("delayFeedback",    (double) ms.delayFeedback);
+
         // Serialize the pitch curve so the slot restores its exact line (not an
         // empty PitchCurve) after a project reload / standalone restart.
         auto curveXml = ms.curve.toXml();
@@ -5130,6 +5201,12 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.saturationEnable   = slotXml->getBoolAttribute ("saturationEnable", false);
             ms.saturationDrive    = (float) slotXml->getDoubleAttribute ("saturationDrive", 0.35);
             ms.saturationTone     = (float) slotXml->getDoubleAttribute ("saturationTone", 0.40);
+            // Delay attributes: absent in a state saved before the lead delay existed, which
+            // reads back as off at the parameter defaults (mix 0.30, feedback 0.35, 1/4).
+            ms.delayEnable        = slotXml->getBoolAttribute ("delayEnable", false);
+            ms.delayDivision      = slotXml->getIntAttribute ("delayDivision", 2);
+            ms.delayMix           = (float) slotXml->getDoubleAttribute ("delayMix", 0.30);
+            ms.delayFeedback      = (float) slotXml->getDoubleAttribute ("delayFeedback", 0.35);
             // Restore the pitch curve (absent in pre-curve states -> empty curve).
             auto* curveXml = slotXml->getChildByName ("PITCH_CURVE");
             if (curveXml != nullptr)
