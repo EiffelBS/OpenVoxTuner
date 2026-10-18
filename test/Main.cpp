@@ -34,6 +34,7 @@
 #include "dsp/UpwardCompressorTest.cpp"
 #include "ui/PitchCurveEditorTest.cpp"
 #include "ui/HarmonyLayoutTest.cpp"
+#include "ui/EffectsCellLayoutTest.cpp"
 #include "ui/ScaleKeyboardComponentTest.cpp"
 #include "ui/LookAndFeelToggleTest.cpp"
 #include "ScaleSnapPipelineTest.cpp"
