@@ -182,7 +182,10 @@ private:
     OvtLookAndFeel customLookAndFeel;
 
     // === GUI Components ===
-    ebs::Knob speedSlider, amountSlider, formantSlider;
+    ebs::Knob speedSlider, amountSlider;
+    // The Formant dial belongs to the Effects block's Formant cell, which owns exactly ONE knob:
+    // its activity dot is carried by the knob itself (ebs::ActivityKnob), not by a strip.
+    ebs::ActivityKnob formantSlider;
     juce::Label  speedLabel, amountLabel;
 
     // Morph slider (visible only when A and B are both filled)
@@ -295,7 +298,8 @@ private:
     // The power toggle is a UI mirror of double_amount > 0 (no extra parameter):
     // clicking it writes 0 % / the last used amount, exactly like the sibling
     // effects' enable buttons in this block.
-    juce::Slider      doubleAmountSlider;
+    // Doubler: one knob, so its dot is carried by the knob (see the Effects block note below).
+    ebs::ActivityKnob  doubleAmountSlider;
     ebs::PowerToggle  doubleEnableButton;
 
     // De-Esser: sibilance suppressor for the corrected lead voice. One power
@@ -305,7 +309,8 @@ private:
     // Switching off greys the knob and keeps its value, exactly like reverb_mix
     // behind reverb_enable.
     ebs::PowerToggle deessEnableButton;
-    juce::Slider       deessAmountSlider;        // intensity (0-1)
+    // De-Esser: one knob, so its dot is carried by the knob.
+    ebs::ActivityKnob  deessAmountSlider;        // intensity (0-1)
 
     // Saturation: a soft tanh drive on the master output, after the formant stage and
     // before the reverb return, so the tail stays clean. One power switch
@@ -363,7 +368,8 @@ private:
     // true-peak guard that runs last on the master bus, looking ahead by its declared
     // 8-sample group delay.
     ebs::PowerToggle limiterEnableButton;
-    juce::Slider       outputTrimSlider;
+    // Output Limit: one knob, so its dot is carried by the knob.
+    ebs::ActivityKnob  outputTrimSlider;
     juce::Label        outputTrimLabel;
 
     // The meter sits in the SAME cell as the trim knob, directly under it: the peak that
@@ -372,16 +378,15 @@ private:
     // is ever painted from the audio thread.
     ebs::LevelMeter outputMeter;
 
-    // One activity dot per column, centred under it: the dot answers "does this column carry
-    // anything" with the audio, never with a knob position. Gate and Compressor work on the
-    // lead, the Doubler and Formant too, the Output Limit guards the master while the De-Esser
-    // beside it stays lead-side, the Saturation shapes the master and the Delay colours the
-    // lead. Column 3 therefore holds two voices, and its single dot reads the stage that LEAVES
-    // the column (the master blend) - the one truth a single dot can carry. The dots are fed by
-    // the editor timer from the processor's atomic snapshot: nothing here is ever painted from
-    // the audio thread, and no dot is a parameter - folding a column away hides its dot with
-    // its cells.
-    ebs::ActivityDot effectsCol1Dot, effectsCol2Dot, effectsCol3Dot, effectsCol4Dot, effectsCol5Dot;
+    // The activity dots that are NOT carried by a knob. The rule is the COMPONENT, not the
+    // column: a cell that owns exactly one knob carries its dot inside that knob
+    // (ebs::ActivityKnob - Gate, Compressor, Doubler, Formant, Output Limit, De-Esser), while a
+    // component with several knobs keeps one dot at the foot of its own column, because there is
+    // no single dial to host it: Saturation (Drive + Warmth) and Delay (Division + Mix +
+    // Feedback). Those two read the master tap and the lead tap respectively - the path their
+    // processor works on - and they are fed by the editor timer from the processor's atomic
+    // snapshot: nothing here is ever painted from the audio thread, and no dot is a parameter.
+    ebs::ActivityDot effectsCol4Dot, effectsCol5Dot;
 
     // The Reverb frame's two rooms carry the same dot, because the HARMONY path lives here:
     // the pad room is the only processor the harmony bus owns, so its caption is the room's
@@ -391,14 +396,16 @@ private:
 
     // Noise Gate
     ebs::PowerToggle noiseGateEnableButton;
-    juce::Slider noiseGateThresholdSlider;
+    // Noise Gate: one knob, so its dot is carried by the knob.
+    ebs::ActivityKnob noiseGateThresholdSlider;
     juce::Label noiseGateThresholdLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> noiseGateEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> noiseGateThresholdAttachment;
 
     // Upward Compressor (input, before tuning)
     ebs::PowerToggle upwardCompEnableButton;
-    juce::Slider       upwardCompAmountSlider;
+    // Upward Compressor: one knob, so its dot is carried by the knob.
+    ebs::ActivityKnob  upwardCompAmountSlider;
     juce::Label        upwardCompAmountLabel;
 
     // Effects frame: the effect cells (Gate, Compressor, Doubler, Formant, Output Limit + meter, De-Esser, Saturation)

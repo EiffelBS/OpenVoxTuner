@@ -2228,8 +2228,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // reparent lists below carry them with their cells. A dot is NOT a parameter and NOT a
     // string: it is a display fed from the processor's path snapshot by timerCallback(), and
     // its tooltip is the only place the voice it reports is named on screen.
-    for (ebs::ActivityDot* dot : { &effectsCol1Dot, &effectsCol2Dot, &effectsCol3Dot,
-                                   &effectsCol4Dot, &effectsCol5Dot,
+    for (ebs::ActivityDot* dot : { &effectsCol4Dot, &effectsCol5Dot,
                                    &reverbLeadDot, &reverbPadDot })
         dot->setDotDiameter (kEffectsActivityDotD);
 
@@ -2263,9 +2262,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&delayMixLabel),
                                 static_cast<juce::Component*> (&delayFeedbackSlider),
                                 static_cast<juce::Component*> (&delayFeedbackLabel),
-                                static_cast<juce::Component*> (&effectsCol1Dot),
-                                static_cast<juce::Component*> (&effectsCol2Dot),
-                                static_cast<juce::Component*> (&effectsCol3Dot),
                                 static_cast<juce::Component*> (&effectsCol4Dot),
                                 static_cast<juce::Component*> (&effectsCol5Dot) })
         effectsFrame.addAndMakeVisible (c);
@@ -3439,15 +3435,22 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
     const int effectColW    = (rowsArea.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;
 
-    // One activity slot per column: the dot is given the WHOLE column width and centres its
-    // own disc inside it, so it sits on the column's axis whatever the cell floor becomes -
-    // the host never has to compute a left offset that could drift from the layout above.
-    // A hidden column's dot is hidden with it and given an empty rectangle, so a stale slot
-    // can never be painted on top of a neighbour after a fold.
-    auto placeActivityDot = [&] (ebs::ActivityDot& dot, bool visible)
+    // One activity slot per column, consumed in the same left-to-right order as the columns so a
+    // dot cannot drift off its column. Only the columns whose COMPONENT has several knobs place a
+    // dot here (Saturation, Delay); the others consume their slot and leave it empty, because
+    // their dot lives inside the single knob that owns them (ebs::ActivityKnob). A hidden
+    // column's dot is hidden with it and given an empty rectangle, so a stale slot can never be
+    // painted on top of a neighbour after a fold.
+    auto takeActivitySlot = [&]()
     {
         auto slot = activityStrip.removeFromLeft (effectColW);
         activityStrip.removeFromLeft (kEffectsColGap);
+        return slot;
+    };
+
+    auto placeActivityDot = [&] (ebs::ActivityDot& dot, bool visible)
+    {
+        auto slot = takeActivitySlot();
 
         dot.setVisible (visible);
         if (! visible)
@@ -3458,6 +3461,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
         dot.setBounds (slot.withSizeKeepingCentre (slot.getWidth(), kEffectsActivityDotD));
     };
+
+    // A column whose cell carries its dot inside its own knob still consumes its slot: the strip
+    // is a shared row, and skipping the slot would shift every dot to its right.
+    auto skipActivitySlot = [&]() { takeActivitySlot(); };
 
     // Cell with a power toggle: toggle on top, knob centred below.
     auto placeToggledKnob = [&] (juce::Rectangle<int> cell, auto& toggle, auto& knob)
@@ -3491,7 +3498,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     placeToggledKnob (col1.removeFromTop (rowH), noiseGateEnableButton, noiseGateThresholdSlider);
     col1.removeFromTop (rowGap);
     placeToggledKnob (col1, upwardCompEnableButton, upwardCompAmountSlider);
-    placeActivityDot (effectsCol1Dot, true);   // the lead: what Gate and Compressor work on
+    skipActivitySlot();   // Gate and Compressor carry their dot in their own knob
 
     // Column 2 : Doubler on top, Formant below. The Doubler cell is built exactly like
     // its siblings (power toggle carrying the name, knob below): double_enable is a real parameter,
@@ -3504,7 +3511,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     placeToggledKnob (col2.removeFromTop (rowH), doubleEnableButton, doubleAmountSlider);
     col2.removeFromTop (rowGap);
     placeToggledKnob (col2, formantEnableButton, formantSlider);
-    placeActivityDot (effectsCol2Dot, true);   // the lead again: the Doubler and the vowel shape are lead-side
+    skipActivitySlot();   // Doubler and Formant carry theirs in their own knob
 
     if (effectsOpen)
     {
@@ -3536,7 +3543,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // The one column that holds two voices: the ceiling it contains is the master's, the
         // De-Esser under it is the lead's, so its caption names both and its dot reads the stage
         // that LEAVES the column (the master blend) - one dot, one truth.
-        placeActivityDot (effectsCol3Dot, true);
+        skipActivitySlot();   // the ceiling and the De-Esser carry theirs in their own knob
 
         // Column 4 : Saturation. One power switch carrying the name and two labelled
         // knobs (Drive, Warmth) stacked in one cell - the same shape the send-room column uses in
@@ -3571,9 +3578,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     }
     else
     {
-        // Folded: columns 3 to 5 are gone, so their captions and dots go with them - hidden, and
-        // given empty rectangles, exactly like the widgets of a folded zone.
-        placeActivityDot (effectsCol3Dot, false);
+        // Folded: columns 3 to 5 are gone, so their dots go with them - hidden, and given empty
+        // rectangles, exactly like the widgets of a folded zone.
+        skipActivitySlot();
         placeActivityDot (effectsCol4Dot, false);
         placeActivityDot (effectsCol5Dot, false);
     }
@@ -3954,9 +3961,12 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // is fed every tick and repaints only when the disc it draws actually moved, so an idle
     // plugin repaints nothing.
     const auto pathState = processorRef.getPathActivityState();
-    effectsCol1Dot.setLevel (pathState.leadPeak);      // Gate + Compressor work on the lead
-    effectsCol2Dot.setLevel (pathState.leadPeak);      // Doubler + Formant too
-    effectsCol3Dot.setLevel (pathState.masterPeak);    // the ceiling leaves the column as the blend
+    noiseGateThresholdSlider.setActivityLevel (pathState.leadPeak);   // Gate: the lead path
+    upwardCompAmountSlider.setActivityLevel (pathState.leadPeak);     // Compressor: the lead path
+    doubleAmountSlider.setActivityLevel (pathState.leadPeak);         // Doubler: the lead path
+    formantSlider.setActivityLevel (pathState.leadPeak);              // Formant: the lead path
+    deessAmountSlider.setActivityLevel (pathState.leadPeak);          // De-Esser: the lead path
+    outputTrimSlider.setActivityLevel (pathState.masterPeak);         // Output Limit: the master path
     effectsCol4Dot.setLevel (pathState.masterPeak);    // saturation shapes the master
     effectsCol5Dot.setLevel (pathState.leadPeak);      // the echo colours the lead
     reverbLeadDot.setLevel (pathState.leadPeak);        // the lead room is fed by the lead send
@@ -5221,13 +5231,24 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     outputMeter.setCaptions (ovt::tr (ovt::Keys::kLabelMeterGr), ovt::tr (ovt::Keys::kLabelMeterTrim));
     outputMeter.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputMeter));
 
-    // The activity dots carry one tooltip each, by the PATH they report rather than by the column
-    // they sit in, so the same sentence stays true when a column moves. With no caption under the
-    // columns, the tooltip is where the voice is named on screen - the dot itself stays wordless.
-    for (ebs::ActivityDot* dot : { &effectsCol1Dot, &effectsCol2Dot, &effectsCol5Dot })
-        dot->setTooltip (ovt::tr (ovt::Keys::kTooltipPathLead));
-    effectsCol3Dot.setTooltip (ovt::tr (ovt::Keys::kTooltipPathOutput));
-    effectsCol4Dot.setTooltip (ovt::tr (ovt::Keys::kTooltipPathOutput));
+    // The activity dots carry one tooltip each, by the PATH they report rather than by the place
+    // they sit, so the same sentence stays true whether the dot lives in a knob or at the foot of
+    // a column. A knob that carries its own dot keeps its own tooltip and gains the path sentence
+    // after it: the control's explanation stays first, and the dot is explained where it lives.
+    const auto withPath = [] (const juce::String& control, const juce::String& path)
+    {
+        return control.isEmpty() ? path : control + " " + path;
+    };
+    const auto leadPath    = ovt::tr (ovt::Keys::kTooltipPathLead);
+    const auto outputPath  = ovt::tr (ovt::Keys::kTooltipPathOutput);
+    noiseGateThresholdSlider.setTooltip (withPath (noiseGateThresholdSlider.getTooltip(), leadPath));
+    upwardCompAmountSlider.setTooltip (withPath (upwardCompAmountSlider.getTooltip(), leadPath));
+    doubleAmountSlider.setTooltip (withPath (doubleAmountSlider.getTooltip(), leadPath));
+    formantSlider.setTooltip (withPath (formantSlider.getTooltip(), leadPath));
+    deessAmountSlider.setTooltip (withPath (deessAmountSlider.getTooltip(), leadPath));
+    outputTrimSlider.setTooltip (withPath (outputTrimSlider.getTooltip(), outputPath));
+    effectsCol4Dot.setTooltip (outputPath);
+    effectsCol5Dot.setTooltip (leadPath);
     reverbLeadDot.setTooltip (ovt::tr (ovt::Keys::kTooltipPathLead));
     reverbPadDot.setTooltip (ovt::tr (ovt::Keys::kTooltipPathHarmony));
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
