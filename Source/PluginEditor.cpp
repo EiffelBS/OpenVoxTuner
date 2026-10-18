@@ -860,12 +860,24 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     addAndMakeVisible (delayDivisionLabel);
     translatableLabels.push_back ({ &delayDivisionLabel, ovt::Keys::kLabelDelayDivision });
 
-    delayDivisionBox.addItemList ({ "1/8", "1/8.", "1/4", "1/4.", "1/2" }, 1);
-    delayDivisionBox.setSelectedId (3, juce::dontSendNotification);   // index 2 = "1/4", the APVTS default
-    delayDivisionBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgPanel());
-    delayDivisionBox.setColour (juce::ComboBox::textColourId, ebs::text());
-    delayDivisionBox.setColour (juce::ComboBox::outlineColourId, ebs::accentSoft());
-    addAndMakeVisible (delayDivisionBox);
+    // The division is a DETENTED knob (one step per note value), not a combo: the parameter is an
+    // AudioParameterChoice whose normalisable range is 0..4 step 1, so a rotary SliderAttachment
+    // snaps to the five values and the popup reads them as fractions. The fractions themselves are
+    // musical notation, not prose: they stay identical in every locale, like the scale names.
+    delayDivisionKnob.setSliderStyle (juce::Slider::RotaryVerticalDrag);
+    delayDivisionKnob.setRange (0.0, 4.0, 1.0);
+    delayDivisionKnob.setValue (2.0, juce::dontSendNotification);   // index 2 = "1/4", the APVTS default
+    delayDivisionKnob.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    delayDivisionKnob.setPopupDisplayEnabled (true, false, this);
+    delayDivisionKnob.textFromValueFunction = [] (double v)
+    {
+        static const char* const fractions[] = { "1/8", "1/8.", "1/4", "1/4.", "1/2" };
+        return juce::String (fractions[juce::jlimit (0, 4, juce::roundToInt (v))]);
+    };
+    delayDivisionKnob.setColour (juce::Slider::rotarySliderFillColourId, ebs::accent());
+    delayDivisionKnob.setColour (juce::Slider::rotarySliderOutlineColourId, ebs::accentSoft());
+    delayDivisionKnob.setColour (juce::Slider::thumbColourId, juce::Colours::white);
+    addAndMakeVisible (delayDivisionKnob);
 
     // Delay power toggle: a real parameter (delay_enable), attached to the button like every
     // sibling effect in this block. Switching off greys the combo and both knobs, keeps their
@@ -2249,7 +2261,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&saturationToneLabel),
                                 static_cast<juce::Component*> (&delayEnableButton),
                                 static_cast<juce::Component*> (&delayDivisionLabel),
-                                static_cast<juce::Component*> (&delayDivisionBox),
+                                static_cast<juce::Component*> (&delayDivisionKnob),
                                 static_cast<juce::Component*> (&delayMixSlider),
                                 static_cast<juce::Component*> (&delayMixLabel),
                                 static_cast<juce::Component*> (&delayFeedbackSlider),
@@ -2442,7 +2454,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // with addItemList ({...}, 1), so item ids start at 1 and the attachment maps them to
     // the AudioParameterChoice index verbatim.
     delayEnableAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "delay_enable", delayEnableButton);
-    delayDivisionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (tree, "delay_division", delayDivisionBox);
+    delayDivisionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "delay_division", delayDivisionKnob);
     delayMixAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "delay_mix", delayMixSlider);
     delayFeedbackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "delay_feedback", delayFeedbackSlider);
     // Keep the Follow Lead and Gain Match sub-toggles in sync with the parent
@@ -3393,7 +3405,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // controls, never the processing - delay_enable keeps gating the ping-pong bus.
     delayEnableButton.setVisible (effectsOpen);
     delayDivisionLabel.setVisible (effectsOpen);
-    delayDivisionBox.setVisible (effectsOpen);
+    delayDivisionKnob.setVisible (effectsOpen);
     delayMixSlider.setVisible (effectsOpen);
     delayMixLabel.setVisible (effectsOpen);
     delayFeedbackSlider.setVisible (effectsOpen);
@@ -3418,6 +3430,29 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     const int rowH          = (rowsArea.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
     const int effectColW    = (rowsArea.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;
+
+    // A caption in a HALF column (36 px) cannot hold every shipped word at the shared 11 pt label
+    // font: measured, the widest pair needs 27 px (EN/DE), 23 (FR), 31 (JA), 13 (ZH) and 44 (ES,
+    // "Realimentación") at the 8 pt floor. So a caption shrinks its own glyphs to fit, the frame
+    // spine's rule, from fontLabelSmall() down to that floor - and the Spanish pair is the reason
+    // the ES wording uses the audio jargon "Feedback", which this file already keeps untranslated
+    // for Lead, Ducking and Gate.
+    auto fitLabelToWidth = [&] (juce::Label& label, int width)
+    {
+        const juce::String text = label.getText();
+
+        for (int size = 11; size >= 8; --size)
+        {
+            const juce::Font font = ovt::createFont (static_cast<float> (size), true);
+            if (juce::GlyphArrangement::getStringWidth (font, text) <= static_cast<float> (width))
+            {
+                label.setFont (font);
+                return;
+            }
+        }
+
+        label.setFont (ovt::createFont (8.0f, true));
+    };
 
     // Cell with a power toggle: toggle on top, knob centred below.
     auto placeToggledKnob = [&] (juce::Rectangle<int> cell, auto& toggle, auto& knob)
@@ -3507,22 +3542,38 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         col4.removeFromTop (rowGap);
         placeLabelledKnob (col4, saturationToneLabel, saturationToneSlider);
 
-        // Column 5, the rightmost : Delay. One power switch carrying the name, one note-value combo
-        // (the ping length synced to the host tempo) in a label+combo strip, then two labelled knobs
-        // (Mix, Feedback) stacked - the exact shape Saturation's column uses, paid inside its own
-        // column so rows stay frozen at two everywhere in the block. The combo rides the same reduced
-        // strip pattern as the harmony selector boxes. When the frame is short, placeLabelledKnob's
-        // jlimit bounds shrink these knobs below their siblings' size; no control is ever dropped.
+        // Column 5, the rightmost : Delay. One power switch carrying the name, then the MIX knob at
+        // the block's standard size - it carries the component's activity dot, so it is the dial the
+        // eye lands on - and, on ONE line under it, the two secondary controls as small knobs:
+        // Division (detented, the ping length synced to the host tempo) and Feedback. The detented
+        // knob replaced a combo strip, which is what frees the height the Mix knob needed: the combo
+        // plus its caption cost 36 px, the pair of small knobs costs 47 and gives Mix 83.
         auto col5 = rowsArea;   // the last column takes whatever is left
         delayEnableButton.setBounds (col5.removeFromTop (effectPowerH));
-        const int divisionComboH = 20;   // smallest strip the ComboBox can render "1/8." at this font
-        delayDivisionLabel.setBounds (col5.removeFromTop (sendLabelH));
-        auto divCell = col5.removeFromTop (divisionComboH + 2);   // same +2 breathing room as a knob cell
-        delayDivisionBox.setBounds (divCell.reduced (0, 1));      // ~20 px combo strip, full column width
-        const int delayCellH = (col5.getHeight() - rowGap) / 2;
-        placeLabelledKnob (col5.removeFromTop (delayCellH), delayMixLabel, delayMixSlider);
-        col5.removeFromTop (rowGap);
-        placeLabelledKnob (col5, delayFeedbackLabel, delayFeedbackSlider);
+
+        const int smallRowH = sendLabelH + 33;   // caption strip + the tallest a half-column dial can be
+        auto smallRow = col5.removeFromBottom (smallRowH);
+        col5.removeFromBottom (rowGap);
+        placeLabelledKnob (col5, delayMixLabel, delayMixSlider);
+
+        // The two small cells: a caption each, fitted to the half column they are given (the shared
+        // 11 pt label does not fit 36 px in every language), then the dial centred under it.
+        auto placeSmallLabelledKnob = [&] (juce::Rectangle<int> cell, juce::Label& label, juce::Slider& knob)
+        {
+            auto labelStrip = cell.removeFromTop (sendLabelH);
+            fitLabelToWidth (label, labelStrip.getWidth());
+            label.setBounds (labelStrip);
+
+            const int d = juce::jlimit (24, effKnobD,
+                                        juce::jmin (cell.getWidth(), cell.getHeight() - 2));
+            const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - d) / 2);
+            knob.setBounds (kx, cell.getY() + 1, d, d);
+        };
+
+        auto divCell = smallRow.removeFromLeft ((smallRow.getWidth() - 2) / 2);
+        smallRow.removeFromLeft (2);
+        placeSmallLabelledKnob (divCell, delayDivisionLabel, delayDivisionKnob);
+        placeSmallLabelledKnob (smallRow, delayFeedbackLabel, delayFeedbackSlider);
     }
 
     // --- Block 5 : Reverb - an ebs::ExpansibleFrame right of Effects ---
@@ -4143,7 +4194,7 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     // its pair via refreshLabels above), and disabled widgets paint dimmed, so the labels
     // follow their controls exactly as saturation's do. Only the combo + two sliders gate.
     bool isDelayEnabled = delayEnableButton.getToggleState();
-    delayDivisionBox.setEnabled (isDelayEnabled);
+    delayDivisionKnob.setEnabled (isDelayEnabled);
     delayMixSlider.setEnabled (isDelayEnabled);
     delayFeedbackSlider.setEnabled (isDelayEnabled);
 
@@ -6528,7 +6579,7 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyComboColours (shiftedVoicesBox);
     applyComboColours (harmonyToneBox);
     // The division combo rides the same theme pass as every other selector in the editor.
-    applyComboColours (delayDivisionBox);
+    applySliderColours (delayDivisionKnob);
     // Light-theme completion (2026-08): previously styled once with dark literals at creation.
     applyComboColours (voiceTypeBox);
     applyComboColours (formantStrategyBox);

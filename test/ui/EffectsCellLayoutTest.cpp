@@ -94,6 +94,46 @@ public:
                                "activity dot has its own strip under the column");
         }
 
+        beginTest ("the Delay column's two small labels fit a half-column cell, in every language");
+
+        // The Delay column puts Division and Feedback side by side on one line, so each label has a
+        // HALF column (74 px minus the gap between the two cells). "Division" at the shared 11 pt is
+        // far wider than that, so the labels shrink their own glyphs - the frame spine's rule - down
+        // to an 8 pt floor, the size the output meter's dB line already uses.
+        constexpr int halfCellW = 36;   // (74 - 2 px gap) / 2, the widest a half cell can be
+
+        for (const auto language : shipped)
+        {
+            ovt::currentLanguage() = language;
+
+            const juce::String texts[] = { ovt::tr (ovt::Keys::kLabelDelayDivision),
+                                           ovt::tr (ovt::Keys::kLabelDelayFeedback) };
+
+            const auto widestAt = [&texts] (int size)
+            {
+                const juce::Font font = ovt::createFont (static_cast<float> (size), true);
+                int widest = 0;
+                for (const auto& text : texts)
+                    widest = juce::jmax (widest, static_cast<int> (std::ceil (
+                                 juce::GlyphArrangement::getStringWidth (font, text))));
+                return widest;
+            };
+
+            const int widestAtFloor = widestAt (8);
+            int chosen = 8;
+            for (int size = 11; size >= 8; --size)
+                if (widestAt (size) <= halfCellW) { chosen = size; break; }
+
+            std::cout << "       delay small labels: " << ovt::languageDisplayName (language)
+                      << " widest at 11 pt " << widestAt (11)
+                      << " px, at 8 pt " << widestAtFloor
+                      << " px, chosen size " << chosen << " pt\n";
+
+            // The floor is the promise: if even 8 pt overflowed, the labels would clip.
+            expectLessOrEqual (widestAtFloor, halfCellW,
+                               "both Delay labels fit a half-column cell at the 8 pt floor");
+        }
+
         ovt::currentLanguage() = savedLanguage;
     }
 };

@@ -1830,7 +1830,7 @@ namespace ovt
             { kLabelDelay,               "Retardo" },
             { kLabelDelayDivision,       "División" },
             { kLabelDelayMix,            "Mezcla" },
-            { kLabelDelayFeedback,       "Realimentación" },
+            { kLabelDelayFeedback,       "Feedback" },          // audio jargon, like Lead / Ducking / Gate: the full word needs 44 px where a half-column cell gives 36
             { kTooltipReverbEn,       "Activar/desactivar efecto de reverberación." },
             { kTooltipReverbMix,      "Mezcla de reverberación del lead: en 0 la voz queda intacta, al máximo es REMPLAZADA por la sala. Es un fundido cruzado: subir el potenciómetro no apila volumen sobre la voz." },
             { kTooltipPadReverbEn,    "Activa/desactiva la reverberación de las armonías: la segunda sala de reverberación, sobre las voces de armonía. Separada de la del lead, ancha y muy amortiguada; la pila gana amplitud sin larga resonancia metálica." },

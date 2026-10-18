@@ -325,11 +325,14 @@ private:
     // does with its pair. The ARA source panel reads the host tempo already, so the
     // division is a musical note, never a raw millisecond dial.
     ebs::PowerToggle delayEnableButton;
-    juce::ComboBox   delayDivisionBox;            // note value of one ping (host-synced)
+    // The note value is a DETENTED small knob, not a combo: the parameter is an AudioParameterChoice
+    // (0..4 step 1), so a rotary SliderAttachment snaps to the five values and the popup reads them
+    // as fractions. That frees the 22 px the combo strip occupied for the Mix knob above it.
+    ebs::Knob        delayDivisionKnob;           // note value of one ping (host-synced)
     // Delay: its dot rides the Mix knob, the amount the echo contributes.
     ebs::ActivityKnob delayMixSlider;            // dry/wet of the delay bus (0-1)
     juce::Slider     delayFeedbackSlider;         // feedback amount (0-1)
-    juce::Label      delayDivisionLabel;          // "Division" caption above the combo
+    juce::Label      delayDivisionLabel;          // "Division" caption above the knob
     juce::Label      delayMixLabel;               // "Mix" caption above the mix knob
     juce::Label      delayFeedbackLabel;          // "Feedback" caption above the feedback knob
 
@@ -533,7 +536,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> saturationDriveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> saturationToneAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> delayEnableAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> delayDivisionAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayDivisionAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayMixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayFeedbackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
