@@ -2238,7 +2238,14 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&saturationDriveSlider),
                                 static_cast<juce::Component*> (&saturationDriveLabel),
                                 static_cast<juce::Component*> (&saturationToneSlider),
-                                static_cast<juce::Component*> (&saturationToneLabel) })
+                                static_cast<juce::Component*> (&saturationToneLabel),
+                                static_cast<juce::Component*> (&delayEnableButton),
+                                static_cast<juce::Component*> (&delayDivisionLabel),
+                                static_cast<juce::Component*> (&delayDivisionBox),
+                                static_cast<juce::Component*> (&delayMixSlider),
+                                static_cast<juce::Component*> (&delayMixLabel),
+                                static_cast<juce::Component*> (&delayFeedbackSlider),
+                                static_cast<juce::Component*> (&delayFeedbackLabel) })
         effectsFrame.addAndMakeVisible (c);
 
     // The Reverb frame owns the two rooms and their send room. Both rooms keep their power
