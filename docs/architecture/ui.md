@@ -54,6 +54,18 @@ computed over a rolling window of 300 samples (~10 s at 30 fps).
 Interactions: mouse-wheel and trackpad pinch-to-zoom, toolbar zoom/scroll/reset
 buttons, an integrated vertical `PianoKeyboard`, and a right-click wrench menu.
 
+## Toolbar tempo field (standalone)
+
+The tempo register (`OpenVoxTunerAudioProcessor::setBpm` / `getBpm`, clamped 20..400) is what the
+standalone **timeline** advances at, what the Curve Editor's bar grid is drawn on, and what the
+tempo-synced **Delay** reads — a DAW replaces it with the host tempo and an ARA source with its
+tempo map, so the field is standalone-only, like the Options menu's Tempo submenu. That submenu
+carries the usual values (60..180 in tens) and ticks the current one; the toolbar field next to
+**Measures** accepts ANY value (click, type `137`, Enter), and both write the same register, so the
+field follows a menu pick and the menu tick follows a typed value. The register is persisted as the
+state's `bpm` root attribute — it used to be forgotten on every reload — and deliberately does NOT
+ride a plugin preset (a preset changes a sound, not the session's tempo).
+
 ## PitchCurveEditor (`ui::PitchCurveEditor`)
 
 Interactive editor for `ovtdsp::PitchCurve`, connected to the processor via a

@@ -1803,6 +1803,34 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     measuresLabel.setFont (ovt::fontMeasuresLabel());
     addAndMakeVisible (measuresLabel);
 
+    // Standalone tempo field. The Options menu carries the usual values (60..180 in tens), but a
+    // session at 137 BPM is not a menu item, and this register is no longer cosmetic: the timeline
+    // advances at it, the Curve Editor draws its grid on it and the tempo-synced Delay reads it.
+    // It is an editable label rather than a slider because a BPM is a NUMBER the user knows, not a
+    // value to hunt for - one click, type, Enter. A DAW replaces this register with the host tempo
+    // (an ARA source with its tempo map), so the field is standalone-only, like the menu entry.
+    bpmLabel.setJustificationType (juce::Justification::centred);
+    bpmLabel.setColour (juce::Label::textColourId, ebs::text());
+    bpmLabel.setColour (juce::Label::backgroundColourId, ebs::bgDark());
+    bpmLabel.setColour (juce::Label::outlineColourId, ebs::accentSoft());
+    bpmLabel.setColour (juce::Label::textWhenEditingColourId, ebs::text());
+    bpmLabel.setColour (juce::Label::backgroundWhenEditingColourId, ebs::bgPanel());
+    bpmLabel.setFont (ovt::fontMeasuresLabel());
+    bpmLabel.setEditable (true, true, false);   // one click starts editing; losing focus keeps it
+    bpmLabel.setTooltip (ovt::tr (ovt::Keys::kMenuTempo));
+    bpmLabel.setText (juce::String (juce::roundToInt (processorRef.getBpm())) + " BPM", juce::dontSendNotification);
+    bpmLabel.onTextChange = [this]
+    {
+        // Accept "137", "137 BPM" or anything starting with a number; the processor clamps 20..400.
+        const float typed = bpmLabel.getText().getFloatValue();
+        if (typed > 0.0f)
+            processorRef.setBpm (typed);
+
+        bpmLabel.setText (juce::String (juce::roundToInt (processorRef.getBpm())) + " BPM",
+                          juce::dontSendNotification);
+    };
+    addAndMakeVisible (bpmLabel);
+
     measuresComboBox.addItemList ({ "1", "2", "4", "8", "16", "32" }, 1);
     measuresComboBox.setSelectedItemIndex (2, juce::dontSendNotification); // default "4"
     measuresComboBox.setColour (juce::ComboBox::backgroundColourId, ebs::bgDark());
@@ -3193,6 +3221,13 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     measuresComboBox.setBounds (toolsArea.removeFromLeft (56).withSizeKeepingCentre (56, 24));
     toolsArea.removeFromLeft(leftGap);
 
+    // Standalone tempo field, right after Measures: the two controls the Curve Editor's grid
+    // depends on sit together, and the tempo-synced Delay reads the same number. Hidden in a DAW,
+    // where the host owns the tempo.
+    bpmLabel.setVisible (isStandalone);
+    if (isStandalone)
+        bpmLabel.setBounds (toolsArea.removeFromLeft (76).withSizeKeepingCentre (76, 24));
+
     // Toolbar (right to left): Options | Gallery | zoom / scroll / reset | snap / grid / step
     // Options and Gallery are icon-only buttons; leave a clear gap before
     // the reset (X) button so they don't visually touch.
@@ -3967,6 +4002,17 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     delayMixSlider.setActivityLevel (pathState.leadPeak);            // Delay: the lead path
     reverbMixSlider.setActivityLevel (pathState.leadPeak);           // Lead room: the lead path
     padReverbMixSlider.setActivityLevel (pathState.harmonyPeak);     // Harmony room: the harmony path
+
+    // The standalone tempo field follows the register: the menu's fixed values, a typed value and a
+    // restored state all land in the same atomic, so the field must show what the timeline, the
+    // Curve Editor's grid and the Delay are actually using. Skipped while the user is typing.
+    if (bpmLabel.isVisible() && ! bpmLabel.isBeingEdited())
+    {
+        const juce::String shown (juce::roundToInt (processorRef.getBpm()));
+        const juce::String wanted = shown + " BPM";
+        if (bpmLabel.getText() != wanted)
+            bpmLabel.setText (wanted, juce::dontSendNotification);
+    }
 
     // One-shot diagnostic dump on the first tick, after all restore/attachment
     // messages have settled, to verify what is actually restored at startup.

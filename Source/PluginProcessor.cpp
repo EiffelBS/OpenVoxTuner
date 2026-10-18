@@ -5054,6 +5054,10 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
     xml->setAttribute ("reverbExpanded", reverbExpandedState ? 1 : 0);
     xml->setAttribute ("effectsExpanded", effectsExpandedState ? 1 : 0);
     xml->setAttribute ("abActiveSlot", abActiveSlot);
+    // The standalone tempo: the timeline advances at it, the Curve Editor draws its grid on it and
+    // the tempo-synced Delay reads it (a DAW replaces it with the host tempo, an ARA source with its
+    // tempo map). It used to be forgotten on every reload, which put a 137 BPM session back at 120.
+    xml->setAttribute ("bpm", (double) bpm.load());
 
     // Persist A/B slot MorphStates as compact flat attributes (no nested XML).
     for (int slot = 0; slot < 2; ++slot)
@@ -5297,6 +5301,8 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
         // remembered opens exactly as it used to. Once the user opens it, the Delay column comes back open.
         effectsExpandedState = xmlState->getBoolAttribute ("effectsExpanded", false);
         abActiveSlot = juce::jlimit (0, 1, xmlState->getIntAttribute ("abActiveSlot", 0));
+        // Absent reads back 120, the default this register has always had.
+        setBpm ((float) xmlState->getDoubleAttribute ("bpm", 120.0));
         parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
     }
 }

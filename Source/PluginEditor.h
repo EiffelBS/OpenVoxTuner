@@ -487,6 +487,9 @@ private:
     // controls to the toolbar so it no longer covers the ruler.
     juce::Label measuresLabel;
     juce::ComboBox measuresComboBox;
+    // Standalone tempo field (see the constructor): the register the timeline, the Curve Editor's
+    // grid and the tempo-synced Delay read when no host tempo is available. Hidden in a DAW.
+    juce::Label bpmLabel;
     // Standalone transport. A single play/pause toggle (Play icon when stopped,
     // Stop icon when playing) plus a "Return to start" (rewind) button.
     // Only meaningful when not driven by a DAW host.
