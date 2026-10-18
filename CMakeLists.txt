@@ -86,7 +86,7 @@ include(FetchContent)
 # the newest feature used, and adding components is a patch bump.
 FetchContent_Declare(eiffelbs-ui
     GIT_REPOSITORY https://github.com/EiffelBS/eiffelbs-ui.git
-    GIT_TAG        v0.17.2
+    GIT_TAG        v0.17.3
     GIT_SHALLOW    TRUE)
 FetchContent_MakeAvailable(eiffelbs-ui)
 
