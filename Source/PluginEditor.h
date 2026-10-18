@@ -21,6 +21,7 @@
 #include <eiffelbs/eiffelbs.h>
 #include "ui/OVTTheme.h"
 #include "ui/OVTFonts.h"
+#include "ui/OVTHarmonyLayout.h"   // the Harmony frame's two zone widths (policy + measurement)
 #include "dsp/PresetMorpher.h"
 
 struct OpenVoxTunerUpdateCheckState;
@@ -142,12 +143,13 @@ private:
     static constexpr int kScalePrefW    = 236;  // narrowed to fit the Root combo
     static constexpr int kScaleMinW     = 200;  // floor for the 180 px keyboard strip
     static constexpr int kHarmonyPad    = 10;   // frame interior padding
-    static constexpr int kHarmonyLeftW  = 196;   // folded content: type combo + voice selectors + two toggles.
-                                                  // Measured from the open block: interior (384 - 28 chevron strip - 20 padding)
-                                                  // * 0.58 = 195, so folding removes ONLY the knobs and nothing in the left
-                                                  // column reflows -- at 128 the type combo truncated "Unison + Octaves (4 voices)".
-    static constexpr int kHarmonyPrefW  = 384;  // open block: left column + the two knob columns (Volume/Blend over Formant/Attack)
-    static constexpr int kHarmonyMinW   = 300;  // floor for the open block, knobs still readable
+    // The Harmony frame's two zones. The main zone (enable, type, use-voice, voices, tone, two
+    // toggles - visible in BOTH fold states) is measured: it is exactly as wide as its widest
+    // control needs, which is the type combo's longest entry in the CURRENT language, so the
+    // frame is no wider than its content and no entry ever truncates (ovt::harmonyMainZoneW()).
+    // The expanded zone (the four dials) takes everything else, because two dials with air
+    // between them read as two controls (ovt::kHarmonyKnobZoneW holds the policy).
+    static constexpr int kHarmonyZoneGap = 8;   // between the main zone and the knob zone
 
     /** Width one room name needs inside its power toggle, measured in the CURRENT language: the tick well,
      *  a gap and the text drawn in ebs::fontToggleButton(). The Reverb frame's folded columns are sized by this
@@ -157,9 +159,24 @@ private:
      *  what lets a future rename change the frame width instead of silently truncating a word. */
     int reverbHeaderNeed (const juce::String& text) const;
 
+    /** The Harmony frame's width in each fold state, built from the zone policy in
+     *  ui/OVTHarmonyLayout.h plus the frame's own chrome (chevron strip, padding, title spine):
+     *  folded it is the MEASURED main zone alone, open it is that zone plus the knob zone the four
+     *  dials need. The width model and the layout both read these, so the two cannot disagree
+     *  about what the frame asks for - and the folded frame is never wider than its content. */
+    int harmonyFoldedW() const;
+    int harmonyOpenW() const;
+    int harmonyOpenFloorW() const;
+
+    /** The frame chrome the three widths above share: chevron strip, interior padding, title spine. */
+    int harmonyChromeW() const;
+
     /** Re-state every bottom-row block widths from each frame own fold flag. Called at
-     *  construction, on every fold, and at the start of resized(). */
+     *  construction, on every fold, at the start of resized(), and after a language change (the
+     *  measured zones - the room names and the Harmony main zone - are measured IN that language,
+     *  so a stale width would clip a freshly translated label). */
     void updateBottomBandWidths();
+
     std::vector<IconSkin> iconSkins;
 
     OvtLookAndFeel customLookAndFeel;

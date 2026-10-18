@@ -571,7 +571,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     const int reverbChevronW = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
     const int reverbFoldedW  = kEffectsColW + 2 * kEffectsPad + reverbChevronW + kTitleBandW;
     bottomBand.addFrame (&reverbFrame, reverbFoldedW, reverbFoldedW, false);
-    bottomBand.addFrame (&harmonyFrame, kHarmonyPrefW + kTitleBandW, kHarmonyMinW + kTitleBandW, true);
+    bottomBand.addFrame (&harmonyFrame, harmonyFoldedW(), harmonyFoldedW(), true);
     // Each title band is a CHILD of the frame it names, so it paints inside that frame's rounded corner and travels
     // with the frame when the row re-lays out. The keys ride the i18n list: refreshLabels() restates every spine
     // when the interface language changes, exactly as it does for labels.
@@ -2970,6 +2970,31 @@ int OpenVoxTunerAudioProcessorEditor::reverbHeaderNeed (const juce::String& text
     return 18 + ebs::fontToggleButton().getStringWidth (text) + 2;
 }
 
+// The Harmony frame's chrome: the chevron strip on its right edge, its own interior padding on both
+// sides and its title spine on the left. One expression, so the three width helpers below differ
+// only in the ZONES they carry.
+int OpenVoxTunerAudioProcessorEditor::harmonyChromeW() const
+{
+    return ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap()
+         + 2 * kHarmonyPad
+         + ebs::FrameTitleBand::bandWidth();
+}
+
+int OpenVoxTunerAudioProcessorEditor::harmonyFoldedW() const
+{
+    return harmonyChromeW() + ovt::harmonyMainZoneW();
+}
+
+int OpenVoxTunerAudioProcessorEditor::harmonyOpenW() const
+{
+    return harmonyChromeW() + ovt::harmonyMainZoneW() + kHarmonyZoneGap + ovt::kHarmonyKnobZoneW;
+}
+
+int OpenVoxTunerAudioProcessorEditor::harmonyOpenFloorW() const
+{
+    return harmonyChromeW() + ovt::harmonyMainZoneW() + kHarmonyZoneGap + ovt::kHarmonyKnobZoneFloorW;
+}
+
 // The single source of truth for every bottom-row block width. Each frame states the
 // width its content asks for and the floor below which its widgets collide. The band
 // lays every frame at that width: spare room is left empty and nothing is stretched.
@@ -3022,16 +3047,16 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     bottomBand.setFrameWidths (&reverbFrame, reverbW, reverbW, false);
     // Root/Scale: pref is the keyboard strip plus padding, the floor is the strip itself. Both carry the spine.
     bottomBand.setFrameWidths (&scaleFrame, kScalePrefW + bandW, kScaleMinW + bandW, false);
-    // Harmony folds. Closed its content is the left column (type combo, voice selectors, two
-    // power toggles) plus the chevron strip, so it asks for exactly that and is NOT growable:
-    // spare room stays empty at the right edge rather than stretching knobs off their labels.
-    // Open it adds the four knob columns and may shrink to kHarmonyMinW, where the knobs are
-    // still readable - that floor is what keeps the row from scrolling as soon as Harmony opens.
-    const int harmonyClosedW = chevron + 2 * kHarmonyPad + kHarmonyLeftW + bandW;
+    // Harmony folds, and it is the band's only GROWABLE block. Folded, its content is the main zone
+    // (enable, type, use-voice, voices, tone, two toggles) and nothing else, so it asks for exactly
+    // the MEASURED width of that zone: the frame is never wider than its content, and a long
+    // translated type entry widens it instead of truncating. Open, it adds the knob zone the four
+    // dials need; spare room lands here (growable) so the dials get the air they need, and the
+    // floor keeps two readable dials before the row starts scrolling.
     if (harmonyFrame.expanded())
-        bottomBand.setFrameWidths (&harmonyFrame, kHarmonyPrefW + bandW, kHarmonyMinW + bandW, true);
+        bottomBand.setFrameWidths (&harmonyFrame, harmonyOpenW(), harmonyOpenFloorW(), true);
     else
-        bottomBand.setFrameWidths (&harmonyFrame, harmonyClosedW, harmonyClosedW, false);
+        bottomBand.setFrameWidths (&harmonyFrame, harmonyFoldedW(), harmonyFoldedW(), false);
 }
 
 void OpenVoxTunerAudioProcessorEditor::resized()
@@ -3449,7 +3474,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     auto placeLabelledKnob = [&] (juce::Rectangle<int> cell, juce::Label& label, juce::Slider& knob)
     {
         label.setBounds (cell.removeFromTop (sendLabelH));
-        const int d = juce::jlimit (30, effKnobD, cell.getHeight() - 2);
+        // The diameter is bounded by the CELL, height and width both: a narrow zone (Harmony's knob
+        // columns at the frame's floor) must shrink the dial rather than let it overlap the one
+        // beside it - the same "no control is ever dropped" rule the Delay column follows.
+        const int widest = juce::jmax (30, juce::jmin (effKnobD, cell.getWidth()));
+        const int d = juce::jlimit (30, widest, cell.getHeight() - 2);
         const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - d) / 2);
         knob.setBounds (kx, cell.getY() + 2, d, d);
     };
@@ -3689,14 +3718,16 @@ void OpenVoxTunerAudioProcessorEditor::resized()
             return static_cast<int> (std::ceil (iconWidth + textW + 4.0f));
         };
 
-        // Open, the columns split 58 / 42 of the content width. Closed, the interior IS the
-        // left column: nothing is removed from it, so rightCol comes back empty and the knob
-        // block below is skipped by its own width guard - the same rule the correction frame's
-        // advanced zone uses.
-        auto leftCol = harmonyOpen ? h.removeFromLeft ((int) std::round (h.getWidth() * 0.58f))
-                                   : h;
+        // Open, the MAIN ZONE takes exactly the width its widest control needs and the knob zone
+        // takes everything left over: the main zone is a fixed set of controls, so a percentage
+        // split would either waste width on it (and starve the dials) or squeeze the type combo.
+        // Closed, the interior IS the main zone: nothing is removed from it, so rightCol comes back
+        // empty and the knob block below is skipped by its own width guard - the same rule the
+        // correction frame's advanced zone uses.
+        const int mainZoneW = juce::jmin (ovt::harmonyMainZoneW(), h.getWidth());
+        auto leftCol = harmonyOpen ? h.removeFromLeft (mainZoneW) : h;
         if (harmonyOpen)
-            h.removeFromLeft (8);
+            h.removeFromLeft (kHarmonyZoneGap);
         auto rightCol = h;
 
         // --- Left column: enable button, type, voices, toggles. These six rows are the frame's main zone and they
@@ -3751,14 +3782,18 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // the band's own rowGap of 8 px. That is what puts a Harmony dial on the same grid as an Effects dial - the
         // same interior top, the same row split, the same diameter - where this frame used to run its own private row
         // formula (label 14 + knob capped at 44, gap 6) and landed its knobs at heights no other frame in the band uses.
-        // Harmony is the band's only growable frame, so spare width lands here; kHarmonyMinW keeps two readable
-        // columns at minimum window width. The Doubler knob lives in the Effects block (row 2), not here: it doubles
-        // the dry lead, not the harmony voices.
+        // Harmony is the band's only growable frame, so spare width lands HERE and the dials take it: the zone's
+        // preferred width holds two full-size 54 px knobs with air around them (ovt::kHarmonyKnobZoneW), and its floor
+        // (ovt::kHarmonyKnobZoneFloorW) is the narrowest that still keeps two readable dials before the row scrolls.
+        // The Doubler knob lives in the Effects block (row 2), not here: it doubles the dry lead, not the harmony voices.
         if (harmonyOpen && rightCol.getWidth() > 4)
         {
             const int harmRowH = (rightCol.getHeight() - rowGap) / 2;
-            auto knobCol1 = rightCol.removeFromLeft ((rightCol.getWidth() - kEffectsColGap) / 2);
-            rightCol.removeFromLeft (kEffectsColGap);
+            // The two dial columns are separated by the zone's own gap (kHarmonyKnobGap, wider than
+            // the band's 8 px row gap): each dial is centred in its column, so the clearance shows
+            // up twice between them and the pair reads as two controls instead of one cluster.
+            auto knobCol1 = rightCol.removeFromLeft ((rightCol.getWidth() - ovt::kHarmonyKnobGap) / 2);
+            rightCol.removeFromLeft (ovt::kHarmonyKnobGap);
             auto knobCol2 = rightCol;
 
             placeLabelledKnob (knobCol1.removeFromTop (harmRowH), harmonyGainLabel, harmonyGainSlider);
@@ -5111,25 +5146,13 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
 
     // Update harmony combo box items (all 22)
     {
-        const char* harmonyKeys[] = {
-            ovt::Keys::kHarmonyNone, ovt::Keys::kHarmony3rdBelow,
-            ovt::Keys::kHarmony3rdAbove, ovt::Keys::kHarmony3rdBelowAbove,
-            ovt::Keys::kHarmony4thBelow, ovt::Keys::kHarmony4thAbove,
-            ovt::Keys::kHarmony4thBelowAbove, ovt::Keys::kHarmony5thBelow,
-            ovt::Keys::kHarmony5thAbove, ovt::Keys::kHarmony5thBelowAbove,
-            ovt::Keys::kHarmony3rdBelow5thAbove, ovt::Keys::kHarmony5thBelow3rdAbove,
-            ovt::Keys::kHarmonyOctaveBelow, ovt::Keys::kHarmonyOctaveAbove,
-            ovt::Keys::kHarmonyOctaveBelowAbove, ovt::Keys::kHarmonyVocalStack3,
-            ovt::Keys::kHarmonyVocalStack4, ovt::Keys::kHarmonyPowerChord,
-            ovt::Keys::kHarmonyParallel3rd, ovt::Keys::kHarmonyDrone,
-            ovt::Keys::kHarmonyUnison2, ovt::Keys::kHarmonyUnisonOctaves4
-        };
+        const char* const* harmonyKeys = ovt::harmonyTypeKeys();
         const int currentHarmony = harmonyTypeBox.getSelectedItemIndex();
         harmonyTypeBox.clear (juce::dontSendNotification);
-        for (int i = 0; i < 22; ++i)
+        for (int i = 0; i < ovt::kHarmonyTypeCount; ++i)
             harmonyTypeBox.addItem (ovt::tr (harmonyKeys[i]), i + 1);
         if (currentHarmony >= 0)
-            harmonyTypeBox.setSelectedItemIndex (juce::jmin (currentHarmony, 21), juce::dontSendNotification);
+            harmonyTypeBox.setSelectedItemIndex (juce::jmin (currentHarmony, ovt::kHarmonyTypeCount - 1), juce::dontSendNotification);
     }
 
     // Update Voice Type combo box items (6). Labels already include the note
