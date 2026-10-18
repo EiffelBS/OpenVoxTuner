@@ -108,6 +108,9 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 
 - **Formant Processing** — 3 modes (Legacy, MultiFormant, Allpass) with multiple preservation strategies (LPC cross-synthesis available)
 - **Reverb** — built-in reverb with adjustable mix
+- **De-Esser** — tames sibilance; the band follows the voice type
+- **Saturation** — adds drive and warmth on the output, with the level held automatically
+- **Tempo-synced Delay** — stereo ping-pong echo locked to the tempo (host or ARA), divisions from 1/8 to 1/2 including dotted notes, with mix and feedback
 - **Noise Gate** — input gate with threshold control (-80 to 0 dB)
 - **Upward Compressor** — lifts quiet passages before pitch detection
 
