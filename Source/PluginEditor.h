@@ -131,15 +131,6 @@ private:
     static constexpr int kEffectsPad    = 10;   // frame interior padding
     static constexpr int kEffectsColW   = 74;   // one cell: power toggle + full-size knob
     static constexpr int kEffectsColGap = 8;
-    // The activity strip under an Effects column: ONE dot, centred on the column, that says
-    // whether the voice that column's processors act on is carrying anything right now. No
-    // caption: the voice is named by the room headers and by the tooltip, and a word under
-    // every column was noise the dot alone does not need. The strip is paid by the bottom
-    // band's HEIGHT, never by the knobs above it - the row heights are computed after it is
-    // taken off, which is why every knob in the block still reaches its full 54 px. Folding a
-    // column away hides its dot with its cells, never paints over them.
-    static constexpr int kEffectsActivityStripH = 12;
-    static constexpr int kEffectsActivityDotD   = 9;
     static constexpr int kScalePrefW    = 236;  // narrowed to fit the Root combo
     static constexpr int kScaleMinW     = 200;  // floor for the 180 px keyboard strip
     static constexpr int kHarmonyPad    = 10;   // frame interior padding
@@ -319,7 +310,8 @@ private:
     // warmth, never "tape": the stage is a soft clipper with a warm pole, not an emulation.
     // Drive 0 is a transparent bypass, so the knob at zero changes nothing.
     ebs::PowerToggle saturationEnableButton;
-    juce::Slider       saturationDriveSlider;     // drive (0-1)
+    // Saturation: its dot rides the Drive knob, the control that IS the effect (see the dots note).
+    ebs::ActivityKnob  saturationDriveSlider;     // drive (0-1)
     juce::Slider       saturationToneSlider;      // warmth (0-1)
     juce::Label        saturationDriveLabel;       // "Drive" caption above the drive knob
     juce::Label        saturationToneLabel;        // "Warmth" caption above the warmth knob
@@ -334,7 +326,8 @@ private:
     // division is a musical note, never a raw millisecond dial.
     ebs::PowerToggle delayEnableButton;
     juce::ComboBox   delayDivisionBox;            // note value of one ping (host-synced)
-    juce::Slider     delayMixSlider;              // dry/wet of the delay bus (0-1)
+    // Delay: its dot rides the Mix knob, the amount the echo contributes.
+    ebs::ActivityKnob delayMixSlider;            // dry/wet of the delay bus (0-1)
     juce::Slider     delayFeedbackSlider;         // feedback amount (0-1)
     juce::Label      delayDivisionLabel;          // "Division" caption above the combo
     juce::Label      delayMixLabel;               // "Mix" caption above the mix knob
@@ -342,7 +335,8 @@ private:
 
     // Reverb controls (lead bus: the reverb that sits on the corrected lead)
     ebs::PowerToggle reverbEnableButton;
-    juce::Slider       reverbMixSlider;
+    // Each room carries its dot in its own mix knob - the amount that room contributes.
+    ebs::ActivityKnob  reverbMixSlider;
     juce::Label        reverbMixLabel;
 
     // Pad Reverb: a SECOND ReverbEffect instance, on the harmony bus. Two instances
@@ -350,7 +344,7 @@ private:
     // intelligibility and the pad needs a long, wide one for amplitude. One shared
     // master reverb forces one room on both and washes the tempo-sync delay copies.
     ebs::PowerToggle padReverbEnableButton;
-    juce::Slider       padReverbMixSlider;
+    ebs::ActivityKnob  padReverbMixSlider;
     juce::Label        padReverbMixLabel;
 
     // Shared send room: ONE reverb instance fed by two parallel sends, so the corrected
@@ -378,21 +372,9 @@ private:
     // is ever painted from the audio thread.
     ebs::LevelMeter outputMeter;
 
-    // The activity dots that are NOT carried by a knob. The rule is the COMPONENT, not the
-    // column: a cell that owns exactly one knob carries its dot inside that knob
-    // (ebs::ActivityKnob - Gate, Compressor, Doubler, Formant, Output Limit, De-Esser), while a
-    // component with several knobs keeps one dot at the foot of its own column, because there is
-    // no single dial to host it: Saturation (Drive + Warmth) and Delay (Division + Mix +
-    // Feedback). Those two read the master tap and the lead tap respectively - the path their
-    // processor works on - and they are fed by the editor timer from the processor's atomic
-    // snapshot: nothing here is ever painted from the audio thread, and no dot is a parameter.
-    ebs::ActivityDot effectsCol4Dot, effectsCol5Dot;
-
-    // The Reverb frame's two rooms carry the same dot, because the HARMONY path lives here:
-    // the pad room is the only processor the harmony bus owns, so its caption is the room's
-    // own name (already on screen) and this dot is where that voice becomes visible. The
-    // Ducking column is a return ramp, not a voice, so it carries none.
-    ebs::ActivityDot reverbLeadDot, reverbPadDot;
+    // Every activity dot in the editor is now carried by the knob of the component it reports
+    // (ebs::ActivityKnob): there is no strip left anywhere in the row. The Ducking column is a
+    // return ramp, not a voice, so it carries none.
 
     // Noise Gate
     ebs::PowerToggle noiseGateEnableButton;
