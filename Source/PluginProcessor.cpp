@@ -4279,7 +4279,7 @@ void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buf
             d->setBpm (tempoBpm);
 
             // Division reads through the choice object: getIndex() is reliable after setStateInformation, where
-            // round(rawLoad * 5.0f) can pick a wrong index on a non-normalized stored value. Default 2 = "1/4".
+            // round(rawLoad * 4.0f) can pick a wrong index on a non-normalized stored value. Default 2 = "1/4".
             d->setDivision (juce::jlimit (0, 4, delayDivisionChoice != nullptr ? delayDivisionChoice->getIndex() : 2));
 
             if (delayMixParam != nullptr)
