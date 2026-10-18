@@ -74,8 +74,9 @@ public:
 
         // Classified by hand, each with the reason it stays out of an A/B morph. UI state and
         // debug switches are not part of a SOUND; engine and routing choices are configuration a
-        // morph must not flip mid-performance; the custom scale's twelve notes are DATA the morph
-        // does not carry (it morphs key/scale only), which is a known limitation, not an oversight.
+        // morph must not flip mid-performance. The twelve custom scale notes USED to be excluded
+        // here as a known limitation (the morph carried key/scale but not the notes); they are
+        // morphed now, so a morph to or from a Custom scale lands on the right set of notes.
         const std::set<juce::String> notMorphed {
             // Editor / UI state
             "ui_theme", "ui_language", "ui_show_waveform", "ui_waveform_type", "ui_auto_center",
@@ -84,10 +85,7 @@ public:
             "dbg_test_grain",    // debug signal generator
             // Engine / routing choices (configuration, not sound)
             "pitch_detector", "formant_mode", "formant_strategy", "chord_detect_enable",
-            "midi_out_enable", "midi_target_enable",
-            // Custom scale data (known limitation: the morph carries key/scale, not the notes)
-            "custom0", "custom1", "custom2", "custom3", "custom4", "custom5",
-            "custom6", "custom7", "custom8", "custom9", "custom10", "custom11"
+            "midi_out_enable", "midi_target_enable"
         };
 
         beginTest ("every declared parameter is either morphed or explicitly excluded");

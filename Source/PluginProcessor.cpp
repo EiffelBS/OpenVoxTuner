@@ -5094,6 +5094,14 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("harmonyFormant",   (double) ms.harmonyFormant);
         slotXml->setAttribute ("harmonyAttack",    (double) ms.harmonyAttack);
         slotXml->setAttribute ("harmonyGainMatch", ms.harmonyGainMatch);
+        // The twelve custom notes travel as ONE 12-char attribute ("1" in the scale, "0" out):
+        // twelve separate attributes would be twelve chances to forget one.
+        {
+            juce::String notes;
+            for (const bool on : ms.customNote)
+                notes += on ? "1" : "0";
+            slotXml->setAttribute ("customNotes", notes);
+        }
         slotXml->setAttribute ("voiceType",        ms.voiceType);
         slotXml->setAttribute ("latencyMode",      ms.latencyMode);
         slotXml->setAttribute ("editorMeasures",   ms.editorMeasures);
@@ -5215,6 +5223,12 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.harmonyFormant     = (float) slotXml->getDoubleAttribute ("harmonyFormant", 0.5);
             ms.harmonyAttack      = (float) slotXml->getDoubleAttribute ("harmonyAttack", 0.1137);
         ms.harmonyGainMatch   = slotXml->getBoolAttribute ("harmonyGainMatch", false);
+        {
+            // Default "101011010101" is C major, the APVTS default for custom0..custom11.
+            const juce::String notes = slotXml->getStringAttribute ("customNotes", "101011010101");
+            for (int i = 0; i < 12; ++i)
+                ms.customNote[i] = notes[i] == '1';
+        }
             ms.voiceType          = slotXml->getIntAttribute ("voiceType", 0);
             ms.latencyMode        = slotXml->getIntAttribute ("latencyMode", 1);
             ms.editorMeasures     = slotXml->getIntAttribute ("editorMeasures", 8);

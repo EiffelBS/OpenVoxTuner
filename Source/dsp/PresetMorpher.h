@@ -22,6 +22,10 @@ namespace ovtdsp
         float harmonyBlend = 0.5f;
         float harmonyAttack = 0.1137f; // normalized value of "harmony_attack" (35 ms in 1..300 ms range)
         bool  harmonyGainMatch = false; // "harmony_gain_match": 1/sqrt(1+N) gain match on the harmony mix
+        // The twelve notes of a Custom scale, in semitone order from C (default: C major). They are
+        // DATA rather than a control, but a morph that moves "scale" to Custom without them lands on
+        // whatever notes the live state happened to hold - so they travel with everything else.
+        bool  customNote[12] = { true, false, true, false, true, true, false, true, false, true, false, true };
         float harmonyFormant = 0.0f;
         float harmonyToneColor = 0.5f;
         float doubleAmount = 0.0f;   // normalized "double_amount" (0..100 %)
@@ -102,6 +106,9 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("harmony_blend"))      s.harmonyBlend = p->getValue();
         if (auto* p = params.getParameter ("harmony_attack"))     s.harmonyAttack = p->getValue();
         if (auto* p = params.getParameter ("harmony_gain_match")) s.harmonyGainMatch = p->getValue() > 0.5f;
+        for (int i = 0; i < 12; ++i)
+            if (auto* p = params.getParameter ("custom" + juce::String (i)))
+                s.customNote[i] = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("harmony_formant"))    s.harmonyFormant = p->getValue();
         if (auto* p = params.getParameter ("harmony_tone_color")) s.harmonyToneColor = p->getValue();
         if (auto* p = params.getParameter ("double_amount"))      s.doubleAmount = p->getValue();
@@ -189,7 +196,11 @@ namespace ovtdsp
                         "delay_mix", "delay_feedback",
                         "delay_enable", "delay_division",
                         "output_trim", "limiter_enable",
-                        "correction_mode" });
+                        "correction_mode",
+                        // The twelve notes of a Custom scale: the morph carries the scale DATA, not
+                        // just the scale NAME.
+                        "custom0", "custom1", "custom2", "custom3", "custom4", "custom5",
+                        "custom6", "custom7", "custom8", "custom9", "custom10", "custom11" });
         return ids;
     }
 
@@ -288,6 +299,10 @@ namespace ovtdsp
         setParam ("bypass",            lerpOrStep (source.bypass ? 1.0f : 0.0f, target.bypass ? 1.0f : 0.0f, t));
         setParam ("harmony_enable",    lerpOrStep (source.harmonyEnable ? 1.0f : 0.0f, target.harmonyEnable ? 1.0f : 0.0f, t));
         setParam ("harmony_gain_match", lerpOrStep (source.harmonyGainMatch ? 1.0f : 0.0f, target.harmonyGainMatch ? 1.0f : 0.0f, t));
+        // A Custom scale is a SET of notes, so each one steps with the switch it is.
+        for (int i = 0; i < 12; ++i)
+            setParam ("custom" + juce::String (i),
+                      lerpOrStep (source.customNote[i] ? 1.0f : 0.0f, target.customNote[i] ? 1.0f : 0.0f, t));
         setParam ("harmony_use_voice", lerpOrStep (source.harmonyUseVoice ? 1.0f : 0.0f, target.harmonyUseVoice ? 1.0f : 0.0f, t));
         setParam ("harmony_follow_lead", lerpOrStep (source.harmonyFollowLead ? 1.0f : 0.0f, target.harmonyFollowLead ? 1.0f : 0.0f, t));
         setParam ("reverb_enable",     lerpOrStep (source.reverbEnable ? 1.0f : 0.0f, target.reverbEnable ? 1.0f : 0.0f, t));
