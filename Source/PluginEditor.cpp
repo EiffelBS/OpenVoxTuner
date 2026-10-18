@@ -2224,6 +2224,21 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     };
     effectsFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipEffectsMore));
 
+    // The caption strip's widgets: one activity dot and one name per column, set up here so the
+    // reparent list below carries them with their cells. The name is NOT a parameter and NOT a
+    // new translatable string - it is the shipped translation of the voice itself, the same word
+    // the room headers use - and the dot is a display fed from the processor's path snapshot by
+    // timerCallback(). Neither is attached to anything: they cannot be dragged, clicked or saved.
+    for (ColumnCaption* c : { &effectsCol1, &effectsCol2, &effectsCol3, &effectsCol4, &effectsCol5 })
+    {
+        c->label.setJustificationType (juce::Justification::centredLeft);
+        c->label.setColour (juce::Label::textColourId, ebs::text());
+        c->label.setInterceptsMouseClicks (false, false);
+        c->dot.setDotDiameter (kEffectsCaptionDotD);
+    }
+    reverbLeadDot.setDotDiameter (kEffectsCaptionDotD);
+    reverbPadDot.setDotDiameter (kEffectsCaptionDotD);
+
     // The cells move into the frame: as children of the body they paint above it and
     // are clipped by it, so a folded column disappears with the frame's own fold.
     // The list runs in the order the columns read on screen: Gate, Compressor, Doubler, Formant (the two folded
@@ -2253,7 +2268,17 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&delayMixSlider),
                                 static_cast<juce::Component*> (&delayMixLabel),
                                 static_cast<juce::Component*> (&delayFeedbackSlider),
-                                static_cast<juce::Component*> (&delayFeedbackLabel) })
+                                static_cast<juce::Component*> (&delayFeedbackLabel),
+                                static_cast<juce::Component*> (&effectsCol1.dot),
+                                static_cast<juce::Component*> (&effectsCol1.label),
+                                static_cast<juce::Component*> (&effectsCol2.dot),
+                                static_cast<juce::Component*> (&effectsCol2.label),
+                                static_cast<juce::Component*> (&effectsCol3.dot),
+                                static_cast<juce::Component*> (&effectsCol3.label),
+                                static_cast<juce::Component*> (&effectsCol4.dot),
+                                static_cast<juce::Component*> (&effectsCol4.label),
+                                static_cast<juce::Component*> (&effectsCol5.dot),
+                                static_cast<juce::Component*> (&effectsCol5.label) })
         effectsFrame.addAndMakeVisible (c);
 
     // The Reverb frame owns the two rooms and their send room. Both rooms keep their power
@@ -2269,7 +2294,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&padSendSlider),
                                 static_cast<juce::Component*> (&padSendLabel),
                                 static_cast<juce::Component*> (&duckDepthSlider),
-                                static_cast<juce::Component*> (&duckDepthLabel) })
+                                static_cast<juce::Component*> (&duckDepthLabel),
+                                static_cast<juce::Component*> (&reverbLeadDot),
+                                static_cast<juce::Component*> (&reverbPadDot) })
         reverbFrame.addAndMakeVisible (c);
 
     // 2026-07-24 (Deprecation): FlexTune and Attack-Aware UI setup
@@ -2954,6 +2981,20 @@ int OpenVoxTunerAudioProcessorEditor::reverbHeaderNeed (const juce::String& text
     return 18 + ebs::fontToggleButton().getStringWidth (text) + 2;
 }
 
+// The five lines printed under the Effects columns, in column order: the voice each column's
+// processors act on. The wording and the size that makes it fit a fixed cell live in
+// ui/OVTPathCaptions.h, because the same numbers drive the layout model here and the offline
+// test that proves every shipped locale fits - one source of truth, not two.
+int OpenVoxTunerAudioProcessorEditor::effectsCaptionNeed() const
+{
+    return ovt::pathCaptionStripNeed (ovt::createFont (8.0f, true));
+}
+
+juce::Font OpenVoxTunerAudioProcessorEditor::effectsCaptionFont (int columnW) const
+{
+    return ovt::pathCaptionFont (columnW);
+}
+
 // The single source of truth for every bottom-row block width. Each frame states the
 // width its content asks for and the floor below which its widgets collide. The band
 // lays every frame at that width: spare room is left empty and nothing is stretched.
@@ -2974,8 +3015,13 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     // cost of swapping Limit and Formant, and it changes no width: the count stays 2 folded / 5 open. The two rooms,
     // their sends and Duck are NOT here; they are the Reverb frame's own columns. The row grows by column only, so
     // each new column costs one kEffectsColW plus gap.
+    // The effects column width: the cell floor, raised if a caption line needs more than the
+    // floor gives it. Captions are vertical, so they cost HEIGHT rather than width, but the
+    // line itself must fit the column sideways: measuring it here is what keeps a long
+    // translated voice name from clipping inside a fixed cell.
+    const int effectColNeed = juce::jmax (kEffectsColW, effectsCaptionNeed());
     const int effectW = chevron + 2 * kEffectsPad + bandW
-                      + (effectsFrame.expanded() ? 5 : 2) * kEffectsColW
+                      + (effectsFrame.expanded() ? 5 : 2) * effectColNeed
                       + (effectsFrame.expanded() ? 4 : 1) * kEffectsColGap;
 
     // Reverb: ONE column per room, so folded the frame asks for one measured column - the widest of the two room
@@ -3090,8 +3136,12 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // Scale/Keyboard + Harmony). The Correction block no longer needs extra
     // height: its advanced knobs (Flex / Humanize / Vibrato / Attack-Aware) are
     // revealed to the SIDE via the "Advanced" banner, so we keep the bottom
-    // strip compact.
-    auto centerArea = bounds.removeFromTop (bounds.getHeight() - 190);
+    // strip compact. It carries ONE strip more than the controls themselves: every
+    // Effects column and every Reverb room ends on a caption line naming the voice it
+    // acts on, with the activity dot that says whether that voice is passing. That line
+    // is 16 px, and it is taken from THIS reserve rather than from the knobs above it -
+    // a knob shrunk to pay for a caption would be a worse trade than 16 px of window.
+    auto centerArea = bounds.removeFromTop (bounds.getHeight() - 208);
 
     // Toolbar band: the pill and the icon row sit ABOVE the tab viewport, not inside it. The
     // hidden tab bar used to reserve 30 px at the top of the tabbed component, so a taller
@@ -3383,9 +3433,38 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // placed below: asking for 4 widths while placing 5 columns leaves the last column a
     // negative-width rectangle, and that cell vanishes without any warning in the layout log.
     const int numEffectCols = effectsOpen ? 5 : 2;
-    const int rowH          = (b4.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
+    // The caption strip comes off the column area FIRST, so the two cell rows keep their full
+    // height and the knobs their size: the voice a column acts on is paid by the band's height
+    // (see the bottom reserve in resized()), never by the dial above it. The strip is consumed
+    // in the same left-to-right order as the columns, so a caption cannot drift off its column.
+    auto rowsArea = b4;
+    auto captionStrip = rowsArea.removeFromBottom (kEffectsCaptionH);
+    const int rowH          = (rowsArea.getHeight() - (numEffectRows - 1) * rowGap) / numEffectRows;
     const int effKnobD      = juce::jlimit (30, 54, rowH - effectPowerH - 2);
-    const int effectColW    = (b4.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;
+    const int effectColW    = (rowsArea.getWidth() - (numEffectCols - 1) * kEffectsColGap) / numEffectCols;
+
+    // One caption slot per column: the activity dot, then the voice it belongs to. A hidden
+    // column's caption is hidden with it and given an empty rectangle, so a stale slot can
+    // never be painted on top of a neighbour after a fold.
+    auto placeCaption = [&] (ColumnCaption& caption, bool visible)
+    {
+        auto slot = captionStrip.removeFromLeft (effectColW);
+        captionStrip.removeFromLeft (kEffectsColGap);
+
+        caption.dot.setVisible (visible);
+        caption.label.setVisible (visible);
+        if (! visible)
+        {
+            caption.dot.setBounds ({});
+            caption.label.setBounds ({});
+            return;
+        }
+
+        caption.dot.setBounds (slot.removeFromLeft (kEffectsCaptionDotD)
+                                   .withSizeKeepingCentre (kEffectsCaptionDotD, kEffectsCaptionDotD));
+        slot.removeFromLeft (4);
+        caption.label.setBounds (slot);
+    };
 
     // Cell with a power toggle: toggle on top, knob centred below.
     auto placeToggledKnob = [&] (juce::Rectangle<int> cell, auto& toggle, auto& knob)
@@ -3410,11 +3489,12 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // Column 1 : Noise Gate on top, Upward Compressor below. Both stay visible when folded - they
     // are the two input-stage processors you dial while singing, and this is what the frame keeps
     // when its chevron folds everything to the right away.
-    auto col1 = b4.removeFromLeft (effectColW);
-    b4.removeFromLeft (kEffectsColGap);
+    auto col1 = rowsArea.removeFromLeft (effectColW);
+    rowsArea.removeFromLeft (kEffectsColGap);
     placeToggledKnob (col1.removeFromTop (rowH), noiseGateEnableButton, noiseGateThresholdSlider);
     col1.removeFromTop (rowGap);
     placeToggledKnob (col1, upwardCompEnableButton, upwardCompAmountSlider);
+    placeCaption (effectsCol1, true);   // the lead: what Gate and Compressor work on
 
     // Column 2 : Doubler on top, Formant below. The Doubler cell is built exactly like
     // its siblings (power toggle carrying the name, knob below): double_enable is a real parameter,
@@ -3422,11 +3502,12 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // here because it is an effect of the processed signal, not a harmony voice; nothing Harmony
     // does touches this cell. Formant goes under it: shaping the vowel is lead-side work you dial while singing, so
     // both cells stay visible in BOTH states and the folded frame stays at two columns.
-    auto col2 = b4.removeFromLeft (effectColW);
-    b4.removeFromLeft (kEffectsColGap);
+    auto col2 = rowsArea.removeFromLeft (effectColW);
+    rowsArea.removeFromLeft (kEffectsColGap);
     placeToggledKnob (col2.removeFromTop (rowH), doubleEnableButton, doubleAmountSlider);
     col2.removeFromTop (rowGap);
     placeToggledKnob (col2, formantEnableButton, formantSlider);
+    placeCaption (effectsCol2, true);   // the lead again: the Doubler and the vowel shape are lead-side
 
     if (effectsOpen)
     {
@@ -3437,8 +3518,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // the strip is paid for by THIS cell's knob - the one knob in the block that is smaller than its siblings. A
         // 5 px bar plus one 8 pt dB line needs 16 px; the knob takes the rest of the cell. output_trim reads in dB
         // (-12 to +12), not percent, and limiter_enable switches the peak guard on.
-        auto col3 = b4.removeFromLeft (effectColW);
-        b4.removeFromLeft (kEffectsColGap);
+        auto col3 = rowsArea.removeFromLeft (effectColW);
+        rowsArea.removeFromLeft (kEffectsColGap);
         auto limitCell = col3.removeFromTop (rowH);
         limiterEnableButton.setBounds (limitCell.removeFromTop (effectPowerH));
         const int meterStripH = 16;
@@ -3455,18 +3536,23 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // place in this cell.
         col3.removeFromTop (rowGap);
         placeToggledKnob (col3, deessEnableButton, deessAmountSlider);
+        // The one column that holds two voices: the ceiling it contains is the master's, the
+        // De-Esser under it is the lead's, so its caption names both and its dot reads the stage
+        // that LEAVES the column (the master blend) - one dot, one truth.
+        placeCaption (effectsCol3, true);
 
         // Column 4 : Saturation. One power switch carrying the name and two labelled
         // knobs (Drive, Warmth) stacked in one cell - the same shape the send-room column uses in
         // the Reverb frame. It pays for its second knob inside its own column, so rows stay frozen
         // at two everywhere in the block.
-        auto col4 = b4.removeFromLeft (effectColW);   // fixed width: a fifth column follows
-        b4.removeFromLeft (kEffectsColGap);
+        auto col4 = rowsArea.removeFromLeft (effectColW);   // fixed width: a fifth column follows
+        rowsArea.removeFromLeft (kEffectsColGap);
         saturationEnableButton.setBounds (col4.removeFromTop (effectPowerH));
         const int satCellH = (col4.getHeight() - rowGap) / 2;
         placeLabelledKnob (col4.removeFromTop (satCellH), saturationDriveLabel, saturationDriveSlider);
         col4.removeFromTop (rowGap);
         placeLabelledKnob (col4, saturationToneLabel, saturationToneSlider);
+        placeCaption (effectsCol4, true);   // saturation shapes the master: the blend, not the voice
 
         // Column 5, the rightmost : Delay. One power switch carrying the name, one note-value combo
         // (the ping length synced to the host tempo) in a label+combo strip, then two labelled knobs
@@ -3474,7 +3560,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         // column so rows stay frozen at two everywhere in the block. The combo rides the same reduced
         // strip pattern as the harmony selector boxes. When the frame is short, placeLabelledKnob's
         // jlimit bounds shrink these knobs below their siblings' size; no control is ever dropped.
-        auto col5 = b4;   // the last column takes whatever is left
+        auto col5 = rowsArea;   // the last column takes whatever is left
         delayEnableButton.setBounds (col5.removeFromTop (effectPowerH));
         const int divisionComboH = 20;   // smallest strip the ComboBox can render "1/8." at this font
         delayDivisionLabel.setBounds (col5.removeFromTop (sendLabelH));
@@ -3484,6 +3570,15 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         placeLabelledKnob (col5.removeFromTop (delayCellH), delayMixLabel, delayMixSlider);
         col5.removeFromTop (rowGap);
         placeLabelledKnob (col5, delayFeedbackLabel, delayFeedbackSlider);
+        placeCaption (effectsCol5, true);   // the echo is a colour on the lead, not on the mix
+    }
+    else
+    {
+        // Folded: columns 3 to 5 are gone, so their captions and dots go with them - hidden, and
+        // given empty rectangles, exactly like the widgets of a folded zone.
+        placeCaption (effectsCol3, false);
+        placeCaption (effectsCol4, false);
+        placeCaption (effectsCol5, false);
     }
 
     // --- Block 5 : Reverb - an ebs::ExpansibleFrame right of Effects ---
@@ -3491,8 +3586,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // room (label Harmony) below, each with its own toggle carrying its name and its mix knob under it. Open, they
     // stand side by side and each room gets its own send under a label - Lead Send under Lead, Harmony Send under
     // Harmony - and Ducking stands alone in column 3. Stacking is what the height allows: the band row gives every
-    // frame 150 px of content, and header (18) + knob (<= 54) + gap (8) + label (14) + knob (<= 54) fits inside it,
-    // which is the same shape Effects' column 1 uses for Doubler over Formant. It also saves width: one measured
+    // frame 168 px of content, and header (18) + knob (<= 54) + gap (8) + label (14) + knob (<= 54) fits inside it,
+    // with the 16 px activity strip at the bottom of each room taken off first, which is the same shape Effects'
+    // column 1 uses for Doubler over Formant. It also saves width: one measured
     // column needs the widest of
     // the two names, not their sum, which keeps the fully folded row inside a few pixels of the 1100 px client.
     // Why the columns are sized by the MEASURED name: a ToggleButton draws its tick well then centred-left text with
@@ -3533,11 +3629,17 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // One room column: header toggle carrying the name, mix knob under it, and when open that room's own send
     // below. The mix knob keeps the block's full size whenever the send cell can still take its minimum; the send
-    // knob takes what is left, so a room with a send pays for it inside its own column.
+    // knob takes what is left, so a room with a send pays for it inside its own column. The room's activity dot
+    // rides the bottom strip of its own column: the voice of this room is what it reports, and the room's NAME is
+    // already on screen in the header, so the dot needs no caption of its own here.
     auto placeRoomColumn = [&] (juce::Rectangle<int> col, juce::ToggleButton& toggle, juce::Slider& mixKnob,
-                                juce::Label* sendLabel, juce::Slider* sendSlider)
+                                juce::Label* sendLabel, juce::Slider* sendSlider, ebs::ActivityDot& roomDot)
     {
         toggle.setBounds (col.removeFromTop (headerH));
+
+        roomDot.setBounds (col.removeFromBottom (kEffectsCaptionH)
+                              .removeFromLeft (kEffectsCaptionDotD)
+                              .withSizeKeepingCentre (kEffectsCaptionDotD, kEffectsCaptionDotD));
 
         if (sendLabel != nullptr)
         {
@@ -3564,9 +3666,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         auto rvCol = rv.removeFromLeft (stackedW);
 
         const int roomH = (rvCol.getHeight() - rowGap) / 2;
-        placeRoomColumn (rvCol.removeFromTop (roomH), reverbEnableButton, reverbMixSlider, nullptr, nullptr);
+        placeRoomColumn (rvCol.removeFromTop (roomH), reverbEnableButton, reverbMixSlider, nullptr, nullptr, reverbLeadDot);
         rvCol.removeFromTop (rowGap);
-        placeRoomColumn (rvCol, padReverbEnableButton, padReverbMixSlider, nullptr, nullptr);
+        placeRoomColumn (rvCol, padReverbEnableButton, padReverbMixSlider, nullptr, nullptr, reverbPadDot);
     }
     else
     {
@@ -3581,9 +3683,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         auto rvCol2 = rv.removeFromLeft (harmW);   rv.removeFromLeft (kEffectsColGap);
         auto duckCol = rv;   // the last column takes whatever is left
 
-        placeRoomColumn (rvCol1, reverbEnableButton, reverbMixSlider, &leadSendLabel, &leadSendSlider);
-        placeRoomColumn (rvCol2, padReverbEnableButton, padReverbMixSlider, &padSendLabel, &padSendSlider);
-        placeLabelledKnob (duckCol, duckDepthLabel, duckDepthSlider);
+        placeRoomColumn (rvCol1, reverbEnableButton, reverbMixSlider, &leadSendLabel, &leadSendSlider, reverbLeadDot);
+        placeRoomColumn (rvCol2, padReverbEnableButton, padReverbMixSlider, &padSendLabel, &padSendSlider, reverbPadDot);
+        placeLabelledKnob (duckCol, duckDepthLabel, duckDepthSlider);   // a return ramp, not a voice: no dot
     }
 
     // Harmony controls block (rightmost block), an ebs::ExpansibleFrame.
@@ -3843,6 +3945,20 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         outputMeter.setGainReduction (meterState.grDb);
     if (meterState.trimDb != outputMeter.getTrim())
         outputMeter.setTrim (meterState.trimDb);
+
+    // The activity dots: one peak per signal path, read from the processor's own snapshot at
+    // this same 30 Hz. A dot answers "is this path carrying anything", which no knob position
+    // can - a harmony mix at 0 % and a pad room switched off look identical on screen. Each dot
+    // is fed every tick and repaints only when the disc it draws actually moved, so an idle
+    // plugin repaints nothing.
+    const auto pathState = processorRef.getPathActivityState();
+    effectsCol1.dot.setLevel (pathState.leadPeak);      // Gate + Compressor work on the lead
+    effectsCol2.dot.setLevel (pathState.leadPeak);      // Doubler + Formant too
+    effectsCol3.dot.setLevel (pathState.masterPeak);    // the ceiling leaves the column as the blend
+    effectsCol4.dot.setLevel (pathState.masterPeak);    // saturation shapes the master
+    effectsCol5.dot.setLevel (pathState.leadPeak);      // the echo colours the lead
+    reverbLeadDot.setLevel (pathState.leadPeak);        // the lead room is fed by the lead send
+    reverbPadDot.setLevel (pathState.harmonyPeak);      // and this is where the harmony path lives
 
     // One-shot diagnostic dump on the first tick, after all restore/attachment
     // messages have settled, to verify what is actually restored at startup.
@@ -5114,6 +5230,32 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     duckDepthSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDuckDepth));
     outputMeter.setCaptions (ovt::tr (ovt::Keys::kLabelMeterGr), ovt::tr (ovt::Keys::kLabelMeterTrim));
     outputMeter.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputMeter));
+
+    // Column captions: the voice each Effects column acts on, printed under it. The words are the
+    // shipped translations of the voice names themselves, so this adds NO new string to the
+    // vocabulary - a locale that renames a voice renames it here too. The font fits the cell: the
+    // largest size down to an 8 pt floor whose widest line still fits a column, the frame spine's
+    // rule (a longer translation shrinks its own glyphs rather than widening the block).
+    {
+        const auto captionFont = effectsCaptionFont (juce::jmax (kEffectsColW, effectsCaptionNeed()));
+        const auto texts = ovt::pathCaptionTexts();
+        ColumnCaption* columns[] = { &effectsCol1, &effectsCol2, &effectsCol3, &effectsCol4, &effectsCol5 };
+
+        for (int i = 0; i < 5; ++i)
+        {
+            columns[i]->label.setText (texts[(size_t) i], juce::dontSendNotification);
+            columns[i]->label.setFont (captionFont);
+        }
+    }
+
+    // The dots carry one tooltip each, by the path they report rather than by the column they sit
+    // in: the same sentence stays true when a column moves.
+    for (ColumnCaption* c : { &effectsCol1, &effectsCol2, &effectsCol5 })
+        c->dot.setTooltip (ovt::tr (ovt::Keys::kTooltipPathLead));
+    effectsCol3.dot.setTooltip (ovt::tr (ovt::Keys::kTooltipPathOutput));
+    effectsCol4.dot.setTooltip (ovt::tr (ovt::Keys::kTooltipPathOutput));
+    reverbLeadDot.setTooltip (ovt::tr (ovt::Keys::kTooltipPathLead));
+    reverbPadDot.setTooltip (ovt::tr (ovt::Keys::kTooltipPathHarmony));
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
     flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune));
@@ -6421,6 +6563,11 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (delayMixLabel);
     applyLabelColours (delayFeedbackLabel);
     applyLabelColours (outputTrimLabel);
+    applyLabelColours (effectsCol1.label);
+    applyLabelColours (effectsCol2.label);
+    applyLabelColours (effectsCol3.label);
+    applyLabelColours (effectsCol4.label);
+    applyLabelColours (effectsCol5.label);
     applyLabelColours (noiseGateThresholdLabel);
     applyLabelColours (harmonyToneColorLabel);
     applyLabelColours (keyLabel);

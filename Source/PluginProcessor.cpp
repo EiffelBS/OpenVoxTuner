@@ -1708,6 +1708,13 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         applyMasterEffects (buffer);
 
+        // Sleep mode never mixes the harmony buffer: the last blended take still sits in it,
+        // but nothing of it reaches the output, so its activity dot must read nothing. The
+        // lead and master taps above already saw a cleared buffer and report silence by
+        // themselves; this one has to say so explicitly, because the buffer it reads was
+        // deliberately left untouched.
+        harmonyActivityPeak.store (0.0f);
+
         harmonyFrequencies.clear();
         harmonyFrequenciesClean.clear();
         publishHarmonySnapshots();
@@ -4228,6 +4235,19 @@ void OpenVoxTunerAudioProcessor::applyLatencyMode()
 // place per tap, and the silent (sleep) path runs exactly the same code as the live
 // path -- a tail decays at the level the user hears, not at a re-derived one.
 
+// Peak magnitude of a whole block, across every channel. This is the number an activity
+// dot is sized from: it answers "did this path carry anything", which no control value can,
+// because a path at 0 % and a path switched off look identical on screen. Scanning the
+// block is what the silence detector above already does once per block, so two more scans
+// stay in the noise of the chain's own cost.
+static float blockPeak (const juce::AudioBuffer<float>& buffer)
+{
+    float peak = 0.0f;
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+        peak = juce::jmax (peak, buffer.getMagnitude (ch, 0, buffer.getNumSamples()));
+    return peak;
+}
+
 void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buffer)
 {
     // Gate-envelope ducking: when the Noise Gate is ENABLED, the lead room follows the
@@ -4295,6 +4315,11 @@ void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buf
 
         return false;
     });
+
+    // Lead activity tap: the corrected voice as this path leaves it, send excluded (a send
+    // adds to the shared room, it does not change the dry lead). Written on the audio
+    // thread, read by the editor's dot - never the other way round.
+    leadActivityPeak.store (blockPeak (buffer));
 }
 
 void OpenVoxTunerAudioProcessor::applyHarmonyEffects (juce::AudioBuffer<float>& harmony)
@@ -4313,6 +4338,11 @@ void OpenVoxTunerAudioProcessor::applyHarmonyEffects (juce::AudioBuffer<float>& 
 
         return false;
     });
+
+    // Harmony activity tap: the blended voices leaving their own path, i.e. exactly the
+    // buffer the master mix is handed next. Taking it HERE rather than at the mix site keeps
+    // one tap per path, the same shape the lead and master taps use.
+    harmonyActivityPeak.store (blockPeak (harmony));
 }
 
 void OpenVoxTunerAudioProcessor::applyLeadSend (juce::AudioBuffer<float>& buffer)
@@ -4369,6 +4399,12 @@ void OpenVoxTunerAudioProcessor::applyMasterEffects (juce::AudioBuffer<float>& b
     // Called every block, even with silent sends: the room needs its blocks to let the
     // tail decay, and it skips its own work once the tail is inaudible.
     sharedReverb.processReturn (buffer, 1.0f - duckDepth * (1.0f - duckGateGain));
+
+    // Master activity tap: the blend as it stands when the shared room has returned its
+    // wet into it, BEFORE trim and limiting. That is the level the master path carries,
+    // so a dot reading it answers "is anything coming out of the mix" - while the meter
+    // further down keeps answering "and how hot did the limiter have to work".
+    masterActivityPeak.store (blockPeak (buffer));
 
     // Output stage, applied LAST: trim, then true-peak limiting with its declared 8-sample
     // lookahead, then the soft clip that bounds any residual crest. Reading the

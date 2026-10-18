@@ -402,6 +402,29 @@ public:
         return { meterPeak.load(), meterGrDb.load(), meterTrimDb.load() };
     }
 
+    // What each signal path carried through the last block, for the editor's activity
+    // dots. A dot answers "is anything travelling here", which a knob's position cannot:
+    // a harmony mix at 0 % and a pad room switched off both look identical on screen,
+    // and only the audio says which path is alive. Same rule as the meter above - the
+    // paths are private, so the display gets numbers written by the audio thread.
+    //
+    // The three taps are the signal the user hears per path, taken where that path
+    // actually exists:
+    //   lead     - the corrected voice after its own effects and its send tap,
+    //   harmony  - the blended voices leaving the harmony path, before the mix,
+    //   master    - the blend leaving the shared room, before trim and limiting.
+    struct PathActivityState
+    {
+        float leadPeak    = 0.0f;   // peak of the lead path, linear 0 .. 1
+        float harmonyPeak = 0.0f;   // peak of the harmony path, linear 0 .. 1
+        float masterPeak  = 0.0f;   // peak of the blend, linear 0 .. 1
+    };
+
+    PathActivityState getPathActivityState() const
+    {
+        return { leadActivityPeak.load(), harmonyActivityPeak.load(), masterActivityPeak.load() };
+    }
+
     void getTimeSignatureAt(double ppq, int& num, int& den) const;
 
     void resetTransportTime() {
@@ -1011,6 +1034,15 @@ private:
     std::atomic<float> meterPeak   { 0.0f };
     std::atomic<float> meterGrDb   { 0.0f };
     std::atomic<float> meterTrimDb { 0.0f };
+
+    // One peak per signal path, written on the audio thread at the tap that path's own
+    // effects leave and read by the editor timer. A block peak is enough: the dot that
+    // reads it smooths its own release, so the audio thread never keeps state for a
+    // display (the meter above stores a smoothed peak because a bar must not flicker,
+    // a dot must only answer yes or no).
+    std::atomic<float> leadActivityPeak    { 0.0f };
+    std::atomic<float> harmonyActivityPeak { 0.0f };
+    std::atomic<float> masterActivityPeak  { 0.0f };
 
     // Silence counter for Sleep mode (CPU saving).
     int silenceSamples = 0;

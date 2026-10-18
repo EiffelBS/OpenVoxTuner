@@ -286,7 +286,31 @@ true peaks at -0.81 dBFS. With the margin, measured true peaks are -1.15 dBFS (s
 scales the final result only, leaving the harmony `1/sqrt(1+N)` gain-match intact.
 
 The sleep path runs all three buses on the cleared buffer so tails decay, then
-returns; `OutputLimiter` passes a silent buffer through untouched.
+returns; `OutputLimiter` passes a silent buffer through untouched. The harmony path
+is the one exception it states explicitly: its buffer deliberately keeps the last
+blended take, so the harmony activity peak below is stored as zero rather than read
+from a signal that no longer reaches the output.
+
+### Activity taps (what each path carried)
+
+The editor shows one activity dot per Effects column and per Reverb room, sized by a
+**peak read at the exit of the path that column or room acts on**, so the dot answers
+"is anything travelling here" - a question no control value can answer, because a mix
+at 0 % and a disabled stage look identical on screen. Three numbers are written on the
+audio thread, once per block, and read by the editor timer at ~30 Hz:
+
+| Atomic | Written at | Reports |
+|--------|-----------|---------|
+| `leadActivityPeak` | end of `applyLeadEffects()`, send excluded | the corrected voice after its own effects |
+| `harmonyActivityPeak` | end of `applyHarmonyEffects()`, before the mix | the blended voices leaving their own path |
+| `masterActivityPeak` | `applyMasterEffects()`, after `sharedReverb.processReturn`, before trim + limiting | the blend the master path carries |
+
+The taps are inside the three helpers rather than at their call sites, so the live path
+and the sleep path report through exactly the same code. `blockPeak()` scans the block,
+which the silence detector already does once per block. Nothing here paints: the dots
+smooth their own release on the message thread, and `meterPeak` (the limiter's own
+reading, further down the same stage) keeps answering the separate question "how hot
+did the limiter have to work".
 
 ## Corrective blend & modes
 

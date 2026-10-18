@@ -21,6 +21,7 @@
 #include <eiffelbs/eiffelbs.h>
 #include "ui/OVTTheme.h"
 #include "ui/OVTFonts.h"
+#include "ui/OVTPathCaptions.h"   // the voice caption strip: its numbers and its wording
 #include "dsp/PresetMorpher.h"
 
 struct OpenVoxTunerUpdateCheckState;
@@ -128,8 +129,17 @@ private:
     static constexpr int kAdvancedW     = 160;  // revealed correction zone when expanded
     static constexpr int kCorrPad       = 10;   // frame interior padding
     static constexpr int kEffectsPad    = 10;   // frame interior padding
-    static constexpr int kEffectsColW   = 74;   // one cell: power toggle + full-size knob
+    static constexpr int kEffectsColW   = ovt::kPathCaptionCellW;   // one cell: power toggle + full-size knob
     static constexpr int kEffectsColGap = 8;
+    // The caption strip under an Effects column: one line naming the voice that column's
+    // processors act on, plus the activity dot beside the name. It is paid by the bottom
+    // band's HEIGHT, never by the knobs above it: the row heights are computed after this
+    // strip is taken off, and the band reserve carries the extra 16 px. Folding a column
+    // away hides its caption with its cells, never paints over them. Both numbers live with
+    // the caption itself (ui/OVTPathCaptions.h), so the layout and its offline test measure
+    // the same strip.
+    static constexpr int kEffectsCaptionH    = ovt::kPathCaptionHeight;
+    static constexpr int kEffectsCaptionDotD = ovt::kPathCaptionDotD;
     static constexpr int kScalePrefW    = 236;  // narrowed to fit the Root combo
     static constexpr int kScaleMinW     = 200;  // floor for the 180 px keyboard strip
     static constexpr int kHarmonyPad    = 10;   // frame interior padding
@@ -147,6 +157,27 @@ private:
      *  name rides the kEffectsColW = 74 px cell floor, so no label ever clips; keeping the measurement live is
      *  what lets a future rename change the frame width instead of silently truncating a word. */
     int reverbHeaderNeed (const juce::String& text) const;
+
+    /** Width the WIDEST Effects column caption needs in the CURRENT language: the dot, its
+     *  gap and the longest of the five lines (column 3 names the two voices stacked in it,
+     *  so it is the longest by construction). Measured at the caption font's 8 pt floor,
+     *  which is the size every shipped locale fits in; the live measurement is what keeps a
+     *  future rename from silently truncating a word, exactly like reverbHeaderNeed(). */
+    int effectsCaptionNeed() const;
+
+    /** The largest caption font size, from ovt::fontLabelSmall() down to the 8 pt floor,
+     *  whose widest line still fits `columnW`. A longer translation shrinks its own glyphs
+     *  instead of widening the Effects block, which is the frame spine's rule too. */
+    juce::Font effectsCaptionFont (int columnW) const;
+
+    /** The caption line under one Effects column: the voice, plus the activity dot that says
+     *  whether that voice's path is carrying anything right now. Kept in one place so the
+     *  five columns cannot drift apart. */
+    struct ColumnCaption
+    {
+        ebs::ActivityDot dot;
+        juce::Label      label;
+    };
 
     /** Re-state every bottom-row block widths from each frame own fold flag. Called at
      *  construction, on every fold, and at the start of resized(). */
@@ -345,6 +376,22 @@ private:
     // set. It is fed by the editor timer from the processor's atomic snapshot, so nothing
     // is ever painted from the audio thread.
     ebs::LevelMeter outputMeter;
+
+    // One activity dot per column, under it, beside the name of the voice that column's
+    // processors act on: Gate and Compressor work on the lead, the Doubler and Formant too,
+    // the Output Limit guards the master while the De-Esser beside it stays lead-side, the
+    // Saturation shapes the master and the Delay colours the lead. Column 3 therefore names
+    // BOTH voices, and its dot reads the stage that leaves the column (the master), which is
+    // the one truth a single dot can carry. The dots are fed by the editor timer from the
+    // processor's atomic snapshot: nothing here is ever painted from the audio thread, and no
+    // dot is a parameter - folding a column away hides its dot with its cells.
+    ColumnCaption effectsCol1, effectsCol2, effectsCol3, effectsCol4, effectsCol5;
+
+    // The Reverb frame's two rooms carry the same dot, because the HARMONY path lives here:
+    // the pad room is the only processor the harmony bus owns, so its caption is the room's
+    // own name (already on screen) and this dot is where that voice becomes visible. The
+    // Ducking column is a return ramp, not a voice, so it carries none.
+    ebs::ActivityDot reverbLeadDot, reverbPadDot;
 
     // Noise Gate
     ebs::PowerToggle noiseGateEnableButton;
