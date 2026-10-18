@@ -352,6 +352,15 @@ public:
     bool getReverbExpanded() const { return reverbExpandedState; }
     void setReverbExpanded (bool expanded) { reverbExpandedState = expanded; }
 
+    // Effects frame fold state (persisted across sessions, same contract as Harmony and Reverb):
+    // folded, the frame keeps its first two columns (Gate/Compressor, Doubler/Formant) and the open
+    // zone - Output Limit + meter over De-Esser, Saturation, and the tempo-synced Delay - is hidden,
+    // so the frame narrows by three columns. Persisting it is what keeps the Delay column on screen
+    // for someone who works with it: the fold is a UI state, not a parameter, so it never enters the
+    // morph state and no audio behaviour changes when it flips.
+    bool getEffectsExpanded() const { return effectsExpandedState; }
+    void setEffectsExpanded (bool expanded) { effectsExpandedState = expanded; }
+
     // Morph slider amount accessors (backed by the automatable "morph_amount" parameter).
     float getMorphAmount() const { return morphAmountParam != nullptr ? morphAmountParam->load (std::memory_order_relaxed) : 0.0f; }
     void setMorphAmount (float v);
@@ -747,6 +756,11 @@ private:
     // Opening Reverb puts it at ~383 px (three columns), which pushes Scale and Harmony right; that widening is the
     // user's choice, recorded in the XML.
     bool reverbExpandedState = false;
+
+    // Effects frame fold state, persisted like the three above. Folded the frame is 204 px (two columns);
+    // open it is 467 px measured on screen (band 17 + chevron 28 + 2 x 10 pads + 5 x 74 columns + 4 x 8 gaps),
+    // which is the widest single block in the row and the reason the fold is worth remembering.
+    bool effectsExpandedState = false;
 
     // Morph slider amount (automatable parameter "morph_amount").
     std::atomic<float>* morphAmountParam = nullptr;

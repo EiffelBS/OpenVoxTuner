@@ -157,3 +157,44 @@ failure); they now target the arrival they assert.
 - `docs/architecture/dsp-pipeline.md`: the LEAD chain and the effects-bus table now read
   `DeEsser → Lead room → Delay`, with the parameter list and the rationale paragraph.
 - `docs/testing.md`: the suite added to the tree and to the coverage paragraph.
+
+## UI — the Effects frame fold is persisted, so the Delay column stays on screen
+
+### Context
+
+The delay ships in the OPEN zone of the Effects frame (fifth column, after Saturation), and that fold was
+deliberately **not** persisted: "Effects is the always-on effect rack, not a zone you fit to a narrow
+window". That was a sound rule while every open-zone control was also reachable folded. It stopped being
+one the moment a control lived only there: at the default fold the rack shows two columns, so the delay is
+invisible on every launch and the user has to re-expand the frame before they can touch it. The same fold
+also decides a 467 px block against a 204 px one, which is exactly the kind of choice a session should
+remember.
+
+### Changes
+
+- **`Source/PluginProcessor.h` / `.cpp`**: `effectsExpandedState` with `getEffectsExpanded()` /
+  `setEffectsExpanded()`, written as the root attribute `effectsExpanded` in `getStateInformation` and read
+  in `setStateInformation` with a default of `false`. Byte-for-byte the same contract as `advancedExpanded`,
+  `harmonyExpanded` and `reverbExpanded`: a UI state, never a parameter, so it does not enter the morph
+  state and no audio behaviour changes when it flips. A state saved before the attribute existed reads back
+  folded, i.e. exactly how it used to open.
+- **`Source/PluginEditor.cpp`**: the constructor restores the flag **before** `updateBottomBandWidths()`
+  runs, so a session saved with the rack open re-opens at the five-column width instead of measuring itself
+  folded; `effectsFrame.onExpandedChanged` writes the flag back on every chevron click, before the width
+  model re-runs. Two comments that asserted the Effects fold was not persisted were corrected.
+
+### Tests
+
+Suite unchanged: **190 OK / 0 FAILED** (no test exercises the persisted editor state, as for the three
+flags it mirrors). The fold's effect on width is measured, not asserted: **204 px folded / 467 px open**
+(band 17 + chevron 28 + 2 × 10 padding + 5 × 74 columns + 4 × 8 gaps), the widest single block of the row.
+
+**Restore not verified on screen, and why.** `tools/set_standalone_fold.ps1` patched the persisted state to
+`effectsExpanded="1"` and the launched app stayed folded. The same patch on `reverbExpanded` and on
+`advancedExpanded` (the oldest of the four, verified in production) changed nothing either, and patching
+`abActiveSlot="1"` left the A/B indicator on **A** — a state value that is visible without any fold. The
+harness therefore does not reach the binary launched from the build tree (the settings file is written only
+by a normal launch: last written 2026-10-17 18:32), so the restore path could not be exercised from here.
+Write and read are code-identical to the three flags in production. The user's own launch is the test:
+open the rack once, close normally, reopen.
+

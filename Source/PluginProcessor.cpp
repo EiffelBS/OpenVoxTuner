@@ -5016,6 +5016,7 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
     xml->setAttribute ("advancedExpanded", advancedExpandedState ? 1 : 0);
     xml->setAttribute ("harmonyExpanded", harmonyExpandedState ? 1 : 0);
     xml->setAttribute ("reverbExpanded", reverbExpandedState ? 1 : 0);
+    xml->setAttribute ("effectsExpanded", effectsExpandedState ? 1 : 0);
     xml->setAttribute ("abActiveSlot", abActiveSlot);
 
     // Persist A/B slot MorphStates as compact flat attributes (no nested XML).
@@ -5240,6 +5241,9 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
         // knobs are one chevron click away, so nothing is lost - only the initial width of the bottom band.
         harmonyExpandedState = xmlState->getBoolAttribute ("harmonyExpanded", false);
         reverbExpandedState = xmlState->getBoolAttribute ("reverbExpanded", false);
+        // Effects: absent reads back folded, i.e. the two-column rack, so a state saved before the fold was
+        // remembered opens exactly as it used to. Once the user opens it, the Delay column comes back open.
+        effectsExpandedState = xmlState->getBoolAttribute ("effectsExpanded", false);
         abActiveSlot = juce::jlimit (0, 1, xmlState->getIntAttribute ("abActiveSlot", 0));
         parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
     }

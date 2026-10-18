@@ -603,6 +603,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // the width model runs, so a session saved with the send room folded opens at the folded size.
     reverbFrame.disclosure().setTooltip (ovt::tr (ovt::Keys::kTooltipReverbMore));
     reverbFrame.setExpanded (processorRef.getReverbExpanded());
+    // The Effects frame obeys the same rule as the three above: its flag lands before the width model
+    // runs, so a session saved with the open zone showing opens at the five-column size (467 px measured)
+    // instead of folding away the Delay column on every launch.
+    effectsFrame.setExpanded (processorRef.getEffectsExpanded());
     // The width model is the single source of truth for every block size, so it runs right
     // after the restored fold flags and before any layout.
     updateBottomBandWidths();
@@ -613,8 +617,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         resized();
     };
     // The frame owns the flag; the editor answers by re-stating every block width and re-laying
-    // out. Unlike the Effects fold, this one is persisted in the plugin XML, so a row folded to
-    // fit a narrow window stays folded when the session reopens.
+    // out. All four frames now persist their fold in the plugin XML, so a row folded to fit a
+    // narrow window stays folded when the session reopens - and a rack opened to reach the Delay
+    // column comes back open.
     harmonyFrame.onExpandedChanged = [this]
     {
         processorRef.setHarmonyExpanded (harmonyFrame.expanded());
@@ -2207,10 +2212,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // the editor re-lays out when it flips, and the frame widens to take the extra columns,
     // pushing the Reverb block (registered right of Effects) and then Harmony.
     // The band registered this frame in the constructor, so it is already a band child. Its
-    // fold is NOT persisted: Effects is the always-on effect rack, not a zone you fit to a
-    // narrow window. The Reverb frame IS persisted, armed in the constructor next to Harmony's.
+    // fold is persisted like the other three, because the frame owns a control the user wants on
+    // screen: the tempo-synced Delay lives in the open zone, and a fold that forgot itself would
+    // hide it on every launch. The flag must be written BEFORE the width model re-runs, so the
+    // saved width is the one the row actually shows.
     effectsFrame.onExpandedChanged = [this]
     {
+        processorRef.setEffectsExpanded (effectsFrame.expanded());
         updateBottomBandWidths();   // the fold changes what this block asks for
         resized();
     };
