@@ -82,11 +82,12 @@ include(FetchContent)
 # v0.15.14 draws its captions as accent-free tracked capitals and v0.15.15 measures every shipped room name against
 # the fixed cell floor. v0.17.0 gave a fold an axis (ExpansibleFrame::setFoldVertical, default horizontal, so every
 # frame here is unchanged) and v0.17.1 adds ebs::ActivityDot (one dot per signal path, sized by the level that path
-# carried by ebs::ActivityDot at the foot of a column and by ebs::ActivityKnob inside a single-knob cell). The pin must stay at or above
+# carried by ebs::ActivityKnob inside the knob of the component it reports). v0.17.4 to v0.17.7 added ebs::TokenField, a DataList text scale
+# and two button glyph tweaks, none of which this plugin uses yet. The pin must stay at or above
 # the newest feature used, and adding components is a patch bump.
 FetchContent_Declare(eiffelbs-ui
     GIT_REPOSITORY https://github.com/EiffelBS/eiffelbs-ui.git
-    GIT_TAG        v0.17.3
+    GIT_TAG        v0.17.7
     GIT_SHALLOW    TRUE)
 FetchContent_MakeAvailable(eiffelbs-ui)
 
