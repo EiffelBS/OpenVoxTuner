@@ -8,6 +8,7 @@
 #include "PluginEditor.h"
 #include "dsp/NoteUtils.h"
 #include "dsp/ReverbEffect.h"
+#include "dsp/ReverbTuning.h"   // the two room tunings and the "ready to sing" send defaults
 #include "dsp/FormantPreserver.h"
 #include "external/presonus/ipsleditcontroller.h"
 // Generated build info (created by CMake)
@@ -388,7 +389,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                            juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f),
 
                        // Doubler power switch, same shape as the sibling effects'
-                       // enable flags (reverb_enable, noise_gate_enable, ...): the
+                       // enable flags (lead_reverb_enable, noise_gate_enable, ...): the
                        // amount keeps its value when switched off, the knob is
                        // greyed and the copy is simply not applied.
                        std::make_unique<juce::AudioParameterBool> (
@@ -576,8 +577,6 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                             "voice_type", "Voice Type",
                             juce::StringArray { "Universal", "Bass", "Baritone", "Tenor", "Alto", "Soprano" }, 0)
                       , std::make_unique<juce::AudioParameterBool> (
-                            "reverb_enable", "Reverb Enable", false)
-                      , std::make_unique<juce::AudioParameterBool> (
                             juce::ParameterID { "noise_gate_enable", 1 }, "Noise Gate", false)
                       , std::make_unique<juce::AudioParameterFloat> (
                             juce::ParameterID { "noise_gate_threshold", 1 }, "Gate Threshold",
@@ -589,42 +588,39 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       , std::make_unique<juce::AudioParameterFloat> (
                             "upward_comp_amount", "Upward Comp Amount",
                             juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.25f)
+                      // === Shared reverb buses: ROOM + HALL ===
+                      // Two rooms shared by both voices, the way a vocal is sent to two
+                      // reverb buses in a DAW. Each voice has its own on/off switch and its
+                      // own amount to each room; there is no separate "send" control, so the
+                      // knob IS the send and the dry voice always stays at unity.
+                      //
+                      // The switches start OFF, so a fresh session is dry. The knobs start at
+                      // the "ready to sing" values from ReverbTuning.h: switching the Lead
+                      // switch ON applies a balanced short-room + hall pair immediately,
+                      // which is the single-knob experience the legacy Mix knob gave.
+                      , std::make_unique<juce::AudioParameterBool> (
+                            "lead_reverb_enable", "Lead Reverb", false)
+                      , std::make_unique<juce::AudioParameterBool> (
+                            "harmony_reverb_enable", "Harmony Reverb", false)
                       , std::make_unique<juce::AudioParameterFloat> (
-                            "reverb_mix", "Reverb Mix",
-                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
-                        // Shared send room: ONE reverb instance fed by two parallel
-                        // sends, so the lead and the harmony voices ring in the SAME
-                        // room. The amounts are per bus, next to the mix knob they
-                        // sit beside. A send is additive: the dry voice stays at unity
-                        // and no latency is declared (nothing delays the dry path).
-                        // Defaults are SILENT -- a shared room is opt-in, so loading an
-                        // existing state changes nobody's sound until a knob is moved.
-                        , std::make_unique<juce::AudioParameterFloat> (
-                              "lead_send", "Lead Send",
-                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
-                        , std::make_unique<juce::AudioParameterFloat> (
-                              "pad_send", "Harmony Send",
-                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f)
-                        // Ducking: the room follows the noise gate. When the gate closes
-                        // on a silent lead, the tail of the room is pulled down with it,
-                        // which is the classic vocal ducking -- a room that keeps ringing
-                        // over a gated voice reads as hiss. Depth 0 = no ducking, depth 1
-                        // = the room follows the gate completely.
-                        , std::make_unique<juce::AudioParameterFloat> (
-                              "duck_depth", "Duck Depth",
-                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.50f)
-                        // Harmony reverb (parameter ids stay pad_reverb_*): the SECOND instance of
-                        // ReverbEffect, on the harmony
-                        // bus. A long, fully wide room is what stacked voices want; the lead keeps
-                        // its own short centred room (reverb_enable / reverb_mix above).
-                        // Two instances, two knobs: no single compromise setting that has
-                        // to serve intelligibility and amplitude at the same time. The display names name the
-                        // voice they act on, never a timbre word.
-                        , std::make_unique<juce::AudioParameterBool> (
-                              "pad_reverb_enable", "Harmony Reverb Enable", false)
-                        , std::make_unique<juce::AudioParameterFloat> (
-                              "pad_reverb_mix", "Harmony Reverb Mix",
-                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
+                            "lead_room_send", "Lead Room",
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), ovtdsp::kDefaultLeadRoomSend)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "lead_hall_send", "Lead Hall",
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), ovtdsp::kDefaultLeadHallSend)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "harmony_room_send", "Harmony Room",
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), ovtdsp::kDefaultHarmonyRoomSend)
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "harmony_hall_send", "Harmony Hall",
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), ovtdsp::kDefaultHarmonyHallSend)
+                      // Sidechain ducker on the rooms' returns. The key is the CORRECTED LEAD,
+                      // never the noise gate: the rooms dip while the lead sings so a long hall
+                      // cannot mask the consonants, and bloom back between phrases. Depth 0 = no
+                      // ducking, 1 = up to -12 dB while the lead sings at its reference level.
+                      , std::make_unique<juce::AudioParameterFloat> (
+                            "reverb_duck_depth", "Reverb Ducking",
+                            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), ovtdsp::kDefaultReverbDuckDepth)
                         // Master output stage. The trim is a plain dB gain (-12..+12), so
                         // setting the plugin level never touches the harmony gain-match;
                         // the limiter detects true peaks through a 4x reconstruction filter, so it
@@ -808,13 +804,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     editorPlayheadLoopParam = parameters.getRawParameterValue ("editor_playhead_loop");
     detectorParam = parameters.getRawParameterValue ("pitch_detector");
     voiceTypeParam = parameters.getRawParameterValue ("voice_type");
-    reverbEnableParam = parameters.getRawParameterValue ("reverb_enable");
-    reverbMixParam = parameters.getRawParameterValue ("reverb_mix");
-    leadSendParam = parameters.getRawParameterValue ("lead_send");
-    padSendParam = parameters.getRawParameterValue ("pad_send");
-    duckDepthParam = parameters.getRawParameterValue ("duck_depth");
-    padReverbEnableParam = parameters.getRawParameterValue ("pad_reverb_enable");
-    padReverbMixParam = parameters.getRawParameterValue ("pad_reverb_mix");
+    leadReverbEnableParam = parameters.getRawParameterValue ("lead_reverb_enable");
+    harmonyReverbEnableParam = parameters.getRawParameterValue ("harmony_reverb_enable");
+    leadRoomSendParam = parameters.getRawParameterValue ("lead_room_send");
+    leadHallSendParam = parameters.getRawParameterValue ("lead_hall_send");
+    harmonyRoomSendParam = parameters.getRawParameterValue ("harmony_room_send");
+    harmonyHallSendParam = parameters.getRawParameterValue ("harmony_hall_send");
+    reverbDuckDepthParam = parameters.getRawParameterValue ("reverb_duck_depth");
     outputTrimParam = parameters.getRawParameterValue ("output_trim");
     limiterEnableParam = parameters.getRawParameterValue ("limiter_enable");
     noiseGateEnableParam = parameters.getRawParameterValue ("noise_gate_enable");
@@ -885,55 +881,33 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     pitchCurve       = std::make_unique<ovtdsp::PitchCurve>();
     pitchCurve->loadPreset ("default");
 
-    // === Effects buses: three tap points of the vocal chain ===
-    // LEAD bus. Order matters: the de-esser runs BEFORE the lead reverb so it tames
-    // the sibilance of the corrected lead voice itself. A reverb tail is decorrelated
-    // high-frequency energy that would keep the detector engaged after the singer
-    // has stopped hissing, ducking the whole mix; de-essing the dry lead first and
-    // then adding space is what a vocal chain does on a real console. On this bus the
-    // de-esser sees ONLY the dry lead, never a wet tail, which is exactly the reason
-    // the order was chosen in the first place.
+    // === Effects buses: two insert tap points of the vocal chain ===
+    // LEAD bus. The de-esser runs first, then the tempo-synced delay. The lead has no
+    // insert room any more: BOTH rooms are shared buses (roomReverb / hallReverb below),
+    // fed by applyLeadSends(). The de-esser still sees ONLY the dry lead, never a wet
+    // tail, so it tames the sibilance of the corrected voice itself instead of chasing
+    // a decorrelated tail.
     leadBus.addEffect (std::make_unique<ovtdsp::DeEsser>());
-    {
-        // Lead room: short and centred. Consonants stay readable; the pad carries
-        // the depth and the width, so the lead does not have to.
-        auto leadReverb = std::make_unique<ovtdsp::ReverbEffect>();
-        leadReverb->setRoomSize (0.35f);
-        leadReverb->setDamping (0.50f);
-        leadReverb->setStereoWidth (0.5f);
-        leadBus.addEffect (std::move (leadReverb));
-    }
 
-    // The delay goes LAST on the lead bus: de-esser -> lead room -> delay. The de-essed, corrected voice is
-    // what enters the room, and echoing a voice that still hisses at 5 kHz echoes the sibilance too; the order
-    // also keeps the plugin's own pitch-tracking signal pure (see IEffect.h). An echo sits BEHIND the voice on
-    // the timeline, so it declares no latency: nothing here touches setLatencySamples -- an echo is additive and
-    // declaring its copy length as plugin latency would put the whole voice behind the echo.
+    // The delay goes LAST on the lead bus: de-esser -> delay. Echoing a voice that still
+    // hisses at 5 kHz echoes the sibilance too, and the order also keeps the plugin's own
+    // pitch-tracking signal pure (see IEffect.h). An echo sits BEHIND the voice on the
+    // timeline, so it declares no latency: nothing here touches setLatencySamples -- an
+    // echo is additive and declaring its copy length as plugin latency would put the whole
+    // voice behind the echo.
     leadBus.addEffect (std::make_unique<ovtdsp::DelayEffect>());
 
-    // HARMONY bus (the pad): a wide room gives the blended voices amplitude and depth. It is a
-    // SEPARATE ReverbEffect instance, so the two rooms are independent -- the same class the lead
-    // uses, tuned for a different job. The size is deliberately NOT at the top of the range: comb
-    // feedback is roomSize * 0.28 + 0.7, so 0.85 put 0.938 on the comb lines and the pad rang as
-    // a metallic resonator for ~2.7 s after every syllable -- the "sons bizarres" reported with
-    // Pad engaged. 0.62 / 0.55 keeps the depth, drops feedback to 0.874, and lands the tail inside
-    // a phrase (measured in SharedReverbRoomTest).
-    {
-        auto padReverb = std::make_unique<ovtdsp::ReverbEffect>();
-        padReverb->setRoomSize (0.62f);
-        padReverb->setDamping (0.55f);
-        padReverb->setStereoWidth (1.0f);
-        harmonyBus.addEffect (std::move (padReverb));
-    }
-
-    // SHARED send room: ONE instance, fed by the lead send and the pad send. This is
-    // the space both voices share, so the room has to read as a single believable
-    // space rather than two effects: medium-large, moderate damping, fully wide. It
-    // is NOT on a bus -- the sends are taken at two tap points and the return is
-    // summed into the master before the output stage.
-    sharedReverb.setRoomSize (0.60f);
-    sharedReverb.setDamping (0.45f);
-    sharedReverb.setStereoWidth (1.0f);
+    // SHARED ROOM + HALL: one instance per tuning, each fed by the lead send and the
+    // harmony send. HALL is the legacy Main room, bit for bit (the sound of the single Mix
+    // knob that shipped on main); ROOM is the short room that keeps the lead present.
+    // Neither is registered on a bus: the sends are taken at two tap points and the returns
+    // are summed into the master, scaled by the sidechain ducker, before the output stage.
+    roomReverb.setRoomSize (ovtdsp::kReverbRoomTuning.roomSize);
+    roomReverb.setDamping  (ovtdsp::kReverbRoomTuning.damping);
+    roomReverb.setStereoWidth (ovtdsp::kReverbRoomTuning.width);
+    hallReverb.setRoomSize (ovtdsp::kReverbHallTuning.roomSize);
+    hallReverb.setDamping  (ovtdsp::kReverbHallTuning.damping);
+    hallReverb.setStereoWidth (ovtdsp::kReverbHallTuning.width);
 
     // MASTER bus: the tap point after every bus has been blended, where shared sends and
     // glue land; the output trim + limiter runs immediately after it, as the last stage of
@@ -943,8 +917,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     masterBus.addEffect (std::make_unique<ovtdsp::SaturationEffect>());
 
     OVT_LOG ("Effects buses initialized: lead=" + juce::String (leadBus.size())
-             + " harmony=" + juce::String (harmonyBus.size())
-             + " master=" + juce::String (masterBus.size()));
+             + " master=" + juce::String (masterBus.size())
+             + " | shared rooms: ROOM + HALL, sidechain ducker");
 
     // VST3 extension for Studio One's Micro View.
     // Only allocated for Studio One - for every other host getVST3ClientExtensions()
@@ -1183,13 +1157,15 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     currentFlexTuneAmount = 1.0f;
     currentHumanizeCents = 0.0f;
 
-    // Prepare every effects bus, the shared send room and the master output stage.
+    // Prepare every effects bus, the two shared rooms, the sidechain ducker and the
+    // master output stage.
     leadBus.prepare (sampleRate, samplesPerBlock);
-    harmonyBus.prepare (sampleRate, samplesPerBlock);
     masterBus.prepare (sampleRate, samplesPerBlock);
-    // The shared room sizes its own send line and wet scratch from this block size,
-    // so a send tap and its return allocate nothing inside the audio callback.
-    sharedReverb.prepare (sampleRate, samplesPerBlock);
+    // Each room sizes its own send line and wet scratch from this block size, so a send
+    // tap and its return allocate nothing inside the audio callback.
+    roomReverb.prepare (sampleRate, samplesPerBlock);
+    hallReverb.prepare (sampleRate, samplesPerBlock);
+    reverbDucker.prepare (sampleRate);
     outputLimiter.prepare (sampleRate, samplesPerBlock);
 
     // Prepare temporary buffers for shifted voices
@@ -1425,11 +1401,13 @@ void OpenVoxTunerAudioProcessor::reset()
     synthWorkBuffer.clear();
     lastMixedHarmonyBuffer.clear();
     leadBus.reset();
-    harmonyBus.reset();
     masterBus.reset();
-    // Flushing the shared room clears its send line and its tail, so a transport
-    // restart does not carry a room from the previous take.
-    sharedReverb.reset();
+    // Flushing both rooms clears their send lines and their tails, and flushing the
+    // ducker drops its envelope, so a transport restart does not carry a room (or a
+    // ducked return) from the previous take.
+    roomReverb.reset();
+    hallReverb.reset();
+    reverbDucker.reset();
     outputLimiter.reset();
     // The meter shows what the stage is doing, so a reset clears its readings as well: a
     // peak left on screen after a transport stop is a reading the stage no longer makes.
@@ -1696,15 +1674,16 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // input without abrupt cuts or clicks. These are the same helpers the live
         // path uses, so a tail fades out at exactly the level the user hears.
         applyLeadEffects (buffer);
-        applyHarmonyEffects (harmonyBuffer);
 
-        // Shared send room in sleep mode: the lead buffer is cleared, so the lead send
-        // contributes nothing and is tapped on the same code path as the live signal.
-        // The pad send is NOT tapped here -- harmonyBuffer still holds the last blended
-        // take, and re-sending a voice that has stopped would keep the room ringing over
-        // silence, which is exactly what ducking exists to prevent. applyMasterEffects
-        // below runs the return, so the room's tail decays through its own state.
-        applyLeadSend (buffer);
+        // Shared reverb buses in sleep mode: the lead buffer is cleared, so the lead
+        // sends contribute nothing but still move the ramps and the ducker key with
+        // silence -- both rooms' tails decay, and the ducker releases in real time (a
+        // transport stop must not freeze a ducked return). The HARMONY sends are NOT
+        // tapped here: harmonyBuffer still holds the last blended take, and re-sending a
+        // stopped voice would keep the rooms ringing over silence. applyMasterEffects
+        // below runs both returns, so each tail decays through its own state.
+        applyLeadSends (buffer);
+        reverbDucker.processSilence (buffer.getNumSamples());
 
         applyMasterEffects (buffer);
 
@@ -2739,13 +2718,20 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // the voice before it is blended with the pad. The harmony snapshot taken above
     // is untouched, so the rendered voices are generated from the same source as
     // before this tap: the split changes where effects act, not what harmony hears.
+    // The ducker's key is the corrected lead BEFORE its own effects: the delay echoes
+    // must not re-trigger the ducking, or the rooms would pump with the echo grid instead
+    // of following the voice. The key is stereo-linked inside the ducker.
+    reverbDucker.processKey (buffer);
+
     applyLeadEffects (buffer);
 
-    // The lead send is taken at the same tap point, right after the lead's own effects:
-    // what rings in the shared room is the corrected, de-essed voice. A send adds to the
-    // room, never to the dry path, so the lead in `buffer` stays exactly as the tap left
-    // it and no latency is declared -- nothing delays a dry signal to make a send.
-    applyLeadSend (buffer);
+    // The lead sends are taken at the same tap point, right after the lead's own effects:
+    // what rings in the two rooms is the corrected, de-essed voice. A send adds to the
+    // rooms, never to the dry path, so the lead in `buffer` stays exactly as the tap left
+    // it and no latency is declared -- nothing delays a dry signal to make a send. The
+    // delay sits before this tap, so its echoes are part of the send (a post-insert send,
+    // as on a console).
+    applyLeadSends (buffer);
 
     // Harmony voices: formant preservation follows the same strategy as the
     // lead (Current / P0 / P1 / P2), selected by the formant_strategy param.
@@ -3199,20 +3185,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             }
         }
 
-        // === PAD SEND TAP ===
-        // The send is taken on the blended voices BEFORE their own pad room runs. A send
-        // tapped after an insert feeds that insert's wet tail into a second room, so the
-        // stack reverberates twice and the two tails modulate each other -- the metallic
-        // flutter that reads as "sons bizarres" with Pad engaged. The dry voices are what
-        // should ring in the shared space; the pad room stays an insert on this bus.
-        applyPadSend (harmonyBuffer);
-
-        // === HARMONY EFFECTS TAP ===
-        // Effects on the harmony bus, after the send is taken and before the voices are
-        // mixed into the master output. The pad room acts on the blended voices only, so
-        // the lead keeps its own short room and the two rooms never fight each other for
-        // one shared setting.
-        applyHarmonyEffects (harmonyBuffer);
+        // === SHARED REVERB BUS TAPS ===
+        // The sends are taken on the blended voices BEFORE they are mixed into the master
+        // output, so each room receives each voice exactly once at its own level. Sends
+        // never modify the dry path, so the voices below are mixed untouched.
+        applyHarmonySends (harmonyBuffer);
 
         // Now mix harmonyBuffer into main output below
         const float hGain = (harmonyGainParam ? harmonyGainParam->load() : 1.0f);
@@ -4250,16 +4227,6 @@ static float blockPeak (const juce::AudioBuffer<float>& buffer)
 
 void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buffer)
 {
-    // Gate-envelope ducking: when the Noise Gate is ENABLED, the lead room follows the
-    // voice out instead of leaving a tail ringing over silence. When it is disabled the
-    // gate's getCurrentGain() is STALE -- process() returns early and never updates the
-    // envelope -- so reading it unconditionally could freeze the lead wet mix at whatever
-    // level the gate last left behind, which is how "reverb à fond" stayed inaudible.
-    // The harmony mix downstream and the master ducking both check the flag; this tap must
-    // too, so a disabled gate means full mix.
-    const bool gateOn = (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f);
-    const float gateGain = gateOn ? noiseGate.getCurrentGain() : 1.0f;
-
     leadBus.apply (buffer, [&] (ovtdsp::IEffect& effect, bool& enabled, float& wetMix)
     {
         if (effect.getId() == "deesser")
@@ -4276,15 +4243,6 @@ void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buf
             de->setVoiceType (deessVoiceType);
             enabled = (deessEnableParam != nullptr && deessEnableParam->load() > 0.5f);
             wetMix = 1.0f;
-            return true;
-        }
-
-        if (effect.getId() == "reverb")
-        {
-            // Lead reverb: the ids the plugin already had, so every saved state and
-            // factory preset maps onto the lead room with no orphaned parameter.
-            enabled = (reverbEnableParam != nullptr && reverbEnableParam->load() > 0.5f);
-            wetMix = (reverbMixParam != nullptr) ? reverbMixParam->load() * gateGain : 0.0f;
             return true;
         }
 
@@ -4322,48 +4280,37 @@ void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buf
     leadActivityPeak.store (blockPeak (buffer));
 }
 
-void OpenVoxTunerAudioProcessor::applyHarmonyEffects (juce::AudioBuffer<float>& harmony)
+void OpenVoxTunerAudioProcessor::applyLeadSends (juce::AudioBuffer<float>& buffer)
 {
-    harmonyBus.apply (harmony, [&] (ovtdsp::IEffect& effect, bool& enabled, float& wetMix)
-    {
-        if (effect.getId() == "reverb")
-        {
-            // Pad reverb. No extra gate ducking here: the harmony mix downstream is
-            // already multiplied by the smoothed gate gain, so closing the gate takes
-            // the pad out together with the voices it belongs to.
-            enabled = (padReverbEnableParam != nullptr && padReverbEnableParam->load() > 0.5f);
-            wetMix = (padReverbMixParam != nullptr) ? padReverbMixParam->load() : 0.0f;
-            return true;
-        }
+    // The lead is sent to BOTH rooms after its own insert effects have run, so what rings
+    // is the corrected, de-essed voice the user actually hears. The amounts are sends: the
+    // dry lead in the buffer is left exactly as it was. A voice switched off keeps its knob
+    // values and sends 0, so the ramps settle instead of jumping the moment the toggle
+    // flips -- and switching it back on needs no re-dial.
+    const bool leadOn = (leadReverbEnableParam != nullptr && leadReverbEnableParam->load() > 0.5f);
+    const float roomSend = (leadOn && leadRoomSendParam != nullptr) ? leadRoomSendParam->load() : 0.0f;
+    const float hallSend = (leadOn && leadHallSendParam != nullptr) ? leadHallSendParam->load() : 0.0f;
 
-        return false;
-    });
+    roomReverb.processLeadSend (buffer, roomSend);
+    hallReverb.processLeadSend (buffer, hallSend);
+}
+
+void OpenVoxTunerAudioProcessor::applyHarmonySends (juce::AudioBuffer<float>& harmony)
+{
+    // The harmony voices are tapped from the harmony path BEFORE they are mixed into the
+    // output, so each send sees the blended voices at their own level, not the sum. Same
+    // contract as the lead: a switched-off voice keeps its knobs and sends 0.
+    const bool harmonyOn = (harmonyReverbEnableParam != nullptr && harmonyReverbEnableParam->load() > 0.5f);
+    const float roomSend = (harmonyOn && harmonyRoomSendParam != nullptr) ? harmonyRoomSendParam->load() : 0.0f;
+    const float hallSend = (harmonyOn && harmonyHallSendParam != nullptr) ? harmonyHallSendParam->load() : 0.0f;
+
+    roomReverb.processHarmonySend (harmony, roomSend);
+    hallReverb.processHarmonySend (harmony, hallSend);
 
     // Harmony activity tap: the blended voices leaving their own path, i.e. exactly the
-    // buffer the master mix is handed next. Taking it HERE rather than at the mix site keeps
-    // one tap per path, the same shape the lead and master taps use.
+    // buffer the master mix is handed next. The sends above do not touch it, so the dot
+    // reports the voice, not the room.
     harmonyActivityPeak.store (blockPeak (harmony));
-}
-
-void OpenVoxTunerAudioProcessor::applyLeadSend (juce::AudioBuffer<float>& buffer)
-{
-    // The lead is sent to the shared room AFTER its own insert effects have run, so what
-    // rings in the room is the corrected, de-essed voice the user actually hears. The
-    // amount is a send: the dry lead in the buffer is left exactly as it was.
-    const float leadSend = (leadSendParam != nullptr) ? leadSendParam->load() : 0.0f;
-
-    if (leadSend > 0.0f)
-        sharedReverb.processLeadSend (buffer, leadSend);
-}
-
-void OpenVoxTunerAudioProcessor::applyPadSend (juce::AudioBuffer<float>& harmony)
-{
-    // The harmony voices are tapped from the harmony bus BEFORE they are mixed into the
-    // output, so the send sees the blended voices at their own level, not the sum.
-    const float padSend = (padSendParam != nullptr) ? padSendParam->load() : 0.0f;
-
-    if (padSend > 0.0f)
-        sharedReverb.processPadSend (harmony, padSend);
 }
 
 void OpenVoxTunerAudioProcessor::applyMasterEffects (juce::AudioBuffer<float>& buffer)
@@ -4387,18 +4334,19 @@ void OpenVoxTunerAudioProcessor::applyMasterEffects (juce::AudioBuffer<float>& b
         return false;
     });
 
-    // Shared room return, summed into the master BEFORE the trim + limiter, so the
-    // additive wet is guarded by exactly the same output stage as every other level in
-    // the plugin. Ducking follows the noise gate: depth 0 leaves the room alone, depth 1
-    // makes the room follow the gate completely. The gate is read the same way the
-    // harmony mix reads it -- when the gate is off, getCurrentGain() is neutral.
-    const float duckGateGain = (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f)
-                               ? noiseGate.getCurrentGain() : 1.0f;
-    const float duckDepth = (duckDepthParam != nullptr) ? duckDepthParam->load() : 0.0f;
+    // Both room returns, summed into the master BEFORE the trim + limiter, so the additive
+    // wet is guarded by exactly the same output stage as every other level in the plugin.
+    // The returns are scaled by the sidechain ducker's gain, whose key is the corrected
+    // lead (updated once per block, before the lead bus effects): the rooms dip under the
+    // voice and bloom back between phrases. Depth 0 leaves them alone, and the ducker is
+    // not tied to the noise gate in any way.
+    const float duckDepth = (reverbDuckDepthParam != nullptr) ? reverbDuckDepthParam->load() : 0.0f;
+    const float duckGain = reverbDucker.getDuckGain (duckDepth);
 
-    // Called every block, even with silent sends: the room needs its blocks to let the
+    // Called every block, even with silent sends: each room needs its blocks to let its
     // tail decay, and it skips its own work once the tail is inaudible.
-    sharedReverb.processReturn (buffer, 1.0f - duckDepth * (1.0f - duckGateGain));
+    roomReverb.processReturn (buffer, duckGain);
+    hallReverb.processReturn (buffer, duckGain);
 
     // Master activity tap: the blend as it stands when the shared room has returned its
     // wet into it, BEFORE trim and limiting. That is the level the master path carries,
@@ -5073,14 +5021,13 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("harmonyToneColor", (double) ms.harmonyToneColor);
         slotXml->setAttribute ("doubleAmount",     (double) ms.doubleAmount);
         slotXml->setAttribute ("doubleEnable",     ms.doubleEnable);
-        slotXml->setAttribute ("reverbMix",        (double) ms.reverbMix);
-        slotXml->setAttribute ("padReverbMix",     (double) ms.padReverbMix);
-        // Send and duck amounts are written with the state, so a slot carries the room
-        // balance it was built with. A slot saved before these attributes existed reads
-        // back as silent sends -- the same defaults the parameters carry.
-        slotXml->setAttribute ("leadSend",         (double) ms.leadSend);
-        slotXml->setAttribute ("padSend",          (double) ms.padSend);
-        slotXml->setAttribute ("duckDepth",        (double) ms.duckDepth);
+        // Reverb amounts are written with the state, so a slot carries the room balance it
+        // was built with (and its two on/off switches, written with the booleans below).
+        slotXml->setAttribute ("leadRoomSend",     (double) ms.leadRoomSend);
+        slotXml->setAttribute ("leadHallSend",     (double) ms.leadHallSend);
+        slotXml->setAttribute ("harmonyRoomSend",  (double) ms.harmonyRoomSend);
+        slotXml->setAttribute ("harmonyHallSend",  (double) ms.harmonyHallSend);
+        slotXml->setAttribute ("reverbDuckDepth",  (double) ms.reverbDuckDepth);
         slotXml->setAttribute ("flexTune",         (double) ms.flexTune);
         slotXml->setAttribute ("humanize",         (double) ms.humanize);
         slotXml->setAttribute ("vibratoPreserve",  (double) ms.vibratoPreserve);
@@ -5113,8 +5060,8 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("bypass",           ms.bypass);
         slotXml->setAttribute ("harmonyEnable",    ms.harmonyEnable);
         slotXml->setAttribute ("useVoice",         ms.harmonyUseVoice);
-        slotXml->setAttribute ("reverbEnable",     ms.reverbEnable);
-        slotXml->setAttribute ("padReverbEnable",  ms.padReverbEnable);
+        slotXml->setAttribute ("leadReverbEnable",    ms.leadReverbEnable);
+        slotXml->setAttribute ("harmonyReverbEnable", ms.harmonyReverbEnable);
         slotXml->setAttribute ("outputTrim",       (double) ms.outputTrim);
         slotXml->setAttribute ("limiterEnable",    ms.limiterEnable);
         slotXml->setAttribute ("correctionMode",   ms.correctionMode);
@@ -5203,13 +5150,51 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.harmonyToneColor   = (float) slotXml->getDoubleAttribute ("harmonyToneColor", 0.5);
             ms.doubleAmount       = (float) slotXml->getDoubleAttribute ("doubleAmount", 0.0);
             ms.doubleEnable       = slotXml->getBoolAttribute ("doubleEnable", false);
-            ms.reverbMix          = (float) slotXml->getDoubleAttribute ("reverbMix", 0.3);
-            ms.padReverbMix       = (float) slotXml->getDoubleAttribute ("padReverbMix", 0.3);
-            // Defaults match the parameter defaults, so an older slot loads as it did
-            // before the shared room existed: silent sends, half duck depth.
-            ms.leadSend           = (float) slotXml->getDoubleAttribute ("leadSend", 0.0);
-            ms.padSend            = (float) slotXml->getDoubleAttribute ("padSend", 0.0);
-            ms.duckDepth          = (float) slotXml->getDoubleAttribute ("duckDepth", 0.5);
+            // Slots saved before the two shared buses existed carry the old insert/gate
+            // reverb attributes. Map them, so a slot keeps (approximately) the room it was
+            // built with instead of loading dry: the old crossfade Mix becomes the HALL send
+            // (1.43 is the measured crossfade -> send calibration: the crossfade also
+            // attenuated the dry voice, a send does not), the old shared send folds into the
+            // same hall amount, and the old gate-linked duck depth becomes the ducker depth.
+            if (slotXml->hasAttribute ("leadHallSend") || slotXml->hasAttribute ("harmonyHallSend"))
+            {
+                ms.leadRoomSend    = (float) slotXml->getDoubleAttribute ("leadRoomSend", 0.0);
+                ms.leadHallSend    = (float) slotXml->getDoubleAttribute ("leadHallSend", 0.0);
+                ms.harmonyRoomSend = (float) slotXml->getDoubleAttribute ("harmonyRoomSend", 0.0);
+                ms.harmonyHallSend = (float) slotXml->getDoubleAttribute ("harmonyHallSend", 0.0);
+                ms.reverbDuckDepth = (float) slotXml->getDoubleAttribute ("reverbDuckDepth", 0.0);
+                // The switches only exist in a new-style slot, so they are read here and never
+                // from the legacy branch below (which derives them from the old flags).
+                ms.leadReverbEnable    = slotXml->getBoolAttribute ("leadReverbEnable", false);
+                ms.harmonyReverbEnable = slotXml->getBoolAttribute ("harmonyReverbEnable", false);
+            }
+            else
+            {
+                bool hasReverb = false;
+                const float legacyMix     = (float) slotXml->getDoubleAttribute ("reverbMix", 0.3);
+                const float legacyPadMix  = (float) slotXml->getDoubleAttribute ("padReverbMix", 0.3);
+                const float legacyLeadSend = (float) slotXml->getDoubleAttribute ("leadSend", 0.0);
+                const float legacyPadSend  = (float) slotXml->getDoubleAttribute ("padSend", 0.0);
+                const float legacyDuck     = (float) slotXml->getDoubleAttribute ("duckDepth", 0.5);
+                const bool legacyLeadEnable = slotXml->getBoolAttribute ("reverbEnable", false);
+                const bool legacyPadEnable  = slotXml->getBoolAttribute ("padReverbEnable", false);
+                hasReverb = slotXml->hasAttribute ("reverbMix") || slotXml->hasAttribute ("padReverbMix")
+                            || slotXml->hasAttribute ("reverbEnable") || slotXml->hasAttribute ("padReverbEnable");
+
+                ms.leadRoomSend     = 0.0f;
+                ms.harmonyRoomSend  = 0.0f;
+                ms.leadHallSend     = juce::jlimit (0.0f, 1.0f, 1.43f * legacyMix + legacyLeadSend);
+                ms.harmonyHallSend  = juce::jlimit (0.0f, 1.0f, 1.43f * legacyPadMix + legacyPadSend);
+                ms.reverbDuckDepth  = juce::jlimit (0.0f, 1.0f, legacyDuck);
+                ms.leadReverbEnable    = legacyLeadEnable || legacyLeadSend > 0.0f;
+                ms.harmonyReverbEnable = legacyPadEnable || legacyPadSend > 0.0f;
+                if (! hasReverb)
+                {
+                    ms.leadHallSend = 0.0f;
+                    ms.harmonyHallSend = 0.0f;
+                    ms.reverbDuckDepth = 0.0f;
+                }
+            }
             ms.flexTune           = (float) slotXml->getDoubleAttribute ("flexTune", 0.25);
             ms.humanize           = (float) slotXml->getDoubleAttribute ("humanize", 0.0);
             ms.vibratoPreserve    = (float) slotXml->getDoubleAttribute ("vibratoPreserve", 0.0);
@@ -5240,8 +5225,6 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.bypass             = slotXml->getBoolAttribute ("bypass", false);
             ms.harmonyEnable      = slotXml->getBoolAttribute ("harmonyEnable", false);
             ms.harmonyUseVoice    = slotXml->getBoolAttribute ("useVoice", false);
-            ms.reverbEnable       = slotXml->getBoolAttribute ("reverbEnable", false);
-            ms.padReverbEnable    = slotXml->getBoolAttribute ("padReverbEnable", false);
             ms.outputTrim         = (float) slotXml->getDoubleAttribute ("outputTrim", 0.5);
             ms.limiterEnable      = slotXml->getBoolAttribute ("limiterEnable", true);
             ms.correctionMode     = slotXml->getBoolAttribute ("correctionMode", false);
@@ -5303,6 +5286,69 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
         abActiveSlot = juce::jlimit (0, 1, xmlState->getIntAttribute ("abActiveSlot", 0));
         // Absent reads back 120, the default this register has always had.
         setBpm ((float) xmlState->getDoubleAttribute ("bpm", 120.0));
+
+        // Migration: a state saved before the shared ROOM/HALL buses existed carries the
+        // seven insert/gate reverb parameters and none of the new ones. Map them onto the
+        // two buses' sends, so an existing project keeps (approximately) the room it was
+        // mixed with instead of loading dry. Values in the state tree are DENORMALISED and
+        // every reverb parameter is a 0..1 amount, so the conversion is direct; 1.43 is the
+        // measured crossfade -> send calibration (the legacy Mix also attenuated the dry
+        // voice, a send never does). A state that already has a new id is left untouched.
+        {
+            auto stateParamValue = [&xmlState] (const juce::String& id, bool& found) -> float
+            {
+                for (auto* e = xmlState->getFirstChildElement(); e != nullptr; e = e->getNextElement())
+                    if (e->hasTagName ("PARAM") && e->getStringAttribute ("id") == id)
+                    {
+                        found = true;
+                        return (float) e->getDoubleAttribute ("value", 0.0);
+                    }
+                found = false;
+                return 0.0f;
+            };
+
+            bool hasLegacyMix = false, hasNewHall = false;
+            const float legacyMix = stateParamValue ("reverb_mix", hasLegacyMix);
+            stateParamValue ("lead_hall_send", hasNewHall);
+
+            if (hasLegacyMix && ! hasNewHall)
+            {
+                bool found = false;
+                const float legacyPadMix   = stateParamValue ("pad_reverb_mix", found);
+                const float legacyLeadSend = stateParamValue ("lead_send", found);
+                const float legacyPadSend  = stateParamValue ("pad_send", found);
+                const float legacyDuck     = stateParamValue ("duck_depth", found);
+                bool hasLeadEnable = false, hasPadEnable = false;
+                const float legacyLeadEnable = stateParamValue ("reverb_enable", hasLeadEnable);
+                const float legacyPadEnable  = stateParamValue ("pad_reverb_enable", hasPadEnable);
+                (void) hasLeadEnable; (void) hasPadEnable;
+
+                auto addMigrated = [&xmlState] (const char* id, float value)
+                {
+                    for (auto* e = xmlState->getFirstChildElement(); e != nullptr; e = e->getNextElement())
+                        if (e->hasTagName ("PARAM") && e->getStringAttribute ("id") == id)
+                            return;
+                    auto* param = xmlState->createNewChildElement ("PARAM");
+                    param->setAttribute ("id", id);
+                    param->setAttribute ("value", (double) value);
+                };
+
+                addMigrated ("lead_reverb_enable",
+                             (legacyLeadEnable > 0.5f || legacyLeadSend > 0.0f) ? 1.0f : 0.0f);
+                addMigrated ("harmony_reverb_enable",
+                             (legacyPadEnable > 0.5f || legacyPadSend > 0.0f) ? 1.0f : 0.0f);
+                addMigrated ("lead_room_send", 0.0f);
+                addMigrated ("lead_hall_send",
+                             juce::jlimit (0.0f, 1.0f, 1.43f * legacyMix + legacyLeadSend));
+                addMigrated ("harmony_room_send", 0.0f);
+                addMigrated ("harmony_hall_send",
+                             juce::jlimit (0.0f, 1.0f, 1.43f * legacyPadMix + legacyPadSend));
+                addMigrated ("reverb_duck_depth", juce::jlimit (0.0f, 1.0f, legacyDuck));
+
+                OVT_LOG ("State migration: legacy reverb parameters mapped onto the ROOM/HALL buses");
+            }
+        }
+
         parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
     }
 }

@@ -30,11 +30,12 @@ namespace ovtdsp
         float harmonyToneColor = 0.5f;
         float doubleAmount = 0.0f;   // normalized "double_amount" (0..100 %)
         bool doubleEnable = false;   // "double_enable": power switch, amount is kept
-        float reverbMix = 0.0f;      // lead reverb wet mix ("reverb_mix")
-        float padReverbMix = 0.30f;  // harmony-bus (pad) reverb wet mix ("pad_reverb_mix")
-        float leadSend = 0.0f;       // amount of the corrected lead sent to the shared room ("lead_send")
-        float padSend = 0.0f;        // amount of the blended harmony sent to the shared room ("pad_send")
-        float duckDepth = 0.50f;     // how far the shared room follows the noise gate ("duck_depth")
+        // Shared reverb buses: four sends (each voice to each room) and one ducker depth.
+        float leadRoomSend = 0.0f;      // "lead_room_send": lead -> short ROOM
+        float leadHallSend = 0.0f;      // "lead_hall_send": lead -> long HALL
+        float harmonyRoomSend = 0.0f;   // "harmony_room_send": harmony -> ROOM
+        float harmonyHallSend = 0.0f;   // "harmony_hall_send": harmony -> HALL
+        float reverbDuckDepth = 0.0f;   // "reverb_duck_depth": sidechain ducker depth on both returns
         float flexTune = 0.0f;
         float humanize = 0.0f;
         float vibratoPreserve = 0.0f;
@@ -60,8 +61,8 @@ namespace ovtdsp
         bool harmonyEnable = false;
         bool harmonyUseVoice = true;
         bool harmonyFollowLead = true;
-        bool reverbEnable = false;   // lead reverb power switch
-        bool padReverbEnable = false; // pad reverb power switch, mix is kept
+        bool leadReverbEnable = false;    // lead sends to the two rooms on/off
+        bool harmonyReverbEnable = false; // harmony sends to the two rooms on/off
         bool noiseGateEnable = false;
         float noiseGateThreshold = 0.375f; // normalized: -50dB in -80..0 range
         bool upwardCompEnable = false;
@@ -113,11 +114,11 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("harmony_tone_color")) s.harmonyToneColor = p->getValue();
         if (auto* p = params.getParameter ("double_amount"))      s.doubleAmount = p->getValue();
         if (auto* p = params.getParameter ("double_enable"))      s.doubleEnable = p->getValue() > 0.5f;
-        if (auto* p = params.getParameter ("reverb_mix"))         s.reverbMix = p->getValue();
-        if (auto* p = params.getParameter ("pad_reverb_mix"))     s.padReverbMix = p->getValue();
-        if (auto* p = params.getParameter ("lead_send"))          s.leadSend = p->getValue();
-        if (auto* p = params.getParameter ("pad_send"))           s.padSend = p->getValue();
-        if (auto* p = params.getParameter ("duck_depth"))         s.duckDepth = p->getValue();
+        if (auto* p = params.getParameter ("lead_room_send"))     s.leadRoomSend = p->getValue();
+        if (auto* p = params.getParameter ("lead_hall_send"))     s.leadHallSend = p->getValue();
+        if (auto* p = params.getParameter ("harmony_room_send"))  s.harmonyRoomSend = p->getValue();
+        if (auto* p = params.getParameter ("harmony_hall_send"))  s.harmonyHallSend = p->getValue();
+        if (auto* p = params.getParameter ("reverb_duck_depth"))  s.reverbDuckDepth = p->getValue();
         if (auto* p = params.getParameter ("flex_tune"))          s.flexTune = p->getValue();
         if (auto* p = params.getParameter ("humanize"))           s.humanize = p->getValue();
         if (auto* p = params.getParameter ("vibrato_preserve"))   s.vibratoPreserve = p->getValue();
@@ -143,8 +144,8 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("bypass"))              s.bypass = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("harmony_enable"))      s.harmonyEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("harmony_use_voice"))   s.harmonyUseVoice = p->getValue() > 0.5f;
-        if (auto* p = params.getParameter ("reverb_enable"))       s.reverbEnable = p->getValue() > 0.5f;
-        if (auto* p = params.getParameter ("pad_reverb_enable"))   s.padReverbEnable = p->getValue() > 0.5f;
+        if (auto* p = params.getParameter ("lead_reverb_enable"))    s.leadReverbEnable = p->getValue() > 0.5f;
+        if (auto* p = params.getParameter ("harmony_reverb_enable")) s.harmonyReverbEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("output_trim"))         s.outputTrim = p->getValue();
         if (auto* p = params.getParameter ("limiter_enable"))      s.limiterEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("noise_gate_enable"))   s.noiseGateEnable = p->getValue() > 0.5f;
@@ -178,16 +179,18 @@ namespace ovtdsp
     {
         juce::StringArray ids;
         ids.addArray ({ "speed", "amount", "formant", "harmony_gain", "harmony_blend",
-                        "harmony_formant", "harmony_tone_color", "double_amount", "double_enable", "reverb_mix", "flex_tune", "humanize",
+                        "harmony_formant", "harmony_tone_color", "double_amount", "double_enable", "flex_tune", "humanize",
                         "vibrato_preserve",
                         "attack_aware", "attack_release",
                         "key_source", "companion_group", "key_detect",
                         "noise_gate_threshold", "key", "scale", "harmony_type",
                         "harmony_tone", "harmony_shifted_voices", "latency_mode",
                         "editor_measures", "voice_type", "formant_enable", "bypass", "harmony_enable",
-                        "harmony_use_voice", "harmony_follow_lead", "harmony_attack", "harmony_gain_match", "reverb_enable",
-                        "pad_reverb_mix", "pad_reverb_enable",
-                        "lead_send", "pad_send", "duck_depth",
+                        "harmony_use_voice", "harmony_follow_lead", "harmony_attack", "harmony_gain_match",
+                        "lead_reverb_enable", "harmony_reverb_enable",
+                        "lead_room_send", "lead_hall_send",
+                        "harmony_room_send", "harmony_hall_send",
+                        "reverb_duck_depth",
                         "noise_gate_enable", "upward_comp_enable", "upward_comp_amount",
                         "deess_amount",
                         "deess_enable",
@@ -254,14 +257,14 @@ namespace ovtdsp
         setParam ("harmony_formant",    source.harmonyFormant + (target.harmonyFormant - source.harmonyFormant) * t);
         setParam ("harmony_tone_color", source.harmonyToneColor + (target.harmonyToneColor - source.harmonyToneColor) * t);
         setParam ("double_amount",      source.doubleAmount + (target.doubleAmount - source.doubleAmount) * t);
-        setParam ("reverb_mix",         source.reverbMix + (target.reverbMix - source.reverbMix) * t);
-        setParam ("pad_reverb_mix",     source.padReverbMix + (target.padReverbMix - source.padReverbMix) * t);
-        // Send amounts are lerped like a wet mix: a morph moves the room from one bus
-        // balance to another continuously, and duck depth lerps so a morph can take the
-        // room from following the gate to standing alone.
-        setParam ("lead_send",          source.leadSend + (target.leadSend - source.leadSend) * t);
-        setParam ("pad_send",           source.padSend + (target.padSend - source.padSend) * t);
-        setParam ("duck_depth",         source.duckDepth + (target.duckDepth - source.duckDepth) * t);
+        // Reverb sends are lerped like a wet mix: a morph moves the room balance from one
+        // state to another continuously, and the ducker depth lerps so a morph can take the
+        // rooms from ducked to standing alone.
+        setParam ("lead_room_send",     source.leadRoomSend + (target.leadRoomSend - source.leadRoomSend) * t);
+        setParam ("lead_hall_send",     source.leadHallSend + (target.leadHallSend - source.leadHallSend) * t);
+        setParam ("harmony_room_send",  source.harmonyRoomSend + (target.harmonyRoomSend - source.harmonyRoomSend) * t);
+        setParam ("harmony_hall_send",  source.harmonyHallSend + (target.harmonyHallSend - source.harmonyHallSend) * t);
+        setParam ("reverb_duck_depth",  source.reverbDuckDepth + (target.reverbDuckDepth - source.reverbDuckDepth) * t);
         setParam ("flex_tune",          source.flexTune + (target.flexTune - source.flexTune) * t);
         setParam ("humanize",           source.humanize + (target.humanize - source.humanize) * t);
         setParam ("vibrato_preserve",   source.vibratoPreserve + (target.vibratoPreserve - source.vibratoPreserve) * t);
@@ -305,8 +308,8 @@ namespace ovtdsp
                       lerpOrStep (source.customNote[i] ? 1.0f : 0.0f, target.customNote[i] ? 1.0f : 0.0f, t));
         setParam ("harmony_use_voice", lerpOrStep (source.harmonyUseVoice ? 1.0f : 0.0f, target.harmonyUseVoice ? 1.0f : 0.0f, t));
         setParam ("harmony_follow_lead", lerpOrStep (source.harmonyFollowLead ? 1.0f : 0.0f, target.harmonyFollowLead ? 1.0f : 0.0f, t));
-        setParam ("reverb_enable",     lerpOrStep (source.reverbEnable ? 1.0f : 0.0f, target.reverbEnable ? 1.0f : 0.0f, t));
-        setParam ("pad_reverb_enable", lerpOrStep (source.padReverbEnable ? 1.0f : 0.0f, target.padReverbEnable ? 1.0f : 0.0f, t));
+        setParam ("lead_reverb_enable",    lerpOrStep (source.leadReverbEnable ? 1.0f : 0.0f, target.leadReverbEnable ? 1.0f : 0.0f, t));
+        setParam ("harmony_reverb_enable", lerpOrStep (source.harmonyReverbEnable ? 1.0f : 0.0f, target.harmonyReverbEnable ? 1.0f : 0.0f, t));
         setParam ("double_enable",     lerpOrStep (source.doubleEnable ? 1.0f : 0.0f, target.doubleEnable ? 1.0f : 0.0f, t));
         setParam ("noise_gate_enable", lerpOrStep ((float) source.noiseGateEnable, (float) target.noiseGateEnable, t) > 0.5f ? 1.0f : 0.0f);
         setParam ("upward_comp_enable", lerpOrStep (source.upwardCompEnable ? 1.0f : 0.0f, target.upwardCompEnable ? 1.0f : 0.0f, t));

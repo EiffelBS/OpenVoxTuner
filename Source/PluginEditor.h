@@ -142,12 +142,12 @@ private:
     // between them read as two controls (ovt::kHarmonyKnobZoneW holds the policy).
     static constexpr int kHarmonyZoneGap = 8;   // between the main zone and the knob zone
 
-    /** Width one room name needs inside its power toggle, measured in the CURRENT language: the tick well,
-     *  a gap and the text drawn in ebs::fontToggleButton(). The Reverb frame's folded columns are sized by this
+    /** Width one voice name needs inside its power toggle, measured in the CURRENT language: the tick well,
+     *  a gap and the text drawn in ebs::fontToggleButton(). The Reverb frame's columns are sized by this
      *  measurement because JUCE clips a ToggleButton label with an ellipsis instead of wrapping it. Measured over
-     *  all six shipped locales (lead <= 43 px, harmony <= 67 px in Spanish "Armonías", ducking <= 59 px), every
-     *  name rides the kEffectsColW = 74 px cell floor, so no label ever clips; keeping the measurement live is
-     *  what lets a future rename change the frame width instead of silently truncating a word. */
+     *  all six shipped locales (lead <= 43 px, harmony <= 67 px in Spanish "Armonías"), every name rides the
+     *  kEffectsColW = 74 px cell floor, so no label ever clips; keeping the measurement live is what lets a future
+     *  rename change the frame width instead of silently truncating a word. */
     int reverbHeaderNeed (const juce::String& text) const;
 
     /** The Harmony frame's width in each fold state, built from the zone policy in
@@ -297,8 +297,8 @@ private:
     // switch (deess_enable) and ONE knob (deess_amount, intensity 0..1): that knob
     // drives the detector threshold and the depth cap together, and the band centre
     // follows voice_type, the register the user already sets for pitch detection.
-    // Switching off greys the knob and keeps its value, exactly like reverb_mix
-    // behind reverb_enable.
+    // Switching off greys the knob and keeps its value, exactly like the reverb
+    // amounts behind their voice switch.
     ebs::PowerToggle deessEnableButton;
     // De-Esser: one knob, so its dot is carried by the knob.
     ebs::ActivityKnob  deessAmountSlider;        // intensity (0-1)
@@ -336,29 +336,30 @@ private:
     juce::Label      delayMixLabel;               // "Mix" caption above the mix knob
     juce::Label      delayFeedbackLabel;          // "Feedback" caption above the feedback knob
 
-    // Reverb controls (lead bus: the reverb that sits on the corrected lead)
-    ebs::PowerToggle reverbEnableButton;
-    // Each room carries its dot in its own mix knob - the amount that room contributes.
-    ebs::ActivityKnob  reverbMixSlider;
-    juce::Label        reverbMixLabel;
+    // Reverb bus controls: TWO SHARED ROOMS (ROOM + HALL), four sends, one sidechain
+    // ducker. Each voice column is one power switch carrying its name (Lead / Harmony)
+    // with the two amounts that voice sends under it: Room (short) and Hall (long). The
+    // knob IS the send -- there is no separate send control and the dry voice is never
+    // attenuated -- and the switch keeps the knobs' values, so switching a voice off and
+    // back on needs no re-dial. The knobs start at the "ready to sing" amounts from
+    // ReverbTuning.h, so the FIRST switch-on already applies a balanced pair.
+    ebs::PowerToggle   leadReverbEnableButton;
+    // Each voice carries its dot in its own HALL knob, the amount that places the voice.
+    ebs::ActivityKnob  leadHallSlider;      // lead -> HALL
+    juce::Slider       leadRoomSlider;      // lead -> ROOM
+    juce::Label        leadRoomLabel;       // "Room"
+    juce::Label        leadHallLabel;       // "Hall"
+    ebs::PowerToggle   harmonyReverbEnableButton;
+    ebs::ActivityKnob  harmonyHallSlider;   // harmony -> HALL
+    juce::Slider       harmonyRoomSlider;   // harmony -> ROOM
+    juce::Label        harmonyRoomLabel;
+    juce::Label        harmonyHallLabel;
 
-    // Pad Reverb: a SECOND ReverbEffect instance, on the harmony bus. Two instances
-    // are the whole point of the split: the lead needs a short, centred room for
-    // intelligibility and the pad needs a long, wide one for amplitude. One shared
-    // master reverb forces one room on both and washes the tempo-sync delay copies.
-    ebs::PowerToggle padReverbEnableButton;
-    ebs::ActivityKnob  padReverbMixSlider;
-    juce::Label        padReverbMixLabel;
-
-    // Shared send room: ONE reverb instance fed by two parallel sends, so the corrected
-    // lead and the blended harmony ring in the same space. These three knobs are the
-    // amounts of those sends and how far the room's return follows the noise gate.
-    // There is no enable switch: a send at zero is silent, so the amount IS the switch.
-    juce::Slider       leadSendSlider;   // amount of the corrected lead sent to the room
-    juce::Label        leadSendLabel;
-    juce::Slider       padSendSlider;    // amount of the blended harmony sent to the room
-    juce::Label        padSendLabel;
-    juce::Slider       duckDepthSlider;  // how far the return follows the gate
+    // Sidechain ducker on the two rooms' returns: the key is the corrected lead, never
+    // the noise gate. One knob, no switch: depth 0 is no ducking at all, so the amount IS
+    // the switch, and it is one control for both rooms (a split per room would be a second
+    // knob for a distinction almost nobody makes).
+    juce::Slider       duckDepthSlider;
     juce::Label        duckDepthLabel;
 
     // Output stage: trim is the pre-limiter gain (-12..+12 dB), the limiter is the
@@ -400,14 +401,13 @@ private:
     // by re-laying out the bottom row. The block grows by COLUMN, never by adding a third row, and folding hides the
     // limiter's control, not its processing. The two rooms and their sends are NOT here: they live in reverbFrame.
     ebs::ExpansibleFrame effectsFrame;
-    // Reverb frame: the two rooms and their send room. Folded it is ONE stacked column - the lead room (label Lead) on
-    // top, the harmony room (label Harmony) below, each carrying its enable toggle and mix knob - and that column stays
-    // visible in BOTH states, because those are what you dial while singing. The chevron opens the frame into three
-    // columns: both rooms side by side, each with its own send directly under its mix knob, plus Ducking alone on the
-    // right. Lead Send, Harmony Send and Ducking are one effect (one shared room, two send amounts, one duck depth),
-    // not three effects; their width comes from reverbHeaderNeed(), measured in the current language. duck_depth is
-    // consumed ONLY by that shared room's return in the processor, so it belongs in this frame; the lead's own ducking
-    // comes from the gate gain directly.
+    // Reverb frame: the two shared rooms. Folded it is ONE column - the LEAD voice switch with its Room and Hall
+    // amounts under it - and that column stays visible in BOTH states, because it is what you dial while singing.
+    // The chevron opens the frame into THREE columns: the Lead column, the Harmony column (its own switch and its
+    // two amounts), and the sidechain Ducking alone on the right. The columns are sized by reverbHeaderNeed(), the
+    // measured width of the switch names in the current language. The two rooms are what the four amounts feed:
+    // there is no per-room enable, because a send at zero is silent, and no separate send control, because the
+    // amount IS the send.
     ebs::ExpansibleFrame reverbFrame;
     // The Correction block is the same component: one chevron, one fold flag, one
     // host re-layout. Both bottom-row frames are ExpansibleFrame, not two bespoke handles.
@@ -546,14 +546,13 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> latencyModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> reverbEnableAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbMixAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> padReverbEnableAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> padReverbMixAttachment;
-    // Shared send room: the two send amounts and the duck depth. Slider attachments only,
-    // because a send has no enable switch to attach.
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> leadSendAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> padSendAttachment;
+    // Shared reverb buses: one switch and two send amounts per voice, plus the ducker depth.
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> leadReverbEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> harmonyReverbEnableAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> leadRoomSendAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> leadHallSendAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyRoomSendAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> harmonyHallSendAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> duckDepthAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> limiterEnableAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputTrimAttachment;

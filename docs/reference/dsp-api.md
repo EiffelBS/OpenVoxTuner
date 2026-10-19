@@ -172,45 +172,58 @@ the enable flag and wet mix for one effect (and may configure the instance), ret
 
 ### `ovtdsp::ReverbEffect : public IEffect`
 
+One reverb room, driven either as a bus insert (`process`) or as a shared send/return room
+(`processLeadSend` / `processHarmonySend` / `processReturn`). The processor runs **two
+instances**, both in shared-bus mode, tuned from `ReverbTuning.h`:
+
 - `setRoomSize(float)` / `setDamping(float)` / `setStereoWidth(float)` — reverb tuning.
-- Wraps `juce::Reverb`; smooths the master enable gain to avoid clicks.
-- **Two bus instances**: a short centred room on the lead bus (0.35 / 0.50, width 0.5), a wide
-  damped room on the harmony bus (0.62 / 0.55, width 1.0). Two instances are the point of the
-  split — one shared insert would force one room on both and wash the tempo-sync delay copies.
-  The pad size is deliberately not at the top of the range: comb feedback is `roomSize * 0.28 + 0.7`,
-  so the old 0.85 put 0.938 on the delay lines and measured RT60 was ~4 s — a sustained chord rang
-  as a metallic resonator (reported as "sons bizarres" with Pad engaged). 0.62 / 0.55 measures
-  ~1.9 s, inside a phrase.
-- **A third instance is the shared send room** (`sharedReverb` in the processor, 0.60 / 0.45): ONE
-  room fed by two parallel sends, so the corrected lead and the blended harmony ring in the same
-  space at their own amounts. It is not an insert, so no latency is declared.
+- Wraps `juce::Reverb`; smooths the master enable gain and every send amount over 25 ms to
+  avoid clicks, and declares **no latency** (a send adds a tail, it does not delay the voice).
+- **Two rooms, four sends.** ROOM (`kReverbRoomTuning`: 0.35 / 0.50 / width 1.0, RT60 ≈
+  1.18 s) keeps the lead present; HALL (`kReverbHallTuning`: 0.70 / 0.30 / width 1.0, RT60 ≈
+  2.43 s) is the **legacy Main room restored bit for bit** — the sound the single old Mix knob
+  delivered. Each room is fed by one lead send and one harmony send, the DAW bus model: a send
+  adds to the room and never attenuates the dry path.
   - `processLeadSend (buffer, amount)` — adds the lead to the send line through a one-pole
     low-cut (`ovtdsp::OnePoleLowCut`, 150 Hz) so body low-end does not ring the room.
-  - `processPadSend (harmony, amount)` — adds the blended harmony, unfiltered. **Tapped before the
-    harmony bus insert**: a send taken after an insert feeds that insert's wet tail into a second
-    room, and two modulating tails read as flutter.
-  - `processReturn (master, duckGain)` — runs the reverb on the send line and sums the tail into
+  - `processHarmonySend (harmony, amount)` — adds the blended harmony, unfiltered.
+  - `processReturn (master, duckGain)` — runs the room on the send line and sums the tail into
     the master buffer, scaled by `duckGain * kReturnTrim` (`kReturnTrim = 0.7`, ≈ -3 dB); then
-    clears the send line, so each block's sends are consumed exactly once. The trim is what keeps a
-    unity send from sitting at +5 dB over the voice ahead of the trim + limiter, where it would be
-    clamped every block and pump.
-- **Ducking**: `returnGain = 1 - duckDepth * (1 - gateGain)`, where `gateGain` is
-  `NoiseGate::getCurrentGain()` when the gate is enabled (1.0 otherwise). Depth 0 leaves the
-  room standing alone, depth 1 drops it to silence when the gate closes. The gain is smoothed per
-  sample inside the return, so the interface stays block-level. **The enable flag must be checked**:
-  `NoiseGate::process()` returns early when disabled, so a stale closed-gate gain read without the
-  flag keeps ducking at full depth — silence with the reverb knob at full mix.
+    clears the send line, so each block's sends are consumed exactly once. The trim keeps a
+    unity send from sitting at +5 dB over the voice ahead of the trim + limiter, where it would
+    be clamped every block and pump.
+- `process (buffer, enabled, wetMix)` — the insert form (dry/wet crossfade) kept for the
+  `IEffect` contract and still tested; the bus pair above is what the plugin uses.
 - Send line and wet scratch are sized in `prepare()`: a send tap allocates nothing in the
   audio callback. A mono source adds its channel to both sides of the send line; a mono
   master averages the stereo return.
 - The return skips the reverb pass when the send line is silent and the tail has decayed,
   which is what keeps sleep-mode CPU at ~1 %.
 
+### `ovtdsp::ReverbDucker`
+
+The sidechain ducker that guards both room returns, keyed by the **corrected lead** (taken
+before the lead bus effects, so the de-esser and the tempo echoes cannot re-trigger it — the
+old gate-linked ducking moved only when the noise gate closed, i.e. never while singing).
+
+- `prepare(double sampleRateHz)` / `reset()` — coefficients and envelope; `reset()` re-arms at
+  unity so a transport restart never carries a ducked room from the previous take.
+- `processKey(const juce::AudioBuffer<float>&)` — per-sample stereo-linked **peak** envelope,
+  attack `kAttackMs = 15`, release `kReleaseMs = 300`. Silent and mono key blocks are handled;
+  nothing allocates.
+- `processSilence(int numSamples)` — keeps the release running when no key arrives, so a
+  stopped transport lets the rooms bloom back instead of freezing a duck.
+- `getDuckGain(float depth)` — `[0, 1]`, `depth 0 -> 1.0` (true bypass); the envelope is
+  normalised against `kKeyReferencePeak = 0.2` (-14 dBFS), so `depth 1` at or above that peak
+  ducks by `kMaxDepthDb = 12`.
+- Header-only (`Source/dsp/ReverbDucker.h`), so the processor and the tests share one
+  implementation with no extra translation unit.
+
 ### `ovtdsp::DelayEffect : public IEffect`
 
-Tempo-synced stereo ping-pong delay, registered as a **lead-bus insert after the Lead room** (chain order
-DeEsser → Lead room → Delay). The existing lead-send tap runs **after** `leadBus.apply`, so the echoes are fed into
-the shared room through it — no second room, no extra parameter pair.
+Tempo-synced stereo ping-pong delay, registered as a **lead-bus insert after the De-Esser** (chain order
+DeEsser → Delay). The lead send tap runs **after** `leadBus.apply`, so the echoes are fed into both shared rooms
+through it — no second room, no extra parameter pair.
 
 - `setBpm(float)` / `setDivision(int index)` / `setMix(float)` / `setFeedback(float)` (clamped ≤ 1.0).
 - Division indices 0..4 map to **beat fractions** {0.5, 0.75, 1.0, 1.5, 2.0}, labels {"1/8","1/8.","1/4","1/4.","1/2"};

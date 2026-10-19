@@ -561,13 +561,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // edge as the only growable frame. Final order: Correction | Key & Scale | Effects | Reverb | Harmony.
     bottomBand.addFrame (&scaleFrame, kScalePrefW + kTitleBandW, kScaleMinW + kTitleBandW, false);
     bottomBand.addFrame (&effectsFrame, 2 * kEffectsColW + 2 * kEffectsPad + kTitleBandW, 2 * kEffectsColW + 2 * kEffectsPad + kTitleBandW, false);
-    // The Reverb frame sits immediately right of Effects: folded it is ONE stacked column carrying both rooms
-    // (the lead room labelled Lead on top, the harmony room labelled Harmony below), and opening it puts the rooms
-    // side by side with each room's own send under its mix knob plus Ducking alone in a third column. Registration
-    // order IS left-to-right order in the band, so this line puts the frame next to the Harmony block its sends feed.
-    // Non-growable like Effects: its width is its cell count when open and the measured width of the room names when
-    // folded - the numbers below are only an initial placeholder, updateBottomBandWidths() restates them from the
-    // loaded language right away.
+    // The Reverb frame sits immediately right of Effects: folded it is ONE column carrying the LEAD voice switch and
+    // the two amounts it sends (Room, Hall), and opening it adds the HARMONY column and the sidechain Ducking column.
+    // Registration order IS left-to-right order in the band, so this line puts the frame next to the Harmony block its
+    // send feeds. Non-growable like Effects: its width is its cell count when open and the measured width of the Lead
+    // switch when folded - the numbers here are only an initial placeholder, updateBottomBandWidths() restates them
+    // from the loaded language right away.
     const int reverbChevronW = ebs::ExpansibleFrame::chevronWidth() + ebs::ExpansibleFrame::chevronGap();
     const int reverbFoldedW  = kEffectsColW + 2 * kEffectsPad + reverbChevronW + kTitleBandW;
     bottomBand.addFrame (&reverbFrame, reverbFoldedW, reverbFoldedW, false);
@@ -742,7 +741,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Doubler knob: 0..100 % stereo doubling of the corrected lead. Independent
     // of harmony_enable, so it stays live when the Harmony block is switched off.
     // Greyed (not disabled as a control) while double_enable is off; the value is
-    // kept, exactly like reverb_mix behind reverb_enable.
+    // kept, exactly like the reverb amounts behind their voice switch.
     setupKnob (doubleAmountSlider, nullptr, "");
     doubleAmountSlider.setRange (0.0, 100.0, 1.0);
     doubleAmountSlider.setValue (0.0);
@@ -780,7 +779,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // The band centre is not a control: it follows voice_type, the register the
     // user already sets for pitch detection, so a low voice is de-essed around
     // 5 kHz and a soprano around 8.4 kHz. The knob is greyed while deess_enable is
-    // off and keeps its value, exactly like reverb_mix behind reverb_enable.
+    // off and keeps its value, exactly like the reverb amounts behind their switch.
     setupKnob (deessAmountSlider, nullptr, "");
     deessAmountSlider.setRange (0.0, 1.0, 0.01);
     deessAmountSlider.setValue (0.65);
@@ -1264,10 +1263,11 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                     {"speed", ovt::tr(ovt::Keys::kMidiLearnSpeed).toStdString()},
                     {"amount", ovt::tr(ovt::Keys::kMidiLearnAmount).toStdString()},
                     {"formant", ovt::tr(ovt::Keys::kMidiLearnFormant).toStdString()},
-                    {"reverb_mix", ovt::tr(ovt::Keys::kMidiLearnReverbMix).toStdString()},
-                    {"lead_send", ovt::tr(ovt::Keys::kMidiLearnLeadSend).toStdString()},
-                    {"pad_send", ovt::tr(ovt::Keys::kMidiLearnPadSend).toStdString()},
-                    {"duck_depth", ovt::tr(ovt::Keys::kMidiLearnDuckDepth).toStdString()},
+                    {"lead_room_send", ovt::tr(ovt::Keys::kMidiLearnLeadRoom).toStdString()},
+                    {"lead_hall_send", ovt::tr(ovt::Keys::kMidiLearnLeadHall).toStdString()},
+                    {"harmony_room_send", ovt::tr(ovt::Keys::kMidiLearnHarmonyRoom).toStdString()},
+                    {"harmony_hall_send", ovt::tr(ovt::Keys::kMidiLearnHarmonyHall).toStdString()},
+                    {"reverb_duck_depth", ovt::tr(ovt::Keys::kMidiLearnReverbDucking).toStdString()},
                     {"output_trim", ovt::tr(ovt::Keys::kMidiLearnOutputTrim).toStdString()},
                     {"flex_tune", ovt::tr(ovt::Keys::kMidiLearnFlexTune).toStdString()},
                     {"humanize", ovt::tr(ovt::Keys::kMidiLearnHumanize).toStdString()},
@@ -1559,21 +1559,17 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     companionGroupAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "companion_group", companionGroupBox);
 
-    // Reverb attachments (lead bus)
-    reverbEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "reverb_enable", reverbEnableButton);
-    reverbMixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "reverb_mix", reverbMixSlider);
-
-    // Pad Reverb attachments (harmony bus) and Output stage attachments (master bus)
-    padReverbEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "pad_reverb_enable", padReverbEnableButton);
-    padReverbMixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "pad_reverb_mix", padReverbMixSlider);
+    // Reverb bus attachments: one switch and two send amounts per voice, plus the ducker.
+    leadReverbEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "lead_reverb_enable", leadReverbEnableButton);
+    harmonyReverbEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "harmony_reverb_enable", harmonyReverbEnableButton);
+    leadRoomSendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "lead_room_send", leadRoomSlider);
+    leadHallSendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "lead_hall_send", leadHallSlider);
+    harmonyRoomSendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "harmony_room_send", harmonyRoomSlider);
+    harmonyHallSendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "harmony_hall_send", harmonyHallSlider);
     limiterEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "limiter_enable", limiterEnableButton);
     outputTrimAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "output_trim", outputTrimSlider);
 
-    // Shared send room attachments: the two send amounts and the duck depth. A send has no
-    // enable switch, so these are slider attachments only.
-    leadSendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "lead_send", leadSendSlider);
-    padSendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "pad_send", padSendSlider);
-    duckDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "duck_depth", duckDepthSlider);
+    duckDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getParameters(), "reverb_duck_depth", duckDepthSlider);
 
     noiseGateEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processorRef.getParameters(), "noise_gate_enable", noiseGateEnableButton);
@@ -2104,69 +2100,68 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     formantEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     addAndMakeVisible (formantEnableButton);
 
-    // Reverb controls (lead bus: the reverb that sits on the corrected lead,
-    // same cell pattern as Formant)
-    setupKnob (reverbMixSlider, &reverbMixLabel, "Mix");
-    reverbMixSlider.setRange (0.0, 1.0, 0.01);
-    reverbMixSlider.setEnabled (false); // disabled until reverb is toggled on
-    // No value textbox; the live value is shown in JUCE's popup display while dragging.
-    reverbMixSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-    reverbMixSlider.setPopupDisplayEnabled (true, false, this);
-    reverbMixSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
-    reverbMixSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbMix));
+    // Reverb bus controls: TWO SHARED ROOMS (ROOM + HALL), four sends, one sidechain
+    // ducker. Each voice column is one power switch carrying the voice name, with the two
+    // amounts that voice sends under it; the knob IS the send (no separate send control,
+    // and the dry voice is never attenuated). A switch keeps its knobs' values, so
+    // switching a voice off and back on needs no re-dial, and the knobs start at the
+    // "ready to sing" amounts from ReverbTuning.h: the FIRST switch-on already applies a
+    // balanced short-room + hall pair. That is the legacy one-knob experience back, with
+    // the voice left intact.
+    leadReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
+    leadReverbEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    leadReverbEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
+    leadReverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipLeadReverbEn));
+    addAndMakeVisible (leadReverbEnableButton);
 
-    reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
-    reverbEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
-    reverbEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
-    reverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbEn));
-    addAndMakeVisible (reverbEnableButton);
+    setupKnob (leadRoomSlider, &leadRoomLabel, "Room");
+    leadRoomSlider.setRange (0.0, 1.0, 0.01);
+    leadRoomSlider.setEnabled (false); // greyed until the Lead switch is on, value kept
+    leadRoomSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    leadRoomSlider.setPopupDisplayEnabled (true, false, this);
+    leadRoomSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    leadRoomSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipLeadRoom));
+    translatableLabels.push_back ({ &leadRoomLabel, ovt::Keys::kLabelRoom });
 
-    // Harmony Reverb controls (the pad_reverb_* parameters, harmony bus): the second reverb room, wide and heavily damped, on
-    // the harmony voices only. Same cell pattern as the lead reverb - one switch and one
-    // "Mix" knob. The two rooms are separate instances because a single reverb cannot be
-    // short-and-centred for the lead and wide-and-deep for the stacked voices at the same time.
-    padReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelPadReverbBtn));
-    padReverbEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
-    padReverbEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
-    padReverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipPadReverbEn));
-    addAndMakeVisible (padReverbEnableButton);
+    setupKnob (leadHallSlider, &leadHallLabel, "Hall");
+    leadHallSlider.setRange (0.0, 1.0, 0.01);
+    leadHallSlider.setEnabled (false); // greyed until the Lead switch is on, value kept
+    leadHallSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    leadHallSlider.setPopupDisplayEnabled (true, false, this);
+    leadHallSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    leadHallSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipLeadHall));
+    translatableLabels.push_back ({ &leadHallLabel, ovt::Keys::kLabelHall });
 
-    setupKnob (padReverbMixSlider, nullptr, "");
-    padReverbMixSlider.setRange (0.0, 1.0, 0.01);
-    padReverbMixSlider.setEnabled (false); // disabled until the pad reverb is toggled on
-    // No value textbox; the live value is shown in JUCE's popup display while dragging.
-    padReverbMixSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-    padReverbMixSlider.setPopupDisplayEnabled (true, false, this);
-    padReverbMixSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
-    padReverbMixSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipPadReverbMix));
-    padReverbMixLabel.setVisible (false); // the toggle carries the name, as for Reverb/De-Esser
+    harmonyReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelPadReverbBtn));
+    harmonyReverbEnableButton.setColour (juce::ToggleButton::textColourId, ebs::text());
+    harmonyReverbEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
+    harmonyReverbEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyReverbEn));
+    addAndMakeVisible (harmonyReverbEnableButton);
 
-    // Shared send room controls. ONE reverb instance, fed by two sends: the corrected lead
-    // and the blended harmony ring in the same space, each at its own amount. These cells
-    // carry a label instead of a power toggle, because a send has no switch: a send at zero
-    // is silent, so the amount IS the on/off, and the dry path never changes (a send adds).
-    setupKnob (leadSendSlider, &leadSendLabel, "Lead Send");
-    leadSendSlider.setRange (0.0, 1.0, 0.01);
-    leadSendSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-    leadSendSlider.setPopupDisplayEnabled (true, false, this);
-    leadSendSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
-    leadSendSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipLeadSend));
-    translatableLabels.push_back ({ &leadSendLabel, ovt::Keys::kLabelLeadSendBtn });
+    setupKnob (harmonyRoomSlider, &harmonyRoomLabel, "Room");
+    harmonyRoomSlider.setRange (0.0, 1.0, 0.01);
+    harmonyRoomSlider.setEnabled (false); // greyed until the Harmony switch is on, value kept
+    harmonyRoomSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    harmonyRoomSlider.setPopupDisplayEnabled (true, false, this);
+    harmonyRoomSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    harmonyRoomSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyRoom));
+    translatableLabels.push_back ({ &harmonyRoomLabel, ovt::Keys::kLabelRoom });
 
-    setupKnob (padSendSlider, &padSendLabel, "Harmony Send");
-    padSendSlider.setRange (0.0, 1.0, 0.01);
-    padSendSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
-    padSendSlider.setPopupDisplayEnabled (true, false, this);
-    padSendSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
-    padSendSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipPadSend));
-    translatableLabels.push_back ({ &padSendLabel, ovt::Keys::kLabelPadSendBtn });
+    setupKnob (harmonyHallSlider, &harmonyHallLabel, "Hall");
+    harmonyHallSlider.setRange (0.0, 1.0, 0.01);
+    harmonyHallSlider.setEnabled (false); // greyed until the Harmony switch is on, value kept
+    harmonyHallSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    harmonyHallSlider.setPopupDisplayEnabled (true, false, this);
+    harmonyHallSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
+    harmonyHallSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipHarmonyHall));
+    translatableLabels.push_back ({ &harmonyHallLabel, ovt::Keys::kLabelHall });
 
-    setupKnob (duckDepthSlider, &duckDepthLabel, "Duck");
+    setupKnob (duckDepthSlider, &duckDepthLabel, "Ducking");
     duckDepthSlider.setRange (0.0, 1.0, 0.01);
     duckDepthSlider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     duckDepthSlider.setPopupDisplayEnabled (true, false, this);
     duckDepthSlider.textFromValueFunction = [] (double v) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; };
-    duckDepthSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipDuckDepth));
+    duckDepthSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbDucking));
     translatableLabels.push_back ({ &duckDepthLabel, ovt::Keys::kLabelDuckBtn });
 
     // Output stage (master bus): the trim is a raw dB gain applied before the limiter,
@@ -2186,7 +2181,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     outputTrimSlider.setPopupDisplayEnabled (true, false, this);
     outputTrimSlider.textFromValueFunction = [] (double v) { return juce::String (v, 1) + " dB"; };
     outputTrimSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipOutputTrim));
-    outputTrimLabel.setVisible (false); // same reason as padReverbMixLabel
+    outputTrimLabel.setVisible (false); // same reason as the reverb captions: the switch carries the name
 
     // The meter is display only: it takes no mouse, and its numbers arrive from the
     // processor's atomic snapshot in timerCallback, never from the audio thread.
@@ -2296,18 +2291,21 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
                                 static_cast<juce::Component*> (&delayFeedbackLabel) })
         effectsFrame.addAndMakeVisible (c);
 
-    // The Reverb frame owns the two rooms and their send room. Both rooms keep their power
-    // toggle + mix knob as children here; the three send/duck knobs join them, and the layout
-    // code hides exactly those when the frame is folded. Nothing reverb-related stays a child
-    // of effectsFrame: a widget parented to Effects would be clipped by the wrong fold.
-    for (juce::Component* c : { static_cast<juce::Component*> (&reverbEnableButton),
-                                static_cast<juce::Component*> (&reverbMixSlider),
-                                static_cast<juce::Component*> (&padReverbEnableButton),
-                                static_cast<juce::Component*> (&padReverbMixSlider),
-                                static_cast<juce::Component*> (&leadSendSlider),
-                                static_cast<juce::Component*> (&leadSendLabel),
-                                static_cast<juce::Component*> (&padSendSlider),
-                                static_cast<juce::Component*> (&padSendLabel),
+    // The Reverb frame owns the two voice columns. The Lead column's switch, both of its
+    // amounts and the ducker are children here; the Harmony column's four controls join
+    // them and the layout code hides exactly those when the frame is folded. Nothing
+    // reverb-related stays a child of effectsFrame: a widget parented to Effects would be
+    // clipped by the wrong fold.
+    for (juce::Component* c : { static_cast<juce::Component*> (&leadReverbEnableButton),
+                                static_cast<juce::Component*> (&leadRoomSlider),
+                                static_cast<juce::Component*> (&leadRoomLabel),
+                                static_cast<juce::Component*> (&leadHallSlider),
+                                static_cast<juce::Component*> (&leadHallLabel),
+                                static_cast<juce::Component*> (&harmonyReverbEnableButton),
+                                static_cast<juce::Component*> (&harmonyRoomSlider),
+                                static_cast<juce::Component*> (&harmonyRoomLabel),
+                                static_cast<juce::Component*> (&harmonyHallSlider),
+                                static_cast<juce::Component*> (&harmonyHallLabel),
                                 static_cast<juce::Component*> (&duckDepthSlider),
                                 static_cast<juce::Component*> (&duckDepthLabel) })
         reverbFrame.addAndMakeVisible (c);
@@ -2466,12 +2464,12 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyFormantAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "harmony_formant", harmonyFormantSlider);
     doubleAmountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "double_amount", doubleAmountSlider);
     // Doubler power: a real parameter attached to the button, exactly like
-    // reverb_enable. The knob keeps its value when switched off; refreshLabels()
+    // lead_reverb_enable. The knob keeps its value when switched off; refreshLabels()
     // greys it and the processor stops applying the copy.
     doubleEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "double_enable", doubleEnableButton);
     // De-Esser attachments: one power switch covering the single intensity knob.
     // The knob keeps its value when the effect is switched off; refreshLabels()
-    // greys it, exactly as it does for reverb_mix behind reverb_enable.
+    // greys it, exactly as it does for a voice's reverb amounts behind its switch.
     deessEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "deess_enable", deessEnableButton);
     deessAmountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "deess_amount", deessAmountSlider);
     saturationEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (tree, "saturation_enable", saturationEnableButton);
@@ -3043,21 +3041,20 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
                       + (effectsFrame.expanded() ? 5 : 2) * kEffectsColW
                       + (effectsFrame.expanded() ? 4 : 1) * kEffectsColGap;
 
-    // Reverb: ONE column per room, so folded the frame asks for one measured column - the widest of the two room
-    // names - and open it asks for three columns: Lead with its send, Harmony with its send, Ducking alone. Open it is
-    // NOT growable: a fixed width keeps every knob under its label. Folded the width comes from the MEASURED names,
-    // measured through `reverbHeaderNeed` at the real 14 pt toggle font. Measured maxima over all six shipped locales
-    // (library smoke, eiffelbs-ui v0.15.15): lead <= 43 px ("Lead" / "Lead" / "Lead" / "Lead"), harmony <= 67 px
-    // (Spanish "Armonías"; French and German "Harmonie" 66), ducking <= 59 px, ideographs 34 px. Every one rides the
-    // fixed kEffectsColW = 74 px cell floor, so a rename cannot widen the frame in any language: the same locale stays
-    // compact and a fully folded row fits the minimum-width client without scrolling.
-    const int leadNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (reverbEnableButton.getButtonText()));
-    const int harmNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (padReverbEnableButton.getButtonText()));
+    // Reverb: the fold shows the LEAD column only (its switch and the two amounts it sends, Room + Hall), so folded
+    // the frame asks for one measured column - the Lead switch name - and open it asks for three: Lead, Harmony,
+    // Ducking. Open it is NOT growable: a fixed width keeps every knob under its label. The width comes from the
+    // MEASURED switch names through `reverbHeaderNeed` at the real 14 pt toggle font. Measured maxima over all six
+    // shipped locales: lead <= 43 px, harmony <= 67 px (Spanish "Armonías"; French and German "Harmonie" 66), so both
+    // ride the fixed kEffectsColW = 74 px cell floor and a rename cannot widen the frame in any language: the same
+    // locale stays compact and a fully folded row fits the minimum-width client without scrolling.
+    const int leadNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (leadReverbEnableButton.getButtonText()));
+    const int harmNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (harmonyReverbEnableButton.getButtonText()));
     const int duckNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (duckDepthLabel.getText()));
     const int reverbW = chevron + 2 * kEffectsPad + bandW
                       + (reverbFrame.expanded()
                          ? leadNeed + harmNeed + duckNeed + 2 * kEffectsColGap
-                         : juce::jmax (leadNeed, harmNeed));
+                         : leadNeed);
 
     // Correction re-states its width when the advanced zone opens. The width comes from
     // the content, so the closed block is never squeezed and an open block never shrinks:
@@ -3620,33 +3617,29 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     }
 
     // --- Block 5 : Reverb - an ebs::ExpansibleFrame right of Effects ---
-    // One column per room. Folded, the two rooms stack in ONE column: the lead room (label Lead) on top, the harmony
-    // room (label Harmony) below, each with its own toggle carrying its name and its mix knob under it. Open, they
-    // stand side by side and each room gets its own send under a label - Lead Send under Lead, Harmony Send under
-    // Harmony - and Ducking stands alone in column 3. Stacking is what the height allows: the band row gives every
-    // frame 156 px of content, and header (18) + knob (<= 54) + gap (8) + label (14) + knob (<= 54) fits inside it,
-    // which is the same shape Effects'
-    // column 1 uses for Doubler over Formant. It also saves width: one measured
-    // column needs the widest of
-    // the two names, not their sum, which keeps the fully folded row inside a few pixels of the 1100 px client.
-    // Why the columns are sized by the MEASURED name: a ToggleButton draws its tick well then centred-left text with
-    // no wrap (ebs LookAndFeel::drawToggleButton), so a long room name inside one 74 px cell would clip. Measured at
-    // the real 14 pt toggle font (library smoke, eiffelbs-ui v0.15.15) every shipped locale rides that floor: lead
-    // <= 43 px, harmony <= 67 px (Spanish "Armonías"), ducking <= 59 px, Japanese リード/ハーモニー/ダッキンィ at
-    // 41/54/54 and Chinese 主唱/和声/闪降 at 34 px. So the folded Reverb frame measures the SAME width in all six
-    // languages (the floor dominates), no label clips at any window width, and reverbHeaderNeed() +
-    // updateBottomBandWidths() keep proving that offline instead of trusting an eyeball.
-    // duck_depth is consumed ONLY by the shared room's return in the processor (PluginProcessor.cpp), which is why
-    // Duck lives here and not in Effects; the lead reverb's own ducking comes from the noise-gate gain directly,
-    // never through this knob. The frame WIDENS when its chevron opens, pushing Scale and Harmony right - which is
-    // what updateBottomBandWidths() and resized() on onExpandedChanged are for.
+    // Two SHARED ROOMS and two voice columns. Folded, the frame shows the LEAD column only: the Lead switch carrying
+    // its name, then the two amounts that voice sends - Room (short) above Hall (long). Open, the HARMONY column joins
+    // it (same shape) and Ducking stands alone in column 3. Each column is one voice, each row inside it is one room:
+    // the knob IS the send, so there is no separate send control and the dry voice is never attenuated.
+    // The height works at the shipped band height: the band row gives every frame 156 px of content, and header (18)
+    // + label (14) + knob (<= 49) + gap (8) + label (14) + knob (<= 49) fits inside it.
+    // The columns are sized by the MEASURED switch name: a ToggleButton draws its tick well then centred-left text
+    // with no wrap, so a long voice name inside one 74 px cell would clip. Measured at the real 14 pt toggle font
+    // every shipped locale rides that floor: lead <= 43 px, harmony <= 67 px (Spanish "Armonías"), so the folded
+    // frame measures the SAME width in all six languages. reverbHeaderNeed() + updateBottomBandWidths() keep
+    // proving that offline instead of trusting an eyeball.
+    // The ducker lives here because it is a property of the two rooms' return, not of a voice: one depth for both
+    // rooms, keyed by the corrected lead in the processor (never by the noise gate). The frame WIDENS when its
+    // chevron opens, pushing Scale and Harmony right - which is what updateBottomBandWidths() and resized() on
+    // onExpandedChanged are for.
     const bool reverbOpen = reverbFrame.expanded();
 
-    // Same rule as Effects: the send and duck widgets are hidden when folded, not painted over.
-    leadSendSlider.setVisible (reverbOpen);
-    leadSendLabel.setVisible (reverbOpen);
-    padSendSlider.setVisible (reverbOpen);
-    padSendLabel.setVisible (reverbOpen);
+    // Same rule as Effects: the Harmony column and the ducker are hidden when folded, not painted over.
+    harmonyReverbEnableButton.setVisible (reverbOpen);
+    harmonyRoomSlider.setVisible (reverbOpen);
+    harmonyRoomLabel.setVisible (reverbOpen);
+    harmonyHallSlider.setVisible (reverbOpen);
+    harmonyHallLabel.setVisible (reverbOpen);
     duckDepthSlider.setVisible (reverbOpen);
     duckDepthLabel.setVisible (reverbOpen);
 
@@ -3655,61 +3648,43 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     rvArea.removeFromLeft (ebs::FrameTitleBand::bandWidth());
     auto rv = rvArea.reduced (kEffectsPad);   // frame-local coordinates
 
-    const int headerH  = effectPowerH;                 // the toggle strip, same height as every other cell's
-    const int sendMinH = sendLabelH + 2 + 30;          // label + gap + smallest knob a send cell can take
+    const int headerH = effectPowerH;   // the switch strip, same height as every other cell's
 
-    auto placeRoomKnob = [&] (juce::Rectangle<int> cell, juce::Slider& knob)
-    {
-        const int d = juce::jlimit (30, 54, cell.getHeight() - 2);
-        const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - d) / 2);
-        knob.setBounds (kx, cell.getY(), d, d);
-    };
-
-    // One room column: header toggle carrying the name, mix knob under it, and when open that room's own send
-    // below. The mix knob keeps the block's full size whenever the send cell can still take its minimum; the send
-    // knob takes what is left, so a room with a send pays for it inside its own column. The room's activity dot
-    // rides the room's own MIX knob (ebs::ActivityKnob), because that knob is the amount the room
-    // contributes to the path: the dot and the control it reports are the same object.
-    auto placeRoomColumn = [&] (juce::Rectangle<int> col, juce::ToggleButton& toggle, juce::Slider& mixKnob,
-                                juce::Label* sendLabel, juce::Slider* sendSlider)
+    // One voice column: the power switch carrying the voice name, then its two send amounts, each under the caption
+    // that names the room it feeds. The switch keeps the knobs' values (greyed while off), so switching a voice off
+    // and back on needs no re-dial. The voice's activity dot rides its HALL knob, the amount that places the voice in
+    // the space; the ROOM knob is a plain dial, because a second dot in one column would report the same path twice.
+    auto placeVoiceColumn = [&] (juce::Rectangle<int> col, juce::ToggleButton& toggle,
+                                 juce::Label& roomLabel, juce::Slider& roomKnob,
+                                 juce::Label& hallLabel, juce::Slider& hallKnob)
     {
         toggle.setBounds (col.removeFromTop (headerH));
 
-        if (sendLabel != nullptr)
-        {
-            const int mixD = juce::jlimit (30, 54, col.getHeight() - rowGap - sendMinH);
-            const int kx = col.getX() + juce::jmax (0, (col.getWidth() - mixD) / 2);
-            mixKnob.setBounds (kx, col.getY(), mixD, mixD);
-            col.removeFromTop (mixD + rowGap);
-            placeLabelledKnob (col, *sendLabel, *sendSlider);
-        }
-        else
-            placeRoomKnob (col, mixKnob);
+        // Two labelled cells share what is left: header (18) + room cell + gap + hall cell = 156 px, so each dial gets
+        // (height - header - gap) / 2 - caption, i.e. 49 px at the shipped band height: a full-size dial.
+        const int cellH = (col.getHeight() - rowGap) / 2;
+        placeLabelledKnob (col.removeFromTop (cellH), roomLabel, roomKnob);
+        col.removeFromTop (rowGap);
+        placeLabelledKnob (col, hallLabel, hallKnob);
     };
 
-    const int leadNeed = reverbHeaderNeed (reverbEnableButton.getButtonText());
-    const int harmNeed = reverbHeaderNeed (padReverbEnableButton.getButtonText());
+    const int leadNeed = reverbHeaderNeed (leadReverbEnableButton.getButtonText());
+    const int harmNeed = reverbHeaderNeed (harmonyReverbEnableButton.getButtonText());
 
     if (! reverbOpen)
     {
-        // Folded: ONE stacked column. Its width is the widest of the two measured names, so neither header clips;
-        // updateBottomBandWidths() writes exactly that floor, which makes rv.getWidth() the column width and
-        // leaves nothing to the right. Lead Reverb on top, Harmony Reverb below - the order the rooms appear in
-        // the signal chain (the lead room is the one the voice feeds directly).
-        const int stackedW = juce::jmax (kEffectsColW, juce::jmax (leadNeed, harmNeed));
-        auto rvCol = rv.removeFromLeft (stackedW);
-
-        const int roomH = (rvCol.getHeight() - rowGap) / 2;
-        placeRoomColumn (rvCol.removeFromTop (roomH), reverbEnableButton, reverbMixSlider, nullptr, nullptr);
-        rvCol.removeFromTop (rowGap);
-        placeRoomColumn (rvCol, padReverbEnableButton, padReverbMixSlider, nullptr, nullptr);
+        // Folded: ONE column, the Lead one. updateBottomBandWidths() writes exactly its measured width, so
+        // rv.getWidth() is the column width and nothing sits to the right.
+        const int foldedW = juce::jmax (kEffectsColW, leadNeed);
+        auto rvCol = rv.removeFromLeft (foldedW);
+        placeVoiceColumn (rvCol, leadReverbEnableButton, leadRoomLabel, leadRoomSlider,
+                          leadHallLabel, leadHallSlider);
     }
     else
     {
-        // Open: three columns. The two room columns are sized by their measured names so the headers never clip,
-        // and Duck takes the remainder - one labelled knob, no toggle of its own, centred in its own cell. It is
-        // not a third send: it is the duck ramp applied to the shared room's return, so it gets its own column
-        // instead of being stacked as a send, which keeps each room's send directly under its own mix knob.
+        // Open: three columns - Lead, Harmony, Ducking. Each voice column sizes by its measured switch name so a
+        // header never clips; Ducking takes the remainder, one labelled knob with no switch (depth 0 is off) centred
+        // in its own cell.
         const int leadW = juce::jmax (kEffectsColW, leadNeed);
         const int harmW = juce::jmax (kEffectsColW, harmNeed);
 
@@ -3717,8 +3692,10 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         auto rvCol2 = rv.removeFromLeft (harmW);   rv.removeFromLeft (kEffectsColGap);
         auto duckCol = rv;   // the last column takes whatever is left
 
-        placeRoomColumn (rvCol1, reverbEnableButton, reverbMixSlider, &leadSendLabel, &leadSendSlider);
-        placeRoomColumn (rvCol2, padReverbEnableButton, padReverbMixSlider, &padSendLabel, &padSendSlider);
+        placeVoiceColumn (rvCol1, leadReverbEnableButton, leadRoomLabel, leadRoomSlider,
+                          leadHallLabel, leadHallSlider);
+        placeVoiceColumn (rvCol2, harmonyReverbEnableButton, harmonyRoomLabel, harmonyRoomSlider,
+                          harmonyHallLabel, harmonyHallSlider);
         placeLabelledKnob (duckCol, duckDepthLabel, duckDepthSlider);   // a return ramp, not a voice: no dot
     }
 
@@ -4006,8 +3983,8 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     deessAmountSlider.setActivityLevel (modulePeak (deessEnableButton.getToggleState(),            pathState.leadPeak));      // De-Esser: the lead path
     saturationDriveSlider.setActivityLevel (modulePeak (saturationEnableButton.getToggleState(),  pathState.masterPeak));    // Saturation: the master path
     delayMixSlider.setActivityLevel (modulePeak (delayEnableButton.getToggleState(),               pathState.leadPeak));      // Delay: the lead path
-    reverbMixSlider.setActivityLevel (modulePeak (reverbEnableButton.getToggleState(),             pathState.leadPeak));      // Lead room: the lead path
-    padReverbMixSlider.setActivityLevel (modulePeak (padReverbEnableButton.getToggleState(),       pathState.harmonyPeak));   // Harmony room: the harmony path
+    leadHallSlider.setActivityLevel (modulePeak (leadReverbEnableButton.getToggleState(),          pathState.leadPeak));      // Lead -> HALL: the lead path
+    harmonyHallSlider.setActivityLevel (modulePeak (harmonyReverbEnableButton.getToggleState(),    pathState.harmonyPeak));   // Harmony -> HALL: the harmony path
 
     // Output Limit's trim is deliberately NOT gated by limiter_enable - the trim stays live
     // with the limiter off (see the enable block below) - so its dot keeps reporting the
@@ -4220,15 +4197,21 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     bool isFormantEnabled = formantEnableButton.getToggleState();
     formantSlider.setEnabled (isFormantEnabled);
 
-    // Gray out Reverb slider if disabled
-    bool isReverbEnabled = reverbEnableButton.getToggleState();
-    reverbMixSlider.setEnabled (isReverbEnabled);
+    // Gray out a voice's two reverb amounts when its switch is off. The values are KEPT, so
+    // switching the voice back on needs no re-dial, and the first switch-on applies the
+    // "ready to sing" amounts the knobs already carry. The ducker is NOT gated: it is a
+    // property of the two rooms' return, not of a voice.
+    const bool isLeadReverbEnabled = leadReverbEnableButton.getToggleState();
+    leadRoomSlider.setEnabled (isLeadReverbEnabled);
+    leadHallSlider.setEnabled (isLeadReverbEnabled);
 
-    // Gray out Pad Reverb slider if disabled. The Output Trim knob is NOT gated by the
-    // limiter switch: trim is the level match into the mix, so it stays live with the
-    // limiter off (a muted trim with no limiter is still a real gain change).
-    bool isPadReverbEnabled = padReverbEnableButton.getToggleState();
-    padReverbMixSlider.setEnabled (isPadReverbEnabled);
+    const bool isHarmonyReverbEnabled = harmonyReverbEnableButton.getToggleState();
+    harmonyRoomSlider.setEnabled (isHarmonyReverbEnabled);
+    harmonyHallSlider.setEnabled (isHarmonyReverbEnabled);
+
+    // The Output Trim knob is NOT gated by the limiter switch: trim is the level match into
+    // the mix, so it stays live with the limiter off (a muted trim with no limiter is still a
+    // real gain change).
 
     // Gray out Upward Comp slider if disabled
     bool isUpwardCompEnabled = upwardCompEnableButton.getToggleState();
@@ -5045,10 +5028,10 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     amountSlider.addListener (this);
     formantSlider.addListener (this);
     morphSlider.addListener (this);
-    reverbMixSlider.addListener (this);
-    padReverbMixSlider.addListener (this);
-    leadSendSlider.addListener (this);
-    padSendSlider.addListener (this);
+    leadRoomSlider.addListener (this);
+    leadHallSlider.addListener (this);
+    harmonyRoomSlider.addListener (this);
+    harmonyHallSlider.addListener (this);
     duckDepthSlider.addListener (this);
     outputTrimSlider.addListener (this);
     // 2026-07-24 (Deprecation): FlexTune listener disabled (UI hidden).
@@ -5067,8 +5050,8 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     // Toggles + combo boxes: commit on change using the last pre-change
     // snapshot (the live baseline captured by the timer).
     formantEnableButton.addListener (this);
-    reverbEnableButton.addListener (this);
-    padReverbEnableButton.addListener (this);
+    leadReverbEnableButton.addListener (this);
+    harmonyReverbEnableButton.addListener (this);
     limiterEnableButton.addListener (this);
     doubleEnableButton.addListener (this);
     noiseGateEnableButton.addListener (this);
@@ -5244,8 +5227,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     harmonyFollowLeadButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyFollow));
     harmonyGainMatchButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyGainMatch));
     formantEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelFormantBtn));
-    reverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
-    padReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelPadReverbBtn));
+    leadReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelReverbBtn));
+    harmonyReverbEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelPadReverbBtn));
     limiterEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelLimiterBtn));
     correctionModeButton.setButtonText (correctionModeButton.getToggleState() ? ovt::tr(ovt::Keys::kLabelTransparentBtn) : ovt::tr(ovt::Keys::kLabelModernBtn));
     harmonyToneColorLabel.setText (ovt::tr(ovt::Keys::kLabelTone), juce::dontSendNotification);
@@ -5270,17 +5253,18 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     midiOutButton.setTooltip (ovt::tr(ovt::Keys::kTooltipMidiOutIcon));
     correctionModeButton.setTooltip (ovt::tr (ovt::Keys::kTooltipCorrection));
     harmonyEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyEn));
-    reverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbEn));
+    leadReverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipLeadReverbEn));
+    harmonyReverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyReverbEn));
     formantEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant));
     formantSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFormant));
-    reverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbMix));
-    padReverbEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPadReverbEn));
-    padReverbMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipPadReverbMix));
+    leadRoomSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipLeadRoom));
+    leadHallSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipLeadHall));
+    harmonyRoomSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyRoom));
+    harmonyHallSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipHarmonyHall));
     limiterEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipLimiterEn));
     outputTrimSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputTrim));
-    leadSendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipLeadSend));
-    padSendSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipPadSend));
-    duckDepthSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDuckDepth));
+    duckDepthSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipReverbDucking));
+
     outputMeter.setCaptions (ovt::tr (ovt::Keys::kLabelMeterGr), ovt::tr (ovt::Keys::kLabelMeterTrim));
     outputMeter.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputMeter));
 
@@ -5302,8 +5286,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     outputTrimSlider.setTooltip (withPath (outputTrimSlider.getTooltip(), outputPath));
     saturationDriveSlider.setTooltip (withPath (saturationDriveSlider.getTooltip(), outputPath));
     delayMixSlider.setTooltip (withPath (delayMixSlider.getTooltip(), leadPath));
-    reverbMixSlider.setTooltip (withPath (reverbMixSlider.getTooltip(), leadPath));
-    padReverbMixSlider.setTooltip (withPath (padReverbMixSlider.getTooltip(), ovt::tr (ovt::Keys::kTooltipPathHarmony)));
+    leadHallSlider.setTooltip (withPath (leadHallSlider.getTooltip(), leadPath));
+    harmonyHallSlider.setTooltip (withPath (harmonyHallSlider.getTooltip(), ovt::tr (ovt::Keys::kTooltipPathHarmony)));
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
     flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune));
@@ -5648,11 +5632,11 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setSlider ("harmony_formant",    saved.harmonyFormant,     harmonyFormantSlider);
     setSlider ("harmony_tone_color", saved.harmonyToneColor,   harmonyToneColorSlider);
     setSlider ("double_amount",      saved.doubleAmount,       doubleAmountSlider);
-    setSlider ("reverb_mix",         saved.reverbMix,          reverbMixSlider);
-    setSlider ("pad_reverb_mix",     saved.padReverbMix,       padReverbMixSlider);
-    setSlider ("lead_send",          saved.leadSend,           leadSendSlider);
-    setSlider ("pad_send",           saved.padSend,            padSendSlider);
-    setSlider ("duck_depth",         saved.duckDepth,          duckDepthSlider);
+    setSlider ("lead_room_send",     saved.leadRoomSend,       leadRoomSlider);
+    setSlider ("lead_hall_send",     saved.leadHallSend,       leadHallSlider);
+    setSlider ("harmony_room_send",  saved.harmonyRoomSend,    harmonyRoomSlider);
+    setSlider ("harmony_hall_send",  saved.harmonyHallSend,    harmonyHallSlider);
+    setSlider ("reverb_duck_depth",  saved.reverbDuckDepth,    duckDepthSlider);
     setSlider ("output_trim",        saved.outputTrim,         outputTrimSlider);
     setSlider ("noise_gate_threshold", saved.noiseGateThreshold, noiseGateThresholdSlider);
     setSlider ("upward_comp_amount",   saved.upwardCompAmount,   upwardCompAmountSlider);
@@ -5703,8 +5687,8 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("harmony_enable",    saved.harmonyEnable ? 1.0f : 0.0f);
     setChoice ("harmony_use_voice", saved.harmonyUseVoice ? 1.0f : 0.0f);
     setChoice ("harmony_follow_lead", saved.harmonyFollowLead ? 1.0f : 0.0f);
-    setChoice ("reverb_enable",     saved.reverbEnable ? 1.0f : 0.0f);
-    setChoice ("pad_reverb_enable", saved.padReverbEnable ? 1.0f : 0.0f);
+    setChoice ("lead_reverb_enable",    saved.leadReverbEnable ? 1.0f : 0.0f);
+    setChoice ("harmony_reverb_enable", saved.harmonyReverbEnable ? 1.0f : 0.0f);
     setChoice ("limiter_enable",    saved.limiterEnable ? 1.0f : 0.0f);
     setChoice ("double_enable",     saved.doubleEnable ? 1.0f : 0.0f);
     setChoice ("noise_gate_enable", saved.noiseGateEnable ? 1.0f : 0.0f);
@@ -5775,7 +5759,7 @@ namespace
             { "amount", 1.0f }, { "flex_tune", 0.0f }, { "humanize", 0.0f },
             { "harmony_enable", 0.0f }, { "formant_enable", false },
             { "vibrato_preserve", 0.0f }, { "attack_aware", 0.0f },
-            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
+            { "lead_reverb_enable", 0.0f }, { "harmony_reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
             // Nothing dynamic on the lead: pitch correction only, so the de-esser
             // stays off and the sibilance keeps its natural level. The saturation stage
             // is named in the same spirit: drive 0 is a transparent bypass, and this
@@ -5786,7 +5770,7 @@ namespace
         static const std::map<juce::String, float> transparentDub = {
             { "amount", 0.85f }, { "flex_tune", 25.0f }, { "humanize", 15.0f },
             { "harmony_enable", 0.0f }, { "formant_enable", false },
-            { "reverb_enable", 0.0f }, { "correction_mode", 0.0f },
+            { "lead_reverb_enable", 0.0f }, { "correction_mode", 0.0f },
             // The preset's name promises a double track: the stereo doubler
             // delivers it on the lead alone, with Harmony off (the doubler is
             // independent of harmony_enable). 35 % = ~3.5 cents detune, ~9 ms
@@ -5809,23 +5793,23 @@ namespace
             // bright without the hiss the sum produces. Low intensity, and the band
             // centre follows the Voice Type the user picked, not a preset override.
             { "deess_enable", 1.0f }, { "deess_amount", 0.55f },
-            // The pad room is the harmony-only reverb: a 4-voice stack is where a long,
-            // wide room pays, because it fattens the voices without washing the lead
-            // (the lead keeps its own short room on reverb_mix).
-            { "pad_reverb_enable", 1.0f }, { "pad_reverb_mix", 0.35f },
+            // The harmony voices get the long HALL (and a little ROOM): a 4-voice stack is
+            // where a long, wide room pays, because it fattens the voices without washing
+            // the lead, which stays dry here (its switch is off, as in every fresh session).
+            { "harmony_reverb_enable", 1.0f }, { "harmony_room_send", 0.10f }, { "harmony_hall_send", 0.35f },
             // Light drive on the master: a stack of four voices is where a little soft
             // clipping pays, because it glues the voices together ahead of the room. Low
             // drive (k = 1 + 9 x 0.25) and warmth at 0.6 keep the added harmonics low in
             // the band, so the stack gains body without gaining hiss on top of the de-esser.
             { "saturation_enable", 1.0f }, { "saturation_drive", 0.25f }, { "saturation_tone", 0.6f },
-            // The stack is a tight unison: no tempo copies, the room is the pad reverb alone.
+            // The stack is a tight unison: no tempo copies, the room is the harmony reverb alone.
             { "delay_enable", 0.0f }
         };
         static const std::map<juce::String, float> liveScene = {
             { "amount", 0.9f }, { "flex_tune", 10.0f }, { "humanize", 30.0f },
             { "harmony_enable", 0.0f }, { "attack_aware", 1.0f },
             { "latency_mode", 0.0f }, // Direct Monitoring
-            { "reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
+            { "lead_reverb_enable", 0.0f }, { "noise_gate_enable", 0.0f },
             // On stage the plugin sits in a live monitor path: nothing here adds loudness,
             // so the master drive stays off and the level matches the house mix directly.
             // A live monitor path is also echo-free by definition - no tempo copies.
@@ -5836,7 +5820,7 @@ namespace
             { "humanize", 25.0f }, { "vibrato_preserve", 0.0f },
             { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
             { "formant_mode", 1.0f }, { "formant", 0.0f },
-            { "reverb_enable", 0.0f }, { "noise_gate_enable", 1.0f },
+            { "lead_reverb_enable", 0.0f }, { "noise_gate_enable", 1.0f },
             { "noise_gate_threshold", -45.0f },
             // Spoken/quiet material: lift weak passages before tuning so the
             // pitch detector and correction see a more consistent level.
@@ -5873,7 +5857,7 @@ namespace
             { "amount", 0.9f }, { "speed", 30.0f }, { "flex_tune", 20.0f },
             { "humanize", 20.0f }, { "harmony_enable", 0.0f },
             { "formant_enable", 1.0f }, { "formant_mode", 1.0f }, { "formant", 0.0f },
-            { "reverb_enable", 0.0f }, { "noise_gate_enable", 1.0f },
+            { "lead_reverb_enable", 0.0f }, { "noise_gate_enable", 1.0f },
             { "noise_gate_threshold", -50.0f },
             { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.8f },
             // On air the 0.8 upward lift pushes every sibilant up to the same loud
@@ -5896,7 +5880,8 @@ namespace
             { "humanize", 35.0f }, { "vibrato_preserve", 0.3f },
             { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
             { "formant_mode", 1.0f }, { "formant", 0.0f },
-            { "reverb_enable", 1.0f }, { "reverb_mix", 0.25f }, { "noise_gate_enable", 0.0f },
+            { "lead_reverb_enable", 1.0f }, { "lead_room_send", 0.15f }, { "lead_hall_send", 0.40f },
+            { "reverb_duck_depth", 0.30f }, { "noise_gate_enable", 0.0f },
             { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.6f },
             // The lo-fi character is the point of this preset: a whisper of drive gives
             // the breathy voice a little body, and warmth at 0.8 keeps it soft, so the
@@ -5917,7 +5902,8 @@ namespace
             { "harmony_gain", 0.6f }, { "harmony_blend", 0.5f },
             { "harmony_tone_color", 0.5f },
             { "formant_enable", 1.0f }, { "formant_mode", 1.0f }, { "formant", 0.0f },
-            { "reverb_enable", 1.0f }, { "reverb_mix", 0.25f },
+            { "lead_reverb_enable", 1.0f }, { "lead_room_send", 0.15f }, { "lead_hall_send", 0.45f },
+            { "reverb_duck_depth", 0.35f },
             { "noise_gate_enable", 1.0f }, { "noise_gate_threshold", -40.0f },
             { "upward_comp_enable", 1.0f }, { "upward_comp_amount", 0.5f },
             // The thickened lead is also the most sibilant preset: upward
@@ -5925,9 +5911,9 @@ namespace
             // doubled "s". De-essing before the reverb keeps the space without the
             // hiss, at the standard intensity; the band centre follows Voice Type.
             { "deess_enable", 1.0f }, { "deess_amount", 0.65f },
-            // The "-3 / +3" voices get their own long room: the pad reverb fattens the
-            // harmony without smearing the lead, which keeps its short room at 0.25.
-            { "pad_reverb_enable", 1.0f }, { "pad_reverb_mix", 0.30f },
+            // The "-3 / +3" voices get their own long room: the harmony HALL fattens the
+            // stack without smearing the lead, which keeps its balanced room + hall pair.
+            { "harmony_reverb_enable", 1.0f }, { "harmony_room_send", 0.10f }, { "harmony_hall_send", 0.30f },
             // The thickened lead is also where the master stage belongs: drive at 0.35 glues
             // the lead and its "-3 / +3" voices ahead of the room, and warmth at 0.5 keeps the
             // added harmonics in the presence region, below the de-esser's band centre.
@@ -6566,10 +6552,10 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applySliderColours (speedSlider);
     applySliderColours (amountSlider);
     applySliderColours (formantSlider);
-    applySliderColours (reverbMixSlider);
-    applySliderColours (padReverbMixSlider);
-    applySliderColours (leadSendSlider);
-    applySliderColours (padSendSlider);
+    applySliderColours (leadRoomSlider);
+    applySliderColours (leadHallSlider);
+    applySliderColours (harmonyRoomSlider);
+    applySliderColours (harmonyHallSlider);
     applySliderColours (duckDepthSlider);
     applySliderColours (outputTrimSlider);
     applySliderColours (noiseGateThresholdSlider);
@@ -6599,10 +6585,10 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (humanizeLabel);
     applyLabelColours (vibratoPreserveLabel);
     applyLabelColours (attackReleaseLabel);
-    applyLabelColours (reverbMixLabel);
-    applyLabelColours (padReverbMixLabel);
-    applyLabelColours (leadSendLabel);
-    applyLabelColours (padSendLabel);
+    applyLabelColours (leadRoomLabel);
+    applyLabelColours (leadHallLabel);
+    applyLabelColours (harmonyRoomLabel);
+    applyLabelColours (harmonyHallLabel);
     applyLabelColours (duckDepthLabel);
     applyLabelColours (saturationDriveLabel);
     applyLabelColours (saturationToneLabel);
@@ -6667,8 +6653,8 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     useVoiceButton.setColour (ebs::ToggleSwitch::trackOnColourId,  ebs::accent());
     useVoiceButton.setColour (ebs::ToggleSwitch::trackOffColourId, ebs::text().withAlpha (0.18f));
     applyToggleColours (formantEnableButton);
-    applyToggleColours (reverbEnableButton);
-    applyToggleColours (padReverbEnableButton);
+    applyToggleColours (leadReverbEnableButton);
+    applyToggleColours (harmonyReverbEnableButton);
     applyToggleColours (limiterEnableButton);
     applyToggleColours (noiseGateEnableButton);
     applyToggleColours (doubleEnableButton);

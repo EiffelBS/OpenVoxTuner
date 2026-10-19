@@ -87,16 +87,19 @@
 |-----------|-----|------|---------|-------|
 | Noise Gate Enable | `noise_gate_enable` | Bool | **false** | false / true |
 | Gate Threshold | `noise_gate_threshold` | Float | **-50.0 dB** | -80 – 0 dB |
-| Reverb Enable | `reverb_enable` | Bool | **false** | false / true |
-| Reverb Mix | `reverb_mix` | Float | **0.30** | 0 – 1 |
+| Lead Reverb | `lead_reverb_enable` | Bool | **false** | false / true |
+| Lead Room | `lead_room_send` | Float | **0.15** | 0 – 1 |
+| Lead Hall | `lead_hall_send` | Float | **0.45** | 0 – 1 |
 | Upward Comp Enable | `upward_comp_enable` | Bool | **false** | false / true |
 | Upward Comp Amount | `upward_comp_amount` | Float | **0.25** | 0 – 1 |
 | Doubler Enable | `double_enable` | Bool | **false** | false / true |
 | Double Amount | `double_amount` | Float | **0.0** | 0 – 100 % |
 | De-Esser Enable | `deess_enable` | Bool | **false** | false / true |
 | De-Esser Intensity | `deess_amount` | Float | **0.65** (65%) | 0 – 1 (0–100%) |
-| Harmony Reverb Enable | `pad_reverb_enable` | Bool | **false** | false / true |
-| Harmony Reverb Mix | `pad_reverb_mix` | Float | **0.30** | 0 – 1 |
+| Harmony Reverb | `harmony_reverb_enable` | Bool | **false** | false / true |
+| Harmony Room | `harmony_room_send` | Float | **0.10** | 0 – 1 |
+| Harmony Hall | `harmony_hall_send` | Float | **0.30** | 0 – 1 |
+| Reverb Ducking | `reverb_duck_depth` | Float | **0.35** | 0 – 1 |
 | Output Trim | `output_trim` | Float | **0.0 dB** | -12 – +12 dB |
 | Limiter Enable | `limiter_enable` | Bool | **true** | false / true |
 | Saturation Enable | `saturation_enable` | Bool | **false** | false / true |
@@ -104,17 +107,27 @@
 | Saturation Warmth | `saturation_tone` | Float | **0.40** (40%) | 0 – 1 (0–100%) |
 
 The effects are applied at three tap points, each with its own parameters: the lead
-voice (`deess_*`, `reverb_*`), the harmony bus (`pad_reverb_*`) and the master output
-(`saturation_*`, `output_trim`, `limiter_enable`). `reverb_enable` / `reverb_mix` are the **lead**
-reverb; `pad_reverb_enable` / `pad_reverb_mix` drive the separate long wide room that
-sits on the harmony voices only. On screen the two room toggles read **Lead** and
-**Harmony**, their sends read **Lead Send** / **Harmony Send**, and the ducking knob reads
-**Ducking**: the short names fit one cell column in every locale, measured at 14 pt. The
-host parameter names keep **Harmony Reverb Enable** / **Harmony Reverb Mix**, because a
-mixer automating a plugin needs to see which voice the room acts on, never a timbre word
-such as *pad*, which reads as a reverb type to someone who has never mixed
-a vocal stack. The lead reverb's wet mix is additionally ducked by
-the noise-gate envelope, so the tail follows the phrase.
+voice (`deess_*`, `lead_reverb_*`), the harmony bus (`harmony_reverb_*`) and the master
+output (`saturation_*`, `output_trim`, `limiter_enable`).
+
+The reverb is a **bus pair**, the DAW model: two shared rooms (a short **ROOM** at
+RT60 ≈ 1.18 s and a long **HALL** at RT60 ≈ 2.43 s, the legacy Main room) and four
+amounts that send each voice into them. A send adds to the room and never attenuates
+the dry voice, so raising an amount can never make the singer quieter. `lead_room_send`
+/ `lead_hall_send` place the corrected lead, `harmony_room_send` / `harmony_hall_send`
+place the harmony stack; `lead_reverb_enable` / `harmony_reverb_enable` switch a voice's
+two amounts together without losing their values, so switching a voice off and back on
+needs no re-dial. Both switches start **off** (a fresh session is dry), while the
+amounts already carry the "ready to sing" pair above, so the first switch-on applies a
+balanced short room + hall behind the voice. `reverb_duck_depth` is one sidechain
+ducker on both returns, keyed by the corrected lead (**not** the noise gate): the room
+steps back while the voice sings and blooms back between phrases, up to 12 dB at 100 %.
+
+On screen the two voice switches read **Lead** and **Harmony**, the four amounts read
+**Room** / **Hall** under their voice, and the ducker reads **Ducking**: the short names
+fit one cell column in every locale, measured at 14 pt. The host parameter names keep
+the voice names, because a mixer automating a plugin needs to see which voice a control
+acts on, never a timbre word such as *pad*.
 
 The limiter is **on by default** and caps the **true peak** at **-1 dBFS**: it detects the
 inter-sample crest through a 65-tap, 4x oversampling reconstruction filter, so it looks ahead by its group

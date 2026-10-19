@@ -33,9 +33,9 @@ parameters listed below; anything not listed is **excluded** from morphing.
 
 | Category | Parameters | Interpolation |
 |----------|-----------|---------------|
-| **Continuous** | `speed`, `amount`, `formant`, `harmony_gain`, `harmony_blend`, `harmony_tone_color`, `reverb_mix`, ~~`flex_tune`~~ *(DEPRECATED)*, `humanize`, `noise_gate_threshold` | Linear interpolation (lerp) |
+| **Continuous** | `speed`, `amount`, `formant`, `harmony_gain`, `harmony_blend`, `harmony_tone_color`, `lead_room_send`, `lead_hall_send`, `harmony_room_send`, `harmony_hall_send`, `reverb_duck_depth`, ~~`flex_tune`~~ *(DEPRECATED)*, `humanize`, `noise_gate_threshold` | Linear interpolation (lerp) |
 | **Discrete (ordered)** | `key` (0-11), `scale` (0-13), `harmony_type` (0-21), `harmony_tone` (0-5), `harmony_shifted_voices` (1-4), `latency_mode` (0-3), `editor_measures` (1-32) | Step transition at morph threshold (50%) |
-| **Boolean** | `formant_enable`, `bypass`, `harmony_enable`, `harmony_use_voice`, `reverb_enable`, `noise_gate_enable`, `correction_mode` | Step transition at morph threshold (50%) |
+| **Boolean** | `formant_enable`, `bypass`, `harmony_enable`, `harmony_use_voice`, `lead_reverb_enable`, `harmony_reverb_enable`, `noise_gate_enable`, `correction_mode` | Step transition at morph threshold (50%) |
 | **UI-only** | `ui_theme`, `ui_language`, `mode` (Live/Curve) | Not interpolated (kept from source) |
 | **Custom scale** | `custom0`-`custom11` | **Excluded** — not captured in `MorphState`, never interpolated |
 | **Not part of MorphState** | `midi_out_enable`, `auto_scroll`, `pitch_detector`, `dbg_test_grain` | Not interpolated |

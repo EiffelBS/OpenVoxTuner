@@ -10,7 +10,9 @@ namespace ovtdsp
 {
     ReverbEffect::ReverbEffect()
     {
-        // Tuned for vocal monitoring: medium-large room, longer tail, gentle damping
+        // Default tuning only: the processor sets each bus instance from
+        // ReverbTuning.h (HALL = this legacy room, ROOM = the short room), so the
+        // sound of the two buses is declared in ONE place.
         params.roomSize = 0.7f;
         params.damping = 0.3f;
         params.wetLevel = 0.5f;      // Internal wet gain reduced to avoid volume boost
@@ -34,11 +36,11 @@ namespace ovtdsp
         wetScratch.setSize (2, maxBlock, false, true, false);
         sendAccum.setSize (2, maxBlock, false, true, true);
 
-        // 25 ms ramps: long enough to be click-free when a knob moves or the gate
-        // closes, short enough that a change feels immediate.
+        // 25 ms ramps: long enough to be click-free when a knob moves or a voice
+        // stops sending, short enough that a change feels immediate.
         rampSamples = juce::jmax (1, static_cast<int> (0.025 * sampleRate));
         leadSendRamp.reset (rampSamples);
-        padSendRamp.reset (rampSamples);
+        harmonySendRamp.reset (rampSamples);
         duckRamp.reset (rampSamples);
 
         for (auto& filter : leadLowCut)
@@ -63,10 +65,10 @@ namespace ovtdsp
 
         // Flush the ramps to their neutral state: sends silent, return unducked.
         leadSendRamp.reset (rampSamples);
-        padSendRamp.reset (rampSamples);
+        harmonySendRamp.reset (rampSamples);
         duckRamp.reset (rampSamples);
         leadSendRamp.setCurrentAndTargetValue (0.0f);
-        padSendRamp.setCurrentAndTargetValue (0.0f);
+        harmonySendRamp.setCurrentAndTargetValue (0.0f);
         duckRamp.setCurrentAndTargetValue (1.0f);
 
         tailPeak = 0.0f;
@@ -120,10 +122,10 @@ namespace ovtdsp
             reverb.processStereo (wetScratch.getWritePointer (0), wetScratch.getWritePointer (1), numSamples);
 
         // The insert is a dry/wet CROSSFADE: mix 0 leaves the input bit-identical and
-        // mix 1 replaces it with the room. A Mix knob that only ADDS never reaches full
-        // wet, so pushing it to the end of the travel sounded like nothing -- that is
-        // the regression this corrects. Sends are the additive case: see processLeadSend
-        // and processPadSend, where stealing from the tapped path would be wrong.
+        // mix 1 replaces it with the room. The plugin's buses are additive sends instead
+        // (see processLeadSend and processHarmonySend), where stealing from the tapped
+        // path would be wrong; this mode remains the IEffect contract and is covered by
+        // the unit tests.
         for (int ch = 0; ch < numChannels; ++ch)
         {
             float* data = buffer.getWritePointer (ch);
@@ -140,8 +142,8 @@ namespace ovtdsp
 
     void ReverbEffect::processSend (juce::AudioBuffer<float>& sendBuffer, float sendAmount)
     {
-        // Interface hook: the shared room's lead slot is the one carrying the
-        // pre-send low-cut, so a generic send lands there.
+        // Interface hook: the lead send slot is the one carrying the pre-send
+        // low-cut, so a generic send lands there.
         processLeadSend (sendBuffer, sendAmount);
     }
 
@@ -172,7 +174,7 @@ namespace ovtdsp
         }
     }
 
-    void ReverbEffect::processPadSend (juce::AudioBuffer<float>& sendBuffer, float sendAmount)
+    void ReverbEffect::processHarmonySend (juce::AudioBuffer<float>& sendBuffer, float sendAmount)
     {
         if (!prepared)
             return;
@@ -181,7 +183,7 @@ namespace ovtdsp
         if (numSamples <= 0 || sendBuffer.getNumChannels() <= 0)
             return;
 
-        padSendRamp.setTargetValue (juce::jlimit (0.0f, 1.0f, sendAmount));
+        harmonySendRamp.setTargetValue (juce::jlimit (0.0f, 1.0f, sendAmount));
 
         const int srcChannels = sendBuffer.getNumChannels();
 
@@ -192,7 +194,7 @@ namespace ovtdsp
             float* dst = sendAccum.getWritePointer (ch);
 
             for (int i = 0; i < numSamples; ++i)
-                dst[i] += src[i] * padSendRamp.getNextValue();
+                dst[i] += src[i] * harmonySendRamp.getNextValue();
         }
     }
 
@@ -211,7 +213,9 @@ namespace ovtdsp
         // Nothing is being sent and the tail has already decayed: skip the room
         // entirely. This is what keeps the sleep path at ~1 % CPU -- a cleared
         // send buffer drives the tail down, and once it is inaudible the room is
-        // simply not run.
+        // simply not run. duckGain comes from the sidechain ducker (ReverbDucker),
+        // not from the noise gate: the room dips while the lead sings and blooms
+        // back between phrases.
         float sendPeak = 0.0f;
         for (int i = 0; i < numSamples; ++i)
             sendPeak = juce::jmax (sendPeak, juce::jmax (std::abs (sendL[i]), std::abs (sendR[i])));

@@ -44,6 +44,7 @@
 #include "dsp/DeEsserTest.cpp"
 #include "dsp/EffectsBusTest.cpp"
 #include "dsp/ReverbEffectTest.cpp"
+#include "dsp/ReverbDuckerTest.cpp"
 #include "dsp/NoiseGateEnableTest.cpp"
 #include "dsp/SaturationEffectTest.cpp"
 #include "dsp/OutputLimiterTruePeakTest.cpp"

@@ -22,11 +22,6 @@ namespace
             buf.clear (c, 0, buf.getNumSamples());
     }
 
-    // The plugin's ducking formula, shared by the lead wet mix and the send return.
-    float ngxDuckGain (float depth, float gateGain)
-    {
-        return 1.0f - depth * (1.0f - gateGain);
-    }
 }
 
 class NoiseGateEnableTest : public juce::UnitTest
@@ -60,8 +55,8 @@ public:
         {
             // The gate only updates its reported gain inside process(), which returns early when
             // the gate is off. So the value survives a disable: a caller that reads it without
-            // checking the enable flag keeps ducking on a gate the user switched off, and at full
-            // depth that is silence -- the reverb knob at full mix sounding like nothing.
+            // checking the enable flag keeps scaling by a gate the user switched off -- a burst
+            // of harmony on silence, or a duck that never lets go.
             ovtdsp::NoiseGate gate;
             gate.prepare (48000.0);
             gate.setThresholdDb (-50.0f);
@@ -80,13 +75,11 @@ public:
             expectEquals (gate.getCurrentGain(), closedGain,
                           "disabling the gate must not rewrite the stale gain");
 
-            const float duckedWithStale = ngxDuckGain (1.0f, gate.getCurrentGain());
-            expectLessThan (duckedWithStale, 0.02f);   // full depth on a stale closed gate: silence
-
-            // The guard the plugin uses: read the gain only when the gate is enabled.
+            // The guard every caller uses (the harmony-bus scaling in the processor): read the
+            // gain only when the gate is enabled, and treat a disabled gate as fully open.
             const float guarded = gate.isEnabled() ? gate.getCurrentGain() : 1.0f;
-            expectEquals (ngxDuckGain (1.0f, guarded), 1.0f,
-                          "a disabled gate must leave the reverb unducked");
+            expectEquals (guarded, 1.0f,
+                          "a disabled gate must report an open gain");
         }
     }
 };

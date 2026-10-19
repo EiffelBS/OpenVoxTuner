@@ -78,7 +78,7 @@ public:
             { "amount", 1.0f }, { "flex_tune", 10.0f }, { "humanize", 40.0f },
             { "harmony_enable", 0.0f }, { "harmony_type", 3.0f },
             { "latency_mode", 1.0f }, { "ui_language", 0.0f }, { "ui_theme", 0.0f },
-            { "morph_amount", 0.0f }, { "mode", 0.0f }, { "reverb_enable", 0.0f },
+            { "morph_amount", 0.0f }, { "mode", 0.0f }, { "lead_reverb_enable", 0.0f },
             { "double_enable", 0.0f }, { "double_amount", 0.0f }
         };
         const ValueTree defaultState = makeState (defaults);
@@ -127,7 +127,7 @@ public:
                         "override must set " + id);
 
             // Untouched parameters stay at their factory defaults.
-            expect (approximatelyEqual (getParam (preset, "reverb_enable"), 0.0f),
+            expect (approximatelyEqual (getParam (preset, "lead_reverb_enable"), 0.0f),
                     "untouched parameter must keep its default");
             expect (approximatelyEqual (getParam (preset, "mode"), 0.0f),
                     "untouched parameter must keep its default");
@@ -197,7 +197,7 @@ public:
         {
             // double_enable is a real parameter, not a mirror of the knob: the
             // power switch gates the effect, the amount keeps its value. Same
-            // shape as reverb_enable / noise_gate_enable / formant_enable.
+            // shape as lead_reverb_enable / noise_gate_enable / formant_enable.
             ValueTree live = defaultState.createCopy();
             setParam (live, "double_enable", 1.0f);
             setParam (live, "double_amount", 40.0f);

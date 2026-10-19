@@ -22,7 +22,8 @@
 #include "dsp/PitchCurve.h"
 #include "dsp/IEffect.h"
 #include "dsp/EffectsBus.h"
-#include "dsp/ReverbEffect.h"   // the shared send room is a direct member, not a bus instance
+#include "dsp/ReverbEffect.h"   // one room instance per shared reverb bus (ROOM + HALL)
+#include "dsp/ReverbDucker.h"   // sidechain ducker on the two rooms' returns
 #include "dsp/OutputLimiter.h"
 #include "dsp/NoiseGate.h"
 #include "dsp/UpwardCompressor.h"
@@ -345,10 +346,11 @@ public:
     bool getHarmonyExpanded() const { return harmonyExpandedState; }
     void setHarmonyExpanded (bool expanded) { harmonyExpandedState = expanded; }
 
-    // Reverb frame fold state (persisted across sessions, same contract as Harmony): folded the two
-    // room columns stay and the send-room column - lead_send, pad_send, duck_depth - is hidden, so
-    // the frame narrows by one column. It is a UI state, not a parameter, so it never enters the
-    // morph state and no audio behaviour changes when it flips.
+    // Reverb frame fold state (persisted across sessions, same contract as Harmony): folded the
+    // frame shows the LEAD column only - its on/off toggle and the two amounts it sends, to the
+    // short ROOM and to the long HALL. Opening it adds the HARMONY column and the sidechain
+    // DUCKING knob, so the frame widens by two columns. It is a UI state, not a parameter, so it
+    // never enters the morph state and no audio behaviour changes when it flips.
     bool getReverbExpanded() const { return reverbExpandedState; }
     void setReverbExpanded (bool expanded) { reverbExpandedState = expanded; }
 
@@ -524,13 +526,16 @@ private:
     std::atomic<float>* midiTargetEnableParam = nullptr; // MIDI target / follow enable
     std::atomic<float>* editorMeasuresParam = nullptr; // Curve Editor measures (1-8)        
     std::atomic<float>* editorPlayheadLoopParam = nullptr; // Curve Editor playhead loop (0=follow host, 1=loop on Measures)
-    std::atomic<float>* reverbEnableParam = nullptr; // Lead reverb on/off
-    std::atomic<float>* reverbMixParam = nullptr;   // Lead reverb wet mix (0-1)
-    std::atomic<float>* leadSendParam = nullptr;     // Amount of the processed lead sent to the shared room (0-1)
-    std::atomic<float>* padSendParam = nullptr;      // Amount of the harmony voices sent to the shared room (0-1)
-    std::atomic<float>* duckDepthParam = nullptr;    // How far the shared room follows the noise gate (0-1)
-    std::atomic<float>* padReverbEnableParam = nullptr; // Harmony-pad reverb on/off
-    std::atomic<float>* padReverbMixParam = nullptr;    // Harmony-pad reverb wet mix (0-1)
+    // Shared reverb buses: two rooms (ROOM + HALL), each fed by a lead send and a harmony
+    // send. A voice's toggle gates its own two sends; the send knobs keep their value while the
+    // voice is switched off, so switching it back on needs no re-dial.
+    std::atomic<float>* leadReverbEnableParam = nullptr;    // Lead sends to the rooms on/off
+    std::atomic<float>* harmonyReverbEnableParam = nullptr; // Harmony sends to the rooms on/off
+    std::atomic<float>* leadRoomSendParam = nullptr;        // Lead -> ROOM amount (0-1)
+    std::atomic<float>* leadHallSendParam = nullptr;        // Lead -> HALL amount (0-1)
+    std::atomic<float>* harmonyRoomSendParam = nullptr;     // Harmony -> ROOM amount (0-1)
+    std::atomic<float>* harmonyHallSendParam = nullptr;     // Harmony -> HALL amount (0-1)
+    std::atomic<float>* reverbDuckDepthParam = nullptr;     // Sidechain ducker depth on both returns (0-1)
     std::atomic<float>* outputTrimParam = nullptr;      // Master output trim (-12..+12 dB)
     std::atomic<float>* limiterEnableParam = nullptr;   // Master limiter on/off
     std::atomic<float>* noiseGateEnableParam = nullptr;    // Noise gate on/off
@@ -624,26 +629,27 @@ private:
     std::unique_ptr<ovtdsp::RetargetEnvelope>  retargetEnvelope;
     std::unique_ptr<ovtdsp::PitchCurve>        pitchCurve; // "graphic" mode
 
-    // === Effects buses: three tap points of the vocal chain ===
-    // Each bus owns its OWN effect instances, so one effect class can run twice
-    // with different fixed settings (a short room on the lead, a long wide one on
-    // the harmony pad). Registration order is the processing order.
+    // === Effects buses: two insert tap points of the vocal chain ===
+    // Each bus owns its OWN effect instances, so an effect class can run once per
+    // bus with its own state. Registration order is the processing order.
     //   leadBus    : corrected lead voice, before any harmony is added.
-    //   harmonyBus : harmony bus, before it is mixed into the master output.
     //   masterBus  : final mixed output, after every bus has been blended.
+    // The harmony voices have no insert effects of their own: their reverb lives on
+    // the two shared room buses below, and their activity tap is taken where they
+    // leave the harmony path.
     ovtdsp::EffectsBus leadBus;
-    ovtdsp::EffectsBus harmonyBus;
     ovtdsp::EffectsBus masterBus;
 
-    // === Shared send room: ONE reverb instance, fed by two parallel sends ===
-    // The lead and the harmony voices are SENT to the same room, so they ring in
-    // one coherent space instead of two independent ones. Each bus keeps its own
-    // insert reverb (the short lead room, the long pad room); this is the third,
-    // shared room, and it is a send, not an insert: the dry paths are untouched and
-    // no latency is declared, because nothing delays a dry signal.
-    // It is not registered on a bus: the sends are taken at two tap points and the
-    // return is summed into the master before the output stage.
-    ovtdsp::ReverbEffect sharedReverb;
+    // === Shared reverb buses: two rooms, four sends, one sidechain ducker ===
+    // ROOM and HALL are two instances tuned from ReverbTuning.h. Every voice sends
+    // its own amount to each room, the way a vocal is sent to two reverb buses in a
+    // DAW: the dry path is untouched and no latency is declared, because nothing
+    // delays a dry signal. The returns are summed into the master before the output
+    // stage, scaled by the sidechain ducker's gain -- keyed by the corrected lead,
+    // never by the noise gate.
+    ovtdsp::ReverbEffect roomReverb;
+    ovtdsp::ReverbEffect hallReverb;
+    ovtdsp::ReverbDucker reverbDucker;
 
     // Master output stage, applied AFTER every effect: trim + true-peak limiter with a
     // declared 8-sample lookahead, then the soft clip that bounds residual crests.
@@ -1095,18 +1101,19 @@ private:
     mutable juce::CriticalSection liveChordLock;
     std::atomic<bool> liveChordActive { false };
 
-    // Runs the three effects buses on their own tap point. Each one reads its
-    // own parameters, so the wiring stays in one place per bus.
+    // Runs the two insert buses on their own tap point. Each one reads its own
+    // parameters, so the wiring stays in one place per bus.
     void applyLeadEffects (juce::AudioBuffer<float>& buffer);
-    void applyHarmonyEffects (juce::AudioBuffer<float>& harmony);
     void applyMasterEffects (juce::AudioBuffer<float>& buffer);
 
-    // Shared send room taps. The lead send is taken from the processed lead, the
-    // pad send from the blended harmony voices BEFORE it is mixed into the output;
-    // the return is summed into the master inside applyMasterEffects, so the
-    // additive wet is guarded by the same trim + limiter as everything else.
-    void applyLeadSend (juce::AudioBuffer<float>& buffer);
-    void applyPadSend (juce::AudioBuffer<float>& harmony);
+    // Shared reverb bus taps. The lead sends are taken from the processed lead, the
+    // harmony sends from the blended voices BEFORE they are mixed into the output;
+    // the returns are summed into the master inside applyMasterEffects, so the
+    // additive wet is guarded by the same trim + limiter as everything else. Each
+    // room is fed once per voice per block, and the ducker's key is updated in the
+    // block, before the lead bus effects.
+    void applyLeadSends (juce::AudioBuffer<float>& buffer);
+    void applyHarmonySends (juce::AudioBuffer<float>& harmony);
 
     // Updates DSP parameters from the value tree.
     void syncParameters();

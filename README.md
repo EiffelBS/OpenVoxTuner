@@ -107,7 +107,7 @@ OpenVoxTuner is distributed as GitHub Releases for each version:
 ### Effects
 
 - **Formant Processing** — 3 modes (Legacy, MultiFormant, Allpass) with multiple preservation strategies (LPC cross-synthesis available)
-- **Reverb** — built-in reverb with adjustable mix
+- **Reverb** — two shared rooms (a short Room and the long Hall) fed by per-voice amounts: switch Lead and/or Harmony on, then set how much of each voice goes to each room. A sidechain ducker dips the rooms under the voice and lets them bloom back between phrases.
 - **De-Esser** — tames sibilance; the band follows the voice type
 - **Saturation** — adds drive and warmth on the output, with the level held automatically
 - **Tempo-synced Delay** — stereo ping-pong echo locked to the tempo (host or ARA), divisions from 1/8 to 1/2 including dotted notes, with mix and feedback

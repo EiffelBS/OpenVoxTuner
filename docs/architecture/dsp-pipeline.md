@@ -36,11 +36,13 @@ the single source of truth for signal-flow details.
                                            +-----------------+
                                            |  PitchShifter   |  PSOLA (formant-preserved)
                                            +-----------------+
-            LEAD BUS  ============================>   |   DeEsser, Lead Reverb, Delay
-                                                     |
+            LEAD BUS  ============================>   |   DeEsser, Delay
+                                                     |   sends: Room + Hall
                                            +-----------------+ (optional)
                                            |  HarmonyEngine  |  shifted voices -> harmonyBuffer
-             HARMONY BUS  ===================>          |   Harmony Reverb
+             HARMONY BUS  ===================>          |   sends: Room + Hall
+                                                     |   -> ROOM / HALL shared rooms
+                                                     |      returns (ducker) -> master
                                            +-----------------+
                                                      |
                                            +-----------------+
@@ -215,43 +217,49 @@ enum, `None` + 21 types, e.g. `ThirdBelowAbove`, `VocalStack3/4`,
   "gate-follow" time (~12 ms) so the harmony swells together with the gated dry
   signal instead of arriving late.
 
-### 8. Effects buses (`ovtdsp::EffectsBus`) and the output stage
+### 8. Effects buses (`ovtdsp::EffectsBus`), the shared reverb rooms and the output stage
 
-Effects are not stacked on one global list any more: the processor owns **three**
-`ovtdsp::EffectsBus` instances, tapped at three points of the chain, in signal order.
+Effects are not stacked on one global list any more: the processor owns **two** insert
+`ovtdsp::EffectsBus` instances, tapped at two points of the chain, plus **two shared reverb
+rooms** (`ReverbEffect` instances) that are fed by four sends instead of being registered on a bus.
 
 | Bus | Tap point | Registered effects | Driving parameters |
 |-----|-----------|--------------------|------------------|
-| Lead | corrected lead voice, **before** any harmony is added | `DeEsser`, `ReverbEffect` (short room: size 0.35, damping 0.50, width 0.5), then `DelayEffect` (tempo-synced stereo ping-pong) | `deess_enable`, `deess_amount`, `reverb_enable`, `reverb_mix`, `delay_enable`, `delay_division`, `delay_mix`, `delay_feedback` |
-| Harmony | `harmonyBuffer`, **before** it is mixed into the output | `ReverbEffect` (long wide room: size 0.85, damping 0.40, width 1.0) | `pad_reverb_enable`, `pad_reverb_mix` |
+| Lead | corrected lead voice, **before** any harmony is added | `DeEsser`, then `DelayEffect` (tempo-synced stereo ping-pong) | `deess_enable`, `deess_amount`, `delay_enable`, `delay_division`, `delay_mix`, `delay_feedback` |
 | Master | final mixed buffer, **after** the blend | `SaturationEffect` (drive + warmth), then `OutputLimiter` | `saturation_enable`, `saturation_drive`, `saturation_tone`, `output_trim`, `limiter_enable` |
 
-- Each bus owns its OWN effect instances, so one class can run twice with different
-  fixed settings. The enable flag and wet mix of every effect come from a per-bus
-  wiring callback reading APVTS parameters, so the same `ReverbEffect` class is
-  driven by two independent parameter pairs (`getId()` stays `"reverb"`; the bus *is*
-  the role).
-- **The lead reverb is ducked by the gate envelope**: its wet mix is multiplied by
-  `noiseGate.getCurrentGain()`, which returns 1.0 when the gate is off, so the tail
-  follows the phrase and the bypass stays neutral.
-- **The pad is not extra-ducked**: the harmony mix downstream is already multiplied by
-  the smoothed gate gain, so ducking the pad room a second time would double-dip.
-- Splitting the reverb is what makes it usable: one shared room forces one size on two
-  roles, and in `ReverbEffect` a rising wet mix attenuates the dry signal — so a long
-  pad room would wash out the lead's intelligibility and any tempo-synced copy.
-- **The lead chain ends with the tempo-synced Delay: DeEsser → Lead room → Delay.** The stage is an
-  additive send (`out = in + rampedMix x feedback tail`) with the dry path at unity, not a dry/wet crossfade, and it
-  declares **no latency** — `setLatencySamples` stays `pitchShifter + outputLimiter`. Division indices map to beat
-  fractions {0.5, 0.75, 1.0, 1.5, 2.0}, so the copy length is `(60/bpm) x fraction`; a tempo or division change is
-  handed over by a two-tap crossfade over 25 ms, so the read pointer never glides (ramping the pointer itself would
-  pitch-shift the tail). Cross-coupling L→R / R→L alternates the echoes between sides, and
-  each line's feedback path runs through `OnePoleLowCut` at 150 Hz, which blocks DC inside the loop by construction.
-  Because the tap `applyLeadSend` runs **after** `leadBus.apply`, the Delay sits ahead of the shared-room send: echoes
-  ring in the same space as the voice, with no extra room and no second parameter pair.
+The harmony voices have **no insert bus**: they own two sends into the shared rooms and
+nothing else, so the harmony path is the blend plus its reverb.
 
-**The master bus runs `ovtdsp::SaturationEffect` first**, ahead of `sharedReverb.processReturn`,
-so the shared room's tail is summed into an already-shaped path and never passes through the
-clipper itself. The stage is a soft clipper, `y = tanh(k x x) / tanh(k)` with `k = 1 + 9 x drive`:
+- **The reverb is a bus pair, not an insert.** `roomReverb` and `hallReverb` are tuned from
+  `ReverbTuning.h` — ROOM 0.35 / 0.50 / width 1.0 (RT60 ≈ 1.18 s), HALL 0.70 / 0.30 / width 1.0
+  (RT60 ≈ 2.43 s, the legacy Main room restored bit for bit). Four sends feed them:
+  `applyLeadSends()` (lead → ROOM + HALL) and `applyHarmonySends()` (harmony → ROOM + HALL).
+  A send adds to the room and **never attenuates the dry voice**, which is what makes the
+  amounts safe to raise while singing; the old in-place wet mix multiplied the dry by `1 - mix`.
+- **The lead send is taken after `leadBus.apply`**, so the de-esser sees only the dry lead and the
+  tempo-synced echoes ring in the same space as the voice with no second room and no second
+  parameter pair. The lead send runs through a 150 Hz one-pole low-cut, so breath rumble does not
+  ring the room; the harmony send is unfiltered.
+- **The returns are summed into the master before the output stage**, each scaled by
+  `kReturnTrim = 0.7` (≈ -3 dB), so a unity send cannot sit at +5 dB over the voice and pump the
+  limiter on every phrase.
+- **One sidechain ducker guards both returns** (`ovtdsp::ReverbDucker`, `reverbDuckDepth`). Its key
+  is the **corrected lead, taken before the lead bus effects** — never the noise gate, and never the
+  delay output: an echo must not re-trigger the duck. The key is a per-sample stereo-linked peak
+  envelope (attack 15 ms, release 300 ms) normalised against a -14 dBFS vocal peak, so the depth
+  knob means the same thing at any input gain; 100 % ducks up to 12 dB while the lead sings and the
+  room blooms back between phrases. Depth 0 is a true bypass.
+- **The old gate-linked ducking is gone.** It multiplied the wet by `NoiseGate::getCurrentGain()`,
+  so the room only moved when the gate closed and stayed still while the singer was singing — the
+  opposite of what a ducker does, and the reason the single Mix knob never sounded like the legacy
+  one.
+- **Tuning lives in one place**: `Source/dsp/ReverbTuning.h` holds both room tunings and the
+  "ready to sing" default sends, shared by the processor, the factory presets and the unit tests
+  that measure the RT60 each tuning produces.
+
+**The master bus runs `ovtdsp::SaturationEffect` first**, ahead of the two room returns, so each
+room's tail is summed into an already-shaped path and never passes through the clipper itself. The stage is a soft clipper, `y = tanh(k x x) / tanh(k)` with `k = 1 + 9 x drive`:
 that form keeps unity gain for quiet signals at every setting, so loudness comes from the baked
 makeup curve (measured through the whole stage on a -18 dBFS sine, never estimated), not from the
 curve. Drive **0** is a transparent bypass — `tanh(x)/tanh(1)` is not linear, so drive 0 short-
@@ -285,15 +293,17 @@ true peaks at -0.81 dBFS. With the margin, measured true peaks are -1.15 dBFS (s
 (noise burst). A soft-clip stage after the gain bounds residual crests toward the ceiling. The trim
 scales the final result only, leaving the harmony `1/sqrt(1+N)` gain-match intact.
 
-The sleep path runs all three buses on the cleared buffer so tails decay, then
-returns; `OutputLimiter` passes a silent buffer through untouched. The harmony path
-is the one exception it states explicitly: its buffer deliberately keeps the last
-blended take, so the harmony activity peak below is stored as zero rather than read
-from a signal that no longer reaches the output.
+The sleep path runs the two insert buses on the cleared buffer and lets the ducker's release
+and both rooms' tails decay, then returns; `OutputLimiter` passes a silent buffer through
+untouched. The harmony path is the one exception it states explicitly: its buffer
+deliberately keeps the last blended take, so the harmony activity peak below is stored as
+zero rather than read from a signal that no longer reaches the output. The harmony send is
+**not** tapped in the sleep path: its last block already fed the rooms once, and re-sending
+it would let the tail run twice.
 
 ### Activity taps (what each path carried)
 
-The editor shows one activity dot per Effects column and per Reverb room, sized by a
+The editor shows one activity dot per Effects column and per Reverb voice column, sized by a
 **peak read at the exit of the path that column or room acts on**, so the dot answers
 "is anything travelling here" - a question no control value can answer, because a mix
 at 0 % and a disabled stage look identical on screen. Three numbers are written on the
@@ -302,8 +312,8 @@ audio thread, once per block, and read by the editor timer at ~30 Hz:
 | Atomic | Written at | Reports |
 |--------|-----------|---------|
 | `leadActivityPeak` | end of `applyLeadEffects()`, send excluded | the corrected voice after its own effects |
-| `harmonyActivityPeak` | end of `applyHarmonyEffects()`, before the mix | the blended voices leaving their own path |
-| `masterActivityPeak` | `applyMasterEffects()`, after `sharedReverb.processReturn`, before trim + limiting | the blend the master path carries |
+| `harmonyActivityPeak` | end of `applyHarmonySends()`, before the mix | the blended voices leaving their own path |
+| `masterActivityPeak` | `applyMasterEffects()`, after both room returns, before trim + limiting | the blend the master path carries |
 
 The taps are inside the three helpers rather than at their call sites, so the live path
 and the sleep path report through exactly the same code. `blockPeak()` scans the block,

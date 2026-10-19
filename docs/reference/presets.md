@@ -46,18 +46,25 @@ are the exact strings in `getFactoryPluginPresetNames()` (`PluginEditor.cpp`),
 in menu order; "Default" carries no overrides and applies the factory defaults
 verbatim.
 
-| Preset | Description | De-Esser | Saturation |
-|--------|-------------|----------|------------|
-| Default | True factory defaults (all parameters at default). | off | off |
-| Pure Correction | Pitch correction only, no dynamics on the lead. | off | off |
-| Transparent / Doubling | Light correction + stereo doubler, no dynamics. | off | off |
-| Studio Stack | 4-voice unison/octave stack with formant preservation. | on, 55% | on, drive 25%, warmth 60% |
-| Live Scene | Fast correction, direct monitoring, no effects. | off | off |
-| Spoken Voice / Podcast | Gentle correction, gate, strong upward compression. | on, 65% | on, drive 25%, warmth 70% |
-| Creative Robot | Hard tune with a strong formant shift. | off | on, drive 45%, warmth 20% |
-| Broadcast Voice | Firm gate + 0.8 upward lift for streaming/radio loudness. | on, 80% | on, drive 30%, warmth 60% |
-| Breathy Vocals | Airy lo-fi voice: no gate, gentle upward lift, light reverb. | off | on, drive 15%, warmth 80% |
-| Lead Vocal | Thickened lead: gate, −3/+3 harmony, reverb, upward compression. | on, 65% | on, drive 35%, warmth 50% |
+| Preset | Description | De-Esser | Saturation | Reverb |
+|--------|-------------|----------|------------|--------|
+| Default | True factory defaults (all parameters at default). | off | off | off |
+| Pure Correction | Pitch correction only, no dynamics on the lead. | off | off | off |
+| Transparent / Doubling | Light correction + stereo doubler, no dynamics. | off | off | off |
+| Studio Stack | 4-voice unison/octave stack with formant preservation. | on, 55% | on, drive 25%, warmth 60% | harmony: room 10% + hall 35% |
+| Live Scene | Fast correction, direct monitoring, no effects. | off | off | off |
+| Spoken Voice / Podcast | Gentle correction, gate, strong upward compression. | on, 65% | on, drive 25%, warmth 70% | off |
+| Creative Robot | Hard tune with a strong formant shift. | off | on, drive 45%, warmth 20% | off |
+| Broadcast Voice | Firm gate + 0.8 upward lift for streaming/radio loudness. | on, 80% | on, drive 30%, warmth 60% | off |
+| Breathy Vocals | Airy lo-fi voice: no gate, gentle upward lift, light reverb. | off | on, drive 15%, warmth 80% | lead: room 15% + hall 40%, duck 30% |
+| Lead Vocal | Thickened lead: gate, −3/+3 harmony, reverb, upward compression. | on, 65% | on, drive 35%, warmth 50% | lead: room 15% + hall 45%, duck 35%; harmony: room 10% + hall 30% |
+
+The Reverb column lists the two SHARED rooms the preset sends into (ROOM = short,
+HALL = long) and the sidechain ducker depth. A preset that wants no room leaves both
+voice switches off, which is the factory default; the two that promise space switch
+the lead on and give the hall the larger share, because the hall is the legacy Main
+room. Studio Stack keeps the lead dry and puts only the harmony stack in the room: a
+4-voice stack is where a long room fattens without washing the lead.
 
 The presets that add top-end energy (upward compression, stacked harmony
 voices, reverb) switch the De-Esser on; the presets that leave the lead

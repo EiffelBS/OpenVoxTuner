@@ -32,7 +32,9 @@ Source/
     FormantPreserver.h / .cpp     # Formant compensation (2nd-order Butterworth LP)
     RetargetEnvelope.h / .cpp     # Speed / retarget smoothing (1st-order IIR)
     NoiseGate.h                   # Input noise gate (before pitch detection)
-    ReverbEffect.h / .cpp         # Post-processing reverb (implements IEffect)
+    ReverbEffect.h / .cpp         # One shared reverb room (implements IEffect + send/return)
+    ReverbDucker.h                # Sidechain ducker on the two room returns
+    ReverbTuning.h                # The two room tunings + "ready to sing" default sends
     IEffect.h                     # Post-effect interface
     HarmonyEngine.h               # Harmony voice generation
     PresetMorpher.h               # A/B preset morphing engine
@@ -55,7 +57,7 @@ The real-time signal chain is:
 
 ```
 NoiseGate -> YinPitchDetector -> ScaleQuantizer -> RetargetEnvelope
-          -> PitchShifter (PSOLA) -> HarmonyEngine (optional) -> ReverbEffect (optional)
+          -> PitchShifter (PSOLA) -> HarmonyEngine (optional) -> shared ROOM / HALL reverb buses
 ```
 
 The [DSP Pipeline](architecture/dsp-pipeline.md) page is the single source of
@@ -134,8 +136,9 @@ in [Default Parameters](default-parameters.md), which is kept in sync with
 - **Harmony**: harmony_type, harmony_enable, harmony_gain, harmony_blend,
   harmony_use_voice, harmony_shifted_voices, harmony_tone, harmony_tone_color,
   harmony_gain_match
-- **Effects**: reverb_enable, reverb_mix, noise_gate_enable,
-  noise_gate_threshold
+- **Effects**: lead_reverb_enable, harmony_reverb_enable, lead_room_send,
+  lead_hall_send, harmony_room_send, harmony_hall_send, reverb_duck_depth,
+  noise_gate_enable, noise_gate_threshold
 - **Misc / UI**: midi_out_enable, humanize, flex_tune (deprecated), dbg_test_grain,
   ui_theme, ui_language, editor_measures, auto_scroll
 

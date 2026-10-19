@@ -176,14 +176,16 @@ namespace ovt
         // The Harmony fold: the chevron on the frame's right edge hides the four knobs.
         static const char* kTooltipHarmonyMore = "tooltip.harmony_more";
 
-        // The Reverb frame chevron: the send room (both sends + Duck) folds away, the two rooms stay.
+        // The Reverb frame chevron: the Harmony column and the Ducking amount fold away,
+        // the Lead column stays.
         static const char* kTooltipReverbMore  = "tooltip.reverb_more";
         static const char* kTooltipUpwardCompAmount = "tooltip.upward_comp_amount";
         static const char* kLabelReverbBtn      = "label.reverb_btn";
         static const char* kLabelPadReverbBtn   = "label.pad_reverb_btn";
-        // The shared room: how much of each voice is sent to it, and how far the
-        // return follows the gate. Captions stay short -- they sit under a knob.
-        static const char* kLabelLeadSendBtn    = "label.lead_send";
+        // The two knobs inside a voice column are captioned by the ROOM they feed, not by
+        // the voice: the switch above them already carries the voice name.
+        static const char* kLabelRoom           = "label.room";
+        static const char* kLabelHall           = "label.hall";
 
         // Frame names: each bottom-row frame carries a vertical spine on its left edge naming it.
         // The band width is fixed, so the translation pays in length along the spine, never in width.
@@ -192,7 +194,6 @@ namespace ovt
         static const char* kFrameTitleEffects      = "frame.title.effects";
         static const char* kFrameTitleReverb       = "frame.title.reverb";
         static const char* kFrameTitleHarmony      = "frame.title.harmony";
-        static const char* kLabelPadSendBtn     = "label.pad_send";
         static const char* kLabelDuckBtn        = "label.duck_depth";
         static const char* kLabelLimiterBtn     = "label.limiter_btn";
         static const char* kLabelDouble         = "label.double";
@@ -311,13 +312,16 @@ namespace ovt
         static const char* kTooltipSaturationEnable    = "tooltip.saturation_enable";
         static const char* kTooltipSaturationDrive     = "tooltip.saturation_drive";
         static const char* kTooltipSaturationWarmth    = "tooltip.saturation_warmth";
-        static const char* kTooltipReverbEn    = "tooltip.reverb_enable";
-        static const char* kTooltipReverbMix   = "tooltip.reverb_mix";
-        static const char* kTooltipPadReverbEn  = "tooltip.pad_reverb_enable";
-        static const char* kTooltipPadReverbMix = "tooltip.pad_reverb_mix";
-        static const char* kTooltipLeadSend     = "tooltip.lead_send";
-        static const char* kTooltipPadSend      = "tooltip.pad_send";
-        static const char* kTooltipDuckDepth    = "tooltip.duck_depth";
+        // Reverb bus tooltips: one per switch and one per send, plus the ducker. Each names
+        // the ROOM the amount feeds and what it does to the voice, because the missing word
+        // "send" was exactly what made the old controls obscure.
+        static const char* kTooltipLeadReverbEn    = "tooltip.lead_reverb_enable";
+        static const char* kTooltipHarmonyReverbEn = "tooltip.harmony_reverb_enable";
+        static const char* kTooltipLeadRoom        = "tooltip.lead_room_send";
+        static const char* kTooltipLeadHall        = "tooltip.lead_hall_send";
+        static const char* kTooltipHarmonyRoom     = "tooltip.harmony_room_send";
+        static const char* kTooltipHarmonyHall     = "tooltip.harmony_hall_send";
+        static const char* kTooltipReverbDucking   = "tooltip.reverb_duck_depth";
         static const char* kTooltipLimiterEn    = "tooltip.limiter_enable";
         static const char* kTooltipOutputTrim   = "tooltip.output_trim";
         static const char* kTooltipOutputMeter  = "tooltip.output_meter";
@@ -435,10 +439,11 @@ namespace ovt
         static const char* kMidiLearnSpeed         = "midi_learn.speed";
         static const char* kMidiLearnAmount        = "midi_learn.amount";
         static const char* kMidiLearnFormant       = "midi_learn.formant";
-        static const char* kMidiLearnReverbMix     = "midi_learn.reverb_mix";
-        static const char* kMidiLearnLeadSend      = "midi_learn.lead_send";
-        static const char* kMidiLearnPadSend       = "midi_learn.pad_send";
-        static const char* kMidiLearnDuckDepth     = "midi_learn.duck_depth";
+        static const char* kMidiLearnLeadRoom      = "midi_learn.lead_room_send";
+        static const char* kMidiLearnLeadHall      = "midi_learn.lead_hall_send";
+        static const char* kMidiLearnHarmonyRoom   = "midi_learn.harmony_room_send";
+        static const char* kMidiLearnHarmonyHall   = "midi_learn.harmony_hall_send";
+        static const char* kMidiLearnReverbDucking = "midi_learn.reverb_duck_depth";
         static const char* kMidiLearnOutputTrim    = "midi_learn.output_trim";
         static const char* kMidiLearnFlexTune      = "midi_learn.flex_tune";
         static const char* kMidiLearnHumanize      = "midi_learn.humanize";
@@ -594,14 +599,15 @@ namespace ovt
             { kTooltipUpwardCompEn, "Enable/disable upward compression on input audio (lifts quiet passages before tuning)." },
             { kTooltipEffectsMore, "Show Formant and De-Esser" },
             { kTooltipHarmonyMore, "Show / hide the Harmony knobs (Volume, Blend, Formant, Attack)" },
-            { kTooltipReverbMore, "Show / hide the Reverb send room (Lead Send, Harmony Send, Duck)" },
+            { kTooltipReverbMore, "Show / hide the Harmony column and the Ducking amount; the Lead column stays visible." },
             { kTooltipUpwardCompAmount, "Amount of upward compression applied to quiet passages." },
             { kLabelThreshold,   "Threshold" },
             { kTooltipThreshold, "Noise gate threshold in dB. Signals below this level are muted." },
             { kLabelReverbBtn,      "Lead" },          // the room is named for the voice it carries, not for the effect
             { kLabelPadReverbBtn,   "Harmony" },
-            { kLabelLeadSendBtn,    "Lead Send" },
-            { kLabelPadSendBtn,     "Harmony Send" },
+            { kLabelRoom,           "Room" },
+            { kLabelHall,           "Hall" },
+
             { kLabelDuckBtn,        "Ducking" },
             { kLabelLimiterBtn,     "Limit" },
             { kLabelDouble,         "Doubler" },
@@ -703,13 +709,13 @@ namespace ovt
             { kLabelDelayDivision,      "Division" },
             { kLabelDelayMix,           "Mix" },
             { kLabelDelayFeedback,      "Feedback" },
-            { kTooltipReverbEn,       "Enable/disable reverb effect." },
-            { kTooltipReverbMix,      "Lead reverb mix: at 0 the voice stays as it is, at full mix it is REPLACED by the room. It is a crossfade, so turning it up does not stack loudness on top of your voice." },
-            { kTooltipPadReverbEn,    "Enable/disable the harmony reverb: the second reverb room, sitting on the harmony voices. It is separate from the lead reverb, wide and heavily damped, so the stack gains amplitude without a long metallic ring." },
-            { kTooltipPadReverbMix,   "Harmony reverb wet mix: at 0 the harmonies stay dry, at full mix each voice is replaced by its room." },
-            { kTooltipLeadSend,       "Amount of the corrected lead sent to the shared room. The lead dry stays at full level: a send only adds." },
-            { kTooltipPadSend,        "Amount of the blended harmony sent to the same room, so the stack rings in one space." },
-            { kTooltipDuckDepth,      "How far the room's return follows the noise gate: at full depth the reverb falls to silence when the gate closes. The return is also trimmed by about 3 dB so it cannot drive the limiter on its own." },
+            { kTooltipLeadReverbEn,    "Lead reverb on/off. On applies the Room and Hall amounts already set on the two knobs below - they start on a balanced setting, so you can sing straight away. Off sends nothing: the voice stays completely dry." },
+            { kTooltipHarmonyReverbEn, "Harmony reverb on/off. The harmony voices have their own Room and Hall amounts, separate from the lead, so the stack can sit in a wider space than the lead voice." },
+            { kTooltipLeadRoom,        "How much of the lead goes into the short room (about 1.2 s of tail). It adds a close, natural space; the dry voice stays at full level, so turning it up never makes the voice quieter." },
+            { kTooltipLeadHall,        "How much of the lead goes into the long hall (about 2.4 s). This is the room of the older versions: this knob alone already gives you the reverb you know, adding a tail behind the voice instead of replacing it." },
+            { kTooltipHarmonyRoom,     "How much of the harmony voices goes into the short room. A little here keeps the stack in the same close space as the lead." },
+            { kTooltipHarmonyHall,     "How much of the harmony voices goes into the long hall. The stack takes it well: it gains size under the lead instead of fighting it." },
+            { kTooltipReverbDucking,   "How far the room steps back while you sing: at 0 it never moves, at 100 % it drops by up to 12 dB when the voice is loud. The words stay clear without a gate cutting the tail. It follows the corrected lead, not the noise gate." },
             { kTooltipLimiterEn,      "Peak limiter on the output. Non-lookahead, so it adds no latency: it catches peaks above -1.7 dBFS instead of letting them clip." },
             { kTooltipOutputTrim,     "Output trim in dB: the gain applied before the limiter. Use it to fit the plugin into a mix without touching the harmony balance." },
             { kTooltipOutputMeter,    "Bar: the level that leaves the plugin. Red: how much the limiter is pulling it down. Trim: your output trim." },
@@ -812,10 +818,11 @@ namespace ovt
             { kMidiLearnSpeed,        "Speed" },
             { kMidiLearnAmount,       "Amount" },
             { kMidiLearnFormant,      "Formant" },
-            { kMidiLearnReverbMix,    "Reverb Mix" },
-            { kMidiLearnLeadSend,     "Lead Send" },
-            { kMidiLearnPadSend,      "Harmony Send" },
-            { kMidiLearnDuckDepth,    "Duck Depth" },
+            { kMidiLearnLeadRoom,      "Lead Room" },
+            { kMidiLearnLeadHall,      "Lead Hall" },
+            { kMidiLearnHarmonyRoom,   "Harmony Room" },
+            { kMidiLearnHarmonyHall,   "Harmony Hall" },
+            { kMidiLearnReverbDucking, "Reverb Ducking" },
             { kMidiLearnOutputTrim,   "Output Trim" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanize" },
@@ -969,14 +976,15 @@ namespace ovt
             { kTooltipUpwardCompEn, "Active/desactive la compression vers le haut sur l'entree (remonte les passages faibles avant le tuning)." },
             { kTooltipEffectsMore, "Afficher Formant et De-Esser" },
             { kTooltipHarmonyMore, "Afficher / masquer les boutons Harmony (Volume, Blend, Formant, Attack)" },
-            { kTooltipReverbMore, "Afficher / masquer la salle d'envoi de la réverb (Envoi lead, Envoi harmonies, Duck)" },
+            { kTooltipReverbMore, "Afficher / masquer la colonne Harmonie et le réglage Ducking ; la colonne Lead reste visible." },
             { kTooltipUpwardCompAmount, "Intensite de la compression vers le haut sur les passages faibles." },
             { kLabelThreshold,   "Seuil" },
             { kTooltipThreshold, "Seuil du noise gate en dB. Les signaux en dessous sont coupes." },
             { kLabelReverbBtn,      "Lead" },          // jargon kept in French: the room carries the lead voice
             { kLabelPadReverbBtn,   "Harmonie" },
-            { kLabelLeadSendBtn,    "Envoi lead" },
-            { kLabelPadSendBtn,     "Envoi harmonies" },
+            { kLabelRoom,           "Salle" },
+            { kLabelHall,           "Hall" },
+
             { kLabelDuckBtn,        "Ducking" },
             { kLabelLimiterBtn,     "Limiteur" },
             { kLabelDouble,         "Doubler" },
@@ -1079,13 +1087,13 @@ namespace ovt
             { kLabelDelayDivision,      "Division" },
             { kLabelDelayMix,           "Mélange" },
             { kLabelDelayFeedback,      "Retour" },
-            { kTooltipReverbEn,       "Activer/désactiver l'effet de réverbération." },
-            { kTooltipReverbMix,      "Mix de réverb du lead : à 0 la voix reste telle quelle, à fond elle est REMPLACÉE par la salle. C'est un fondu enchaîné, donc monter le potant n'ajoute pas de volume par-dessus la voix." },
-            { kTooltipPadReverbEn,    "Active/désactive la réverb des harmonies : la seconde salle de réverb, posée sur les voix d'harmonie. Elle est séparée de la réverb du lead, large et fortement amortie : la pile gagne de l'amplitude sans longue résonance métallique." },
-            { kTooltipPadReverbMix,   "Mix de réverb des harmonies : à 0 elles restent sèches, à fond chaque voix est remplacée par sa salle." },
-            { kTooltipLeadSend,       "Quantité du lead corrigé envoyée à la salle de réverb partagée. Le lead sec reste à plein niveau : l'envoi ajoute, il ne retire rien." },
-            { kTooltipPadSend,        "Quantité d'harmonie mélangée envoyée dans la même salle : la pile sonne dans un seul espace." },
-            { kTooltipDuckDepth,      "Profondeur du suivi de la porte par le retour de la salle : à fond, la réverb se tait quand la porte se ferme. Le retour est aussi atténué d'environ 3 dB pour qu'il ne déclenche pas le limiteur tout seul." },
+            { kTooltipLeadReverbEn,    "Réverb du lead : on/off. Sur On, les deux réglages déjà positionnés sous le bouton (Room et Hall) s'appliquent tout de suite : ils partent d'un réglage prêt à chanter, donc tu peux chanter immédiatement. Sur Off, rien n'est envoyé : la voix reste totalement sèche." },
+            { kTooltipHarmonyReverbEn, "Réverb des harmonies : on/off. Les voix d'harmonie ont leurs propres réglages Room et Hall, séparés de ceux du lead : la pile peut tenir dans un espace plus large que la voix principale." },
+            { kTooltipLeadRoom,        "Quantité de lead envoyée dans la petite salle (environ 1,2 s de réverbération). Elle ajoute un espace proche et naturel ; la voix sèche reste à plein niveau, donc monter ce réglage ne baisse jamais la voix." },
+            { kTooltipLeadHall,        "Quantité de lead envoyée dans le grand hall (environ 2,4 s). C'est la réverb des anciennes versions : ce seul réglage redonne le son que tu connais, en ajoutant une queue derrière la voix au lieu de la remplacer." },
+            { kTooltipHarmonyRoom,     "Quantité d'harmonie envoyée dans la petite salle. Un peu suffit pour garder la pile dans le même espace proche que le lead." },
+            { kTooltipHarmonyHall,     "Quantité d'harmonie envoyée dans le grand hall. La pile le supporte très bien : elle gagne de la taille sous le lead au lieu de le concurrencer." },
+            { kTooltipReverbDucking,   "De combien la réverb s'efface quand tu chantes : à 0 elle ne bouge pas, à 100 % elle baisse jusqu'à 12 dB quand la voix est forte. Les paroles restent nettes sans qu'une porte coupe la queue. Le suivi se fait sur le lead corrigé, pas sur la noise gate." },
             { kTooltipLimiterEn,      "Limiteur de crête sur la sortie. Sans anticipation, donc il n'ajoute aucune latence : il retient les crêtes au-dessus de -1,7 dBFS au lieu de les faire crisper." },
             { kTooltipOutputTrim,     "Trim de sortie en dB : le gain appliqué avant le limiteur. Il ajuste le niveau du plugin dans le mix sans toucher l'équilibre des harmonies." },
             { kTooltipOutputMeter,    "Barre : le niveau qui sort du plugin. Rouge : la réduction que le limiteur lui applique. Trim : votre trim de sortie." },
@@ -1188,10 +1196,11 @@ namespace ovt
             { kMidiLearnSpeed,        "Vitesse" },
             { kMidiLearnAmount,       "Intensite" },
             { kMidiLearnFormant,      "Formant" },
-            { kMidiLearnReverbMix,    "Mix Reverb" },
-            { kMidiLearnLeadSend,     "Envoi lead" },
-            { kMidiLearnPadSend,      "Envoi harmonies" },
-            { kMidiLearnDuckDepth,    "Profondeur duck" },
+            { kMidiLearnLeadRoom,      "Salle lead" },
+            { kMidiLearnLeadHall,      "Hall lead" },
+            { kMidiLearnHarmonyRoom,   "Salle harmonies" },
+            { kMidiLearnHarmonyHall,   "Hall harmonies" },
+            { kMidiLearnReverbDucking, "Ducking réverb" },
             { kMidiLearnOutputTrim,   "Trim sortie" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humaniser" },
@@ -1345,14 +1354,15 @@ namespace ovt
             { kTooltipUpwardCompEn, "Upward-Kompression am Eingang aktivieren/deaktivieren (hebt leise Passagen vor dem Tuning an)." },
             { kTooltipEffectsMore, "Formant und De-Esser anzeigen" },
             { kTooltipHarmonyMore, "Harmony-Regler (Volume, Blend, Formant, Attack) ein-/ausblenden" },
-            { kTooltipReverbMore, "Senderraum der Reverb ein-/ausblenden (Lead-Send, Harmonie-Send, Ducking)" },
+            { kTooltipReverbMore, "Harmonie-Spalte und Ducking-Menge ein-/ausblenden; die Lead-Spalte bleibt sichtbar." },
             { kTooltipUpwardCompAmount, "Staerke der Upward-Kompression auf leisen Passagen." },
             { kLabelThreshold,   "Schwelle" },
             { kTooltipThreshold, "Rauschtor-Schwelle in dB. Signale unter diesem Wert werden unterdrueckt." },
             { kLabelReverbBtn,      "Lead" },          // the -Hall suffix is gone: the room is named for its voice
             { kLabelPadReverbBtn,   "Harmonie" },
-            { kLabelLeadSendBtn,    "Lead-Send" },
-            { kLabelPadSendBtn,     "Harmonie-Send" },
+            { kLabelRoom,           "Raum" },
+            { kLabelHall,           "Hall" },
+
             { kLabelDuckBtn,        "Ducking" },
             { kLabelLimiterBtn,     "Limit" },
             { kLabelDouble,         "Doubler" },
@@ -1456,13 +1466,13 @@ namespace ovt
             { kLabelDelayDivision,      "Teilung" },
             { kLabelDelayMix,           "Mix" },
             { kLabelDelayFeedback,      "Feedback" },
-            { kTooltipReverbEn,       "Hall-Effekt aktivieren/deaktivieren." },
-            { kTooltipReverbMix,      "Lead-Hall-Anteil: bei 0 bleibt die Stimme unverändert, bei voller Stellung wird sie durch den Raum ERSETZT. Es ist ein Crossfade – der Regler stapelt keine Lautstärke über die Stimme." },
-            { kTooltipPadReverbEn,    "Aktiviert/deaktiviert den Harmonie-Hall: der zweite Hall-Raum, auf den Harmoniestimmen. Er ist getrennt von der Lead-Reverb, breit und stark gedämpft – der Stapel gewinnt Lautstärke ohne lange metallische Resonanz." },
-            { kTooltipPadReverbMix,   "Hall-Anteil der Harmoniestimmen: bei 0 bleiben sie trocken, bei voller Stellung wird jede Stimme durch ihren Raum ersetzt." },
-            { kTooltipLeadSend,       "Anteil des korrigierten Lead, der in den geteilten Hall-Raum gesendet wird. Der trockene Lead bleibt auf voller Höhe: ein Send fügt nur hinzu." },
-            { kTooltipPadSend,        "Anteil der gemischten Harmoniestimmen, die in denselben Raum gesendet werden – der Stapel klingt in einem einzigen Raum." },
-            { kTooltipDuckDepth,      "Wie stark der Rückkanal dem Noise Gate folgt: bei voller Tiefe wird der Hall stumm, sobald das Gate schließt. Der Rückkanal wird zusätzlich um ca. 3 dB gesenkt, damit er den Limiter nicht allein auslöst." },
+            { kTooltipLeadReverbEn,    "Lead-Reverb ein/aus. Bei „Ein“ gelten sofort die beiden darunter eingestellten Mengen (Raum und Hall): sie starten auf einer fertigen Balance, du kannst also direkt singen. Bei „Aus“ wird nichts gesendet, die Stimme bleibt völlig trocken." },
+            { kTooltipHarmonyReverbEn, "Harmonie-Reverb ein/aus. Die Harmoniestimmen haben eigene Raum- und Hall-Mengen, getrennt vom Lead: der Stapel kann in einem größeren Raum stehen als die Hauptstimme." },
+            { kTooltipLeadRoom,        "Wie viel vom Lead in den kurzen Raum geht (ca. 1,2 s Nachhall). Er fügt einen nahen, natürlichen Raum hinzu; die trockene Stimme bleibt auf vollem Pegel, lauter stellen macht die Stimme also nie leiser." },
+            { kTooltipLeadHall,        "Wie viel vom Lead in den langen Hall geht (ca. 2,4 s). Das ist der Raum der früheren Versionen: dieser eine Regler gibt dir den gewohnten Klang zurück und hängt eine Fahne hinter die Stimme, statt sie zu ersetzen." },
+            { kTooltipHarmonyRoom,     "Wie viel von den Harmoniestimmen in den kurzen Raum geht. Ein wenig hält den Stapel im gleichen nahen Raum wie den Lead." },
+            { kTooltipHarmonyHall,     "Wie viel von den Harmoniestimmen in den langen Hall geht. Der Stapel verträgt das gut: er gewinnt Größe unter dem Lead, statt mit ihm zu konkurrieren." },
+            { kTooltipReverbDucking,   "Wie weit der Raum beim Singen zurückgeht: bei 0 bleibt er, wie er ist, bei 100 % fällt er bis zu 12 dB ab, wenn die Stimme laut ist. Die Wörter bleiben klar, ohne dass ein Gate die Fahne abschneidet. Gesteuert wird vom korrigierten Lead, nicht vom Noise Gate." },
             { kTooltipLimiterEn,      "Peak-Limiter am Ausgang. Ohne Lookahead, also ohne zusätzliche Latenz: Er fängt Peaks über -1,7 dBFS ab, statt sie ins Clipping laufen zu lassen." },
             { kTooltipOutputTrim,     "Output-Trim in dB: die Verstärkung vor dem Limiter. Passt das Plugin in den Mix an, ohne die Harmonie-Balance zu ändern." },
             { kTooltipOutputMeter,    "Balken: der Pegel, der das Plugin verlässt. Rot: wie weit der Limiter ihn absenkt. Trim: dein Output-Trim." },
@@ -1563,10 +1573,11 @@ namespace ovt
             { kMidiLearnSpeed,        "Geschwindigkeit" },
             { kMidiLearnAmount,       "Intensitaet" },
             { kMidiLearnFormant,      "Formant" },
-            { kMidiLearnReverbMix,    "Reverb-Mix" },
-            { kMidiLearnLeadSend,     "Lead-Send" },
-            { kMidiLearnPadSend,      "Harmonie-Send" },
-            { kMidiLearnDuckDepth,    "Duck-Tiefe" },
+            { kMidiLearnLeadRoom,      "Lead-Raum" },
+            { kMidiLearnLeadHall,      "Lead-Hall" },
+            { kMidiLearnHarmonyRoom,   "Harmonie-Raum" },
+            { kMidiLearnHarmonyHall,   "Harmonie-Hall" },
+            { kMidiLearnReverbDucking, "Reverb-Ducking" },
             { kMidiLearnOutputTrim,   "Output-Trim" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanisieren" },
@@ -1720,14 +1731,15 @@ namespace ovt
             { kTooltipUpwardCompEn, "Activar/desactivar la compression ascendente en la entrada (eleva los pasajes suaves antes del tuning)." },
             { kTooltipEffectsMore, "Mostrar Formant y De-Esser" },
             { kTooltipHarmonyMore, "Mostrar / ocultar los botones de Harmony (Volume, Blend, Formant, Attack)" },
-            { kTooltipReverbMore, "Mostrar / ocultar la sala de envío de la reverb (Envío lead, Envío armonías, Duck)" },
+            { kTooltipReverbMore, "Mostrar / ocultar la columna Armonía y la cantidad Ducking; la columna Lead sigue visible." },
             { kTooltipUpwardCompAmount, "Cantidad de compression ascendente en los pasajes suaves." },
             { kLabelThreshold,   "Umbral" },
             { kTooltipThreshold, "Umbral de la puerta de ruido en dB. Las senales por debajo se silencian." },
             { kLabelReverbBtn,      "Lead" },          // jargon kept in Spanish: the room carries the lead voice
             { kLabelPadReverbBtn,   "Armonías" },
-            { kLabelLeadSendBtn,    "Envío lead" },
-            { kLabelPadSendBtn,     "Envío armonías" },
+            { kLabelRoom,           "Sala" },
+            { kLabelHall,           "Hall" },
+
             { kLabelDuckBtn,        "Ducking" },
             { kLabelLimiterBtn,     "Limitador" },
             { kLabelDouble,         "Doblador" },
@@ -1831,13 +1843,13 @@ namespace ovt
             { kLabelDelayDivision,       "División" },
             { kLabelDelayMix,            "Mezcla" },
             { kLabelDelayFeedback,       "Feedback" },          // audio jargon, like Lead / Ducking / Gate: the full word needs 44 px where a half-column cell gives 36
-            { kTooltipReverbEn,       "Activar/desactivar efecto de reverberación." },
-            { kTooltipReverbMix,      "Mezcla de reverberación del lead: en 0 la voz queda intacta, al máximo es REMPLAZADA por la sala. Es un fundido cruzado: subir el potenciómetro no apila volumen sobre la voz." },
-            { kTooltipPadReverbEn,    "Activa/desactiva la reverberación de las armonías: la segunda sala de reverberación, sobre las voces de armonía. Separada de la del lead, ancha y muy amortiguada; la pila gana amplitud sin larga resonancia metálica." },
-            { kTooltipPadReverbMix,   "Mezcla de reverberación de las armonías: en 0 quedan secas, al máximo cada voz se reemplaza por su sala." },
-            { kTooltipLeadSend,       "Cantidad del lead corregido enviada a la sala compartida. El lead seco mantiene su nivel completo: un envío solo añade." },
-            { kTooltipPadSend,        "Cantidad de armonía mezclada enviada a la misma sala: la pila suena en un solo espacio." },
-            { kTooltipDuckDepth,      "Hasta qué punto la devolución de la sala sigue a la puerta de ruido: al máximo, la reverberación se calla cuando la puerta se cierra. La devolución baja además unos 3 dB para que no dispare el limitador por sí sola." },
+            { kTooltipLeadReverbEn,    "Reverb del lead: on/off. En On se aplican de inmediato las dos cantidades ya puestas en los mandos de abajo (Sala y Hall): vienen ajustadas para cantar, así que puedes empezar a cantar ya. En Off no se envía nada: la voz queda totalmente seca." },
+            { kTooltipHarmonyReverbEn, "Reverb de las armonías: on/off. Las voces de armonía tienen sus propias cantidades de Sala y Hall, separadas de las del lead: el coro puede sonar en un espacio más amplio que la voz principal." },
+            { kTooltipLeadRoom,        "Cuánto lead va a la sala corta (unos 1,2 s de cola). Añade un espacio cercano y natural; la voz seca se queda a nivel completo, así que subirlo nunca baja la voz." },
+            { kTooltipLeadHall,        "Cuánto lead va al hall largo (unos 2,4 s). Es la sala de las versiones anteriores: este mando solo ya devuelve el sonido que conoces, añadiendo cola detrás de la voz en lugar de sustituirla." },
+            { kTooltipHarmonyRoom,     "Cuánto de las armonías va a la sala corta. Un poco mantiene el coro en el mismo espacio cercano que el lead." },
+            { kTooltipHarmonyHall,     "Cuánto de las armonías va al hall largo. El coro lo aguanta bien: gana tamaño por debajo del lead en vez de competir con él." },
+            { kTooltipReverbDucking,   "Cuánto se retira la reverb mientras cantas: a 0 no se mueve, a 100 % baja hasta 12 dB cuando la voz es fuerte. Las palabras quedan claras sin que una puerta corte la cola. Sigue al lead corregido, no al noise gate." },
             { kTooltipLimiterEn,      "Limitador de picos en la salida. Sin anticipación, así que no añade latencia: retiene los picos por encima de -1,7 dBFS en lugar de dejarlos recortar." },
             { kTooltipOutputTrim,     "Trim de salida en dB: la ganancia aplicada antes del limitador. Ajusta el nivel del plugin en la mezcla sin tocar el equilibrio de las armonías." },
             { kTooltipOutputMeter,    "Barra: el nivel que sale del plugin. Rojo: cuánto lo baja el limitador. Trim: tu trim de salida." },
@@ -1938,10 +1950,11 @@ namespace ovt
             { kMidiLearnSpeed,        "Velocidad" },
             { kMidiLearnAmount,       "Intensidad" },
             { kMidiLearnFormant,      "Formante" },
-            { kMidiLearnReverbMix,    "Mix Reverb" },
-            { kMidiLearnLeadSend,     "Envío lead" },
-            { kMidiLearnPadSend,      "Envío armonías" },
-            { kMidiLearnDuckDepth,    "Profundidad duck" },
+            { kMidiLearnLeadRoom,      "Sala lead" },
+            { kMidiLearnLeadHall,      "Hall lead" },
+            { kMidiLearnHarmonyRoom,   "Sala armonías" },
+            { kMidiLearnHarmonyHall,   "Hall armonías" },
+            { kMidiLearnReverbDucking, "Ducking reverb" },
             { kMidiLearnOutputTrim,   "Trim de salida" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "Humanizar" },
@@ -2095,14 +2108,15 @@ namespace ovt
             { kTooltipUpwardCompEn, "入力のアップワードコンプレッションを有効/無効にする（チューニング前に小さな音を持ち上げる）。" },
             { kTooltipEffectsMore, "フォルマントとディエッサーを表示" },
             { kTooltipHarmonyMore, "Harmonyノブ（Volume、Blend、Formant、Attack）の表示 / 非表示を切り替えます" },
-            { kTooltipReverbMore, "リバーブの送り部屋（リード送り、ハーモニー送り、ダック）を表示 / 非表示に切り替えます" },
+            { kTooltipReverbMore, "ハモリ列とダッキング量の表示/非表示を切り替えます。リード列は表示されたままです。" },
             { kTooltipUpwardCompAmount, "小さな音に対するアップワードコンプレッションの量。" },
             { kLabelThreshold,   "しきい値" },
             { kTooltipThreshold, "ノイズゲートのしきい値（dB）。このレベル以下の信号はミュートされます。" },
             { kLabelReverbBtn,      "リード" },          // the room is named for the voice it carries
             { kLabelPadReverbBtn,   "ハーモニー" },
-            { kLabelLeadSendBtn,    "リード送り" },
-            { kLabelPadSendBtn,     "ハーモニー送り" },
+            { kLabelRoom,           "ルーム" },
+            { kLabelHall,           "ホール" },
+
             { kLabelDuckBtn,        "ダッキンィ" },
             { kLabelLimiterBtn,     "リミッター" },
             { kLabelDouble,         "ダブラー" },
@@ -2205,13 +2219,13 @@ namespace ovt
             { kLabelDelayDivision,      "ディヴィジョン" },
             { kLabelDelayMix,           "ミックス" },
             { kLabelDelayFeedback,      "フィードバック" },
-            { kTooltipReverbEn,       "リバーブ効果の有効/無効。" },
-            { kTooltipReverbMix,      "リード・リバーブのミックス：0 では音声のまま、最大では音声が部屋に「置き換わります」。クロスフェードなので、上げても音声の上に音量を重ねるわけではありません。" },
-            { kTooltipPadReverbEn,    "ハーモニー・リバーブのオン/オフ：ハーモニー声に掛ける第二のリバーブ部屋です。リード用とは別で、広く強く減衰しています。スタックは音量を得ますが、長い金属的な共鳴は残しません。" },
-            { kTooltipPadReverbMix,   "ハーモニー・リバーブのミックス量：0 ではドライのまま、最大では各声が部屋に置き換わります。" },
-            { kTooltipLeadSend,       "補正済みリードを共有リバーブ部屋へ送る量。リードのドライは満レベルのまま、送りは加算のみです。" },
-            { kTooltipPadSend,        "ブレンドしたハーモニーを同じ部屋へ送る量。スタックはひとつの空間で鳴ります。" },
-            { kTooltipDuckDepth,      "部屋の戻りがノイズゲートに従う深さ。最大では、ゲートが閉じればリバーブは無音になります。戻りは約 3 dB 減衰しており、それ単独でリミッターを作動させることはありません。" },
+            { kTooltipLeadReverbEn,    "リードのリバーブのオン/オフ。オンにすると下の2つのツマミ（ルームとホール）の値がそのまま効きます。最初から歌いやすい値に設定してあるので、すぐに歌えます。オフでは何も送られず、声は完全にドライのままです。" },
+            { kTooltipHarmonyReverbEn, "ハモリのリバーブのオン/オフ。ハモリにはリードとは別のルーム/ホールの量があり、リードより広い空間に置けます。" },
+            { kTooltipLeadRoom,        "リードを短いルーム（残響約1.2秒）へ送る量。近くて自然な空間が加わります。ドライの声は下がらないので、上げても声が小さくなることはありません。" },
+            { kTooltipLeadHall,        "リードを長いホール（約2.4秒）へ送る量。以前のバージョンのリバーブと同じ空間で、このツマミだけで慣れた音に戻せます。声を置き換えず、後ろに余韻を足します。" },
+            { kTooltipHarmonyRoom,     "ハモリを短いルームへ送る量。少しでリードと同じ近い空間にそろいます。" },
+            { kTooltipHarmonyHall,     "ハモリを長いホールへ送る量。ハモリはこれをよく受け止め、リードと張り合わずに下で厚みを出します。" },
+            { kTooltipReverbDucking,   "歌っている間だけリバーブをどれだけ下げるか。0では動かず、100%では声が大きいとき最大12dB下がります。ゲートで余韻を切らずに歌詞が明瞭になります。追従するのは補正後のリードで、ノイズゲートではありません。" },
             { kTooltipLimiterEn,      "出力のピーク・リミッター。先読みがないのでレイテンシは増えません。-1.7 dBFS を超えるピークをクリップ前に抑えます。" },
             { kTooltipOutputTrim,     "出力トリム（dB）：リミッターの前に掛かるゲイン。和声のバランスを変えずにプラグインのレベルをミックスに合わせます。" },
             { kTooltipOutputMeter,    "バー：プラグインから出ていくレベル。赤：リミッターが下げる量。トリム：出力トリム。" },
@@ -2312,10 +2326,11 @@ namespace ovt
             { kMidiLearnSpeed,        "スピード" },
             { kMidiLearnAmount,       "量" },
             { kMidiLearnFormant,      "フォルマント" },
-            { kMidiLearnReverbMix,    "リバーブミックス" },
-            { kMidiLearnLeadSend,     "リード送り" },
-            { kMidiLearnPadSend,      "ハーモニー送り" },
-            { kMidiLearnDuckDepth,    "ダック深度" },
+            { kMidiLearnLeadRoom,      "リード ルーム" },
+            { kMidiLearnLeadHall,      "リード ホール" },
+            { kMidiLearnHarmonyRoom,   "ハモリ ルーム" },
+            { kMidiLearnHarmonyHall,   "ハモリ ホール" },
+            { kMidiLearnReverbDucking, "リバーブ ダッキング" },
             { kMidiLearnOutputTrim,   "出力トリム" },
             { kMidiLearnFlexTune,     "FlexTune" },
             { kMidiLearnHumanize,     "人性化" },
@@ -2469,14 +2484,15 @@ namespace ovt
             { kTooltipUpwardCompEn,  "启用/禁用输入音频的向上压缩（在调音前提升较弱的段落）。" },
             { kTooltipEffectsMore, "显示共振峰和去寴音。" },
             { kTooltipHarmonyMore, "显示/隐藏 Harmony 旋钮（Volume、Blend、Formant、Attack）。" },
-            { kTooltipReverbMore, "显示/隐藏混响发送室（主声发送、和声发送、闪降）。" },
+            { kTooltipReverbMore, "显示 / 隐藏和声列和闪避量；主唱列保持可见。" },
             { kTooltipUpwardCompAmount, "应用于较弱段落的向上压缩量。" },
             { kLabelThreshold,      "阈值" },
             { kTooltipThreshold,    "噪声门阈值（dB）。低于此电平的信号将被静音。" },
             { kLabelReverbBtn,      "主唱" },          // lead term unified on 主唱: the room is named for the voice it carries
             { kLabelPadReverbBtn,   "和声" },
-            { kLabelLeadSendBtn,    "主唱发送" },
-            { kLabelPadSendBtn,     "和声发送" },
+            { kLabelRoom,           "房间" },
+            { kLabelHall,           "大厅" },
+
             { kLabelDuckBtn,        "闪降" },
             { kLabelLimiterBtn,     "限制器" },
             { kLabelDouble,         "加倍器" },
@@ -2579,13 +2595,13 @@ namespace ovt
             { kLabelDelayDivision,      "分音" },
             { kLabelDelayMix,           "混合" },
             { kLabelDelayFeedback,      "反馈" },
-            { kTooltipReverbEn,       "启用/禁用混响效果。" },
-            { kTooltipReverbMix,      "主声混响混合量：为 0 时声音保持原样，满值时声音被房间“替换”。这是交叉淡变，拧大并不是在干声上叠加音量。" },
-            { kTooltipPadReverbEn,    "开关和声混响：第二间混响房间，架在和声声部上。它与主声混响分开，宽而重阻尼；和声堆叠获得音量，不会留下长长的金属共鸣。" },
-            { kTooltipPadReverbMix,   "和声声部的混响混合量：为 0 时保持干声，满值时每个声部被其房间替换。" },
-            { kTooltipLeadSend,       "送入共享混响房间的主声量（已校正）。主声干声保持满电平：发送只做叠加。" },
-            { kTooltipPadSend,        "送入同一房间的混合和声量：堆叠在同一个空间里发声。" },
-            { kTooltipDuckDepth,      "房间返回跟随噪声门的深度：满深度时，门关闭则混响静音。返回信号另衰减约 3 dB，因此它不会单独触发限制器。" },
+            { kTooltipLeadReverbEn,    "主唱的混响开关。打开后，下面两个旋钮（房间和大厅）的数值立即生效——它们已经预设为适合演唱的数值，打开即可开唱。关闭时不发送任何信号，人声保持完全干声。" },
+            { kTooltipHarmonyReverbEn, "和声的混响开关。和声有自己的房间/大厅数值，与主唱分开，因此和声可以比主唱处在更宽的空间里。" },
+            { kTooltipLeadRoom,        "主唱送入短房间（约 1.2 秒余音）的量。它增加近处自然的空间感；干声保持满电平，调大不会让人声变小。" },
+            { kTooltipLeadHall,        "主唱送入长大厅（约 2.4 秒）的量。这就是旧版本的混响空间，只调这一个旋钮就能找回熟悉的声音；它给声音加尾音，而不是替换声音。" },
+            { kTooltipHarmonyRoom,     "和声送入短房间的量。稍微加一点就能让和声和主唱处在同一个近处空间。" },
+            { kTooltipHarmonyHall,     "和声送入长大厅的量。和声很吃这一项：它在主唱下方获得体积感，而不会和主唱抢位置。" },
+            { kTooltipReverbDucking,   "演唱时混响后退多少：0 时完全不动，100% 时人声越大最多下降 12 dB。这样歌词清楚，又不用门限把余音切断。跟随的是校正后的主唱，不是噪声门。" },
             { kTooltipLimiterEn,      "输出峰值限制器。无预读，因此不增加延迟；它把超过 -1.7 dBFS 的峰值收住，而不是让其削波。" },
             { kTooltipOutputTrim,     "输出微调（dB）：限制器之前的增益。用于让插件贴合混音，而不改变和声平衡。" },
             { kTooltipOutputMeter,    "条：离开插件的电平。红色：限制器压下的量。微调：你的输出微调。" },
@@ -2686,10 +2702,11 @@ namespace ovt
             { kMidiLearnSpeed,        "速度" },
             { kMidiLearnAmount,       "量" },
             { kMidiLearnFormant,      "共振峰" },
-            { kMidiLearnReverbMix,    "混响混合" },
-            { kMidiLearnLeadSend,     "主声发送" },
-            { kMidiLearnPadSend,      "和声发送" },
-            { kMidiLearnDuckDepth,    "闪降深度" },
+            { kMidiLearnLeadRoom,      "主唱房间" },
+            { kMidiLearnLeadHall,      "主唱大厅" },
+            { kMidiLearnHarmonyRoom,   "和声房间" },
+            { kMidiLearnHarmonyHall,   "和声大厅" },
+            { kMidiLearnReverbDucking, "混响闪避" },
             { kMidiLearnOutputTrim,   "输出微调" },
             { kMidiLearnFlexTune,     "灵活调音" },
             { kMidiLearnHumanize,     "人性化" },
