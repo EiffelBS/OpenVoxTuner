@@ -76,11 +76,14 @@ public:
             // 3) jump to 300 Hz ~200 ms
             for (int b = 0; b < 20; ++b) feedBlock (300.0f, 300.0);
 
-            // Still write the count to a file for traceability (relative to
-            // the working directory the test runner is launched from).
+            // Still write the count to a file for traceability. The path is in the
+            // system temp directory on purpose: the runner is usually launched from
+            // the source tree (CI runs it from the repo root), so a relative path
+            // would dirty the checkout - test/dsp/click_count.txt is gitignored now
+            // precisely because it kept reappearing as a modified file.
             {
-                auto f = juce::File::getCurrentWorkingDirectory()
-                             .getChildFile ("test/dsp/click_count.txt");
+                auto f = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                             .getChildFile ("OpenVoxTunerTests_click_count.txt");
                 f.deleteFile();
                 f.create();
                 f.replaceWithText ("clickCount=" + juce::String (clickCount)
