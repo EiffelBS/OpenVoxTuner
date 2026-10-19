@@ -407,8 +407,12 @@ POSTINSTALL
 done
 
 # Emit the companion parent choice (with its children nested) once all
-# companion formats have been packaged.
-if [[ -n "${OVT_COMPANION_PARENT_ID:-}" ]]; then
+# companion formats have been packaged. A Standalone-only --formats list yields no
+# companion formats at all (the companion has no Standalone build), and a choice
+# with no children would be invalid - so the group is emitted only when it has
+# children. That guard also keeps `set -u` happy: bash 3.2 (the system bash on
+# macOS) treats "${arr[@]}" on an empty array as an unbound variable.
+if [[ -n "${OVT_COMPANION_PARENT_ID:-}" && ${#OVT_COMPANION_CHILDREN[@]} -gt 0 ]]; then
   child_xml=""
   outline_xml="        <line choice=\"${OVT_COMPANION_PARENT_ID}\">${NL}"
   for child in "${OVT_COMPANION_CHILDREN[@]}"; do
