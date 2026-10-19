@@ -303,8 +303,9 @@ it would let the tail run twice.
 
 ### Activity taps (what each path carried)
 
-The editor shows one activity dot per Effects column and per Reverb voice column, sized by a
-**peak read at the exit of the path that column or room acts on**, so the dot answers
+The editor shows one activity dot per Effects column and two per Reverb voice column (both
+sends of a voice watch the same path), sized by a **peak read at the exit of the path that
+column or room acts on**, so the dot answers
 "is anything travelling here" - a question no control value can answer, because a mix
 at 0 % and a disabled stage look identical on screen. Three numbers are written on the
 audio thread, once per block, and read by the editor timer at ~30 Hz:

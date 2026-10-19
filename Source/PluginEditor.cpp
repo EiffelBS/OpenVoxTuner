@@ -3652,8 +3652,8 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // One voice column: the power switch carrying the voice name, then its two send amounts, each under the caption
     // that names the room it feeds. The switch keeps the knobs' values (greyed while off), so switching a voice off
-    // and back on needs no re-dial. The voice's activity dot rides its HALL knob, the amount that places the voice in
-    // the space; the ROOM knob is a plain dial, because a second dot in one column would report the same path twice.
+    // and back on needs no re-dial. BOTH amounts carry the voice's activity dot: they send the same voice to two
+    // rooms, so a dot on one knob only would read as "this other amount carries no signal".
     auto placeVoiceColumn = [&] (juce::Rectangle<int> col, juce::ToggleButton& toggle,
                                  juce::Label& roomLabel, juce::Slider& roomKnob,
                                  juce::Label& hallLabel, juce::Slider& hallKnob)
@@ -3984,7 +3984,9 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     saturationDriveSlider.setActivityLevel (modulePeak (saturationEnableButton.getToggleState(),  pathState.masterPeak));    // Saturation: the master path
     delayMixSlider.setActivityLevel (modulePeak (delayEnableButton.getToggleState(),               pathState.leadPeak));      // Delay: the lead path
     leadHallSlider.setActivityLevel (modulePeak (leadReverbEnableButton.getToggleState(),          pathState.leadPeak));      // Lead -> HALL: the lead path
+    leadRoomSlider.setActivityLevel (modulePeak (leadReverbEnableButton.getToggleState(),          pathState.leadPeak));      // Lead -> ROOM: the lead path
     harmonyHallSlider.setActivityLevel (modulePeak (harmonyReverbEnableButton.getToggleState(),    pathState.harmonyPeak));   // Harmony -> HALL: the harmony path
+    harmonyRoomSlider.setActivityLevel (modulePeak (harmonyReverbEnableButton.getToggleState(),    pathState.harmonyPeak));   // Harmony -> ROOM: the harmony path
 
     // Output Limit's trim is deliberately NOT gated by limiter_enable - the trim stays live
     // with the limiter off (see the enable block below) - so its dot keeps reporting the

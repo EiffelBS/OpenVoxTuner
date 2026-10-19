@@ -344,14 +344,16 @@ private:
     // back on needs no re-dial. The knobs start at the "ready to sing" amounts from
     // ReverbTuning.h, so the FIRST switch-on already applies a balanced pair.
     ebs::PowerToggle   leadReverbEnableButton;
-    // Each voice carries its dot in its own HALL knob, the amount that places the voice.
+    // BOTH amounts of a voice carry the dot: they watch the same path (the voice being sent),
+    // and showing it on one knob only would make the other look like it carries no signal.
+    // Two dots reporting one path is honest here -- each knob is a send of that same voice.
     ebs::ActivityKnob  leadHallSlider;      // lead -> HALL
-    juce::Slider       leadRoomSlider;      // lead -> ROOM
+    ebs::ActivityKnob  leadRoomSlider;      // lead -> ROOM
     juce::Label        leadRoomLabel;       // "Room"
     juce::Label        leadHallLabel;       // "Hall"
     ebs::PowerToggle   harmonyReverbEnableButton;
     ebs::ActivityKnob  harmonyHallSlider;   // harmony -> HALL
-    juce::Slider       harmonyRoomSlider;   // harmony -> ROOM
+    ebs::ActivityKnob  harmonyRoomSlider;   // harmony -> ROOM
     juce::Label        harmonyRoomLabel;
     juce::Label        harmonyHallLabel;
 

@@ -1,5 +1,25 @@
 # Changelog — 2026-10-20
 
+## Fix — Both reverb amounts carry the activity dot, not only the Hall ones
+
+Reported while testing the new Reverb frame: *"seuls les knobs Hall ont les points centraux
+(indicateur de signal), pas les Room, ce qui n'est pas logique."* The first build put the voice's
+dot on the Hall amount only — the reasoning was that a second dot in the same column would report
+the same path twice. On screen that read as a broken control instead: two amount knobs sit side by
+side under the same switch, one shows a signal disc and the other looks like a plain dial.
+
+- **`Source/PluginEditor.h`**: `leadRoomSlider` and `harmonyRoomSlider` are now
+  `ebs::ActivityKnob`s, like the Hall ones.
+- **`Source/PluginEditor.cpp`**: the timer feeds both amounts of a voice from the same path peak
+  (`leadPeak` for Lead Room + Lead Hall, `harmonyPeak` for Harmony Room + Harmony Hall), gated by
+  the voice switch like every other module dot.
+- Both dots of a voice therefore show the same level, which is honest: they are two sends of the
+  same voice. The Ducking knob still carries none — it is a return ramp, not a voice.
+- `docs/architecture/ui.md` and `docs/architecture/dsp-pipeline.md` updated (thirteen dots now;
+  two per Reverb voice column).
+
+Verification: full suite still 209 test groups, 0 failures; the UI change is visual only.
+
 ## Feature — The reverb is a shared ROOM + HALL bus pair again, with a sidechain ducker and two voice switches
 
 ### Context
