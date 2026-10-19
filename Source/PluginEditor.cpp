@@ -3987,21 +3987,32 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
         outputMeter.setTrim (meterState.trimDb);
 
     // The activity dots: one peak per signal path, read from the processor's own snapshot at
-    // this same 30 Hz. A dot answers "is this path carrying anything", which no knob position
-    // can - a harmony mix at 0 % and a pad room switched off look identical on screen. Each dot
-    // is fed every tick and repaints only when the disc it draws actually moved, so an idle
-    // plugin repaints nothing.
+    // this same 30 Hz. Each dot is fed every tick and repaints only when the disc it draws
+    // actually moved, so an idle plugin repaints nothing.
+    //
+    // A dot is gated by the power switch of the module it sits in - the same flag that greys
+    // its knob (see the enable block below). An off knob must not claim activity, or the cell
+    // reads "switched off" and "working" at once. A bare path peak answered "is this path
+    // carrying anything", which the output meter already tells the user; what only the dot can
+    // say is "this module is processing something right now".
     const auto pathState = processorRef.getPathActivityState();
-    noiseGateThresholdSlider.setActivityLevel (pathState.leadPeak);   // Gate: the lead path
-    upwardCompAmountSlider.setActivityLevel (pathState.leadPeak);     // Compressor: the lead path
-    doubleAmountSlider.setActivityLevel (pathState.leadPeak);         // Doubler: the lead path
-    formantSlider.setActivityLevel (pathState.leadPeak);              // Formant: the lead path
-    deessAmountSlider.setActivityLevel (pathState.leadPeak);          // De-Esser: the lead path
-    outputTrimSlider.setActivityLevel (pathState.masterPeak);         // Output Limit: the master path
-    saturationDriveSlider.setActivityLevel (pathState.masterPeak);   // Saturation: the master path
-    delayMixSlider.setActivityLevel (pathState.leadPeak);            // Delay: the lead path
-    reverbMixSlider.setActivityLevel (pathState.leadPeak);           // Lead room: the lead path
-    padReverbMixSlider.setActivityLevel (pathState.harmonyPeak);     // Harmony room: the harmony path
+    const auto modulePeak = [] (bool moduleOn, float pathPeak)
+    { return moduleOn ? pathPeak : 0.0f; };
+
+    noiseGateThresholdSlider.setActivityLevel (modulePeak (noiseGateEnableButton.getToggleState(),  pathState.leadPeak));    // Gate: the lead path
+    upwardCompAmountSlider.setActivityLevel (modulePeak (upwardCompEnableButton.getToggleState(),  pathState.leadPeak));      // Compressor: the lead path
+    doubleAmountSlider.setActivityLevel (modulePeak (doubleEnableButton.getToggleState(),          pathState.leadPeak));      // Doubler: the lead path
+    formantSlider.setActivityLevel (modulePeak (formantEnableButton.getToggleState(),              pathState.leadPeak));      // Formant: the lead path
+    deessAmountSlider.setActivityLevel (modulePeak (deessEnableButton.getToggleState(),            pathState.leadPeak));      // De-Esser: the lead path
+    saturationDriveSlider.setActivityLevel (modulePeak (saturationEnableButton.getToggleState(),  pathState.masterPeak));    // Saturation: the master path
+    delayMixSlider.setActivityLevel (modulePeak (delayEnableButton.getToggleState(),               pathState.leadPeak));      // Delay: the lead path
+    reverbMixSlider.setActivityLevel (modulePeak (reverbEnableButton.getToggleState(),             pathState.leadPeak));      // Lead room: the lead path
+    padReverbMixSlider.setActivityLevel (modulePeak (padReverbEnableButton.getToggleState(),       pathState.harmonyPeak));   // Harmony room: the harmony path
+
+    // Output Limit's trim is deliberately NOT gated by limiter_enable - the trim stays live
+    // with the limiter off (see the enable block below) - so its dot keeps reporting the
+    // master path, exactly as its knob keeps working.
+    outputTrimSlider.setActivityLevel (pathState.masterPeak);
 
     // The standalone tempo field follows the register: the menu's fixed values, a typed value and a
     // restored state all land in the same atomic, so the field must show what the timeline, the
