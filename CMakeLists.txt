@@ -293,6 +293,66 @@ if(NOT DEFINED OVT_UPDATE_INFO_URL)
     set(OVT_UPDATE_INFO_URL "https://raw.githubusercontent.com/EiffelBS/OpenVoxTuner/main/docs/releases/latest.json" CACHE STRING "Update info JSON URL")
 endif()
 
+# === Standalone re-signing (macOS microphone permission / TCC) ===============
+# macOS keys the microphone permission to the app's CODE IDENTITY, not to its
+# path. JUCE signs the Standalone ad-hoc, whose identity is the binary's own
+# cdhash: it changes on EVERY relink, so macOS treats each rebuild as a new app
+# and silently re-denies mic capture - the device opens and the samples stay
+# zero, with no permission prompt (observed on macOS 26/27 betas, see README).
+# Re-signing with a stable identity (Developer ID Application) keys TCC to
+# bundle-id + team instead: the prompt appears once and survives future
+# rebuilds. scripts/build_macos.sh does the same in its step 2b - this
+# POST_BUILD step exists so a plain `ninja` / `cmake --build` cycle does not
+# drop the grant again between scripted builds.
+#
+# Only the Standalone needs it: VST3/AU are loaded inside a DAW, and the host's
+# own TCC permission covers the audio input.
+#
+# OVT_CODESIGN_IDENTITY:
+#   "auto" (default) - the first "Developer ID Application" identity in the
+#                      keychain; nothing happens if the machine has none, so a
+#                      contributor without a certificate keeps JUCE's ad-hoc
+#                      signature (and simply re-accepts the mic prompt).
+#   <identity>       - used verbatim, e.g.
+#                      -DOVT_CODESIGN_IDENTITY="Developer ID Application: NAME (TEAM)"
+#   "-"              - explicit fresh ad-hoc signature, i.e. the old behaviour.
+# Set the same name in the environment to override it (as build_macos.sh does).
+# ===
+set(OVT_CODESIGN_IDENTITY "auto" CACHE STRING
+    "macOS: identity the Standalone is re-signed with after each link (\"auto\", \"-\", or an identity)")
+
+if(APPLE AND TARGET OpenVoxTuner_Standalone)
+    set(_ovt_sign_identity "${OVT_CODESIGN_IDENTITY}")
+
+    if(NOT _ovt_sign_identity AND DEFINED ENV{OVT_CODESIGN_IDENTITY})
+        set(_ovt_sign_identity "$ENV{OVT_CODESIGN_IDENTITY}")
+    endif()
+
+    if(_ovt_sign_identity STREQUAL "auto")
+        # `security` prints each identity as "<hash> \"Developer ID Application: ...\"".
+        execute_process(
+            COMMAND security find-identity -p codesigning -v
+            OUTPUT_VARIABLE _ovt_identity_list
+            ERROR_QUIET)
+        string(REGEX MATCH "\"Developer ID Application:[^\"]*\"" _ovt_identity_match "${_ovt_identity_list}")
+        string(REPLACE "\"" "" _ovt_sign_identity "${_ovt_identity_match}")
+    endif()
+
+    if(_ovt_sign_identity)
+        # TARGET_BUNDLE_DIR is the assembled .app, exists by the time POST_BUILD runs.
+        # --force is required: JUCE's linker signature is already in place.
+        add_custom_command(TARGET OpenVoxTuner_Standalone POST_BUILD
+            COMMAND codesign --force --sign "${_ovt_sign_identity}"
+                    "$<TARGET_BUNDLE_DIR:OpenVoxTuner_Standalone>"
+            COMMENT "Re-signing Standalone with '${_ovt_sign_identity}' (stable TCC mic permission)"
+            VERBATIM)
+    else()
+        message(STATUS "OpenVoxTuner: no Developer ID identity found - the Standalone "
+                       "keeps JUCE's ad-hoc signature and macOS re-asks for the mic "
+                       "after every rebuild (set OVT_CODESIGN_IDENTITY to fix).")
+    endif()
+endif()
+
 # --- Install targets (system-wide plugin deployment) ---
 # Allows `cmake --install build-mac` to deploy all plugin formats to
 # /Library/Audio/Plug-Ins/.  Use `--component <name>` to install just
