@@ -74,10 +74,44 @@ int main (int argc, char* argv[])
 
     // Command-line names select which registered suites to run, in the given
     // order, so a crash can be localized to a suite pair without rebuilding.
+    //
+    // The selection is done here rather than with UnitTestRunner::runTestsWithName():
+    // that helper (and the UnitTest::getTestsWithName behind it) only exists from
+    // JUCE 8.0.9, and this tree builds against a pinned JUCE whose newest usable
+    // tag keeps Font::getStringWidth (removed in 8.0.13) - so the runner API that
+    // arrived with 8.0.9 is not always available. Matching getName() over
+    // getAllTests() is exactly what getTestsWithName does internally, and it
+    // compiles on every version.
     if (argc > 1)
     {
+        juce::Array<juce::UnitTest*> selected;
+
         for (int a = 1; a < argc; ++a)
-            runner.runTestsWithName (juce::String (argv[a]));
+        {
+            const juce::String wanted (argv[a]);
+
+            // An empty name means "every suite", as getTestsWithName() reads it.
+            if (wanted.isEmpty())
+            {
+                selected.addArray (juce::UnitTest::getAllTests());
+                continue;
+            }
+
+            bool matched = false;
+
+            for (auto* test : juce::UnitTest::getAllTests())
+                if (test->getName() == wanted)
+                {
+                    selected.add (test);
+                    matched = true;
+                }
+
+            if (! matched)
+                std::cout << "[WARN] no test suite named '" << wanted << "'\n";
+        }
+
+        if (! selected.isEmpty())
+            runner.runTests (selected);
     }
     else
         runner.runAllTests();
