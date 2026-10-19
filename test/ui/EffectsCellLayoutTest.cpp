@@ -70,18 +70,21 @@ public:
                       << " px, label room " << labelRoom
                       << " px, with a dot beside it " << withDot << " px\n";
 
-            // Japanese and Chinese already overflow the label room TODAY, without any dot: the
-            // de-esser and saturation names are 61 and 56 px where the cell leaves 54. The
-            // overflow is measured exactly, so this test fails if it grows - and it fails too the
-            // day someone fixes it without updating these numbers and the note in the roadmap.
+            // Japanese and Chinese overflow the label room TODAY, without any dot: the de-esser and
+            // saturation names are 61 and 56 px where the cell leaves 54. The human ACCEPTED this
+            // (2026-10-19): both toggles carry a tooltip that names and explains the control
+            // (`tooltip.deesser_enable`, `tooltip.saturation_enable`, in all six locales), so the
+            // last glyphs may clip while the tooltip carries the meaning. The overflow is still
+            // measured exactly, so this test fails if it GROWS - a rename that eats another
+            // millimetre of the label is a decision someone has to make on purpose.
             const bool knownOverflow = (language == ovt::Language::Japanese
                                         || language == ovt::Language::Chinese);
             if (knownOverflow)
             {
                 const int expected = (language == ovt::Language::Japanese) ? 7 : 2;
                 expectEquals (labelNeed - labelRoom, expected,
-                              "the known label overflow stays exactly as wide as documented "
-                              "(fix: widen the cell to 81 px, shorten the label, or let it shrink)");
+                              "the accepted label overflow stays exactly as wide as documented "
+                              "(the tooltip carries the meaning; a wider overflow must be re-decided)");
             }
             else
             {
