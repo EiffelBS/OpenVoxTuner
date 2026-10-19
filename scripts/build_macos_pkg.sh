@@ -16,7 +16,7 @@ Options:
   --arch <archs>          macOS architectures (default: arm64;x86_64)
   --generator <gen>       CMake generator (default: Ninja)
   --formats <list>        Formats to include: VST3,AU,STANDALONE,CLAP (default: VST3,AU,STANDALONE)
-  --version <ver>         Package version (default: 0.1.1)
+  --version <ver>         Package version (default: OVT_VERSION from CMakeLists.txt)
   --identifier <id>       Package bundle identifier (default: com.eiffelbs.openvoxtuner)
   --output <path>         Final pkg file (default: dist/OpenVoxTuner-macOS.pkg)
   --sign-identity <id>   codesign the bundles (Developer ID Application) - required for notarization
@@ -45,7 +45,11 @@ CONFIG="Release"
 ARCHS="arm64;x86_64"
 GENERATOR="Ninja"
 FORMATS="VST3,AU,STANDALONE"
-VERSION="0.1.1"
+# Default package version: the CMake project version, so a local packaging run is not
+# stamped with a number that stopped being true years ago. The release pipeline passes
+# --version "${OVT_RELEASE#v}", so a shipped pkg always carries its tag.
+CMAKE_VERSION="$(sed -n 's/^set(OVT_VERSION "\([^"]*\)".*/\1/p' "${SCRIPT_DIR}/../CMakeLists.txt" | head -n 1)"
+VERSION="${CMAKE_VERSION:-0.1.0}"
 IDENTIFIER="com.eiffelbs.openvoxtuner"
 OUTPUT="dist/OpenVoxTuner-macOS.pkg"
 SIGN_INSTALLER=""
