@@ -32,15 +32,16 @@ class Openvoxtuner < Formula
   depends_on "cmake" => :build
   depends_on "ninja" => :build
 
-  # JUCE 8.0.8 — the exact version this codebase compiles against.
-  # (Newer JUCE removed Font::getStringWidth, which the source still uses.)
+  # JUCE 8.0.12 — the newest tag this codebase compiles against:
+  #   8.0.13+ removed Font::getStringWidth, which the sources still use, and
+  #   8.0.9 is where the test harness's runner API arrived.
   resource "juce" do
-    url "https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.8.tar.gz"
-    sha256 "08abd711eb0345972974d589648f5c8829cb478bc513ddb34836664b0b36d152"
+    url "https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.12.tar.gz"
+    sha256 "dec1a8baee5aaec4502b717a421b850e257ab7e9c2efd03766185ec1957cf102"
   end
 
   def install
-    # Stage the JUCE source into ./JUCE (resource extracts to JUCE-8.0.8/).
+    # Stage the JUCE source into ./JUCE (resource extracts to JUCE-8.0.12/).
     resource("juce").stage do
       (buildpath/"JUCE").install Dir["*"]
     end
