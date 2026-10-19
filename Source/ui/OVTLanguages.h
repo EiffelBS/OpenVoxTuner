@@ -2190,11 +2190,11 @@ namespace ovt
             { kTooltipHarmonyFormant, "ハーモニーボイスのフォルマントシフト（半音）" },
             { kTooltipDoubleAmount, "リードのステレオダブラー：最大10セントのデチューン、最大25msのハース・オフセット、リードと反対方向の広がり。ハーモニー OFF でも動作します。" },
             { kTooltipDoubleEn,       "ダブラーの効果を有効/無効にします。オフにしても量は保持されます。" },
-            { kLabelDeesser,          "デエッサー" },
+            { kLabelDeesser,          "歯擦音" },
             { kTooltipDeesserEnable,  "補正済みのリード音声のサ行音（s, sh, t）を和らげます。オフでは音声はそのままです。" },
             { kTooltipDeesserAmount,  "デエッサーの強さです。トリガーレベルと減衰量を同時に設定します。0%は何も変化せず、100%が最も深く減衰します。" },
             // サチュレーション：マスター出力へのソフトドライブ。命名はドライブ／ウォームのまま、「テープ」とは呼びません。
-            { kLabelSaturation,          "サチュレーション" },
+            { kLabelSaturation,          "飽和" },
             { kTooltipSaturationEnable,  "マスター出力にソフトなドライブを加えます。音声補正の後、リバーブの前で掛かります。オフでは信号はそのままです。" },
             { kTooltipSaturationDrive,   "ソフトクリッパーの強さ：0%は透明、100%が最も強い。上げてもレベルは自動的に保たれます。" },
             { kTooltipSaturationWarmth,  "ドライブが生む倍音の温かみ：0%は明るいまま、100%は丸めます。" },
@@ -2564,7 +2564,7 @@ namespace ovt
             { kTooltipHarmonyFormant, "和声声部的共振峰偏移（半音）" },
             { kTooltipDoubleAmount, "主声部的立体声加倍：最大 10 音分失谐，最大 25 毫秒 Haas 延迟，与主声部相反的展开。关闭和声时同样有效。" },
             { kTooltipDoubleEn,       "启用/禁用立体声加倍器。关闭时数值保持不变。" },
-            { kLabelDeesser,          "齿音消除器" },
+            { kLabelDeesser,          "齿音消除" },
             { kTooltipDeesserEnable,  "柔化已修正主声部的齿音（s、sh、t）。关闭时声音保持原样。" },
             { kTooltipDeesserAmount,  "齿音消除强度：同时设定触发电平和衰减深度。0% 无变化，100% 最深。" },
             // 饱和：主输出上的柔和驱动。命名保持 drive / warmth，绝不写成「磁带」。
