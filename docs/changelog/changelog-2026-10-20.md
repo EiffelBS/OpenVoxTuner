@@ -1,5 +1,40 @@
 # Changelog — 2026-10-20
 
+## Feature — Smallcaps captions in Correction and Key & Scale, regular weight for every other frame caption
+
+Requested on the same morning: *"Il faut appliquer le même format de police 'smallcaps' dans les
+frames Correction (Speed et Amount) et key/scale (Root, Scale, Key/Scale Detection). Ensuite, tout ce
+qui n'est pas à ce format 'smallcap', dans les frames, peut rester sur leur police actuelle mais
+doivent passer de gras à normal (exclure la pill de la frame Correction)."*
+
+- **Same caption family across the row**: `ovt::HorizontalCaption` (`Source/ui/OVTSpineCaption.h`)
+  draws the Correction `Speed (ms)` / `Amount` captions and the Key & Scale `Root`, `Scale`,
+  `Key/Scale Detection` captions in the power-switch names' typography — one size for all
+  (`spine::kCaptionFontSize` = the spines' 9 pt floor), the switch names' tighter tracking
+  (`spine::kCaptionLetterSpacing` 1.0 px), at the spines' quiet 50 % (`ebs::kBandTextAlpha`).
+  `Key/Scale Detection` names a switch, so it brightens to full text colour while detection is ON,
+  read from the power button at paint time. Justification is honoured horizontally (centred, or left
+  beside the glyph) and always centred vertically.
+- **Fit checked in every locale**: the fixed 9 pt fits every shipped translation in its own strip
+  (worst cases measured: Speed 54 px in 86, Amount 54 in 86, Root 47 in 56, Scale 46 in 114,
+  Key/Scale Detection 127 in 156). German `Geschwindigkeit (ms)` measured 98 px in an 86 px strip,
+  so it becomes the standard abbreviation `Geschw. (ms)`: a caption is never cut mid-word for a
+  layout reason, and the strip keeps its one shared glyph size.
+- **Regular weight for the non-caps captions**: every other label inside the bottom-row frames keeps
+  its current face (13 pt knob captions, 11 pt secondary captions, 8-11 pt fitted half-column
+  captions) but loses bold: `ovt::fontLabelPlain()` / `ovt::fontLabelSmallPlain()` (new in
+  `Source/ui/OVTFonts.h`) replace `fontLabel()` / `fontLabelSmall()` in the knob, combo and title
+  labels of Correction, Effects, Reverb and Harmony; `fitLabelToWidth()` now fits the plain face.
+  Bold is left to the three voices that are design decisions: the frame spines, the smallcaps
+  captions, and the Modern/Transparent pill of the Correction frame (explicitly excluded).
+- Nothing moves: the label strips keep their heights and widths, and `useVoiceLabel`'s measured
+  width in the Harmony layout simply re-measures narrower in regular weight.
+
+Verification: `ninja OpenVoxTuner_All` green, suite 209 groups / 0 failures, standalone relaunched
+and the whole row checked at 1420 px (all five frames visible): Speed/Amount/Root/Scale/Key-Scale
+Detection in smallcaps; Drive, Warmth, Mix, Division, Feedback, Use Voice, Vocal Stack, Room/Hall
+captions and the switch names unchanged in size; the pill still bold.
+
 ## Fix — One caption size for every power-switch name
 
 Reported on the first morning test of the caps build: *"Les tailles de police que tu as appliquées

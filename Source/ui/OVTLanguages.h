@@ -1304,7 +1304,7 @@ namespace ovt
             { kTooltipRewind,      "Zum Anfang (Playhead zuruecksetzen)" },
             { kTabLive,            "Live" },
             { kTabCurveEditor,     "Kurveneditor" },
-            { kLabelSpeed,         "Geschwindigkeit (ms)" },
+            { kLabelSpeed,         "Geschw. (ms)" },   // the caption is a 9 pt smallcaps strip 86 px wide: "Geschwindigkeit (ms)" is 98 px, so the German caption takes the standard abbreviation
             { kLabelAmount,        "Intensitaet" },
             { kLabelScale,         "Tonleiter" },
             { kLabelRoot,          "Grundton" },

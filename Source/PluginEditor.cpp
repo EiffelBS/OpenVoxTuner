@@ -530,7 +530,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             l->setText (name, juce::dontSendNotification);
             l->setJustificationType (juce::Justification::centred);
             l->setColour (juce::Label::textColourId, ebs::text());
-            l->setFont (ovt::fontLabel());
+            l->setFont (ovt::fontLabelPlain());   // a caption in a frame names its knob, it does not shout
             addAndMakeVisible (*l);
         }
     };
@@ -764,7 +764,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
         l.setColour (juce::Label::textColourId, ebs::text());
-        l.setFont (ovt::fontLabelSmall());
+        l.setFont (ovt::fontLabelSmallPlain());
         addAndMakeVisible (l);
     };
     setupTitleLabel (harmonyGainLabel, "Volume");
@@ -855,7 +855,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     delayDivisionLabel.setText (ovt::tr (ovt::Keys::kLabelDelayDivision), juce::dontSendNotification);
     delayDivisionLabel.setJustificationType (juce::Justification::centred);
     delayDivisionLabel.setColour (juce::Label::textColourId, ebs::text());
-    delayDivisionLabel.setFont (ovt::fontLabelSmall());
+    delayDivisionLabel.setFont (ovt::fontLabelSmallPlain());
     addAndMakeVisible (delayDivisionLabel);
     translatableLabels.push_back ({ &delayDivisionLabel, ovt::Keys::kLabelDelayDivision });
 
@@ -890,7 +890,8 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // so the caption is a separate label placed to its left in resized().
     useVoiceLabel.setText (ovt::tr(ovt::Keys::kLabelUseVoice), juce::dontSendNotification);
     useVoiceLabel.setColour (juce::Label::textColourId, ebs::text());
-    useVoiceLabel.setFont (ovt::fontLabelSmall());
+    useVoiceLabel.setFont (ovt::fontLabelSmallPlain());
+    // Regular weight: the only bold voices in a frame are the spines' smallcaps and the mode pill.
     addAndMakeVisible (useVoiceLabel);
     useVoiceButton.setColour (ebs::ToggleSwitch::trackOnColourId,  ebs::accent());
     useVoiceButton.setColour (ebs::ToggleSwitch::trackOffColourId, ebs::text().withAlpha (0.18f));
@@ -913,7 +914,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyToneColorLabel.setText ("Tone", juce::dontSendNotification);
     harmonyToneColorLabel.setJustificationType (juce::Justification::centred);
     harmonyToneColorLabel.setColour (juce::Label::textColourId, ebs::text());
-    harmonyToneColorLabel.setFont (ovt::fontLabelSmall());
+    harmonyToneColorLabel.setFont (ovt::fontLabelSmallPlain());
     addAndMakeVisible (harmonyToneColorLabel);
 
     harmonyToneColorSlider.setSliderStyle (juce::Slider::RotaryVerticalDrag);
@@ -933,7 +934,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
         l.setColour (juce::Label::textColourId, ebs::text());
-        l.setFont (ovt::fontLabel());
+        l.setFont (ovt::fontLabelPlain());   // "Group" stays mixed case, in regular weight
         addAndMakeVisible (l);
 
         for (int i = 0; i < items.size(); ++i)
@@ -968,8 +969,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     keySourceLabel.setText (ovt::tr (ovt::Keys::kLabelKeyDetect), juce::dontSendNotification);
     keySourceLabel.setJustificationType (juce::Justification::centredLeft);
     keySourceLabel.setColour (juce::Label::textColourId, ebs::text());
-    keySourceLabel.setFont (ovt::fontLabel());
-    addAndMakeVisible (keySourceLabel);
+    addAndMakeVisible (keySourceLabel);   // drawn in the spines' caption typography, not in this font
     // Clicking the "Key/Scale Detection" label toggles the power button, matching
     // the behaviour of the other Power buttons (whose label is drawn inside them).
     keySourceLabel.addMouseListener (this, false);
@@ -999,6 +999,9 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         resized();
     };
     keyDetectPowerButton.onClick = [this] { resized(); };
+    // The caption is the switch's name: it brightens with the switch, like every other switch name
+    // in the row. Read at paint time, so the button stays the only source of truth.
+    keySourceLabel.setEngagedSource ([this] { return keyDetectPowerButton.getToggleState(); });
 
     latencyModeLabel.setText ("", juce::dontSendNotification);
     latencyModeLabel.setJustificationType (juce::Justification::centred);
@@ -3466,16 +3469,16 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // A caption in a HALF column (36 px) cannot hold every shipped word at the shared 11 pt label
     // font: measured, the widest pair needs 27 px (EN/DE), 23 (FR), 31 (JA), 13 (ZH) and 44 (ES,
     // "Realimentación") at the 8 pt floor. So a caption shrinks its own glyphs to fit, the frame
-    // spine's rule, from fontLabelSmall() down to that floor - and the Spanish pair is the reason
+    // spine's rule, from fontLabelSmallPlain() down to that floor - and the Spanish pair is the reason
     // the ES wording uses the audio jargon "Feedback", which this file already keeps untranslated
-    // for Lead, Ducking and Gate.
+    // for Lead, Ducking and Gate. Weight is REGULAR here like every non-caps caption in a frame.
     auto fitLabelToWidth = [&] (juce::Label& label, int width)
     {
         const juce::String text = label.getText();
 
         for (int size = 11; size >= 8; --size)
         {
-            const juce::Font font = ovt::createFont (static_cast<float> (size), true);
+            const juce::Font font = ovt::createFont (static_cast<float> (size), false);
             if (juce::GlyphArrangement::getStringWidth (font, text) <= static_cast<float> (width))
             {
                 label.setFont (font);
@@ -3483,7 +3486,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
             }
         }
 
-        label.setFont (ovt::createFont (8.0f, true));
+        label.setFont (ovt::createFont (8.0f, false));
     };
 
     // Cell with a power toggle: toggle on top, knob centred below.

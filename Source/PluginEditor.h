@@ -178,7 +178,7 @@ private:
     // The Formant dial belongs to the Effects block's Formant cell, which owns exactly ONE knob:
     // its activity dot is carried by the knob itself (ebs::ActivityKnob), not by a strip.
     ebs::ActivityKnob formantSlider;
-    juce::Label  speedLabel, amountLabel;
+    ovt::HorizontalCaption speedLabel, amountLabel;   // spines' caption typography, horizontal
 
     // Morph slider (visible only when A and B are both filled)
     ebs::MorphSlider morphSlider;   // component name set to "Morph" in the ctor
@@ -190,7 +190,7 @@ private:
 
     // Key and Scale are discrete values -> ComboBox.
     juce::ComboBox keyBox, scaleBox;
-    juce::Label    keyLabel, scaleLabel;
+    ovt::HorizontalCaption keyLabel, scaleLabel;      // spines' caption typography, horizontal
     juce::ComboBox latencyModeBox;
     juce::Label    latencyModeLabel;
     // Pitch detector (YIN only).
@@ -199,7 +199,8 @@ private:
 
     // Key detection source + companion group (automatic key detection).
     juce::ComboBox keySourceBox, companionGroupBox;
-    juce::Label    keySourceLabel, companionGroupLabel;
+    ovt::HorizontalCaption keySourceLabel;            // the detection switch's name, in caption typography
+    juce::Label    companionGroupLabel;
     ovt::PowerToggleCaps keyDetectPowerButton;   // Key/Scale detection on/off (power-icon style)
 
     // Bypass Button (power-style)

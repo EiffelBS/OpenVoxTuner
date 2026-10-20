@@ -2,12 +2,14 @@
 // OpenVoxTuner UI components
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 //
-// The frame spines' caption recipe, applied to the two places a control carries a caption of its own:
+// The frame spines' caption recipe, applied to the places a control carries a caption of its own:
 //   - ovt::VerticalCaption     a knob caption set VERTICALLY along the knob's left edge (Reverb's
 //                              Room/Hall amounts), where a 17 px column buys back the height a
 //                              horizontal caption would eat.
 //   - ovt::PowerToggleCaps     a power switch whose name is drawn in that same style HORIZONTALLY,
 //                              because a switch's name is the caption of the effect it arms.
+//   - ovt::HorizontalCaption   the caption above a knob or a combo (Speed, Amount, Root, Scale,
+//                              Key/Scale Detection), the same horizontal caption outside a switch.
 //
 // Sharing one recipe is the point: uppercase, accent-free, tracked capitals at 50 % alpha, sized
 // between ebs::kBandFontSize and ebs::kBandMinFontSize rather than clipped. A caption inside a frame,
@@ -26,6 +28,8 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+
+#include <functional>
 
 // The spine recipe (bandCaps, band sizes, tracking, alpha) lives in the shared design system.
 #include <eiffelbs/FrameTitleBand.h>
@@ -107,6 +111,17 @@ namespace ovt
             return engaged ? ebs::text()
                            : ebs::text().withMultipliedAlpha (ebs::kBandTextAlpha);
         }
+
+        /** ONE size for every horizontal caption in the bottom row - switch names and the captions above
+            the Correction and Key/Scale controls alike: the spines' 9 pt floor, the size the longest
+            names (FOLLOW LEAD, SATURATION) take anyway once fitted. Sizing each caption to its own word
+            was incoherent in practice: a short GATE grew to 13 pt while SATURATION sat at 9 pt in the
+            cell next to it, so a row read as a ransom note instead of one caption family. */
+        inline constexpr float kCaptionFontSize = ebs::kBandMinFontSize;
+
+        /** Slightly tighter than the spines' tracking: a caption read as a word at eye level in a row
+            needs a little less air than an epithet running up a 17 px column. */
+        inline constexpr float kCaptionLetterSpacing = 1.0f;
     }
 
     /** A knob caption set vertically along the knob's left edge, in the frame spines' typography. */
@@ -163,6 +178,72 @@ namespace ovt
         JUCE_LEAK_DETECTOR (VerticalCaption)
     };
 
+    /** A caption set HORIZONTALLY, above the knob or combo it names, in the frame spines' typography:
+        the same one-size tracked capitals as the power-switch names, at the spines' quiet 50 % - the
+        caption is a label, not a title. A caption that names a switch brightens with that switch (see
+        setEngagedSource), so "Key/Scale Detection" reads engaged exactly like the switch names do.
+
+        Justification is honoured horizontally (centred by default, left for the detection label) and
+        always centred vertically, so the same class serves a caption over a knob, over a combo and
+        beside a power glyph. */
+    class HorizontalCaption : public juce::Label
+    {
+    public:
+        HorizontalCaption()
+        {
+            setJustificationType (juce::Justification::centred);
+            setWantsKeyboardFocus (false);
+        }
+
+        /** Optional state cue, read at paint time so no one has to sync it: a caption whose control
+            engages brightens to full text colour while that control is on, like a switch's own name. */
+        void setEngagedSource (std::function<bool()> source) { engagedSource = std::move (source); }
+
+        void paint (juce::Graphics& g) override
+        {
+            const auto caps = spine::capsOf (getText());
+
+            if (caps.isEmpty())
+                return;
+
+            const auto area   = getLocalBounds().toFloat();
+            const auto glyphs = spine::layout (caps, spine::kCaptionFontSize, spine::kCaptionLetterSpacing);
+
+            if (glyphs.getNumGlyphs() == 0)
+                return;
+
+            const auto bb = glyphs.getBoundingBox (0, glyphs.getNumGlyphs(), false);
+            const auto just = getJustificationType();
+
+            // Horizontal: honour the Label's justification (the glyph run starts at x = 0). Vertical:
+            // the caption strip is always a single line, so centre the ink, not the font box.
+            float x = -bb.getX();
+
+            if (just.testFlags (juce::Justification::horizontallyCentred))
+                x = (area.getWidth() - bb.getWidth()) * 0.5f - bb.getX();
+            else if (just.testFlags (juce::Justification::right))
+                x = area.getWidth() - bb.getRight();
+
+            const auto y = area.getHeight() * 0.5f - (bb.getY() + bb.getBottom()) * 0.5f;
+
+            g.setColour (spine::captionColour (engagedSource != nullptr && engagedSource(), isEnabled()));
+
+            // Clipped like the switch names, for the same reason: a caption never spills over the
+            // control beside it, whatever a future translation does.
+            g.saveState();
+            g.reduceClipRegion (getLocalBounds());
+            glyphs.draw (g, juce::AffineTransform::translation (x, y));
+            g.restoreState();
+        }
+
+        void resized() override {}   // the caption reads its bounds at paint time, nothing to cache
+
+        JUCE_LEAK_DETECTOR (HorizontalCaption)
+
+    private:
+        std::function<bool()> engagedSource;
+    };
+
     /** An ebs::PowerToggle whose name is drawn in the frame spines' typography instead of the design
         system's mixed-case label. Behaviour, colour ids and the glowing power glyph are
         ebs::PowerToggle's; only the name is restyled.
@@ -179,12 +260,9 @@ namespace ovt
         /** The gap ebs::PowerToggle keeps between the power glyph and its name. */
         static constexpr float kCaptionGap = 8.0f;
 
-        /** One size for all switch names: the spines' floor, the size the longest names settle at. */
-        static constexpr float kCaptionFontSize = ebs::kBandMinFontSize;
-
-        /** Slightly tighter than the spines' tracking: a switch name is read as a word eye-level in a
-            row, not as an epithet running up a 17 px column, so its capitals need a little less air. */
-        static constexpr float kCaptionLetterSpacing = 1.0f;
+        // The one caption size and the slightly tighter tracking are spine::kCaptionFontSize /
+        // spine::kCaptionLetterSpacing, shared with HorizontalCaption: a switch name and the caption
+        // above a knob beside it are the same word class, so they must not drift apart.
 
         void paint (juce::Graphics& g) override
         {
@@ -198,8 +276,8 @@ namespace ovt
             const auto caps         = spine::capsOf (getButtonText());
             const auto captionWidth = caps.isEmpty()
                                         ? 0.0f
-                                        : spine::trackedLength (caps, kCaptionFontSize,
-                                                                kCaptionLetterSpacing);
+                                        : spine::trackedLength (caps, spine::kCaptionFontSize,
+                                                                spine::kCaptionLetterSpacing);
 
             const float totalWidth = iconWidth + (caps.isEmpty() ? 0.0f : kCaptionGap + captionWidth);
             const float startX     = (bounds.getWidth() - totalWidth) * 0.5f;
@@ -253,7 +331,7 @@ namespace ovt
             if (caps.isEmpty())
                 return;
 
-            auto glyphs = spine::layout (caps, kCaptionFontSize, kCaptionLetterSpacing);
+            auto glyphs = spine::layout (caps, spine::kCaptionFontSize, spine::kCaptionLetterSpacing);
 
             if (glyphs.getNumGlyphs() == 0)
                 return;
