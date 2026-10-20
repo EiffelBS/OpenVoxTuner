@@ -1,5 +1,34 @@
 # Changelog — 2026-10-20
 
+## Fix — One caption size for every power-switch name
+
+Reported on the first morning test of the caps build: *"Les tailles de police que tu as appliquées
+sont inconsistantes, parfois grosses, parfois petites, c'est pas très cohérent ou lisible. Utilise la
+taille de police de 'FOLLOW LEAD' en réduisant un tout petit peu l'espacement de caractères."*
+
+The first build fitted each switch name to its own cell, spine-style: a short `GATE` reached 13 pt
+while `SATURATION` sat at 9 pt in the cell beside it, `COMPRESS`/`FORMANT` landed at 11-12 and
+`FOLLOW LEAD`/`GAIN MATCH` at 9. In a vertical spine that per-name shrink is invisible (each name
+runs up its own edge); in a horizontal row of switches it is exactly the incoherence being reported.
+
+- **One size for all**: `ovt::PowerToggleCaps` now draws every name at `ebs::kBandMinFontSize`
+  (9 pt), which is the size the longest names — `FOLLOW LEAD`, `SATURATION` — already settled at.
+  The glyph size no longer depends on the word or the language, so the row reads as one caption
+  family.
+- **Tracking reduced a little**: `kCaptionLetterSpacing` = 1.0 px instead of the spines' 1.2, a
+  switch name being read as a word at eye level rather than as an epithet running up a narrow column.
+- **Fitting is gone from this widget**: the room beside the glyph is no longer measured against each
+  name; the fixed size fits every translated label in every switch (longest cell: `SATURATION` at
+  53.0 px inside 55.2 px), and the clip that was already there still guards a hypothetical overflow
+  without ever re-sizing the text. `spine::fittedSize/layout` keep taking the tracking explicitly, so
+  the vertical Reverb captions still use the spines' 1.2 px recipe unchanged.
+- The state cue is untouched: 50 % at rest (`ebs::kBandTextAlpha`), full text colour when engaged,
+  dimmed when disabled.
+
+Verification: `ninja OpenVoxTuner_All` green, standalone relaunched, band checked on screen
+(`GATE`, `DOUBLER`, `LIMIT`, `SATURATION`, `DELAY`, `COMPRESS`, `FORMANT`, `DE-ESSER` all one size,
+nothing clipped); suite 209 groups, 0 failures (paint only).
+
 ## Feature — Power-switch names use the frame spines' caption typography
 
 Asked right after the vertical captions, while looking at the same row: *"Je pense qu'on devrait

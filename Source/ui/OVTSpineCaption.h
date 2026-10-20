@@ -9,10 +9,12 @@
 //   - ovt::PowerToggleCaps     a power switch whose name is drawn in that same style HORIZONTALLY,
 //                              because a switch's name is the caption of the effect it arms.
 //
-// Sharing one recipe is the point: uppercase, accent-free, tracked capitals at 50 % alpha, glyphs
-// shrinking from ebs::kBandFontSize towards ebs::kBandMinFontSize instead of ever clipping. A caption
-// inside a frame, a spine naming that frame and a switch naming its effect then read as one family
-// instead of three design systems living in the same row.
+// Sharing one recipe is the point: uppercase, accent-free, tracked capitals at 50 % alpha, sized
+// between ebs::kBandFontSize and ebs::kBandMinFontSize rather than clipped. A caption inside a frame,
+// a spine naming that frame and a switch naming its effect then read as one family instead of three
+// design systems living in the same row. The vertical caption shrinks per name (a spine does); the
+// switch names all take ONE size (9 pt, the floor the longest of them need), because a horizontal row
+// of switches sized one by one reads as a ransom note - see PowerToggleCaps.
 //
 // Neither class is an ebs::FrameTitleBand: a spine names a whole frame and therefore pays for a tinted
 // strip and an inner trim column, while a control caption spends none of that on tint - five tinted
@@ -46,8 +48,8 @@ namespace ovt
         }
 
         /** Length the tracked caption takes in ONE direction at one glyph size (pixels): every glyph
-            advance plus ebs::kBandLetterSpacing between neighbours - exactly the run layout() draws. */
-        inline float trackedLength (const juce::String& caps, float size)
+            advance plus `tracking` between neighbours - exactly the run layout() draws. */
+        inline float trackedLength (const juce::String& caps, float size, float tracking)
         {
             const auto font = ebs::createFont (size, true);
             float total = 0.0f;
@@ -57,7 +59,7 @@ namespace ovt
                 total += glyphAdvance (font, caps.substring (i, i + 1));
 
                 if (i < caps.length() - 1)
-                    total += ebs::kBandLetterSpacing;
+                    total += tracking;
             }
 
             return total;
@@ -66,18 +68,18 @@ namespace ovt
         /** Glyph size the caption takes to fit `available` px in one direction: the spines' 13 pt
             shrinking towards their 9 pt floor. A long translated name pays in glyph size, never in a
             bigger cell; a caller whose box is still too tight at the floor clips (it never widens). */
-        inline float fittedSize (const juce::String& caps, float available)
+        inline float fittedSize (const juce::String& caps, float available, float tracking)
         {
             float size = ebs::kBandFontSize;
 
-            while (size > ebs::kBandMinFontSize && trackedLength (caps, size) > available)
+            while (size > ebs::kBandMinFontSize && trackedLength (caps, size, tracking) > available)
                 size -= 1.0f;
 
             return size;
         }
 
         /** The caption laid out as tracked glyphs, baseline at y = 0 and run starting at x = 0. */
-        inline juce::GlyphArrangement layout (const juce::String& caps, float size)
+        inline juce::GlyphArrangement layout (const juce::String& caps, float size, float tracking)
         {
             juce::GlyphArrangement glyphs;
             const auto font = ebs::createFont (size, true);
@@ -89,7 +91,7 @@ namespace ovt
                 glyphs.addLineOfText (font, glyph, cursor, 0.0f);
 
                 if (i < caps.length() - 1)
-                    cursor += glyphAdvance (font, glyph) + ebs::kBandLetterSpacing;
+                    cursor += glyphAdvance (font, glyph) + tracking;
             }
 
             return glyphs;
@@ -135,7 +137,10 @@ namespace ovt
 
             // Same caption the spines draw, shrunk to the height this column actually offers.
             const auto caps = spine::capsOf (text);
-            const auto glyphs = spine::layout (caps, spine::fittedSize (caps, h - 2.0f * ebs::kBandPad));
+            const auto glyphs = spine::layout (caps,
+                                               spine::fittedSize (caps, h - 2.0f * ebs::kBandPad,
+                                                                  ebs::kBandLetterSpacing),
+                                               ebs::kBandLetterSpacing);
 
             if (glyphs.getNumGlyphs() == 0)
                 return;
@@ -158,15 +163,28 @@ namespace ovt
         JUCE_LEAK_DETECTOR (VerticalCaption)
     };
 
-    /** An ebs::PowerToggle whose name is drawn in the frame spines' typography (tracked capitals,
-        fitted to the room beside the glyph) instead of the design system's mixed-case label.
-        Behaviour, colour ids and the glowing power glyph are ebs::PowerToggle's; only the name is
-        restyled. */
+    /** An ebs::PowerToggle whose name is drawn in the frame spines' typography instead of the design
+        system's mixed-case label. Behaviour, colour ids and the glowing power glyph are
+        ebs::PowerToggle's; only the name is restyled.
+
+        ONE glyph size for every switch name, whatever the name and whatever the language: the spines'
+        9 pt floor - the size the longest names (FOLLOW LEAD, SATURATION) take anyway once fitted - and
+        a slightly tighter tracking than the spines'. Sizing each name to its own cell was incoherent
+        in practice: a short "GATE" grew to 13 pt while "SATURATION" sat at 9 pt in the cell next to
+        it, so the row read as a ransom note instead of one caption family. The guard for a name that
+        overflows anyway is the same clip below; it never changes the size. */
     class PowerToggleCaps : public ebs::PowerToggle
     {
     public:
         /** The gap ebs::PowerToggle keeps between the power glyph and its name. */
         static constexpr float kCaptionGap = 8.0f;
+
+        /** One size for all switch names: the spines' floor, the size the longest names settle at. */
+        static constexpr float kCaptionFontSize = ebs::kBandMinFontSize;
+
+        /** Slightly tighter than the spines' tracking: a switch name is read as a word eye-level in a
+            row, not as an epithet running up a 17 px column, so its capitals need a little less air. */
+        static constexpr float kCaptionLetterSpacing = 1.0f;
 
         void paint (juce::Graphics& g) override
         {
@@ -176,11 +194,12 @@ namespace ovt
             const float radius    = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.3f;
             const float iconWidth = radius * 2.0f;
 
-            // The name, as the spines would set it, fitted to the room left beside the glyph.
+            // The name, as the spines would set it, at the one shared caption size.
             const auto caps         = spine::capsOf (getButtonText());
-            const auto captionRoom  = juce::jmax (0.0f, bounds.getWidth() - iconWidth - kCaptionGap);
-            const auto captionSize  = spine::fittedSize (caps, captionRoom);
-            const auto captionWidth = caps.isEmpty() ? 0.0f : spine::trackedLength (caps, captionSize);
+            const auto captionWidth = caps.isEmpty()
+                                        ? 0.0f
+                                        : spine::trackedLength (caps, kCaptionFontSize,
+                                                                kCaptionLetterSpacing);
 
             const float totalWidth = iconWidth + (caps.isEmpty() ? 0.0f : kCaptionGap + captionWidth);
             const float startX     = (bounds.getWidth() - totalWidth) * 0.5f;
@@ -234,7 +253,7 @@ namespace ovt
             if (caps.isEmpty())
                 return;
 
-            auto glyphs = spine::layout (caps, captionSize);
+            auto glyphs = spine::layout (caps, kCaptionFontSize, kCaptionLetterSpacing);
 
             if (glyphs.getNumGlyphs() == 0)
                 return;
@@ -244,8 +263,9 @@ namespace ovt
 
             g.setColour (spine::captionColour (engaged, isEnabled()));
 
-            // A name still too long at the 9 pt floor is clipped at the cell edge, never drawn over the
-            // glyph: the switch keeps a clean power icon even in the widest translation.
+            // A name too long for the room it is given is clipped at the cell edge, never drawn over the
+            // glyph: the switch keeps a clean power icon even in the widest translation, and no name
+            // changes size to buy room.
             g.saveState();
             g.reduceClipRegion (juce::Rectangle<int> (juce::roundToInt (captionX), 0,
                                                       juce::jmax (0, juce::roundToInt (bounds.getRight() - captionX)),
