@@ -101,15 +101,16 @@ namespace ovt
             return glyphs;
         }
 
-        /** Strength a caption is read at: the spines' 50 % while idle, full strength on a switch that
-            is ON (the state cue ebs::PowerToggle already gives its own name), and dimmed when disabled. */
+        /** Strength a caption is read at: full strength while its control is live (an engaged switch -
+            the state cue ebs::PowerToggle already gives its own name), the quiet caption level (50 %)
+            while it is not. ONE level for "not live" in the whole row: a caption whose control is off,
+            or disabled with its parent, is quiet in every family - the knob captions (Drive, Warmth,
+            Division...) dim the same way - and the power GLYPH, dimmed and without its glow, is what
+            still tells "off" from "unreachable". */
         inline juce::Colour captionColour (bool engaged, bool enabled)
         {
-            if (! enabled)
-                return ebs::text().withAlpha (0.25f);
-
-            return engaged ? ebs::text()
-                           : ebs::text().withMultipliedAlpha (ebs::kBandTextAlpha);
+            return (engaged && enabled) ? ebs::text()
+                                        : ebs::text().withMultipliedAlpha (ebs::kBandTextAlpha);
         }
 
         /** ONE size for every caption of the bottom row: the switch names, the captions above a knob

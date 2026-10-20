@@ -252,6 +252,11 @@ private:
     std::vector<TranslatableBand> translatableBands;
     void refreshLabels();
 
+    /** A caption follows its control: at full strength while the control is live, at the caption
+        level (50 %) while it is off or disabled with it - the same rule the smallcaps captions
+        follow (ovt::spine::captionColour). Called after the enable block and after a theme change. */
+    void applyCaptionDimming();
+
     // === Export image file chooser ===
     std::unique_ptr<juce::FileChooser> exportFileChooser;
 

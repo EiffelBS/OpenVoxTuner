@@ -3742,13 +3742,20 @@ void OpenVoxTunerAudioProcessorEditor::resized()
         harmArea.removeFromLeft (ebs::FrameTitleBand::bandWidth());
         auto h = harmArea.reduced (kHarmonyPad);
 
+        // A power switch is sized from the NAME IT DRAWS, not from the text it carries: the name is
+        // painted in the smallcaps caption typography (ovt::PowerToggleCaps), and capitals are WIDER
+        // than a mixed-case name at the toggle font - "Follow Lead" is 52 px mixed at 14 pt but
+        // 58.5 px in smallcaps at 11 pt - so a button sized from the mixed-case face clipped its own
+        // name (the last letter of FOLLOW LEAD and GAIN MATCH was cut in half).
         auto powerButtonWidth = [&] (juce::Button& b) -> int
         {
             const float radius    = 18.0f * 0.3f;
             const float iconWidth = radius * 2.0f;
             float textW = 0.0f;
             if (b.getButtonText().isNotEmpty())
-                textW = juce::GlyphArrangement::getStringWidth (ebs::fontComboBox(), b.getButtonText()) + 8.0f;
+                textW = ovt::spine::trackedLength (ovt::spine::capsOf (b.getButtonText()),
+                                                   ovt::spine::kCaptionFontSize,
+                                                   ovt::spine::kCaptionLetterSpacing) + 8.0f;
             return static_cast<int> (std::ceil (iconWidth + textW + 4.0f));
         };
 
@@ -4297,6 +4304,13 @@ void OpenVoxTunerAudioProcessorEditor::timerCallback()
     shiftedVoicesBox.setEnabled (isHarmonyEnabled && useVoice);
     harmonyToneBox.setEnabled (isHarmonyEnabled && !useVoice);
     harmonyToneColorSlider.setEnabled (isHarmonyEnabled && !useVoice);
+
+    // Every caption that names one of the controls gated above follows it: a caption whose control
+    // is off or disabled sits at the caption level (50 %), a live control's caption at full
+    // strength. Without this, a disabled knob kept a FULL-strength caption (Drive, Warmth, Mix,
+    // Division, Feedback) while its own switch sat quiet at 50 %, so the cell read "off" and
+    // "active" at the same time.
+    applyCaptionDimming();
 
     // Show only the relevant selector to keep the UI compact and readable
     shiftedVoicesBox.setVisible (isHarmonyEnabled && useVoice);
@@ -6556,6 +6570,33 @@ void OpenVoxTunerAudioProcessorEditor::restyleIconButtons()
     }
 }
 
+void OpenVoxTunerAudioProcessorEditor::applyCaptionDimming()
+{
+    // A caption follows its control: at full strength while the control is live, at the caption
+    // level (50 %) while it is off or disabled with it. The smallcaps captions dim the same way
+    // (ovt::spine::captionColour), so a name that is doing nothing is quiet in every family of
+    // the row.
+    auto dim = [] (juce::Label& caption, juce::Component& control)
+    {
+        const auto colour = control.isEnabled() ? ebs::text()
+                                                 : ebs::text().withMultipliedAlpha (ebs::kBandTextAlpha);
+
+        if (caption.findColour (juce::Label::textColourId) != colour)
+            caption.setColour (juce::Label::textColourId, colour);
+    };
+
+    dim (saturationDriveLabel,  saturationDriveSlider);
+    dim (saturationToneLabel,   saturationToneSlider);
+    dim (delayMixLabel,         delayMixSlider);
+    dim (delayDivisionLabel,    delayDivisionKnob);
+    dim (delayFeedbackLabel,    delayFeedbackSlider);
+    dim (harmonyGainLabel,      harmonyGainSlider);
+    dim (harmonyBlendLabel,     harmonyBlendSlider);
+    dim (harmonyAttackLabel,    harmonyAttackSlider);
+    dim (harmonyFormantLabel,   harmonyFormantSlider);
+    dim (useVoiceLabel,         useVoiceButton);
+}
+
 void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
 {
     // Refresh LookAndFeel colours
@@ -6629,6 +6670,10 @@ void OpenVoxTunerAudioProcessorEditor::applyThemeToAllComponents()
     applyLabelColours (voiceTypeLabel);
     applyLabelColours (formantStrategyLabel);
     applyLabelColours (measuresLabel);
+
+    // The pass above sets every caption to full strength; the dimming pass puts the quiet ones
+    // back where their control says they belong.
+    applyCaptionDimming();
 
     // Re-apply colours to ALL combo boxes
     auto applyComboColours = [] (juce::ComboBox& c) {

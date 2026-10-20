@@ -1,5 +1,28 @@
 # Changelog — 2026-10-20
 
+## Fix — The Harmony switch names were cut in half, and the captions of disabled controls stayed bright
+
+Two things the user spotted on screen after the unified caption size:
+
+- **"Pourquoi Follow Lead et Gain Match sont tronqués à gauche et droite alors qu'il y a de la place ?"**
+  A power switch was sized from the TEXT it carries (the mixed-case name at the 14 pt toggle font,
+  52 px for "Follow Lead") while it DRAWS the smallcaps caption (58.5 px at 11 pt): capitals are
+  wider than a mixed-case name, so the button clipped its own name — the last letter of FOLLOW LEAD
+  and GAIN MATCH was cut in half. `powerButtonWidth()` now measures the name it draws
+  (`ovt::spine::trackedLength` at the caption size), so the button is exactly as wide as the caption
+  it carries.
+- **"les labels de composants désactivés (Drive, warmth, Division...) devraient être mis en opacité
+  0.5 également"**: a caption now follows its control — at the caption level (50 %) when the control
+  is off or disabled with it, at full strength when it is live
+  (`OpenVoxTunerAudioProcessorEditor::applyCaptionDimming()`). The smallcaps captions follow the same
+  rule (`ovt::spine::captionColour`): ONE quiet level for "not live" in the whole row, the dimmed
+  power glyph being what still tells "off" from "unreachable". Before, a disabled knob kept a
+  full-strength caption while its own switch sat quiet, so the cell read "off" and "active" at once.
+
+Verification: build green, suite 209 groups / 0 failures, standalone relaunched and the row checked at
+1500 px: FOLLOW LEAD and GAIN MATCH read in full, and Drive, Warmth, Mix, Division and Feedback now
+sit at 50 % with their modules off.
+
 ## Feature — One caption size for the whole bottom row (11 pt)
 
 Requested after seeing the smallcaps land: *"Ok, je pense qu'on devrait quand même aligner la taille de
