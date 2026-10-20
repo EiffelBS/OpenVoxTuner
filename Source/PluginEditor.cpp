@@ -3723,7 +3723,24 @@ void OpenVoxTunerAudioProcessorEditor::resized()
                           leadHallLabel, leadHallSlider);
         placeVoiceColumn (rvCol2, harmonyReverbEnableButton, harmonyRoomLabel, harmonyRoomSlider,
                           harmonyHallLabel, harmonyHallSlider);
-        placeLabelledKnob (duckCol, duckDepthLabel, duckDepthSlider);   // a return ramp, not a voice: no dot
+        // The Ducking column is a voice column without a switch: its caption takes the strip the
+        // switch occupies in the two voice columns (the same 18 px, so the name sits on the same
+        // line as LEAD and HARMONY) and its dial takes the FIRST amount cell, so it lands on the
+        // same line as the two ROOM dials. Before, the caption strip was 14 px and the dial was
+        // top-aligned under it: the Ducking dial floated 7 px above the row of knobs the rest of
+        // the band reads on.
+        const int duckCellH = (duckCol.getHeight() - headerH - rowGap) / 2;
+        duckDepthLabel.setBounds (duckCol.removeFromTop (headerH));
+
+        {
+            const auto duckKnobCell = duckCol.removeFromTop (duckCellH);
+            const int d = juce::jlimit (30, juce::jmin (effKnobD, duckKnobCell.getWidth()),
+                                       duckKnobCell.getHeight() - 2);
+            duckDepthSlider.setBounds (duckKnobCell.getX() + juce::jmax (0, (duckKnobCell.getWidth() - d) / 2),
+                                       duckKnobCell.getY() + juce::jmax (0, (duckKnobCell.getHeight() - d) / 2),
+                                       d, d);
+        }
+
     }
 
     // Harmony controls block (rightmost block), an ebs::ExpansibleFrame.

@@ -1,5 +1,22 @@
 # Changelog — 2026-10-20
 
+## Fix — The Ducking dial sat on its own line, and its name was not a smallcap
+
+Requested: *"Pour Ducking, il faudrait aligner le knob sur ceux de la ligne 1. On peut sans doute
+passer Ducking en smallcaps au passage."*
+
+- **The Ducking dial is on the band's first line of knobs**: the Ducking column is now laid out as
+  a voice column *without* a switch - the caption takes the strip the switch occupies in the Lead
+  and Harmony columns (the same 18 px, so the name sits on the same line as LEAD and HARMONY) and
+  the dial takes the first amount cell, so it lands exactly on the line of the two ROOM dials
+  (y = 33 in frame coordinates, measured). Before, the caption strip was 14 px and the dial was
+  top-aligned under it, so the dial floated 7 px above the row the rest of the band reads on.
+- **Ducking is a smallcap caption** (`ovt::HorizontalCaption`), like the Room and Hall names it
+  sits among: tracked capitals, 11 pt, quiet 50 % - no longer a mixed-case label.
+
+Verification: build green, suite 212 groups / 0 failures, the Reverb frame measured in the running
+plugin (caption strip 18 px, dial at y = 33, the same as the Room dials) and checked on screen.
+
 ## Feature — Every control explains itself: plain-language tooltips, and the Delay gets its own
 
 Requested: *"Division et Feedback n'ont pas de tooltip. Le contenu des tooltips doit expliquer le

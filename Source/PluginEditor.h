@@ -377,7 +377,9 @@ private:
     // knob for a distinction almost nobody makes). Its caption stays HORIZONTAL above the
     // dial: the ducker has no power switch, so it is not one of the amounts a switch sends.
     juce::Slider       duckDepthSlider;
-    juce::Label        duckDepthLabel;
+    // The Ducking depth is a frame caption like the ROOM and HALL sends beside it: tracked
+    // capitals in the spines' typography, not a mixed-case label bolted above a knob.
+    ovt::HorizontalCaption duckDepthLabel;
 
     // Output stage: trim is the pre-limiter gain (-12..+12 dB), the limiter is the
     // true-peak guard that runs last on the master bus, looking ahead by its declared
