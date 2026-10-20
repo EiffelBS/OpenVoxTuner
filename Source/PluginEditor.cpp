@@ -3050,10 +3050,7 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     // locale stays compact and a fully folded row fits the minimum-width client without scrolling.
     const int leadNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (leadReverbEnableButton.getButtonText()));
     const int harmNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (harmonyReverbEnableButton.getButtonText()));
-    // The Ducking column has no header text any more: its caption runs vertically beside the dial (17 px)
-    // and the dial is 54 px, so one cell floor holds the pair. Measuring its label here would size the
-    // column for text that no longer lies across it.
-    const int duckNeed = kEffectsColW;
+    const int duckNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (duckDepthLabel.getText()));
     const int reverbW = chevron + 2 * kEffectsPad + bandW
                       + (reverbFrame.expanded()
                          ? leadNeed + harmNeed + duckNeed + 2 * kEffectsColGap
@@ -3623,9 +3620,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
     // Two SHARED ROOMS and two voice columns. Folded, the frame shows the LEAD column only: the Lead switch carrying
     // its name, then the two amounts that voice sends - Room (short) above Hall (long), each room named VERTICALLY at
     // its dial's left in the frame spines' typography (ovt::VerticalCaption). Open, the HARMONY column joins it (same
-    // shape) and Ducking stands alone in column 3, captioned the same way. Each column is one voice, each row inside
-    // it is one room: the knob IS the send, so there is no separate send control and the dry voice is never
-    // attenuated.
+    // shape) and Ducking stands alone in column 3 with its caption ABOVE the dial, because the ducker is a return
+    // ramp rather than an amount a power switch sends. Each column is one voice, each row inside it is one room: the
+    // knob IS the send, so there is no separate send control and the dry voice is never attenuated.
     // The height works at the shipped band height: the band row gives every frame 156 px of content, and header (18)
     // + label (14) + knob (<= 49) + gap (8) + label (14) + knob (<= 49) fits inside it.
     // The columns are sized by the MEASURED switch name: a ToggleButton draws its tick well then centred-left text
@@ -3715,9 +3712,7 @@ void OpenVoxTunerAudioProcessorEditor::resized()
                           leadHallLabel, leadHallSlider);
         placeVoiceColumn (rvCol2, harmonyReverbEnableButton, harmonyRoomLabel, harmonyRoomSlider,
                           harmonyHallLabel, harmonyHallSlider);
-        // A return ramp, not a voice: no dot, and its caption is vertical like the two voice columns' so
-        // the whole frame reads as one family of captioned dials.
-        placeSpineKnob (duckCol, duckDepthLabel, duckDepthSlider);
+        placeLabelledKnob (duckCol, duckDepthLabel, duckDepthSlider);   // a return ramp, not a voice: no dot
     }
 
     // Harmony controls block (rightmost block), an ebs::ExpansibleFrame.

@@ -21,7 +21,7 @@
 #include <eiffelbs/eiffelbs.h>
 #include "ui/OVTTheme.h"
 #include "ui/OVTFonts.h"
-#include "ui/OVTVerticalCaption.h"  // knob captions set vertically, the frame-spine typography
+#include "ui/OVTSpineCaption.h"  // captions in the frame-spine typography: vertical knob captions, power-switch names
 #include "ui/OVTHarmonyLayout.h"   // the Harmony frame's two zone widths (policy + measurement)
 #include "dsp/PresetMorpher.h"
 
@@ -185,7 +185,7 @@ private:
     juce::Label morphSliderLabel;
 
     // Formant Toggle
-    ebs::PowerToggle formantEnableButton;
+    ovt::PowerToggleCaps formantEnableButton;
     juce::ComboBox formantModeBox;
 
     // Key and Scale are discrete values -> ComboBox.
@@ -200,7 +200,7 @@ private:
     // Key detection source + companion group (automatic key detection).
     juce::ComboBox keySourceBox, companionGroupBox;
     juce::Label    keySourceLabel, companionGroupLabel;
-    ebs::PowerToggle keyDetectPowerButton;   // Key/Scale detection on/off (power-icon style)
+    ovt::PowerToggleCaps keyDetectPowerButton;   // Key/Scale detection on/off (power-icon style)
 
     // Bypass Button (power-style)
     juce::DrawableButton bypassButton { "Bypass", juce::DrawableButton::ImageOnButtonBackground };
@@ -264,7 +264,7 @@ private:
     juce::Point<int> pendingMenuScreenPos;
 
     // Harmony controls
-    ebs::PowerToggle harmonyEnableButton;
+    ovt::PowerToggleCaps harmonyEnableButton;
     juce::ComboBox    harmonyTypeBox;
     juce::Slider      harmonyGainSlider;
     juce::Slider      harmonyBlendSlider;
@@ -281,8 +281,8 @@ private:
     juce::ComboBox    harmonyToneBox;
     juce::Slider      harmonyToneColorSlider;
     juce::Label       harmonyToneColorLabel;
-    ebs::PowerToggle harmonyFollowLeadButton; // Harmony voices follow the lead correction character
-    ebs::PowerToggle harmonyGainMatchButton; // Scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
+    ovt::PowerToggleCaps harmonyFollowLeadButton; // Harmony voices follow the lead correction character
+    ovt::PowerToggleCaps harmonyGainMatchButton; // Scale harmony by 1/sqrt(1+N) to keep total RMS ~ dry
     juce::Slider      harmonyFormantSlider;   // Formant shift for harmony voices only
     juce::Label       harmonyFormantLabel;
     // Doubler knob: stereo doubling of the corrected lead (detune + Haas offset
@@ -292,7 +292,7 @@ private:
     // effects' enable buttons in this block.
     // Doubler: one knob, so its dot is carried by the knob (see the Effects block note below).
     ebs::ActivityKnob  doubleAmountSlider;
-    ebs::PowerToggle  doubleEnableButton;
+    ovt::PowerToggleCaps  doubleEnableButton;
 
     // De-Esser: sibilance suppressor for the corrected lead voice. One power
     // switch (deess_enable) and ONE knob (deess_amount, intensity 0..1): that knob
@@ -300,7 +300,7 @@ private:
     // follows voice_type, the register the user already sets for pitch detection.
     // Switching off greys the knob and keeps its value, exactly like the reverb
     // amounts behind their voice switch.
-    ebs::PowerToggle deessEnableButton;
+    ovt::PowerToggleCaps deessEnableButton;
     // De-Esser: one knob, so its dot is carried by the knob.
     ebs::ActivityKnob  deessAmountSlider;        // intensity (0-1)
 
@@ -310,7 +310,7 @@ private:
     // (saturation_tone 0..1 = a warm low-pass at 8 kHz .. 5 kHz). The name is drive /
     // warmth, never "tape": the stage is a soft clipper with a warm pole, not an emulation.
     // Drive 0 is a transparent bypass, so the knob at zero changes nothing.
-    ebs::PowerToggle saturationEnableButton;
+    ovt::PowerToggleCaps saturationEnableButton;
     // Saturation: its dot rides the Drive knob, the control that IS the effect (see the dots note).
     ebs::ActivityKnob  saturationDriveSlider;     // drive (0-1)
     juce::Slider       saturationToneSlider;      // warmth (0-1)
@@ -325,7 +325,7 @@ private:
     // greys the choice and the two knobs and keeps their values, exactly like saturation
     // does with its pair. The ARA source panel reads the host tempo already, so the
     // division is a musical note, never a raw millisecond dial.
-    ebs::PowerToggle delayEnableButton;
+    ovt::PowerToggleCaps delayEnableButton;
     // The note value is a DETENTED small knob, not a combo: the parameter is an AudioParameterChoice
     // (0..4 step 1), so a rotary SliderAttachment snaps to the five values and the popup reads them
     // as fractions. That frees the 22 px the combo strip occupied for the Mix knob above it.
@@ -344,7 +344,7 @@ private:
     // attenuated -- and the switch keeps the knobs' values, so switching a voice off and
     // back on needs no re-dial. The knobs start at the "ready to sing" amounts from
     // ReverbTuning.h, so the FIRST switch-on already applies a balanced pair.
-    ebs::PowerToggle   leadReverbEnableButton;
+    ovt::PowerToggleCaps   leadReverbEnableButton;
     // BOTH amounts of a voice carry the dot: they watch the same path (the voice being sent),
     // and showing it on one knob only would make the other look like it carries no signal.
     // Two dots reporting one path is honest here -- each knob is a send of that same voice.
@@ -355,7 +355,7 @@ private:
     ebs::ActivityKnob  leadRoomSlider;      // lead -> ROOM
     ovt::VerticalCaption leadRoomLabel;     // "Room", rotated bottom-to-top
     ovt::VerticalCaption leadHallLabel;     // "Hall", rotated bottom-to-top
-    ebs::PowerToggle   harmonyReverbEnableButton;
+    ovt::PowerToggleCaps   harmonyReverbEnableButton;
     ebs::ActivityKnob  harmonyHallSlider;   // harmony -> HALL
     ebs::ActivityKnob  harmonyRoomSlider;   // harmony -> ROOM
     ovt::VerticalCaption harmonyRoomLabel;
@@ -364,15 +364,15 @@ private:
     // Sidechain ducker on the two rooms' returns: the key is the corrected lead, never
     // the noise gate. One knob, no switch: depth 0 is no ducking at all, so the amount IS
     // the switch, and it is one control for both rooms (a split per room would be a second
-    // knob for a distinction almost nobody makes). Its caption is vertical too, so the whole
-    // Reverb frame reads as one family of captioned dials.
+    // knob for a distinction almost nobody makes). Its caption stays HORIZONTAL above the
+    // dial: the ducker has no power switch, so it is not one of the amounts a switch sends.
     juce::Slider       duckDepthSlider;
-    ovt::VerticalCaption duckDepthLabel;
+    juce::Label        duckDepthLabel;
 
     // Output stage: trim is the pre-limiter gain (-12..+12 dB), the limiter is the
     // true-peak guard that runs last on the master bus, looking ahead by its declared
     // 8-sample group delay.
-    ebs::PowerToggle limiterEnableButton;
+    ovt::PowerToggleCaps limiterEnableButton;
     // Output Limit: one knob, so its dot is carried by the knob.
     ebs::ActivityKnob  outputTrimSlider;
     juce::Label        outputTrimLabel;
@@ -388,7 +388,7 @@ private:
     // return ramp, not a voice, so it carries none.
 
     // Noise Gate
-    ebs::PowerToggle noiseGateEnableButton;
+    ovt::PowerToggleCaps noiseGateEnableButton;
     // Noise Gate: one knob, so its dot is carried by the knob.
     ebs::ActivityKnob noiseGateThresholdSlider;
     juce::Label noiseGateThresholdLabel;
@@ -396,7 +396,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> noiseGateThresholdAttachment;
 
     // Upward Compressor (input, before tuning)
-    ebs::PowerToggle upwardCompEnableButton;
+    ovt::PowerToggleCaps upwardCompEnableButton;
     // Upward Compressor: one knob, so its dot is carried by the knob.
     ebs::ActivityKnob  upwardCompAmountSlider;
     juce::Label        upwardCompAmountLabel;

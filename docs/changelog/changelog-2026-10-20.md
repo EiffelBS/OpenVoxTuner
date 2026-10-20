@@ -1,12 +1,49 @@
 # Changelog — 2026-10-20
 
+## Feature — Power-switch names use the frame spines' caption typography
+
+Asked right after the vertical captions, while looking at the same row: *"Je pense qu'on devrait
+appliquer les smallcaps à tous les labels associés à un bouton power (sans changer leur
+orientation)."* Chosen scope: the names the power buttons carry themselves — horizontal, at the
+spines' 50 % strength.
+
+- **New `Source/ui/OVTSpineCaption.h`** (the day's first version was `OVTVerticalCaption.h`, which
+  held only the vertical case): the spine recipe now lives in one `ovt::spine` helper namespace —
+  `capsOf` (`ebs::bandCaps`), `trackedLength`, `fittedSize` (13 pt down to the spines' 9 pt floor)
+  and `layout` (tracked glyphs) — shared by `ovt::VerticalCaption` (rotated, the Reverb Room/Hall
+  amounts) and the new `ovt::PowerToggleCaps` (horizontal, every power strip). One recipe, two
+  orientations: captions and frame spines cannot drift apart.
+- **`ovt::PowerToggleCaps`** derives from `ebs::PowerToggle` and restyles only the name: uppercase,
+  accent-free, tracked, fitted to the room left beside the glyph, so a long translated name pays in
+  glyph size instead of widening its cell or clipping. Strength is the switch's own: 50 % at rest
+  (the spines' `ebs::kBandTextAlpha`), full text colour when engaged — the cue the EBS widget
+  already gave its name — and dimmed when disabled. Behaviour, colour ids and the glowing glyph stay
+  the EBS widget's; that glyph block is copied verbatim because `ebs::PowerToggle::paint` draws
+  glyph and name in one body. The copy is marked in the file as the block to delete once
+  eiffelbs-ui grows a caption style, which is the clean long-term home for this.
+- **All fourteen power strips** use it: Gate, Compress, Doubler, Formant, Output Limit, De-Esser,
+  Saturation, Delay, Lead (Reverb), Harmony (Reverb), Harmony (frame enable), Follow Lead, Gain
+  Match, and the Key/Scale detection switch (the one with no text stays glyph-only, as before).
+  No layout width changed: each button keeps the width measured from its name and the caption fits
+  itself inside it; in the narrowest 74 px cells the longest names land at the spines' 9 pt floor,
+  and nothing clips or overlaps the power glyph. Knob captions that are not switch names (Drive,
+  Warmth, Mix, Division, Feedback) keep their existing label style — the request covered the power
+  button's own label, and those captions are a separate decision.
+
+Verification: `ninja OpenVoxTuner_All` and the test suite green (209 groups, 0 failures), the
+standalone relaunched and the band checked on screen: the switch names read as tracked capitals,
+50 % at rest and bright when engaged, each one inside its cell.
+
 ## Feature — Knob captions run vertically, in the frame spines' typography
 
 Asked while testing the reverb frame: *"les labels Room et Hall sur la gauche de leurs knobs,
 verticaux et SmallCaps, un peu comme le bandeau titre des frames qu'on a ajouté récemment dans
-EBS ?"*
+EBS ?"* Followed by: *"Ducking doit rester avec titre au-dessus."* — the first build rotated the
+Ducking caption with the amounts; it stays horizontal above its dial, because the ducker is a return
+ramp, not an amount a power switch sends.
 
-- **New `Source/ui/OVTVerticalCaption.h`**: a `juce::Label` subclass that paints its text rotated
+- **New `Source/ui/OVTSpineCaption.h`** (added as `OVTVerticalCaption.h`, renamed when the
+  power-switch captions joined it): a `juce::Label` subclass that paints its text rotated
   bottom-to-top with the design system's own spine recipe — `ebs::bandCaps` (UPPERCASE, accents
   dropped, safe in every locale), `ebs::kBandLetterSpacing` tracking, `ebs::kBandTextAlpha` at
   50 %, glyphs shrinking from `kBandFontSize` towards `kBandMinFontSize` instead of clipping. It
@@ -14,11 +51,11 @@ EBS ?"*
   tinted strip and an inner trim, while a caption labels one dial — five tinted strips inside the
   Reverb frame would read as five sub-frames. Because it derives from `juce::Label`, it rides the
   existing i18n refresh (`translatableLabels`) with no new keys.
-- **Reverb frame**: the four amount captions (Lead/Harmony × Room/Hall) and the Ducking caption now
-  sit vertically at their dial's left. The 14 px a horizontal caption used above each dial go back
-  to the dial: the amount cells measure 65 px, so the four dials reach the shared `effKnobD` = 54 px
-  instead of the 49 px a top caption allowed, matching the Effects block. The Ducking dial is
-  centred in its tall column instead of sitting under a strip of text.
+- **Reverb frame**: the four amount captions (Lead/Harmony × Room/Hall) sit vertically at their
+  dial's left. The 14 px a horizontal caption used above each dial go back to the dial: the amount
+  cells measure 65 px, so the four dials reach the shared `effKnobD` = 54 px instead of the 49 px a
+  top caption allowed, matching the Effects block. The Ducking caption stays horizontal above its
+  dial (its column keeps the measured-width rule).
 - The column width model is unchanged: a caption asks for `ebs::FrameTitleBand::bandWidth()` (17 px)
   and a 54 px dial plus a 2 px gap fits inside the existing `kEffectsColW` = 74 px cell, so no
   locale widens the frame and the folded row still fits the minimum-width client. The Ducking
