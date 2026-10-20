@@ -21,6 +21,7 @@
 #include <eiffelbs/eiffelbs.h>
 #include "ui/OVTTheme.h"
 #include "ui/OVTFonts.h"
+#include "ui/OVTVerticalCaption.h"  // knob captions set vertically, the frame-spine typography
 #include "ui/OVTHarmonyLayout.h"   // the Harmony frame's two zone widths (policy + measurement)
 #include "dsp/PresetMorpher.h"
 
@@ -347,22 +348,26 @@ private:
     // BOTH amounts of a voice carry the dot: they watch the same path (the voice being sent),
     // and showing it on one knob only would make the other look like it carries no signal.
     // Two dots reporting one path is honest here -- each knob is a send of that same voice.
+    // Their captions run VERTICALLY along the dial's left edge (ovt::VerticalCaption), the frame
+    // spines' typography: the 14 px a horizontal caption took above each dial go back to the dial,
+    // so the four amounts reach the same 54 px the Effects block uses instead of 49 px.
     ebs::ActivityKnob  leadHallSlider;      // lead -> HALL
     ebs::ActivityKnob  leadRoomSlider;      // lead -> ROOM
-    juce::Label        leadRoomLabel;       // "Room"
-    juce::Label        leadHallLabel;       // "Hall"
+    ovt::VerticalCaption leadRoomLabel;     // "Room", rotated bottom-to-top
+    ovt::VerticalCaption leadHallLabel;     // "Hall", rotated bottom-to-top
     ebs::PowerToggle   harmonyReverbEnableButton;
     ebs::ActivityKnob  harmonyHallSlider;   // harmony -> HALL
     ebs::ActivityKnob  harmonyRoomSlider;   // harmony -> ROOM
-    juce::Label        harmonyRoomLabel;
-    juce::Label        harmonyHallLabel;
+    ovt::VerticalCaption harmonyRoomLabel;
+    ovt::VerticalCaption harmonyHallLabel;
 
     // Sidechain ducker on the two rooms' returns: the key is the corrected lead, never
     // the noise gate. One knob, no switch: depth 0 is no ducking at all, so the amount IS
     // the switch, and it is one control for both rooms (a split per room would be a second
-    // knob for a distinction almost nobody makes).
+    // knob for a distinction almost nobody makes). Its caption is vertical too, so the whole
+    // Reverb frame reads as one family of captioned dials.
     juce::Slider       duckDepthSlider;
-    juce::Label        duckDepthLabel;
+    ovt::VerticalCaption duckDepthLabel;
 
     // Output stage: trim is the pre-limiter gain (-12..+12 dB), the limiter is the
     // true-peak guard that runs last on the master bus, looking ahead by its declared

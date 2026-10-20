@@ -3050,7 +3050,10 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     // locale stays compact and a fully folded row fits the minimum-width client without scrolling.
     const int leadNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (leadReverbEnableButton.getButtonText()));
     const int harmNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (harmonyReverbEnableButton.getButtonText()));
-    const int duckNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (duckDepthLabel.getText()));
+    // The Ducking column has no header text any more: its caption runs vertically beside the dial (17 px)
+    // and the dial is 54 px, so one cell floor holds the pair. Measuring its label here would size the
+    // column for text that no longer lies across it.
+    const int duckNeed = kEffectsColW;
     const int reverbW = chevron + 2 * kEffectsPad + bandW
                       + (reverbFrame.expanded()
                          ? leadNeed + harmNeed + duckNeed + 2 * kEffectsColGap
@@ -3618,9 +3621,11 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     // --- Block 5 : Reverb - an ebs::ExpansibleFrame right of Effects ---
     // Two SHARED ROOMS and two voice columns. Folded, the frame shows the LEAD column only: the Lead switch carrying
-    // its name, then the two amounts that voice sends - Room (short) above Hall (long). Open, the HARMONY column joins
-    // it (same shape) and Ducking stands alone in column 3. Each column is one voice, each row inside it is one room:
-    // the knob IS the send, so there is no separate send control and the dry voice is never attenuated.
+    // its name, then the two amounts that voice sends - Room (short) above Hall (long), each room named VERTICALLY at
+    // its dial's left in the frame spines' typography (ovt::VerticalCaption). Open, the HARMONY column joins it (same
+    // shape) and Ducking stands alone in column 3, captioned the same way. Each column is one voice, each row inside
+    // it is one room: the knob IS the send, so there is no separate send control and the dry voice is never
+    // attenuated.
     // The height works at the shipped band height: the band row gives every frame 156 px of content, and header (18)
     // + label (14) + knob (<= 49) + gap (8) + label (14) + knob (<= 49) fits inside it.
     // The columns are sized by the MEASURED switch name: a ToggleButton draws its tick well then centred-left text
@@ -3650,22 +3655,36 @@ void OpenVoxTunerAudioProcessorEditor::resized()
 
     const int headerH = effectPowerH;   // the switch strip, same height as every other cell's
 
-    // One voice column: the power switch carrying the voice name, then its two send amounts, each under the caption
-    // that names the room it feeds. The switch keeps the knobs' values (greyed while off), so switching a voice off
-    // and back on needs no re-dial. BOTH amounts carry the voice's activity dot: they send the same voice to two
-    // rooms, so a dot on one knob only would read as "this other amount carries no signal".
+    // A knob whose caption runs VERTICALLY along its left edge, in the frame spines' typography (tracked
+    // capitals, 50 % alpha, glyphs shrinking to fit). The caption spends width the cell already has and
+    // hands the 14 px it used to occupy above the dial back to the dial: 156 - header - gap leaves 65 px
+    // per amount cell, so the dial reaches the shared 54 px instead of the 49 px a top caption allowed.
+    auto placeSpineKnob = [&] (juce::Rectangle<int> cell, ovt::VerticalCaption& caption, juce::Slider& knob)
+    {
+        caption.setBounds (cell.removeFromLeft (ovt::VerticalCaption::captionWidth()));
+        cell.removeFromLeft (2);   // clear space between the rotated glyphs and the dial
+        const int widest = juce::jmax (30, juce::jmin (effKnobD, cell.getWidth()));
+        const int d = juce::jlimit (30, widest, cell.getHeight() - 2);
+        const int kx = cell.getX() + juce::jmax (0, (cell.getWidth() - d) / 2);
+        knob.setBounds (kx, cell.getY() + juce::jmax (0, (cell.getHeight() - d) / 2), d, d);
+    };
+
+    // One voice column: the power switch carrying the voice name, then its two send amounts, each with the
+    // room it feeds set vertically at its left. The switch keeps the knobs' values (greyed while off), so
+    // switching a voice off and back on needs no re-dial. BOTH amounts carry the voice's activity dot: they
+    // send the same voice to two rooms, so a dot on one knob only would read as "this other amount carries
+    // no signal".
     auto placeVoiceColumn = [&] (juce::Rectangle<int> col, juce::ToggleButton& toggle,
-                                 juce::Label& roomLabel, juce::Slider& roomKnob,
-                                 juce::Label& hallLabel, juce::Slider& hallKnob)
+                                 ovt::VerticalCaption& roomLabel, juce::Slider& roomKnob,
+                                 ovt::VerticalCaption& hallLabel, juce::Slider& hallKnob)
     {
         toggle.setBounds (col.removeFromTop (headerH));
 
-        // Two labelled cells share what is left: header (18) + room cell + gap + hall cell = 156 px, so each dial gets
-        // (height - header - gap) / 2 - caption, i.e. 49 px at the shipped band height: a full-size dial.
+        // Two captioned cells share what is left: header (18) + room cell + gap + hall cell = 156 px.
         const int cellH = (col.getHeight() - rowGap) / 2;
-        placeLabelledKnob (col.removeFromTop (cellH), roomLabel, roomKnob);
+        placeSpineKnob (col.removeFromTop (cellH), roomLabel, roomKnob);
         col.removeFromTop (rowGap);
-        placeLabelledKnob (col, hallLabel, hallKnob);
+        placeSpineKnob (col, hallLabel, hallKnob);
     };
 
     const int leadNeed = reverbHeaderNeed (leadReverbEnableButton.getButtonText());
@@ -3696,7 +3715,9 @@ void OpenVoxTunerAudioProcessorEditor::resized()
                           leadHallLabel, leadHallSlider);
         placeVoiceColumn (rvCol2, harmonyReverbEnableButton, harmonyRoomLabel, harmonyRoomSlider,
                           harmonyHallLabel, harmonyHallSlider);
-        placeLabelledKnob (duckCol, duckDepthLabel, duckDepthSlider);   // a return ramp, not a voice: no dot
+        // A return ramp, not a voice: no dot, and its caption is vertical like the two voice columns' so
+        // the whole frame reads as one family of captioned dials.
+        placeSpineKnob (duckCol, duckDepthLabel, duckDepthSlider);
     }
 
     // Harmony controls block (rightmost block), an ebs::ExpansibleFrame.

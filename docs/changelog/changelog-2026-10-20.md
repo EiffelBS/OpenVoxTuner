@@ -1,5 +1,33 @@
 # Changelog — 2026-10-20
 
+## Feature — Knob captions run vertically, in the frame spines' typography
+
+Asked while testing the reverb frame: *"les labels Room et Hall sur la gauche de leurs knobs,
+verticaux et SmallCaps, un peu comme le bandeau titre des frames qu'on a ajouté récemment dans
+EBS ?"*
+
+- **New `Source/ui/OVTVerticalCaption.h`**: a `juce::Label` subclass that paints its text rotated
+  bottom-to-top with the design system's own spine recipe — `ebs::bandCaps` (UPPERCASE, accents
+  dropped, safe in every locale), `ebs::kBandLetterSpacing` tracking, `ebs::kBandTextAlpha` at
+  50 %, glyphs shrinking from `kBandFontSize` towards `kBandMinFontSize` instead of clipping. It
+  is NOT an `ebs::FrameTitleBand`: a spine names a whole frame and therefore spends width on a
+  tinted strip and an inner trim, while a caption labels one dial — five tinted strips inside the
+  Reverb frame would read as five sub-frames. Because it derives from `juce::Label`, it rides the
+  existing i18n refresh (`translatableLabels`) with no new keys.
+- **Reverb frame**: the four amount captions (Lead/Harmony × Room/Hall) and the Ducking caption now
+  sit vertically at their dial's left. The 14 px a horizontal caption used above each dial go back
+  to the dial: the amount cells measure 65 px, so the four dials reach the shared `effKnobD` = 54 px
+  instead of the 49 px a top caption allowed, matching the Effects block. The Ducking dial is
+  centred in its tall column instead of sitting under a strip of text.
+- The column width model is unchanged: a caption asks for `ebs::FrameTitleBand::bandWidth()` (17 px)
+  and a 54 px dial plus a 2 px gap fits inside the existing `kEffectsColW` = 74 px cell, so no
+  locale widens the frame and the folded row still fits the minimum-width client. The Ducking
+  column is now sized as one cell instead of by its measured label width.
+
+Verification: `ninja OpenVoxTuner_All` relinks all three formats with no new warnings (the caption
+uses `juce::GlyphArrangement::getStringWidth` like the rest of the plugin); suite still 209 test
+groups, 0 failures. The change is layout + paint only.
+
 ## Fix — Both reverb amounts carry the activity dot, not only the Hall ones
 
 Reported while testing the new Reverb frame: *"seuls les knobs Hall ont les points centraux
