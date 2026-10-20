@@ -38,6 +38,7 @@
 #include "ui/EffectsCellLayoutTest.cpp"
 #include "ui/ScaleKeyboardComponentTest.cpp"
 #include "ui/LookAndFeelToggleTest.cpp"
+#include "ui/TranslationCompletenessTest.cpp"
 #include "ScaleSnapPipelineTest.cpp"
 #include "dsp/DoublerTest.cpp"
 #include "dsp/UnisonDetuneTest.cpp"

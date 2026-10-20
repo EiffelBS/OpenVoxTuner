@@ -886,6 +886,14 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     delayEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     addAndMakeVisible (delayEnableButton);
 
+    // Every control of the Delay explains itself: the switch, the mix, the note value of the echo
+    // and the repeats. The Delay was the one module whose controls had no tooltip at all, so a
+    // user had to guess what DIVISION and FEEDBACK did.
+    delayEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDelayEn));
+    delayMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDelayMix));
+    delayDivisionKnob.setTooltip (ovt::tr (ovt::Keys::kTooltipDelayDivision));
+    delayFeedbackSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDelayFeedback));
+
     // "Use Voice": the shared iOS-style sliding switch. It paints only the pill,
     // so the caption is a separate label placed to its left in resized().
     useVoiceLabel.setText (ovt::tr(ovt::Keys::kLabelUseVoice), juce::dontSendNotification);
@@ -1607,7 +1615,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     voiceTypeBox.setColour (juce::ComboBox::arrowColourId, ebs::accent());
     voiceTypeBox.setColour (juce::PopupMenu::backgroundColourId, ebs::bgDark());
     voiceTypeBox.setColour (juce::PopupMenu::textColourId, ebs::text());
-    voiceTypeBox.setTooltip ("Constrain pitch detection to a vocal register. Universal (default) covers the full voice range. Select Bass / Baritone / Tenor / Alto / Soprano to reduce octave errors and CPU for that register.");
+    voiceTypeBox.setTooltip (ovt::tr (ovt::Keys::kTooltipVoiceType));
     voiceTypeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processorRef.getParameters(), "voice_type", voiceTypeBox);
     addAndMakeVisible (voiceTypeBox);
@@ -5313,16 +5321,6 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     };
     const auto leadPath    = ovt::tr (ovt::Keys::kTooltipPathLead);
     const auto outputPath  = ovt::tr (ovt::Keys::kTooltipPathOutput);
-    noiseGateThresholdSlider.setTooltip (withPath (noiseGateThresholdSlider.getTooltip(), leadPath));
-    upwardCompAmountSlider.setTooltip (withPath (upwardCompAmountSlider.getTooltip(), leadPath));
-    doubleAmountSlider.setTooltip (withPath (doubleAmountSlider.getTooltip(), leadPath));
-    formantSlider.setTooltip (withPath (formantSlider.getTooltip(), leadPath));
-    deessAmountSlider.setTooltip (withPath (deessAmountSlider.getTooltip(), leadPath));
-    outputTrimSlider.setTooltip (withPath (outputTrimSlider.getTooltip(), outputPath));
-    saturationDriveSlider.setTooltip (withPath (saturationDriveSlider.getTooltip(), outputPath));
-    delayMixSlider.setTooltip (withPath (delayMixSlider.getTooltip(), leadPath));
-    leadHallSlider.setTooltip (withPath (leadHallSlider.getTooltip(), leadPath));
-    harmonyHallSlider.setTooltip (withPath (harmonyHallSlider.getTooltip(), ovt::tr (ovt::Keys::kTooltipPathHarmony)));
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
     flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune));
@@ -5346,6 +5344,10 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     saturationEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationEnable));
     saturationDriveSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationDrive));
     saturationToneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipSaturationWarmth));
+    delayEnableButton.setTooltip (ovt::tr (ovt::Keys::kTooltipDelayEn));
+    delayMixSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDelayMix));
+    delayDivisionKnob.setTooltip (ovt::tr (ovt::Keys::kTooltipDelayDivision));
+    delayFeedbackSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipDelayFeedback));
     harmonyToneColorSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipToneColor));
     buttonA.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotA));
     buttonB.setTooltip (ovt::tr(ovt::Keys::kTooltipAbSlotB));
@@ -5383,6 +5385,20 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     presetGalleryButton.setTooltip (ovt::tr (ovt::Keys::kTooltipPresetGallery));
     undoButton.setTooltip (ovt::tr (ovt::Keys::kTooltipUndo));
     redoButton.setTooltip (ovt::tr (ovt::Keys::kTooltipRedo));
+
+    // The activity-dot sentences are appended AFTER the control's own tooltip has just been
+    // restated above. Appending them to a tooltip that already carries them (which is what
+    // happened on every language change) repeated the sentence once per switch.
+    noiseGateThresholdSlider.setTooltip (withPath (noiseGateThresholdSlider.getTooltip(), leadPath));
+    upwardCompAmountSlider.setTooltip (withPath (upwardCompAmountSlider.getTooltip(), leadPath));
+    doubleAmountSlider.setTooltip (withPath (doubleAmountSlider.getTooltip(), leadPath));
+    formantSlider.setTooltip (withPath (formantSlider.getTooltip(), leadPath));
+    deessAmountSlider.setTooltip (withPath (deessAmountSlider.getTooltip(), leadPath));
+    outputTrimSlider.setTooltip (withPath (outputTrimSlider.getTooltip(), outputPath));
+    saturationDriveSlider.setTooltip (withPath (saturationDriveSlider.getTooltip(), outputPath));
+    delayMixSlider.setTooltip (withPath (delayMixSlider.getTooltip(), leadPath));
+    leadHallSlider.setTooltip (withPath (leadHallSlider.getTooltip(), leadPath));
+    harmonyHallSlider.setTooltip (withPath (harmonyHallSlider.getTooltip(), ovt::tr (ovt::Keys::kTooltipPathHarmony)));
 
     // "Measures" control label follows the active language.
     measuresLabel.setText (ovt::tr (ovt::Keys::kLabelMeasures), juce::dontSendNotification);

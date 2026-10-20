@@ -1,5 +1,34 @@
 # Changelog — 2026-10-20
 
+## Feature — Every control explains itself: plain-language tooltips, and the Delay gets its own
+
+Requested: *"Division et Feedback n'ont pas de tooltip. Le contenu des tooltips doit expliquer le
+comportement du composant de manière simple pour un utilisateur lambda, pas de référence à
+"l'ancienne version" ou autre chose lié au développement. L'utilisateur n'a besoin que de savoir à
+quoi sert le composant et quel est son effet."*
+
+- **The Delay explains itself**: four new tooltips (switch, mix, note value, repeats) in the six
+  shipped languages. DIVISION and FEEDBACK had no tooltip at all - a user had to guess what they
+  did. MIX had only the activity-dot sentence.
+- **Every tooltip rewritten in plain language**, in the six languages: the reverb of the "older
+  versions" (the Hall tooltip), the `1/sqrt(1+N)` formula of the gain match, the `Haas delay` and
+  the `allpass` / `Pre-warp` jargon of the formant strategy, the "third axis, orthogonal to
+  FlexTune" of the attack correction, the CPU note of the voice type, the "before the tuning" and
+  the "after the voice shaping" signal-chain remarks, the controls the row no longer carries
+  (Flex, Attack-Aware) and the "shared bridge" wording of the key source. A tooltip now says what
+  the control does and what it changes, and stops.
+- **The English table no longer holds four French sentences** (the curve-editor tooltips) and the
+  **Chinese table no longer misses four entries** (the curve-editor tooltips and two MIDI-learn
+  labels): a missing entry does not raise an error, it silently falls back to English.
+- **The activity-dot sentence is no longer repeated** on every language change: the dot sentences
+  are appended after the control's own tooltip has been restated, not to the already-appended one.
+- **New test** `test/ui/TranslationCompletenessTest.cpp`: every English string must exist in the
+  six shipped languages, no tooltip may carry a development phrase, no tooltip may be empty. The
+  suite goes from 209 to 212 groups.
+
+Verification: build green, suite 212 groups / 0 failures, standalone relaunched and the four Delay
+tooltips read back from the running plugin.
+
 ## Fix — The Harmony switch names were cut in half, and the captions of disabled controls stayed bright
 
 Two things the user spotted on screen after the unified caption size:
