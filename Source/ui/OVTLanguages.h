@@ -330,9 +330,6 @@ namespace ovt
         static const char* kTooltipLimiterEn    = "tooltip.limiter_enable";
         static const char* kTooltipOutputTrim   = "tooltip.output_trim";
         static const char* kTooltipOutputMeter  = "tooltip.output_meter";
-        static const char* kTooltipPathLead     = "tooltip.path_lead";
-        static const char* kTooltipPathHarmony  = "tooltip.path_harmony";
-        static const char* kTooltipPathOutput   = "tooltip.path_output";
         static const char* kTooltipFormant     = "tooltip.formant_enable";
         static const char* kTooltipFlexTune    = "tooltip.flex_tune";
         static const char* kTooltipHumanize    = "tooltip.humanize";
@@ -728,9 +725,6 @@ namespace ovt
             { kTooltipLimiterEn,       "Peak limiter on the output: it holds the peaks back instead of letting them clip. It adds no delay to the signal." },
             { kTooltipOutputTrim,     "Output trim in dB: the gain applied before the limiter. Use it to fit the plugin into a mix without touching the harmony balance." },
             { kTooltipOutputMeter,    "Bar: the level that leaves the plugin. Red: how much the limiter is pulling it down. Trim: your output trim." },
-            { kTooltipPathLead,                   "Lights while the lead path carries signal. The dot follows the sound, not the settings." },
-            { kTooltipPathHarmony,                "Lights while the harmony path carries signal. The dot follows the sound, not the settings." },
-            { kTooltipPathOutput,                 "Lights while the master path carries signal. The dot follows the sound, not the settings." },
             { kTooltipFormant,        "Enable/disable formant shifting." },
             { kTooltipFlexTune,       "Deadband in cents: input pitch within this range is left uncorrected." },
             { kTooltipHumanize,       "Random pitch fluctuations in cents, added when correction is applied." },
@@ -1110,9 +1104,6 @@ namespace ovt
             { kTooltipLimiterEn,       "Limiteur de crête sur la sortie : il retient les crêtes au lieu de les faire crisper. Il n'ajoute aucun retard au signal." },
             { kTooltipOutputTrim,     "Trim de sortie en dB : le gain appliqué avant le limiteur. Il ajuste le niveau du plugin dans le mix sans toucher l'équilibre des harmonies." },
             { kTooltipOutputMeter,    "Barre : le niveau qui sort du plugin. Rouge : la réduction que le limiteur lui applique. Trim : votre trim de sortie." },
-            { kTooltipPathLead,                   "S'allume tant que le chemin lead transporte du signal. Le point suit le son, pas les réglages." },
-            { kTooltipPathHarmony,                "S'allume tant que le chemin d'harmonie transporte du signal. Le point suit le son, pas les réglages." },
-            { kTooltipPathOutput,                 "S'allume tant que le chemin master transporte du signal. Le point suit le son, pas les réglages." },
             { kTooltipFormant,        "Activer/desactiger le deplacement de formant." },
             { kTooltipFlexTune,       "Deadband en cents : les entrees dans cette plage ne sont pas corrigees." },
             { kTooltipHumanize,       "Fluctuations aleatoires de hauteur en cents, ajoutees lors de la correction." },
@@ -1493,9 +1484,6 @@ namespace ovt
             { kTooltipLimiterEn,       "Peak-Limiter am Ausgang: Er haelt Peaks zurueck, statt sie ins Clipping laufen zu lassen. Er verursacht keine zusaetzliche Verzoegerung." },
             { kTooltipOutputTrim,     "Output-Trim in dB: die Verstärkung vor dem Limiter. Passt das Plugin in den Mix an, ohne die Harmonie-Balance zu ändern." },
             { kTooltipOutputMeter,    "Balken: der Pegel, der das Plugin verlässt. Rot: wie weit der Limiter ihn absenkt. Trim: dein Output-Trim." },
-            { kTooltipPathLead,                   "Leuchtet, solange der Lead-Pfad Signal führt. Der Punkt folgt dem Klang, nicht den Einstellungen." },
-            { kTooltipPathHarmony,                "Leuchtet, solange der Harmonie-Pfad Signal führt. Der Punkt folgt dem Klang, nicht den Einstellungen." },
-            { kTooltipPathOutput,                 "Leuchtet, solange der Master-Pfad Signal führt. Der Punkt folgt dem Klang, nicht den Einstellungen." },
             { kTooltipFormant,        "Formantenverschiebung aktivieren/deaktivieren." },
             { kTooltipFlexTune,       "Deadband in Cents: Eingaenge in diesem Bereich werden nicht korrigiert." },
             { kTooltipHumanize,       "Zufaellige Tonhoehen-Schwankungen in Cents bei Korrektur." },
@@ -1874,9 +1862,6 @@ namespace ovt
             { kTooltipLimiterEn,       "Limitador de picos en la salida: retiene los picos en lugar de dejarlos recortar. No anade retardo a la senal." },
             { kTooltipOutputTrim,     "Trim de salida en dB: la ganancia aplicada antes del limitador. Ajusta el nivel del plugin en la mezcla sin tocar el equilibrio de las armonías." },
             { kTooltipOutputMeter,    "Barra: el nivel que sale del plugin. Rojo: cuánto lo baja el limitador. Trim: tu trim de salida." },
-            { kTooltipPathLead,                   "Se enciende mientras el camino principal transporta señal. El punto sigue el sonido, no los ajustes." },
-            { kTooltipPathHarmony,                "Se enciende mientras el camino de armonía transporta señal. El punto sigue el sonido, no los ajustes." },
-            { kTooltipPathOutput,                 "Se enciende mientras el camino master transporta señal. El punto sigue el sonido, no los ajustes." },
             { kTooltipFormant,        "Activar/desactivar desplazamiento de formante." },
             { kTooltipFlexTune,       "Deadband en cents: las entradas en este rango no se corrigen." },
             { kTooltipHumanize,       "Fluctuaciones aleatorias de tono en cents al aplicar correccion." },
@@ -2255,9 +2240,6 @@ namespace ovt
             { kTooltipLimiterEn,       "出力のピーク・リミッター：クリップさせずにピークを抑えます。信号に遅延は加えません。" },
             { kTooltipOutputTrim,     "出力トリム（dB）：リミッターの前に掛かるゲイン。和声のバランスを変えずにプラグインのレベルをミックスに合わせます。" },
             { kTooltipOutputMeter,    "バー：プラグインから出ていくレベル。赤：リミッターが下げる量。トリム：出力トリム。" },
-            { kTooltipPathLead,                   "リード経路に信号がある間だけ点灯します。点は音に反応し、設定には反応しません。" },
-            { kTooltipPathHarmony,                "ハーモニー経路に信号がある間だけ点灯します。点は音に反応し、設定には反応しません。" },
-            { kTooltipPathOutput,                 "マスター経路に信号がある間だけ点灯します。点は音に反応し、設定には反応しません。" },
             { kTooltipFormant,        "フォルマントシフトの有効/無効。" },
             { kTooltipFlexTune,       "デッドバンド(セント): この範囲内のピッチは補正されません。" },
             { kTooltipHumanize,       "補正時に追加されるランダムなピッチ変動(セント)。" },
@@ -2638,9 +2620,6 @@ namespace ovt
             { kTooltipLimiterEn,       "输出峰值限制器：收住峰值而不是任其削波。不会给信号增加延迟。" },
             { kTooltipOutputTrim,     "输出微调（dB）：限制器之前的增益。用于让插件贴合混音，而不改变和声平衡。" },
             { kTooltipOutputMeter,    "条：离开插件的电平。红色：限制器压下的量。微调：你的输出微调。" },
-            { kTooltipPathLead,                   "主声通道有信号时点亮。圆点跟随声音，而非设置。" },
-            { kTooltipPathHarmony,                "和声通道有信号时点亮。圆点跟随声音，而非设置。" },
-            { kTooltipPathOutput,                 "主输出通道有信号时点亮。圆点跟随声音，而非设置。" },
             { kTooltipFormant,        "启用/禁用共振峰偏移。" },
             { kTooltipFlexTune,       "死区（音分）：此范围内的输入音高保持不校正。" },
             { kTooltipHumanize,       "随机音高波动（音分），在校正应用时添加。" },

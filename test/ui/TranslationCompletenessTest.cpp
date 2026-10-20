@@ -58,7 +58,11 @@ public:
                                        "früheren Versionen", "versiones anteriores", "以前のバージョン",
                                        "旧版本", "1/sqrt", "RMS", "Haas", "allpass", "Pre-warp",
                                        "Attack-Aware", "attack-aware", "attack aware",
-                                       "FlexTune", "flex, attack-aware" };
+                                       "FlexTune", "flex, attack-aware",
+                                       // The activity dot is explicit on its own: a tooltip must
+                                       // not explain how it works ("Lights while the lead path
+                                       // carries signal"), only what the control does.
+                                       "Lights while", "The dot follows", "path carries signal" };
 
         for (const auto& string : english)
         {

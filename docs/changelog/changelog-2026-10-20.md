@@ -1,5 +1,24 @@
 # Changelog — 2026-10-20
 
+## Fix — The tooltips stop explaining the activity dot
+
+Requested: *"Dans les tooltips de knobs avec dot, je ne suis pas sûr qu'on ait besoin d'indiquer
+comment fonctionne le dot ("Lights when...", "The dot follows..."). Je pense que le dot est une
+information suffisamment explicite par elle-même"*
+
+- The dot sentences are gone from every tooltip: the knob's own explanation is the whole tooltip
+  now. The dot is explicit by itself - it lights with the signal the component works on - so
+  "Lights while the lead path carries signal. The dot follows the sound, not the settings." was
+  spending a sentence on something the user can already see, in the ten tooltips that carried it
+  (Gate, Compressor, Doubler, Formant, De-Esser, Output Trim, Saturation Drive, Delay Mix, and the
+  two Lead/Harmony Hall sends).
+- The three translation keys that carried those sentences are deleted with their six-language
+  entries: nothing in the tables is dead any more.
+- The completeness test now bans the dot sentences too, so they cannot come back by accident.
+
+Verification: build green, suite 212 groups / 0 failures, the four tooltips read back from the
+running plugin (Delay Mix, Gate threshold, Lead Hall, Harmony Hall) carry their own sentence only.
+
 ## Fix — The Ducking dial sat on its own line, and its name was not a smallcap
 
 Requested: *"Pour Ducking, il faudrait aligner le knob sur ceux de la ligne 1. On peut sans doute

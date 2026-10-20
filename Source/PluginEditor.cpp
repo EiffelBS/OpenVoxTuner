@@ -5328,16 +5328,6 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     outputMeter.setCaptions (ovt::tr (ovt::Keys::kLabelMeterGr), ovt::tr (ovt::Keys::kLabelMeterTrim));
     outputMeter.setTooltip (ovt::tr (ovt::Keys::kTooltipOutputMeter));
 
-    // The activity dots carry one tooltip each, by the PATH they report rather than by the place
-    // they sit, so the same sentence stays true whether the dot lives in a knob or at the foot of
-    // a column. A knob that carries its own dot keeps its own tooltip and gains the path sentence
-    // after it: the control's explanation stays first, and the dot is explained where it lives.
-    const auto withPath = [] (const juce::String& control, const juce::String& path)
-    {
-        return control.isEmpty() ? path : control + " " + path;
-    };
-    const auto leadPath    = ovt::tr (ovt::Keys::kTooltipPathLead);
-    const auto outputPath  = ovt::tr (ovt::Keys::kTooltipPathOutput);
     noiseGateEnableButton.setTooltip (ovt::tr(ovt::Keys::kTooltipNoiseGate));
     noiseGateThresholdSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipThreshold));
     flexTuneSlider.setTooltip (ovt::tr (ovt::Keys::kTooltipFlexTune));
@@ -5403,19 +5393,8 @@ void OpenVoxTunerAudioProcessorEditor::refreshLabels()
     undoButton.setTooltip (ovt::tr (ovt::Keys::kTooltipUndo));
     redoButton.setTooltip (ovt::tr (ovt::Keys::kTooltipRedo));
 
-    // The activity-dot sentences are appended AFTER the control's own tooltip has just been
-    // restated above. Appending them to a tooltip that already carries them (which is what
-    // happened on every language change) repeated the sentence once per switch.
-    noiseGateThresholdSlider.setTooltip (withPath (noiseGateThresholdSlider.getTooltip(), leadPath));
-    upwardCompAmountSlider.setTooltip (withPath (upwardCompAmountSlider.getTooltip(), leadPath));
-    doubleAmountSlider.setTooltip (withPath (doubleAmountSlider.getTooltip(), leadPath));
-    formantSlider.setTooltip (withPath (formantSlider.getTooltip(), leadPath));
-    deessAmountSlider.setTooltip (withPath (deessAmountSlider.getTooltip(), leadPath));
-    outputTrimSlider.setTooltip (withPath (outputTrimSlider.getTooltip(), outputPath));
-    saturationDriveSlider.setTooltip (withPath (saturationDriveSlider.getTooltip(), outputPath));
-    delayMixSlider.setTooltip (withPath (delayMixSlider.getTooltip(), leadPath));
-    leadHallSlider.setTooltip (withPath (leadHallSlider.getTooltip(), leadPath));
-    harmonyHallSlider.setTooltip (withPath (harmonyHallSlider.getTooltip(), ovt::tr (ovt::Keys::kTooltipPathHarmony)));
+    // No activity-dot sentence here any more: the dot says by itself what it means (it lights
+    // with the signal the component works on), so a tooltip only has to explain the CONTROL.
 
     // "Measures" control label follows the active language.
     measuresLabel.setText (ovt::tr (ovt::Keys::kLabelMeasures), juce::dontSendNotification);
