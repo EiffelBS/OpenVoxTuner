@@ -130,7 +130,11 @@ private:
     static constexpr int kAdvancedW     = 160;  // revealed correction zone when expanded
     static constexpr int kCorrPad       = 10;   // frame interior padding
     static constexpr int kEffectsPad    = 10;   // frame interior padding
-    static constexpr int kEffectsColW   = 74;   // one cell: power toggle + full-size knob
+    // One cell of the Effects grid: the power glyph (10.8 px), the gap (8 px) and the switch name
+    // in the ONE caption size of the row (11 pt). Measured over all six shipped locales, the
+    // longest name in a cell is the Japanese "フォルマント" (61.1 px at 11 pt), so 82 px is the
+    // floor where every name fits without clipping.
+    static constexpr int kEffectsColW   = 82;
     static constexpr int kEffectsColGap = 8;
     static constexpr int kScalePrefW    = 236;  // narrowed to fit the Root combo
     static constexpr int kScaleMinW     = 200;  // floor for the 180 px keyboard strip
@@ -147,7 +151,7 @@ private:
      *  a gap and the text drawn in ebs::fontToggleButton(). The Reverb frame's columns are sized by this
      *  measurement because JUCE clips a ToggleButton label with an ellipsis instead of wrapping it. Measured over
      *  all six shipped locales (lead <= 43 px, harmony <= 67 px in Spanish "Armonías"), every name rides the
-     *  kEffectsColW = 74 px cell floor, so no label ever clips; keeping the measurement live is what lets a future
+     *  kEffectsColW = 82 px cell floor, so no label ever clips; keeping the measurement live is what lets a future
      *  rename change the frame width instead of silently truncating a word. */
     int reverbHeaderNeed (const juce::String& text) const;
 

@@ -530,7 +530,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
             l->setText (name, juce::dontSendNotification);
             l->setJustificationType (juce::Justification::centred);
             l->setColour (juce::Label::textColourId, ebs::text());
-            l->setFont (ovt::fontLabelPlain());   // a caption in a frame names its knob, it does not shout
+            l->setFont (ovt::fontCaption());   // a caption in a frame names its knob, it does not shout
             addAndMakeVisible (*l);
         }
     };
@@ -764,7 +764,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
         l.setColour (juce::Label::textColourId, ebs::text());
-        l.setFont (ovt::fontLabelSmallPlain());
+        l.setFont (ovt::fontCaption());
         addAndMakeVisible (l);
     };
     setupTitleLabel (harmonyGainLabel, "Volume");
@@ -855,7 +855,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     delayDivisionLabel.setText (ovt::tr (ovt::Keys::kLabelDelayDivision), juce::dontSendNotification);
     delayDivisionLabel.setJustificationType (juce::Justification::centred);
     delayDivisionLabel.setColour (juce::Label::textColourId, ebs::text());
-    delayDivisionLabel.setFont (ovt::fontLabelSmallPlain());
+    delayDivisionLabel.setFont (ovt::fontCaption());
     addAndMakeVisible (delayDivisionLabel);
     translatableLabels.push_back ({ &delayDivisionLabel, ovt::Keys::kLabelDelayDivision });
 
@@ -890,7 +890,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // so the caption is a separate label placed to its left in resized().
     useVoiceLabel.setText (ovt::tr(ovt::Keys::kLabelUseVoice), juce::dontSendNotification);
     useVoiceLabel.setColour (juce::Label::textColourId, ebs::text());
-    useVoiceLabel.setFont (ovt::fontLabelSmallPlain());
+    useVoiceLabel.setFont (ovt::fontCaption());
     // Regular weight: the only bold voices in a frame are the spines' smallcaps and the mode pill.
     addAndMakeVisible (useVoiceLabel);
     useVoiceButton.setColour (ebs::ToggleSwitch::trackOnColourId,  ebs::accent());
@@ -914,7 +914,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     harmonyToneColorLabel.setText ("Tone", juce::dontSendNotification);
     harmonyToneColorLabel.setJustificationType (juce::Justification::centred);
     harmonyToneColorLabel.setColour (juce::Label::textColourId, ebs::text());
-    harmonyToneColorLabel.setFont (ovt::fontLabelSmallPlain());
+    harmonyToneColorLabel.setFont (ovt::fontCaption());
     addAndMakeVisible (harmonyToneColorLabel);
 
     harmonyToneColorSlider.setSliderStyle (juce::Slider::RotaryVerticalDrag);
@@ -934,7 +934,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
         l.setColour (juce::Label::textColourId, ebs::text());
-        l.setFont (ovt::fontLabelPlain());   // "Group" stays mixed case, in regular weight
+        l.setFont (ovt::fontCaption());   // "Group" stays mixed case, in regular weight
         addAndMakeVisible (l);
 
         for (int i = 0; i < items.size(); ++i)
@@ -3049,7 +3049,7 @@ void OpenVoxTunerAudioProcessorEditor::updateBottomBandWidths()
     // Ducking. Open it is NOT growable: a fixed width keeps every knob under its label. The width comes from the
     // MEASURED switch names through `reverbHeaderNeed` at the real 14 pt toggle font. Measured maxima over all six
     // shipped locales: lead <= 43 px, harmony <= 67 px (Spanish "Armonías"; French and German "Harmonie" 66), so both
-    // ride the fixed kEffectsColW = 74 px cell floor and a rename cannot widen the frame in any language: the same
+    // ride the fixed kEffectsColW = 82 px cell floor and a rename cannot widen the frame in any language: the same
     // locale stays compact and a fully folded row fits the minimum-width client without scrolling.
     const int leadNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (leadReverbEnableButton.getButtonText()));
     const int harmNeed = juce::jmax (kEffectsColW, reverbHeaderNeed (harmonyReverbEnableButton.getButtonText()));

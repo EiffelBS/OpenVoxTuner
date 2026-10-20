@@ -112,16 +112,33 @@ namespace ovt
                            : ebs::text().withMultipliedAlpha (ebs::kBandTextAlpha);
         }
 
-        /** ONE size for every horizontal caption in the bottom row - switch names and the captions above
-            the Correction and Key/Scale controls alike: the spines' 9 pt floor, the size the longest
-            names (FOLLOW LEAD, SATURATION) take anyway once fitted. Sizing each caption to its own word
-            was incoherent in practice: a short GATE grew to 13 pt while SATURATION sat at 9 pt in the
-            cell next to it, so a row read as a ransom note instead of one caption family. */
-        inline constexpr float kCaptionFontSize = ebs::kBandMinFontSize;
+        /** ONE size for every caption of the bottom row: the switch names, the captions above a knob
+            or a combo (Speed, Amount, Root, Scale, Key/Scale Detection) and the vertical Room/Hall
+            captions - 11 pt nominal, 9.35 px rendered on macOS (the 0.85 platform scale), the same
+            size the frames' normal captions use (ovt::fontCaption()). ONE size is the point: a caption
+            names a control, and until now the row said it at four sizes (9 pt for the switch names,
+            13 pt for the vertical ones, 11 and 13 pt for the knob captions). Measured at this size,
+            the longest switch name in any shipped locale (Japanese "フォルマント") needs 61.1 px, so
+            the Effects cell is 82 px (glyph 10.8 + gap 8 + the name). */
+        inline constexpr float kCaptionFontSize = 11.0f;
 
         /** Slightly tighter than the spines' tracking: a caption read as a word at eye level in a row
             needs a little less air than an epithet running up a 17 px column. */
         inline constexpr float kCaptionLetterSpacing = 1.0f;
+
+        /** A caption shrunk to the room its own box offers - the frame spine's rule (a long name pays
+            in glyph size, never in a bigger cell), but starting at the CAPTION size instead of the
+            spine's 13 pt, so a vertical caption and a horizontal one belong to the same family. */
+        inline float fittedCaptionSize (const juce::String& caps, float available, float tracking)
+        {
+            float size = kCaptionFontSize;
+
+            while (size > 8.0f && trackedLength (caps, size, tracking) > available)
+                size -= 1.0f;
+
+            return size;
+        }
+
     }
 
     /** A knob caption set vertically along the knob's left edge, in the frame spines' typography. */
@@ -153,9 +170,9 @@ namespace ovt
             // Same caption the spines draw, shrunk to the height this column actually offers.
             const auto caps = spine::capsOf (text);
             const auto glyphs = spine::layout (caps,
-                                               spine::fittedSize (caps, h - 2.0f * ebs::kBandPad,
-                                                                  ebs::kBandLetterSpacing),
-                                               ebs::kBandLetterSpacing);
+                                               spine::fittedCaptionSize (caps, h - 2.0f * ebs::kBandPad,
+                                                                        spine::kCaptionLetterSpacing),
+                                               spine::kCaptionLetterSpacing);
 
             if (glyphs.getNumGlyphs() == 0)
                 return;

@@ -71,11 +71,12 @@ namespace ovt
     inline juce::Font fontReadout()     { return createFont (10.0f, true);  }
     inline juce::Font fontLabel()       { return createFont (13.0f, true);  }
     inline juce::Font fontLabelSmall()  { return createFont (11.0f, true);  }
-    // Plain-weight label faces: a caption INSIDE a bottom-row frame is set in regular weight (the
-    // smallcaps captions are the only bold voices in that row, plus the Modern/Transparent pill),
-    // so a frame caption names its control without competing with the frame spine above it.
-    inline juce::Font fontLabelPlain()      { return createFont (13.0f, false); }
-    inline juce::Font fontLabelSmallPlain() { return createFont (11.0f, false); }
+    // The one caption face of the bottom-row frames: 11 pt, REGULAR weight. The smallcaps captions
+    // (ovt::spine::kCaptionFontSize) share that size, so the caption above a knob and the name of
+    // the switch beside it are the same object at the same size; bold is left to the three voices
+    // that are design decisions: the frame spines, the smallcaps captions and the Modern/Transparent
+    // pill. A caption names its control, it does not compete with the frame spine above it.
+    inline juce::Font fontCaption() { return createFont (11.0f, false); }
     inline juce::Font fontPianoKey()    { return createFont (11.0f, true);  }
     inline juce::Font fontRuler()       { return createFont (11.0f, false); }
     inline juce::Font fontMeasuresLabel(){ return createFont (11.0f, true); }

@@ -1,5 +1,38 @@
 # Changelog — 2026-10-20
 
+## Feature — One caption size for the whole bottom row (11 pt)
+
+Requested after seeing the smallcaps land: *"Ok, je pense qu'on devrait quand même aligner la taille de
+police."* The row had ended up saying the same thing at FOUR sizes — the smallcaps captions at 9 pt,
+the vertical Room/Hall captions at 13 pt, the secondary captions at 11 pt and the knob captions at
+13 pt — and the smallcaps had become the smallest text of the row.
+
+- **ONE size, 11 pt nominal (9.35 px rendered on macOS, the 0.85 platform scale)**: the switch
+  names, the captions above a knob or a combo and the vertical Room/Hall names
+  (`ovt::spine::kCaptionFontSize`, `Source/ui/OVTSpineCaption.h`) now share the size of the frames'
+  normal captions, which are all 11 pt regular (`ovt::fontCaption()`, `Source/ui/OVTFonts.h` — it
+  replaces `fontLabelPlain()` / `fontLabelSmallPlain()`, now one face). The smallcaps keep their
+  identity through the WEIGHT (bold, tracked 1.0 px, 50 % at rest, full strength on an engaged
+  switch), not through a smaller size.
+- **The vertical captions join the family**: `ovt::VerticalCaption` used to start from the spine's
+  13 pt and shrink, so ROOM/HALL were the largest captions in the row; they now start from the
+  caption size and only shrink if their own column is too short (`spine::fittedCaptionSize`).
+- **The Effects cell grows 74 → 82 px**: the cell carries the power glyph (10.8 px), the gap
+  (8 px) and the switch name, and the longest name in any shipped locale — the Japanese
+  フォルマント, 61.1 px at 11 pt — needs 63.2 px of room. At the old 9 pt the row could not grow
+  the smallcaps at all (that name fitted with 0.3 px to spare), so aligning the sizes meant
+  widening the cell, not shrinking the type. The Reverb voice columns ride the same floor. The row
+  now asks for 1416 px of client width (1368 before).
+- Measured at 11 pt, every caption strip still holds its name in every shipped locale: Speed 73.5
+  px (ES) in 86, Amount 53.8 (DE) in 86, Root 50.5 (ES) in 56, Scale 45.1 (DE) in 140, Key/Scale
+  Detection 130.4 (FR) in 156, switch names 61.1 (JA) in 63.2. The German `Geschw. (ms)`
+  abbreviation stays (the long form was 98 px at 9 pt and 122 px at 11 pt).
+
+Verification: build green, suite 209 groups / 0 failures, standalone relaunched and the whole row
+checked at 1500 px (all five frames visible): the smallcaps captions, the switch names and the
+normal captions all read at one size, the ROOM/HALL captions now match their neighbours, the
+Modern/Transparent pill is still the only bold non-caps label.
+
 ## Feature — Smallcaps captions in Correction and Key & Scale, regular weight for every other frame caption
 
 Requested on the same morning: *"Il faut appliquer le même format de police 'smallcaps' dans les
