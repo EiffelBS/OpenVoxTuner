@@ -1,4 +1,4 @@
-﻿// YinPitchDetector.h
+// YinPitchDetector.h
 // OpenVoxTuner DSP module
 // Copyright (C) 2026 EiffelBS. Licensed under AGPLv3.
 
@@ -50,6 +50,28 @@ public:
         single heapBlock grow. */
     void setFrequencyRange (float minHz, float maxHz);
 
+    /** Selects offline (batch) analysis instead of the live real-time mode.
+        Default is false, i.e. the live behaviour below is untouched.
+
+        Offline mode changes two things, both required when the detector is
+        driven frame by frame over a whole recording instead of once per audio
+        block:
+          - The two anti-octave heuristics are disabled. They exist because the
+            live path feeds a 4x-decimated 1024-sample window in which YIN's
+            first minimum can be the 2nd harmonic; "Case A" then tests tau*2 to
+            recover the fundamental. Over a full-band, non-decimated window the
+            first minimum is already the fundamental, so that correction reports
+            every sustained tone exactly one octave low (verified on pure tones
+            and on harmonic-rich, vibrato-modulated voice-like signals).
+          - The internal 5-frame median filter is bypassed: in batch mode the
+            caller controls the frame track (and applies its own median per
+            detected note), and the live median would smear note boundaries by
+            two hops.
+        Both behaviours are only enabled by explicit callers; the real-time
+        detection path keeps its current defaults. */
+    void setOfflineMode (bool offline) { offlineMode = offline; }
+    bool isOfflineMode() const { return offlineMode; }
+
 private:
     /** Core YIN computation (steps 1-2). */
     float computeYin (const float* samples, int numSamples);
@@ -65,6 +87,9 @@ private:
 
     // Clarity threshold (YIN cumulative mean normalized difference).
     float threshold = 0.05f;
+
+    // Offline/batch analysis: see setOfflineMode().
+    bool offlineMode = false;
 
     // Working buffers.
     juce::HeapBlock<float> yinBuffer;

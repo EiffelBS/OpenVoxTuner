@@ -1,6 +1,6 @@
 # Curve Editor
 
-The **Curve Editor** (Graphic mode) is a graphical editor that lets you **draw the ideal pitch curve** the audio should follow over time. Instead of snapping automatically to the scale, you control the target pitch note-by-note.
+The **Curve Editor** (Graphic mode) is a graphical editor that lets you **draw the ideal pitch curve** the audio should follow over time. Instead of snapping automatically to the scale, you control the target pitch note-by-note. The curve can be drawn by hand, imported from a MIDI file, or built from a recorded audio file.
 
 !!! tip
     Switch to Graphic mode using the **Mode** selector. The editor is time-synced to your DAW via ARA2 when available, and uses an internal transport otherwise.
@@ -73,6 +73,43 @@ You can build a curve from an existing MIDI file instead of drawing it by hand:
 
 Once imported, the curve behaves like any hand-drawn one — you can snap it to the
 scale, move points, apply presets, etc. See also [Quickstart > Section 7: MIDI](../user-guide/quickstart.md#7-midi).
+
+---
+
+## Importing a pitch curve from audio
+
+A recorded take can be turned into a curve directly, so you can start from what was
+actually sung instead of drawing it by hand:
+
+1. Make sure you are on the **Curve Editor** tab.
+2. Drag a `.wav`, `.aiff`, `.aif`, `.flac` or `.ogg` file from the OS file explorer
+   onto the plugin window, or choose **"Import Audio..."** in the Curve Editor
+   hamburger menu (opens a file chooser filtered on those extensions).
+3. A dialog shows the file's **duration**, **sample rate**, **channel count** and
+   the **number of notes detected**, plus a **"Snap to scale"** toggle (on by
+   default). Leave the toggle on to round every detected note to the current
+   **Key/Scale**, or turn it off to keep the detected pitches untouched.
+4. **Import** converts the detected notes into a curve with **step mode
+   automatically enabled** and **two points per note** — the note's start and end at
+   its median pitch, so each note holds a flat pitch instead of gliding between
+   them. The import is **undoable** (Ctrl+Z) and overwrites the current curve.
+
+!!! note "Supported formats"
+    **WAV, AIFF, FLAC and OGG-Vorbis** are supported. **MP3 is not** — this build
+    ships without an MP3 decoder, so convert an MP3 to one of the supported formats
+    first.
+
+!!! tip "Getting a clean result"
+    Detection is tuned for a **single voice** in a quiet recording, over a
+    **60 Hz – 1 kHz** range. Consecutive frames within **±50 cents** are grouped into
+    one note, unvoiced gaps shorter than **80 ms** are bridged, and notes shorter
+    than **80 ms** are dropped, so a dry a cappella take gives the cleanest curve —
+    a backing track, heavy reverb or a second voice in the file can be picked up as
+    extra notes. Files up to **10 minutes** long are accepted.
+
+Once imported, the curve behaves like any hand-drawn one — you can move points,
+apply presets, re-snap to the scale, etc. See also
+[Quickstart > Section 7: MIDI](../user-guide/quickstart.md#7-midi).
 
 ---
 

@@ -17,6 +17,7 @@ test/
 ├─ ScaleSnapPipelineTest.cpp         # Scale snap pipeline
 ├─ formant_preservation_benchmark.py # Python benchmark (not part of the C++ suite)
 ├─ dsp/                              # DSP test suites (one file per module)
+│  ├─ AudioCurveImporterTest.cpp
 │  ├─ BlockAwareOnePoleTest.cpp
 │  ├─ DeEsserTest.cpp
 │  ├─ DelayEffectTest.cpp
@@ -55,8 +56,9 @@ test/
 
 The test suites found under `test/dsp/` cover pitch detection (YIN), scale
 quantization, pitch shifting (PSOLA), retarget envelope, formant preservation
-(LPC and multi-formant), MIDI file analysis/import into pitch curves, harmony
-gain-match & attack, the stereo doubler (detune ratio, Haas offset, constant
+(LPC and multi-formant), MIDI file analysis/import into pitch curves, audio-file
+analysis and note segmentation into pitch curves (WAV/AIFF/FLAC/OGG),
+harmony gain-match & attack, the stereo doubler (detune ratio, Haas offset, constant
 perceived RMS, mono compatibility, amount-0 bypass), the de-esser (band-limited
 detection, reduction depth, hysteresis window, stereo link, release, click-free
 power toggle, bit-identical bypass), the fixed Unison detune
@@ -157,8 +159,9 @@ process, and no memory dump is readable):
 
 A binary whose image lives inside the workspace runs at **Low integrity**
 (`S-1-16-4096`), so it cannot write to `%TEMP%` (Medium integrity). Suites that
-generate files — `MidiImporterTest` writes temporary `.mid` files — must write
-next to the executable, inside the build tree, not to the system temp folder.
+generate files — `MidiImporterTest` writes temporary `.mid` files,
+`AudioCurveImporterTest` writes temporary `.wav` files — must write next to the
+executable, inside the build tree, not to the system temp folder.
 
 ## CI
 

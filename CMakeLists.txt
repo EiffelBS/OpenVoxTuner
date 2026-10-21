@@ -238,6 +238,10 @@ target_sources(OpenVoxTuner PRIVATE
     Source/dsp/PitchCurve.h
     Source/dsp/MidiImporter.cpp
     Source/dsp/MidiImporter.h
+    # Audio file -> pitch curve import (waveform decoding via juce_audio_formats,
+    # then the same YIN detector in offline mode).
+    Source/dsp/AudioCurveImporter.cpp
+    Source/dsp/AudioCurveImporter.h
     Source/dsp/IEffect.h
     Source/dsp/ReverbEffect.cpp
     Source/dsp/ReverbEffect.h
@@ -478,6 +482,10 @@ target_sources(OpenVoxTunerTests PRIVATE
     Source/dsp/LpcFormantPreserver.cpp
     Source/dsp/PitchCurve.cpp
     Source/dsp/MidiImporter.cpp
+    # Audio import (the tests generate WAVs, decode them and check the detected
+    # notes). The module reuses YinPitchDetector in offline mode.
+    Source/dsp/AudioCurveImporter.cpp
+    Source/dsp/YinPitchDetector.cpp
     Source/dsp/PitchShifter.cpp
     Source/dsp/HarmonyEngine.cpp
     Source/dsp/Doubler.cpp
@@ -492,6 +500,7 @@ target_sources(OpenVoxTunerTests PRIVATE
 target_link_libraries(OpenVoxTunerTests PRIVATE
     eiffelbs-ui                       # PitchCurveEditor.h consumes the theme API
     juce::juce_audio_basics
+    juce::juce_audio_formats          # AudioCurveImporter decodes WAV/AIFF/FLAC/OGG
     juce::juce_audio_processors
     juce::juce_data_structures
     juce::juce_events

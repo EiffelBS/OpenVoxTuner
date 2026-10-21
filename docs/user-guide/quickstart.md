@@ -116,7 +116,8 @@ There is also an A/B + morph system so you can compare two states and continuous
 ## 7. MIDI
 
 OpenVoxTuner works with MIDI in three ways: **following a MIDI note** (pitch target),
-**sending MIDI notes out**, and **importing a MIDI file** as a pitch curve.
+**sending MIDI notes out**, and **importing a MIDI file** as a pitch curve. The
+**Curve Editor** can also build a curve from a recorded **audio file** (see 7.3).
 
 ### 7.1 Tuning follows MIDI IN (MIDI target)
 
@@ -169,7 +170,7 @@ the detected and corrected vocals.
 In Studio One / Fender Studio Pro, enable MIDI Out, then route the channel's **MIDI
 Output** to another instrument track or to a hardware/soft synth to hear it.
 
-### 7.3 Import a MIDI file as a pitch curve (Curve Editor)
+### 7.3 Import a MIDI or audio file as a pitch curve (Curve Editor)
 
 You can turn a MIDI file into an editable pitch curve in the **Curve Editor**:
 
@@ -181,6 +182,14 @@ You can turn a MIDI file into an editable pitch curve in the **Curve Editor**:
    channel). The percussion channel (10) is always excluded.
 4. The MIDI notes are converted into a **step-mode** curve (discrete notes, no
    glissando) and the view auto-fits the import. You can **undo** with Ctrl+Z.
+
+A recorded take works the same way: drag a `.wav`, `.aiff`, `.aif`, `.flac` or
+`.ogg` file onto the plugin window, or choose **"Import Audio..."**. A dialog shows
+the detected duration, sample rate, channel count and note count, with a
+**"Snap to scale"** toggle (on by default); **Import** then builds a step-mode
+curve with one flat segment per detected note. **MP3 is not supported** — this build
+ships without an MP3 decoder. See
+[Curve Editor > Importing a pitch curve from audio](../user-guide/curve-editor.md#importing-a-pitch-curve-from-audio).
 
 Learn more in [Curve Editor](../user-guide/curve-editor.md).
 
@@ -198,7 +207,7 @@ Learn more in [Curve Editor](../user-guide/curve-editor.md).
 ## Related
 
 - [Correction Modes](../user-guide/correction-modes.md) — Auto vs. Graphic in depth.
-- [Curve Editor](../user-guide/curve-editor.md) — drawing your own pitch curve, importing MIDI.
+- [Curve Editor](../user-guide/curve-editor.md) — drawing your own pitch curve, importing MIDI or audio.
 - [Harmony](../user-guide/harmony.md) — harmony voices and synths.
 - [Default Parameters](../default-parameters.md) — every parameter, default, and range.
-- [Section 7: MIDI](#7-midi) — tuning follows MIDI IN, MIDI OUT, MIDI import.
+- [Section 7: MIDI](#7-midi) — tuning follows MIDI IN, MIDI OUT, MIDI and audio import.

@@ -16,6 +16,7 @@
 #include "dsp/LpcFramingTest.cpp"
 #include "dsp/PitchCurveTest.cpp"
 #include "dsp/MidiImporterTest.cpp"
+#include "dsp/AudioCurveImporterTest.cpp"
 #include "dsp/VibratoTest.cpp"
 #include "dsp/KeyDetectorTest.cpp"
 #include "dsp/KeyBridgeTest.cpp"

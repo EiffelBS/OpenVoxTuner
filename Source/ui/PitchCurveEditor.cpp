@@ -1410,7 +1410,7 @@ namespace ui
         notifyChanged();
     }
 
-    void PitchCurveEditor::importMidiCurve (const ovtdsp::PitchCurve& newCurve)
+    void PitchCurveEditor::importCurve (const ovtdsp::PitchCurve& newCurve)
     {
         if (newCurve.getNumPoints() < 2)
             return;
@@ -1420,7 +1420,8 @@ namespace ui
 
         curve = newCurve;
 
-        // MIDI notes are discrete: force step mode
+        // Imported notes are discrete (MIDI note events or detected audio
+        // pitches): force step mode so the audio does not glide between them.
         curve.setStepMode (true);
 
         // Reset editing options for clean post-import state

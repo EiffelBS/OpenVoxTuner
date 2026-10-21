@@ -109,10 +109,10 @@ namespace ui
         /// Clear the curve (Reset)
         void clearCurve() { curve.clear(); repaint(); notifyChanged(); }
 
-        /** Import a pitch curve from an external source (e.g. MIDI file).
-         *  Records an undo snapshot so the import can be undone with Ctrl+Z.
-         *  Step mode is forced ON (MIDI notes are discrete). */
-        void importMidiCurve (const ovtdsp::PitchCurve& newCurve);
+        /** Import a pitch curve from an external source (MIDI or audio file).
+         *  Both importers emit discrete notes, so step mode is forced ON.
+         *  Records an undo snapshot so the import can be undone with Ctrl+Z. */
+        void importCurve (const ovtdsp::PitchCurve& newCurve);
 
         /// Ghost curve overlay for preset morphing (semi-transparent target curve).
         /// The curve is COPIED by value: the ghost must never keep a raw pointer to a
@@ -141,6 +141,11 @@ namespace ui
         /// Sets the scale notes for the piano display.
         /// List of semitones 0..11 relative to C.
         void setScaleIntervals (const juce::Array<int>& intervals);
+
+        /// Returns the scale notes (semitones 0..11 relative to C) currently in
+        /// effect. Read by the audio importer so its "Snap to scale" option snaps
+        /// to the same scale the editor draws, instead of duplicating the table.
+        const juce::Array<int>& getScaleIntervals() const { return scaleIntervals; }
 
         /// Returns the scale notes (semitones 0..11) for Custom mode.
         /// In non-Custom mode, intervals are computed from key+scale.

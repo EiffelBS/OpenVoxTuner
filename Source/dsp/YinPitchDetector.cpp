@@ -140,11 +140,15 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
 
     if (tauEstimate == -1)
     {
-        getMedianFiltered (0.0f);
+        if (! offlineMode)
+            getMedianFiltered (0.0f);
         return 0.0f;
     }
 
-    // Step 3b: anti-octave-error correction.
+    // Step 3b: anti-octave-error correction (live mode only).
+    // In offline mode the first YIN minimum IS the fundamental, so these two
+    // heuristics would transpose every sustained tone down one octave; see
+    // setOfflineMode() in the header.
     bool octaveCorrected = false;
     int bestTau = tauEstimate;
     float bestClarity = yinBuffer[tauEstimate];
@@ -153,6 +157,8 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
     // detectable at d' < 0.30 for voiced speech.
     constexpr float fundamentalSoftThreshold = 0.30f;
 
+    if (! offlineMode)
+    {
     // Case A: YIN found 2nd harmonic -> test tau*2 (one octave down = fundamental).
     // Strategy: always prefer the fundamental (tau*2) as long as its clarity
     // is below fundamentalSoftThreshold. This is safer than continuity-based
@@ -192,6 +198,7 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
 
     if (octaveCorrected)
         tauEstimate = bestTau;
+    }
 
     // Step 4: parabolic interpolation for sub-sample precision.
     float betterTau = (float)tauEstimate;
@@ -207,12 +214,16 @@ float YinPitchDetector::detectPitch (const float* samples, int numSamples)
 
     if (betterTau <= 0.0f)
     {
-        getMedianFiltered (0.0f);
+        if (! offlineMode)
+            getMedianFiltered (0.0f);
         return 0.0f;
     }
 
-    float f0 = (float)(sampleRate / betterTau);
-    float result = getMedianFiltered (f0);
+    const float f0 = (float)(sampleRate / betterTau);
+    // Offline mode returns the raw per-frame estimate: the caller segments the
+    // frame track and takes a median per note, so the live 5-frame median would
+    // only delay note boundaries.
+    const float result = offlineMode ? f0 : getMedianFiltered (f0);
     if (result > 0.0f)
         lastValidPitch = result;
     return result;

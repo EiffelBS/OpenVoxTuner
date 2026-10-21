@@ -108,6 +108,22 @@ namespace ovt
         static const char* kMidiStrategyLoudest = "midi.strategy_loudest";
         static const char* kMidiStrategyChannel = "midi.strategy_channel";
         static const char* kMidiBtnImport      = "midi.btn_import";
+
+        // Audio Import keys (same delivery path as the MIDI import above).
+        // Placed here rather than split between the menu group and the dialog
+        // groups so the whole audio-import surface is readable in one place.
+        static const char* kMenuImportAudio    = "menu.import_audio";
+        static const char* kAudioDialogTitle   = "audio.dialog_title";
+        static const char* kAudioErrorWrongTab = "audio.error_wrong_tab";
+        static const char* kAudioErrorNoNotes  = "audio.error_no_notes";
+        static const char* kAudioErrorTooFew   = "audio.error_too_few_notes";
+        static const char* kAudioDuration      = "audio.duration";
+        static const char* kAudioSampleRate    = "audio.sample_rate";
+        static const char* kAudioChannels      = "audio.channels";
+        static const char* kAudioNotesDetected = "audio.notes_detected";
+        static const char* kAudioSnapToScale   = "audio.snap_to_scale";
+        static const char* kAudioFormatsHint   = "audio.formats_hint";
+        static const char* kAudioBtnImport     = "audio.btn_import";
         static const char* kLabelTooltipDelaySlow   = "label.tooltip_delay_slow";
         static const char* kLabelTooltipDelayNormal = "label.tooltip_delay_normal";
         static const char* kLabelTooltipDelayFast   = "label.tooltip_delay_fast";
@@ -542,6 +558,18 @@ namespace ovt
             { kMidiStrategyLoudest, "Loudest note (by velocity)" },
             { kMidiStrategyChannel, "Specific MIDI channel" },
             { kMidiBtnImport,      "Import" },
+            { kMenuImportAudio,    "Import Audio..." },
+            { kAudioDialogTitle,   "Import Audio" },
+            { kAudioErrorWrongTab, "Please switch to the Curve Editor tab before importing audio files." },
+            { kAudioErrorNoNotes,  "No sung pitch was detected in this audio file." },
+            { kAudioErrorTooFew,   "The audio file contains fewer than 2 detected notes." },
+            { kAudioDuration,      "Duration:" },
+            { kAudioSampleRate,    "Sample rate:" },
+            { kAudioChannels,      "Channels:" },
+            { kAudioNotesDetected, "Detected notes:" },
+            { kAudioSnapToScale,   "Snap to scale" },
+            { kAudioFormatsHint,   "Supported formats: WAV, AIFF, FLAC, OGG (MP3 is not supported)." },
+            { kAudioBtnImport,     "Import" },
             { kMenuFormantMode,    "Formant Mode" },
             { kMenuFormantLegacy,  "Legacy" },
             { kMenuFormantMulti,   "MultiFormant" },
@@ -923,6 +951,18 @@ namespace ovt
             { kMidiStrategyLoudest, "Note la plus forte (par velocite)" },
             { kMidiStrategyChannel, "Canal MIDI specifique" },
             { kMidiBtnImport,      "Importer" },
+            { kMenuImportAudio,    "Importer un fichier audio..." },
+            { kAudioDialogTitle,   "Importer un fichier audio" },
+            { kAudioErrorWrongTab, "Veuillez basculer sur l'onglet Editeur de courbe avant d'importer des fichiers audio." },
+            { kAudioErrorNoNotes,  "Aucune note chantee n'a ete detectee dans ce fichier audio." },
+            { kAudioErrorTooFew,   "Le fichier audio contient moins de 2 notes detectees." },
+            { kAudioDuration,      "Duree :" },
+            { kAudioSampleRate,    "Frequence d'echantillonnage :" },
+            { kAudioChannels,      "Canaux :" },
+            { kAudioNotesDetected, "Notes detectees :" },
+            { kAudioSnapToScale,   "Aligner sur la gamme" },
+            { kAudioFormatsHint,   "Formats pris en charge : WAV, AIFF, FLAC, OGG (MP3 non pris en charge)." },
+            { kAudioBtnImport,     "Importer" },
             { kTooltipCurveOptions,  "Curve editor options" },
             { kTooltipPlay,         "Play (start the standalone timeline)" },
             { kTooltipStop,         "Stop (freeze the standalone timeline for editing)" },
@@ -1302,6 +1342,18 @@ namespace ovt
             { kMidiStrategyLoudest, "Laeuteste Note (nach Velocity)" },
             { kMidiStrategyChannel, "Bestimmter MIDI-Kanal" },
             { kMidiBtnImport,      "Importieren" },
+            { kMenuImportAudio,    "Audio importieren..." },
+            { kAudioDialogTitle,   "Audio importieren" },
+            { kAudioErrorWrongTab, "Bitte wechseln Sie zuerst zum Kurven-Editor-Tab, um Audiodateien zu importieren." },
+            { kAudioErrorNoNotes,  "In dieser Audiodatei wurde keine gesungene Tonhoehe erkannt." },
+            { kAudioErrorTooFew,   "Die Audiodatei enthaelt weniger als 2 erkannte Noten." },
+            { kAudioDuration,      "Dauer:" },
+            { kAudioSampleRate,    "Abtastrate:" },
+            { kAudioChannels,      "Kanaele:" },
+            { kAudioNotesDetected, "Erkannte Noten:" },
+            { kAudioSnapToScale,   "Auf Skala einrasten" },
+            { kAudioFormatsHint,   "Unterstuetzte Formate: WAV, AIFF, FLAC, OGG (MP3 wird nicht unterstuetzt)." },
+            { kAudioBtnImport,     "Importieren" },
             { kTooltipCurveOptions, "Kurveneditor-Optionen" },
             { kTooltipPlay,        "Wiedergabe (Standalone-Zeitleiste starten)" },
             { kTooltipStop,        "Stopp (Standalone-Zeitleiste zum Bearbeiten einfrieren)" },
@@ -1680,6 +1732,18 @@ namespace ovt
             { kMidiStrategyLoudest, "Nota mas fuerte (por velocidad)" },
             { kMidiStrategyChannel, "Canal MIDI especifico" },
             { kMidiBtnImport,      "Importar" },
+            { kMenuImportAudio,    "Importar audio..." },
+            { kAudioDialogTitle,   "Importar audio" },
+            { kAudioErrorWrongTab, "Por favor, cambie primero a la pestana Editor de curvas antes de importar archivos de audio." },
+            { kAudioErrorNoNotes,  "No se detecto ninguna nota cantada en este archivo de audio." },
+            { kAudioErrorTooFew,   "El archivo de audio contiene menos de 2 notas detectadas." },
+            { kAudioDuration,      "Duracion:" },
+            { kAudioSampleRate,    "Frecuencia de muestreo:" },
+            { kAudioChannels,      "Canales:" },
+            { kAudioNotesDetected, "Notas detectadas:" },
+            { kAudioSnapToScale,   "Ajustar a la escala" },
+            { kAudioFormatsHint,   "Formatos compatibles: WAV, AIFF, FLAC, OGG (MP3 no compatible)." },
+            { kAudioBtnImport,     "Importar" },
             { kTooltipCurveOptions, "Opciones del editor de curva" },
             { kTooltipPlay,        "Reproducir (iniciar la linea de tiempo standalone)" },
             { kTooltipStop,        "Detener (congelar la linea de tiempo standalone para editar)" },
@@ -2058,6 +2122,18 @@ namespace ovt
             { kMidiStrategyLoudest, "最も強い音（ベロシティ）" },
             { kMidiStrategyChannel, "特定のMIDIチャンネル" },
             { kMidiBtnImport,      "インポート" },
+            { kMenuImportAudio,    "オーディオをインポート..." },
+            { kAudioDialogTitle,   "オーディオのインポート" },
+            { kAudioErrorWrongTab, "オーディオファイルをインポートする前に、カーブエディタタブに切り替えてください。" },
+            { kAudioErrorNoNotes,  "このオーディオファイルには歌声のピッチが検出されませんでした。" },
+            { kAudioErrorTooFew,   "オーディオファイルの検出ノートが2未満です。" },
+            { kAudioDuration,      "長さ:" },
+            { kAudioSampleRate,    "サンプルレート:" },
+            { kAudioChannels,      "チャンネル:" },
+            { kAudioNotesDetected, "検出ノート数:" },
+            { kAudioSnapToScale,   "スケールに吸着" },
+            { kAudioFormatsHint,   "対応形式: WAV、AIFF、FLAC、OGG（MP3は非対応）。" },
+            { kAudioBtnImport,     "インポート" },
             { kTooltipCurveOptions, "カーブエディタのオプション" },
             { kTooltipPlay,        "再生（スタンドアロンのタイムラインを開始）" },
             { kTooltipStop,        "停止（編集のためにスタンドアロンのタイムラインを停止）" },
@@ -2438,6 +2514,18 @@ namespace ovt
             { kMidiStrategyLoudest, "最强音（按力度）" },
             { kMidiStrategyChannel, "指定MIDI通道" },
             { kMidiBtnImport,      "导入" },
+            { kMenuImportAudio,    "导入音频..." },
+            { kAudioDialogTitle,   "导入音频" },
+            { kAudioErrorWrongTab, "请先切换到曲线编辑器选项卡，再导入音频文件。" },
+            { kAudioErrorNoNotes,  "此音频文件中未检测到歌声音高。" },
+            { kAudioErrorTooFew,   "该音频文件检测到的音符少于2个。" },
+            { kAudioDuration,      "时长：" },
+            { kAudioSampleRate,    "采样率：" },
+            { kAudioChannels,      "声道：" },
+            { kAudioNotesDetected, "检测到的音符：" },
+            { kAudioSnapToScale,   "吸附到音阶" },
+            { kAudioFormatsHint,   "支持的格式：WAV、AIFF、FLAC、OGG（不支持MP3）。" },
+            { kAudioBtnImport,     "导入" },
             { kTooltipCurveOptions, "曲线编辑器选项" },
             { kTooltipPlay,        "播放（启动独立时间轴）" },
             { kTooltipStop,        "停止（冻结独立时间轴以进行编辑）" },

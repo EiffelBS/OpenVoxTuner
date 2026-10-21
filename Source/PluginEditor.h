@@ -18,6 +18,7 @@
 #include "ui/ScaleKeyboardComponent.h"
 #include "dsp/NoteUtils.h"
 #include "dsp/MidiImporter.h"
+#include "dsp/AudioCurveImporter.h"
 #include <eiffelbs/eiffelbs.h>
 #include "ui/OVTTheme.h"
 #include "ui/OVTFonts.h"
@@ -267,6 +268,16 @@ private:
     void applyMidiImport (const ovtdsp::PitchCurve& newCurve, const juce::String& sourceName);
     void showMidiChannelDialog (const juce::File& midiFile, const ovtdsp::MidiImportInfo& info);
     std::unique_ptr<juce::FileChooser> midiImportFileChooser;
+
+    // === Audio Import (drag-and-drop + menu) ===
+    // Same delivery path as MIDI import: analyze first (which validates the file
+    // and counts the detected notes), confirm in a dialog, then build the curve.
+    // Kept as sibling methods rather than folded into the MIDI ones because the
+    // two sources differ in every step except the final curve hand-off.
+    void handleAudioFileImport (const juce::File& audioFile);
+    void applyAudioImport (const ovtdsp::PitchCurve& newCurve, const juce::String& sourceName);
+    // The chooser must outlive the async launch, hence a member like the MIDI one.
+    std::unique_ptr<juce::FileChooser> audioImportFileChooser;
 
     // Hamburger menu (gear icon button, replaces all top-bar controls).
     ebs::IconButton menuButton { ebs::IconButton::Shape::settings };

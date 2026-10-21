@@ -4582,14 +4582,30 @@ void OpenVoxTunerAudioProcessorEditor::toggleHelpOverlay()
 }
 
 // =============================================================================
-// MIDI Import (drag-and-drop + menu)
+// MIDI and audio Import (drag-and-drop + menu)
 // =============================================================================
+
+// Audio files the importer can decode. MP3 is deliberately absent: JUCE's MP3
+// decoder is disabled in this build, so offering it would only fail after the
+// user picked the file. One helper keeps the drop target, the file chooser and
+// the analysis agreeing on the same set.
+static bool isAudioImportFile (const juce::String& path)
+{
+    const auto lower = path.toLowerCase();
+    return lower.endsWith (".wav")  || lower.endsWith (".aiff")
+        || lower.endsWith (".aif")  || lower.endsWith (".flac")
+        || lower.endsWith (".ogg");
+}
 
 bool OpenVoxTunerAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
 {
     for (const auto& f : files)
-        if (f.toLowerCase().endsWith (".mid") || f.toLowerCase().endsWith (".midi"))
+    {
+        const auto lower = f.toLowerCase();
+        if (lower.endsWith (".mid") || lower.endsWith (".midi")
+            || isAudioImportFile (f))
             return true;
+    }
     return false;
 }
 
@@ -4607,10 +4623,24 @@ void OpenVoxTunerAudioProcessorEditor::filesDropped (const juce::StringArray& fi
         }
     }
 
-    if (! midiFile.existsAsFile())
+    if (midiFile.existsAsFile())
+    {
+        handleMidiFileImport (midiFile);
         return;
+    }
 
-    handleMidiFileImport (midiFile);
+    // No MIDI in the drop: fall back to the FIRST audio file. Taking the first
+    // (rather than looping over all of them) keeps a multi-file drop
+    // deterministic instead of silently replacing the curve several times.
+    for (const auto& f : files)
+    {
+        juce::File candidate (f);
+        if (candidate.existsAsFile() && isAudioImportFile (f))
+        {
+            handleAudioFileImport (candidate);
+            return;
+        }
+    }
 }
 
 void OpenVoxTunerAudioProcessorEditor::handleMidiFileImport (const juce::File& midiFile)
@@ -4669,7 +4699,7 @@ void OpenVoxTunerAudioProcessorEditor::applyMidiImport (
         return;
     }
 
-    curveEditor->importMidiCurve (newCurve);
+    curveEditor->importCurve (newCurve);
 }
 
 // =============================================================================
@@ -4796,6 +4826,212 @@ void OpenVoxTunerAudioProcessorEditor::showMidiChannelDialog (
     opts.resizable = false;
     opts.launchAsync();
 }
+
+// =============================================================================
+// Audio Import (drag-and-drop + menu)
+// =============================================================================
+
+/**
+ * Confirmation dialog shown before an audio file is turned into a curve.
+ *
+ * Audio counterpart of MidiChannelSelectorComponent: the analysis already ran,
+ * so this dialog only reports what was found and collects the one option the
+ * importer takes (snapping). It reuses that dialog's layout on purpose - same
+ * dark card, same bottom-right Cancel/Import pair - so the two import paths do
+ * not look like two different features.
+ */
+class AudioImportDialogComponent : public juce::Component
+{
+public:
+    AudioImportDialogComponent (const ovtdsp::AudioImportInfo& audioInfo,
+                                std::function<void (bool)> onConfirm)
+        : info (audioInfo), confirmCallback (std::move (onConfirm))
+    {
+        setSize (460, 300);
+
+        // Snapping is ON by default: a sung take is never perfectly in tune, so
+        // the snapped curve is the useful starting point. The user can import
+        // again unsnapped, or edit the points afterwards.
+        snapButton.setButtonText (ovt::tr (ovt::Keys::kAudioSnapToScale));
+        snapButton.setToggleState (true, juce::dontSendNotification);
+        addAndMakeVisible (snapButton);
+
+        importButton.setButtonText (ovt::tr (ovt::Keys::kAudioBtnImport));
+        importButton.setComponentID ("primary"); // accent fill for the action button
+        importButton.onClick = [this] { onImportClicked(); };
+        addAndMakeVisible (importButton);
+
+        cancelButton.setButtonText (ovt::tr (ovt::Keys::kMenuCancel));
+        cancelButton.onClick = [this] {
+            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+                dw->exitModalState (0);
+        };
+        addAndMakeVisible (cancelButton);
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (juce::Colour (0xff2d2d2d));
+
+        // One row per fact: dim caption on the left, value aligned to the right
+        // edge. Values are plain numbers with their unit, never a file path or an
+        // internal name (user-facing text rule). Right alignment keeps the value
+        // column clear of the captions, whose length varies a lot per language.
+        auto drawRow = [&g] (const juce::String& caption, const juce::String& value, int y)
+        {
+            g.setColour (juce::Colours::white.withAlpha (0.8f));
+            g.setFont (14.0f);
+            g.drawText (caption, 16, y, 300, 24, juce::Justification::centredLeft);
+            g.setColour (juce::Colours::white);
+            g.drawText (value, 16, y, 428, 24, juce::Justification::centredRight);
+        };
+
+        drawRow (ovt::tr (ovt::Keys::kAudioDuration),
+                 juce::String (info.durationSec, 2) + " s", 18);
+        drawRow (ovt::tr (ovt::Keys::kAudioSampleRate),
+                 juce::String (info.sampleRate) + " Hz", 46);
+        drawRow (ovt::tr (ovt::Keys::kAudioChannels),
+                 juce::String (info.numChannels), 74);
+        drawRow (ovt::tr (ovt::Keys::kAudioNotesDetected),
+                 juce::String (info.numNotes), 102);
+
+        // Detected pitch span, useful context for the user to judge the result.
+        // Hidden when there is nothing to show (the caller never opens the
+        // dialog for a file with no detected note).
+        if (info.numNotes > 0 && info.minDetectedHz > 0.0f && info.maxDetectedHz > 0.0f)
+        {
+            g.setColour (juce::Colours::white.withAlpha (0.55f));
+            g.setFont (12.0f);
+            g.drawText (juce::String (info.minDetectedHz, 1) + " - "
+                            + juce::String (info.maxDetectedHz, 1) + " Hz",
+                        16, 128, 428, 20, juce::Justification::centredRight);
+        }
+
+        // Formats hint: the MP3 limitation has to be visible BEFORE the import,
+        // otherwise the only feedback for an MP3 is an unexplained failure.
+        g.setColour (juce::Colours::white.withAlpha (0.55f));
+        g.setFont (12.0f);
+        g.drawFittedText (ovt::tr (ovt::Keys::kAudioFormatsHint),
+                          16, 190, 428, 40, juce::Justification::topLeft, 2);
+    }
+
+    void resized() override
+    {
+        snapButton.setBounds (16, 156, 300, 24);
+        cancelButton.setBounds (250, 252, 90, 30);
+        importButton.setBounds (352, 252, 90, 30);
+    }
+
+private:
+    void onImportClicked()
+    {
+        confirmCallback (snapButton.getToggleState());
+
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+            dw->exitModalState (1);
+    }
+
+    ovtdsp::AudioImportInfo info;
+    std::function<void (bool)> confirmCallback;
+    juce::ToggleButton snapButton;
+    juce::TextButton importButton, cancelButton;
+};
+
+void OpenVoxTunerAudioProcessorEditor::handleAudioFileImport (const juce::File& audioFile)
+{
+    // Same gate as the MIDI path: the curve lands in the Curve Editor, so
+    // importing from another tab would look like a no-op to the user.
+    if (tabbedComponent.getCurrentTabIndex() != 1)
+    {
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::AlertWindow::WarningIcon,
+            ovt::tr (ovt::Keys::kAudioDialogTitle),
+            ovt::tr (ovt::Keys::kAudioErrorWrongTab));
+        return;
+    }
+
+    // Analysis decodes the whole file and runs the detector: the module documents
+    // that this belongs on the message thread (never in processBlock), and here
+    // it runs as one-shot work for an explicit user action.
+    auto info = ovtdsp::AudioCurveImporter::analyzeFile (audioFile);
+
+    if (! info.isValid)
+    {
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::AlertWindow::WarningIcon,
+            ovt::tr (ovt::Keys::kAudioDialogTitle),
+            info.errorMessage);
+        return;
+    }
+
+    // No voiced pitch at all: the dialog would offer an Import button that
+    // produces an empty curve, so refuse before showing it.
+    if (info.numNotes == 0)
+    {
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::AlertWindow::WarningIcon,
+            ovt::tr (ovt::Keys::kAudioDialogTitle),
+            ovt::tr (ovt::Keys::kAudioErrorNoNotes));
+        return;
+    }
+
+    juce::DialogWindow::LaunchOptions opts;
+    opts.dialogTitle = ovt::tr (ovt::Keys::kAudioDialogTitle)
+                     + ": " + audioFile.getFileName();
+
+    auto* dialogComp = new AudioImportDialogComponent (
+        info,
+        // Capture the editor weakly: the file chooser and the dialog both
+        // outlive a single message-loop turn, and the editor can be destroyed
+        // by the host while the modal is still open.
+        [editorSafe = juce::Component::SafePointer<OpenVoxTunerAudioProcessorEditor> (this), audioFile]
+        (bool snapToScale)
+        {
+            if (editorSafe == nullptr)
+                return;
+
+            // Read the scale at confirm time (not at dialog-open time) so the
+            // snap target follows a key/scale change made in the meantime.
+            juce::Array<int> noIntervals;
+            const auto& intervals = (editorSafe->curveEditor != nullptr)
+                                        ? editorSafe->curveEditor->getScaleIntervals()
+                                        : noIntervals;
+
+            auto curve = ovtdsp::AudioCurveImporter::importFrom (
+                audioFile, snapToScale, intervals);
+            editorSafe->applyAudioImport (curve, audioFile.getFileName());
+        });
+    dialogComp->setSize (460, 300);
+    opts.content.set (dialogComp, true);
+    opts.useNativeTitleBar = true;
+    opts.escapeKeyTriggersCloseButton = true;
+    opts.resizable = false;
+    opts.launchAsync();
+}
+
+void OpenVoxTunerAudioProcessorEditor::applyAudioImport (
+    const ovtdsp::PitchCurve& newCurve,
+    const juce::String& sourceName)
+{
+    if (curveEditor == nullptr)
+        return;
+
+    // Same guard as the MIDI path: a single point cannot be edited or played,
+    // so refuse instead of replacing the user's curve with a stub.
+    if (newCurve.getNumPoints() < 2)
+    {
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::AlertWindow::WarningIcon,
+            ovt::tr (ovt::Keys::kAudioDialogTitle),
+            ovt::tr (ovt::Keys::kAudioErrorTooFew));
+        return;
+    }
+
+    juce::ignoreUnused (sourceName); // no per-source bookkeeping (same as MIDI)
+
+    curveEditor->importCurve (newCurve);
+}
+
 // === Preset Morphing ===
 
 void OpenVoxTunerAudioProcessorEditor::resetMorph()
@@ -6444,6 +6680,27 @@ void OpenVoxTunerAudioProcessorEditor::showCurveOptionsMenu()
                 auto file = fc.getResult();
                 if (editorSafe != nullptr && file.existsAsFile())
                     editorSafe->handleMidiFileImport (file);
+            });
+    });
+
+    // Import Audio: same delivery as Import MIDI, but the file is decoded and
+    // its sung notes become the curve. The filter lists exactly the formats the
+    // importer accepts (MP3 is excluded because its decoder is disabled).
+    menu.addItem (ovt::tr (ovt::Keys::kMenuImportAudio), true, false, [this] {
+        audioImportFileChooser = std::make_unique<juce::FileChooser> (
+            ovt::tr (ovt::Keys::kAudioDialogTitle),
+            juce::File(),
+            "*.wav;*.aiff;*.aif;*.flac;*.ogg");
+
+        juce::Component::SafePointer<OpenVoxTunerAudioProcessorEditor> editorSafe (this);
+        audioImportFileChooser->launchAsync (
+            juce::FileBrowserComponent::openMode
+                | juce::FileBrowserComponent::canSelectFiles,
+            [editorSafe] (const juce::FileChooser& fc)
+            {
+                auto file = fc.getResult();
+                if (editorSafe != nullptr && file.existsAsFile())
+                    editorSafe->handleAudioFileImport (file);
             });
     });
 
