@@ -226,10 +226,16 @@ DeEsser → Delay). The lead send tap runs **after** `leadBus.apply`, so the ech
 through it — no second room, no extra parameter pair.
 
 - `setBpm(float)` / `setDivision(int index)` / `setMix(float)` / `setFeedback(float)` (clamped ≤ 1.0).
-- Division indices 0..4 map to **beat fractions** {0.5, 0.75, 1.0, 1.5, 2.0}, labels {"1/8","1/8.","1/4","1/4.","1/2"};
-  `copySamples = round((60/bpm) * fraction * sr)`, so halving the tempo doubles the copy. Clamped to
-  [floor = max(1, round(0.04*sr)) = 1920 samples at 48 kHz, 6 s], with lines sized once in `prepare()`: nothing is
-  allocated inside the audio callback.
+- Division indices 0..8 map to **beat fractions ordered by repetition length**:
+  {1/3, 0.5, 2/3, 0.75, 1.0, 4/3, 1.5, 2.0, 3.0}, labels
+  {"1/8T","1/8","1/4T","1/8D","1/4","1/2T","1/4D","1/2","1/2D"}
+  (`D` = dotted note, `T` = triplet); the knob turns in that order and the default "1/4" is index 4.
+  The plugin state, presets and A/B slots store the choice **index**, so the ordering is part of the
+  mapping; `copySamples = round((60/bpm) * fraction * sr)`, so halving the tempo doubles the copy. Clamped to
+  [floor = max(1, round(0.04*sr)) = 1920 samples at 48 kHz, 9 s], with lines sized once in `prepare()`: nothing is
+  allocated inside the audio callback. The short end stops at 1/8T because that is the shortest value that
+  stays above the 40 ms comb floor at every legal tempo (50 ms at 400 BPM), so no label is ever clamped; the
+  long end is 1/2D = 3 beats, which is exactly what the 9 s worst case at 20 BPM covers.
 - **In-place additive send, dry path at unity** — not a dry/wet crossfade: `out = in + rampedMix * feedback tail`, so
   full mix does not attenuate the voice and the stage never reads as "inaudible at full mix". The declared latency is
   unchanged (**zero**), `setLatencySamples` is never touched by this stage.
@@ -244,7 +250,7 @@ through it — no second room, no extra parameter pair.
   floor, **the buffer is not touched at all** (`isBypassed()` true) while the lines keep feeding.
 - Diagnostics: `getCopySamples()`, `getTargetCopySamples()`, `getLineCapacity()`, `isBypassed()`.
 
-Parameters (ids verbatim): `delay_enable` (bool, default off), `delay_division` (choice index, default 2 = "1/4"),
+Parameters (ids verbatim): `delay_enable` (bool, default off), `delay_division` (choice index, default 4 = "1/4"),
 `delay_mix` (default **0.30**), `delay_feedback` (default **0.35**). Tempo comes from `getAraTempo()` when an ARA source is bound,
 and from host / standalone BPM when it is not.
 

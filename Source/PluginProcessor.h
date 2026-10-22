@@ -550,18 +550,22 @@ private:
     std::atomic<float>* saturationDriveParam = nullptr;    // Drive (0-1)
     std::atomic<float>* saturationToneParam = nullptr;     // Warmth (0-1), 8 kHz -> 5 kHz pole
     // Tempo-synced ping-pong delay on the corrected lead. division is a fraction of a BEAT:
-    // index into {"1/8","1/8.","1/4","1/4.","1/2"} = {0.5,0.75,1.0,1.5,2.0} beats, so the copy
-    // length is (60/bpm) x fraction. mix is the wet of the echo (dry stays at unity), feedback is
-    // the cross-feed between the two lines. No latency: an echo adds, it does not delay the voice.
+    // index into {"1/8T","1/8","1/4T","1/8D","1/4","1/2T","1/4D","1/2","1/2D"} =
+    // {1/3,0.5,2/3,0.75,1.0,4/3,1.5,2.0,3.0} beats, so the copy length is (60/bpm) x fraction.
+    // "D" is a dotted note and "T" a triplet; the table is ordered by repetition length
+    // (shortest first) and the default "1/4" sits at index 4. The short end stops at 1/8T: it is
+    // the shortest value that stays above the 40 ms comb floor at every legal tempo. mix is the
+    // wet of the echo (dry stays at unity), feedback is the cross-feed between the two lines.
+    // No latency: an echo adds, it does not delay the voice.
     std::atomic<float>* delayEnableParam = nullptr;      // Delay on/off
-    std::atomic<float>* delayDivisionParam = nullptr;    // Division index (0-4), a raw choice value
+    std::atomic<float>* delayDivisionParam = nullptr;    // Division index (0-8), a raw choice value
     std::atomic<float>* delayMixParam = nullptr;         // Delay Mix (0-1)
     std::atomic<float>* delayFeedbackParam = nullptr;    // Delay Feedback (0-1)
-    // Division is read through the CHOICE OBJECT, not as round(rawLoad * 5.0f): after a
+    // Division is read through the CHOICE OBJECT, not as round(rawLoad * N): after a
     // setStateInformation the stored value can be non-normalized, so a raw load rounded by an
     // index multiplier is fragile (codebase rule -- see cpp:4336-4338 verbatim comment and the
     // scaleChoiceParam precedent at cpp:761). getIndex() is the reliable conversion.
-    juce::AudioParameterChoice* delayDivisionChoice = nullptr;   // Division choice object, indexes 0..4
+    juce::AudioParameterChoice* delayDivisionChoice = nullptr;   // Division choice object, indexes 0..8
     std::atomic<float>* flexTuneParam = nullptr;    // FlexTune deadband (0-100 cents)
     std::atomic<float>* humanizeParam = nullptr;    // Humanize random cents (0-50)
     std::atomic<float>* correctionModeParam = nullptr; // 0=Modern, 1=Transparent        

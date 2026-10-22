@@ -30,8 +30,10 @@ namespace ovtdsp
         if (minCopySamples < 1) minCopySamples = 1;   // a sub-sample floor would read the newest write
 
         // The longest copy this instance will ever be asked for: bpm at its clamp floor (20) and the
-        // division at its longest fraction (2 beats) => 6.0 s. Sizing here means process() allocates
-        // nothing, which is the codebase rule (ReverbEffect.h sizes its buffers in prepare()).
+        // division at its longest fraction (1/2D, 3 beats) => 9.0 s. Sizing here means process()
+        // allocates nothing, which is the codebase rule (ReverbEffect.h sizes its buffers in prepare()).
+        // The ring is rounded up to a power of two, so at the common 44.1/48/96/192 kHz rates 9 s fits
+        // the same block count 6 s used to (measured: 524288 samples at 48 kHz either way).
         maxCopySamples = static_cast<int> (std::llround (maxCopySeconds() * sampleRate));
 
         // The ring needs room for the oldest readable sample PLUS the samples written while reading it,

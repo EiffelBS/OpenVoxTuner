@@ -23,10 +23,26 @@ namespace
     constexpr int    dvxBlock       = 512;                                                       // a realistic host block size
     const int        dvxRampSamples = static_cast<int> (std::llround (0.025 * dvxSr));              // 1200 samples = the 25 ms convention
 
-    /** The division table the UI combo uses, in beat fractions. Mirrored by VALUE from DelayEffect.h:
+    /** The division table the UI knob uses, in beat fractions. Mirrored by VALUE from DelayEffect.h:
         if the class changes its fractions this constant makes the suite fail loudly instead of quietly
-        agreeing with whatever the code now does (the same rule as kReturnTrimTest in ReverbEffectTest). */
-    constexpr float kFractionByIndex[5] = { 0.5f, 0.75f, 1.0f, 1.5f, 2.0f };
+        agreeing with whatever the code now does (the same rule as kReturnTrimTest in ReverbEffectTest).
+        The table is ordered by repetition length, exactly like the knob: 1/8T, 1/8, 1/4T, 1/8D,
+        1/4 (the default), 1/2T, 1/4D, 1/2, 1/2D. */
+    constexpr float kFractionByIndex[9] = { 1.0f / 3.0f, 0.5f, 2.0f / 3.0f, 0.75f, 1.0f,
+                                            4.0f / 3.0f, 1.5f, 2.0f, 3.0f };
+
+    /** Named division indices of that duration-sorted table, so a test that needs one musical value
+        does not carry a magic number (0 = 1/8T, 1 = 1/8, 2 = 1/4T, 3 = 1/8D, 4 = 1/4, 5 = 1/2T,
+        6 = 1/4D, 7 = 1/2, 8 = 1/2D). The knob turns in exactly this order. */
+    constexpr int kDivEighthTriplet  = 0;
+    constexpr int kDivEighth         = 1;
+    constexpr int kDivQuarterTriplet = 2;
+    constexpr int kDivDottedEighth   = 3;
+    constexpr int kDivQuarter        = 4;
+    constexpr int kDivHalfTriplet    = 5;
+    constexpr int kDivDottedQuarter  = 6;
+    constexpr int kDivHalf           = 7;
+    constexpr int kDivHalfDotted     = 8;
 
     /** The contract maths computed independently of the class: copySamples = round((60/bpm)*fraction*sr). */
     int dvxExpectedCopy (double bpm, int divisionIndex)
@@ -247,7 +263,7 @@ public:
             // Toggling power off must not re-shape a single sample after decay: a lead vocal muted on the
             // strip that keeps getting processed reads as a phantom effect, and the bypass has to be neutral.
             ovtdsp::DelayEffect d;
-            dvxSetup (d, 120.0, 2, 0.45f, 0.6f);
+            dvxSetup (d, 120.0, kDivQuarter, 0.45f, 0.6f);
 
             const int decayBlocks = dvxDecayBlocks();   // ramp + tail budget at this block size
             juce::AudioBuffer<float> buf (2, dvxBlock);
@@ -289,7 +305,7 @@ public:
             // IEffect::process documents wetMix as the dry/wet amount. The contribution here is
             // bypassGain * (mix * wetMix), so wetMix = 0 must change nothing, block after block.
             ovtdsp::DelayEffect d;
-            dvxSetup (d, 120.0, 2, 0.6f, 0.7f);
+            dvxSetup (d, 120.0, kDivQuarter, 0.6f, 0.7f);
 
             juce::AudioBuffer<float> buf (2, dvxBlock);
             int touched = -1;
@@ -313,15 +329,16 @@ public:
 
         beginTest ("Division indices map to beat fractions of the 120 BPM beat, echo in the opposite channel");
         {
-            // At 120 BPM one beat is 0.5 s, so fractions {0.5,0.75,1.0,1.5,2.0} are
-            // {12000,18000,24000,36000,48000} samples. Two assertions per index: the target the class
-            // computes (exact contract maths), and an impulse echo arriving at that sample count in the OPPOSITE
-            // channel. The +/- 3 tolerance covers the fractional read-out; warm-up is mandatory because reset()
-            // re-seeds the copy ramp at the comb floor, not at the target.
+            // At 120 BPM one beat is 0.5 s, so the nine fractions are
+            // {8000, 12000, 16000, 18000, 24000, 32000, 36000, 48000, 72000} samples. Two assertions per
+            // index: the target the class computes (exact contract maths), and an impulse echo arriving at that
+            // sample count in the OPPOSITE channel. The +/- 3 tolerance covers the fractional read-out; warm-up
+            // is mandatory because reset() re-seeds the copy ramp at the comb floor, not at the target. The
+            // triplet and dotted entries must land on their own fractions, so a mislabelled value cannot pass.
             const int impulseAt = 1536;   // after a 3-block silence warm-up
             bool mappingOk = true;
 
-            for (int idx = 0; idx < 5; ++idx)
+            for (int idx = 0; idx < 9; ++idx)
             {
                 ovtdsp::DelayEffect d;
                 dvxSetup (d, 120.0, idx, 1.0f, 0.5f);
@@ -357,10 +374,10 @@ public:
         beginTest ("At 60 BPM the quarter-index copy is exactly double the 120 BPM copy");
         {
             ovtdsp::DelayEffect d;
-            dvxSetup (d, 60.0, 2, 1.0f, 0.5f);
+            dvxSetup (d, 60.0, kDivQuarter, 1.0f, 0.5f);
 
-            const int expected60 = dvxExpectedCopy (60.0, 2);
-            expectEquals (expected60, 2 * dvxExpectedCopy (120.0, 2), "Halving the tempo did not double the quarter copy");
+            const int expected60 = dvxExpectedCopy (60.0, kDivQuarter);
+            expectEquals (expected60, 2 * dvxExpectedCopy (120.0, kDivQuarter), "Halving the tempo did not double the quarter copy");
 
             const int impulseAt = 1536;
             dvxWarmUp (d, 4);   // room for the ramp to reach this longer target before measuring
@@ -382,7 +399,7 @@ public:
 
         beginTest ("Successive echoes step down by the feedback value; feedback 0 leaves a single echo");
         {
-            const int idx = 2, bpm = 120;
+            const int idx = kDivQuarter, bpm = 120;
             const int D = dvxExpectedCopy (bpm, idx);
             const int impulseAt = 1536;
 
@@ -434,7 +451,7 @@ public:
 
         beginTest ("L input spreads echoes alternately L/R; R-only input mirrors the pattern");
         {
-            const int idx = 2, bpm = 120;
+            const int idx = kDivQuarter, bpm = 120;
             const int D = dvxExpectedCopy (bpm, idx);
             const int impulseAt = 1536;
 
@@ -481,16 +498,16 @@ public:
 
         // === F. Ramp smoothness: a division change never jumps the read-out ===
 
-        beginTest ("Division change idx2 -> idx4 at 120 BPM ramps continuously and settles inside ~35 ms");
+        beginTest ("Division change idx4 -> idx7 at 120 BPM ramps continuously and settles inside ~35 ms");
         {
-            const int oldCopy = dvxExpectedCopy (120.0, 2);   // 24000
-            const int newCopy = dvxExpectedCopy (120.0, 4);   // 48000
+            const int oldCopy = dvxExpectedCopy (120.0, kDivQuarter);   // 24000
+            const int newCopy = dvxExpectedCopy (120.0, kDivHalf);      // 48000
             const int changeBlock = 8;                        // the switch lands at sample 8 * dvxBlock
             const int impulseAt = changeBlock * dvxBlock + 16;  // the measuring impulse rides in the change block
 
             ovtdsp::DelayEffect d;
-            dvxSetup (d, 120.0, 2, 0.5f, 0.5f);
-            dvxWarmUp (d, 3);   // copy settled at idx2 with silent lines
+            dvxSetup (d, 120.0, kDivQuarter, 0.5f, 0.5f);
+            dvxWarmUp (d, 3);   // copy settled at idx4 (1/4) with silent lines
 
             const int settleSamples = static_cast<int> (0.035 * dvxSr);   // ~1680: the stated settle window
 
@@ -507,7 +524,7 @@ public:
                         if (n == impulseAt) l += 1.0f;
                     },
                     fL, fR,
-                    [&] (int k) { if (k == changeBlock) d.setDivision (4); });
+                    [&] (int k) { if (k == changeBlock) d.setDivision (kDivHalf); });
 
             const int changeStart = changeBlock * dvxBlock;
             // The window stops 2400 samples after the change: the ramp is 1200 samples, and the measuring
@@ -542,7 +559,7 @@ public:
         beginTest ("Feedback 0.9 on a sustained low tone builds no DC and never explodes");
         {
             ovtdsp::DelayEffect d;
-            dvxSetup (d, 120.0, 4, 0.7f, 0.9f);   // longest copy + near-max feedback: the worst case
+            dvxSetup (d, 120.0, kDivHalf, 0.7f, 0.9f);   // 1/2 copy + near-max feedback: several passes fit the 2 s run
             dvxWarmUp (d, 3);
 
             const int nBlocks = static_cast<int> ((2.0 * dvxSr) / dvxBlock);   // 2 s of sustained material
@@ -575,12 +592,12 @@ public:
             // The pole blocks DC by construction: an offsetting send cannot lock the loop. A constant input
             // (a pure DC impulse train) must decay to silence inside the loop.
             ovtdsp::DelayEffect dc;
-            dvxSetup (dc, 120.0, 1, 1.0f, 0.95f);
+            dvxSetup (dc, 120.0, kDivDottedEighth, 1.0f, 0.95f);
             dvxWarmUp (dc, 3);
 
             const dvxSource directCurrent = [] (int n, float& l, float& r) { l = n < 4 ? 1.0f : 0.0f; r = 0.0f; };
             std::vector<float> dcL, dcR;
-            dvxRun (dc, static_cast<int> ((dvxExpectedCopy (120.0, 1) + 6000 + dvxBlock - 1) / dvxBlock), true,
+            dvxRun (dc, static_cast<int> ((dvxExpectedCopy (120.0, kDivDottedEighth) + 6000 + dvxBlock - 1) / dvxBlock), true,
                     directCurrent, dcL, dcR);
 
             const float lateMean = std::abs (dvxMean (dcR, static_cast<int> (dcR.size()) - dvxBlock * 4,
@@ -597,39 +614,40 @@ public:
             const int floorSamples = dvxFloorSamples();   // 1920 at 48 kHz
 
             ovtdsp::DelayEffect fast;
-            dvxSetup (fast, 400.0, 0, 0.7f, 0.5f);   // (60/400) * 0.5 = 75 ms -> 3600 samples
+            dvxSetup (fast, 400.0, kDivEighth, 0.7f, 0.5f);   // (60/400) * 0.5 = 75 ms -> 3600 samples
 
-            expectEquals (static_cast<int> (fast.getTargetCopySamples()), dvxExpectedCopy (400.0, 0));
+            expectEquals (static_cast<int> (fast.getTargetCopySamples()), dvxExpectedCopy (400.0, kDivEighth));
             expectGreaterThan (static_cast<int> (fast.getTargetCopySamples()), floorSamples - 1);   // stays above the comb floor
 
             const int impulseAt = 1536;
             dvxWarmUp (fast, 3);
 
             std::vector<float> fL, fR;
-            dvxRun (fast, static_cast<int> ((dvxExpectedCopy (400.0, 0) + 2000 + dvxBlock - 1) / dvxBlock), true,
+            dvxRun (fast, static_cast<int> ((dvxExpectedCopy (400.0, kDivEighth) + 2000 + dvxBlock - 1) / dvxBlock), true,
                     dvxImpulse (impulseAt, 0), fL, fR);
 
             const int onset = dvxFirstAbove (fR, impulseAt + floorSamples - 4, 5e-4f);
             const int offset = onset >= 0 ? onset - impulseAt : -1;
 
-            std::cout << "H: bpm 400 idx0 target " << fast.getTargetCopySamples() << ", floor " << floorSamples
+            std::cout << "H: bpm 400 idx1 target " << fast.getTargetCopySamples() << ", floor " << floorSamples
                       << ", echo onset at offset " << offset << "\n";
 
-            expect (onset > 0 && std::abs (offset - dvxExpectedCopy (400.0, 0)) <= 3,
+            expect (onset > 0 && std::abs (offset - dvxExpectedCopy (400.0, kDivEighth)) <= 3,
                     "The fastest legal division did not echo at the clamped copy length");
 
-            // The longest request: bpm 20 x 2 beats = 6 s, past any realistic prepared size, so it has to be
-            // CLAMPED and stay finite. Finiteness plus boundedness on every recorded sample is what an
-            // out-of-range write breaks first — a wild read produces inf/NaN or a huge spike before anything else.
+            // The longest request: bpm 20 x 3 beats (1/2D) = 9 s, exactly the prepared maximum, so it must
+            // fit, stay finite and never write outside the buffer. Finiteness plus boundedness on every
+            // recorded sample is what an out-of-range write breaks first — a wild read produces inf/NaN or a
+            // huge spike before anything else.
             ovtdsp::DelayEffect slow;
-            dvxSetup (slow, 20.0, 4, 0.8f, 0.6f);
+            dvxSetup (slow, 20.0, kDivHalfDotted, 0.8f, 0.6f);
 
             const int capacity = slow.getLineCapacity();
-            std::cout << "H: bpm 20 idx4 target " << slow.getTargetCopySamples()
+            std::cout << "H: bpm 20 idx8 target " << slow.getTargetCopySamples()
                       << ", prepared capacity " << capacity << "\n";
 
             expect (slow.getTargetCopySamples() <= capacity, "The copy target escaped the prepared buffer");
-            expectGreaterThan (capacity, dvxExpectedCopy (20.0, 4) / 2);   // room was reserved for the worst case
+            expectGreaterThan (capacity, dvxExpectedCopy (20.0, kDivHalfDotted) / 2);   // room was reserved for the worst case
 
             const int slowBlocks = static_cast<int> ((3.0 * dvxSr) / dvxBlock);   // a 3 s window of material
             std::vector<float> sL, sR;
@@ -648,7 +666,7 @@ public:
                 maxSeen = juce::jmax (maxSeen, std::abs (sL[i]), std::abs (sR[i]));
             }
 
-            std::cout << "H: bpm 20 idx4 biggest |sample| over a 3 s run: " << maxSeen << "\n";
+            std::cout << "H: bpm 20 idx8 biggest |sample| over a 3 s run: " << maxSeen << "\n";
 
             expect (allFinite, "Extreme clamped settings produced non-finite samples");
             expectLessThan (maxSeen, 3.0f);
@@ -659,13 +677,13 @@ public:
 
             // Mono is not starved by the two-line design: one input channel still produces echo energy on BOTH sides.
             ovtdsp::DelayEffect mono;
-            dvxSetup (mono, 120.0, 1, 1.0f, 0.5f);
+            dvxSetup (mono, 120.0, kDivDottedEighth, 1.0f, 0.5f);
             dvxWarmUp (mono, 3);
 
             std::vector<float> mL, mR;
             // Crossing the input means the L side answers one copy LATER than the R side, so the run has
             // to cover two copies for both sides to show echo energy.
-            const int monoBlocks = static_cast<int> ((2 * dvxExpectedCopy (120.0, 1) + 4000 + dvxBlock - 1) / dvxBlock) + 1;
+            const int monoBlocks = static_cast<int> ((2 * dvxExpectedCopy (120.0, kDivDottedEighth) + 4000 + dvxBlock - 1) / dvxBlock) + 1;
             dvxRun (mono, monoBlocks, true, dvxImpulse (1536, 0), mL, mR);
 
             const float monoEchoL = dvxPeak (mL, 1536 + 2, static_cast<int> (mL.size()));
@@ -681,16 +699,16 @@ public:
         beginTest ("reset() empties both delay lines so the next phrase starts clean");
         {
             ovtdsp::DelayEffect d;
-            dvxSetup (d, 120.0, 2, 1.0f, 0.95f);   // near-max feedback: a tail that rings for seconds
+            dvxSetup (d, 120.0, kDivQuarter, 1.0f, 0.95f);   // near-max feedback: a tail that rings for seconds
             dvxWarmUp (d, 3);
 
             std::vector<float> xL, xR;
             // Three copies long: with the input crossed into the opposite line, the R channel's third
             // repeat (0.95^2 of the first) is what the tail window at the end of the run must hear.
-            const int nBlocks = static_cast<int> ((3 * dvxExpectedCopy (120.0, 2) + 4000 + dvxBlock - 1) / dvxBlock);
+            const int nBlocks = static_cast<int> ((3 * dvxExpectedCopy (120.0, kDivQuarter) + 4000 + dvxBlock - 1) / dvxBlock);
             dvxRun (d, nBlocks, true, dvxImpulse (1536, 0), xL, xR);
 
-            const int D = dvxExpectedCopy (120.0, 2);
+            const int D = dvxExpectedCopy (120.0, kDivQuarter);
             // An impulse answers as DISCRETE repeats, not a diffuse tail: the evidence that the line is
             // still ringing before the reset is the last repeat of the run (0.95^2 of the first), so the
             // window targets that arrival instead of the end of the buffer, which holds silence.

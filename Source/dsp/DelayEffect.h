@@ -45,12 +45,25 @@ namespace ovtdsp
      * bass territory the lead does not own.
      *
      * TEMPO MATHS ARE IN BEATS, NEVER IN SECONDS
-     * The division knob selects a fraction OF A BEAT: {0.5, 0.75, 1.0, 1.5, 2.0} for the UI
-     * labels {"1/8","1/8.","1/4","1/4.","1/2"}. copySeconds = (60 / bpm) * fraction, so a
-     * "1/4." at any tempo is one dotted quarter of the host's beat. When ARA gives us the
-     * host tempo the delay follows it exactly; without ARA the plugin's own BPM register is
-     * used. Fractions in beats are what makes this knob read as musical: a change of bpm
-     * moves the delay with the song, not against it.
+     * The division knob selects a fraction OF A BEAT, ordered by REPETITION LENGTH (shortest
+     * first): {1/3, 0.5, 2/3, 0.75, 1.0, 4/3, 1.5, 2.0, 3.0} for the UI labels
+     * {"1/8T","1/8","1/4T","1/8D","1/4","1/2T","1/4D","1/2","1/2D"}. "D" is a DOTTED value
+     * (1.5x the plain note, the standard note-value dot) and "T" a TRIPLET (2/3 of the plain
+     * value), so "1/4D" at any tempo is one dotted quarter of the host's beat, "1/8T" is two
+     * thirds of an eighth and "1/2D" is three beats. Each plain note value has its dotted and
+     * its triplet sibling, so the knob is a complete duration ladder rather than a list with
+     * exceptions. copySeconds = (60 / bpm) * fraction, so when ARA gives us the host tempo the
+     * delay follows it exactly; without ARA the plugin's own BPM register is used. Fractions
+     * in beats are what makes this knob read as musical: a change of bpm moves the delay with
+     * the song, not against it.
+     * The table is sorted by duration rather than grouped by note family, so turning the knob
+     * walks the repeats from the shortest slap (1/8T, 8000 samples at 120 BPM) to the longest
+     * (1/2D, 72000): a duration axis, not a note-name list. Because the plugin state, presets
+     * and A/B slots store the choice INDEX, this spacing is part of the patch: a division saved
+     * by a pre-release build that used the earlier five-value order re-maps on load (1/4, the
+     * default, moved from index 2 to index 4). The mapping was still being settled before the
+     * dev branch merged, which is why it is corrected now rather than frozen with the triplets
+     * appended.
      *
      * A COPY LENGTH MUST NEVER JUMP: THE RAMP IS WHY
      * Changing division or tempo re-targets the copy length. Reading an integer sample count
@@ -71,7 +84,7 @@ namespace ovtdsp
      * few samples is not an echo, it is a comb filter on the dry voice, and a feedback loop
      * that reads its own write is a zero-delay loop -- mathematically an instant resonance.
      * 40 ms puts the shortest repeat above the flanging zone so what comes back is heard as
-     * an echo. At bpm 20 with the longest division (2 beats) that is 6 s, which is why the
+     * an echo. At bpm 20 with the longest division (1/2D, 3 beats) that is 9 s, which is why the
      * line buffers are sized for exactly that worst case in prepare(); process() allocates
      * nothing at block time (the project rule: every buffer is sized once in prepare()).
      *
@@ -144,7 +157,10 @@ namespace ovtdsp
         }
 
         /**
-         * Division index: 0 = "1/8", 1 = "1/8.", 2 = "1/4" (the default), 3 = "1/4.", 4 = "1/2".
+         * Division index, ordered by repetition length (shortest first):
+         * 0 = "1/8T" (triplet), 1 = "1/8", 2 = "1/4T" (triplet), 3 = "1/8D" (dotted),
+         * 4 = "1/4" (the default), 5 = "1/2T" (triplet), 6 = "1/4D" (dotted), 7 = "1/2",
+         * 8 = "1/2D" (dotted).
          * Each index is a fraction of a beat, see kDivisionFractions.
          */
         void setDivision (int idx)
@@ -171,9 +187,12 @@ namespace ovtdsp
         bool  isBypassed() const       { return bypassGain < kBypassFloor; }
 
     private:
-        /** Division fractions, IN BEATS, for the UI labels {"1/8","1/8.","1/4","1/4.","1/2"}. */
-        static constexpr int    kDivisionCount     = 5;
-        static constexpr float  kDivisionFractions[kDivisionCount] = { 0.5f, 0.75f, 1.0f, 1.5f, 2.0f };
+        /** Division fractions, IN BEATS, ordered by repetition length for the UI labels
+            {"1/8T","1/8","1/4T","1/8D","1/4","1/2T","1/4D","1/2","1/2D"}. The knob turns in
+            exactly this order (shortest repeat first), and the default "1/4" sits at index 4. */
+        static constexpr int    kDivisionCount     = 9;
+        static constexpr float  kDivisionFractions[kDivisionCount] =
+            { 1.0f / 3.0f, 0.5f, 2.0f / 3.0f, 0.75f, 1.0f, 4.0f / 3.0f, 1.5f, 2.0f, 3.0f };
 
         /** BPM ladder the plugin already clamps to, so capacity sizing is provably enough. */
         static constexpr float  kMinBpm = 20.0f;
@@ -189,8 +208,9 @@ namespace ovtdsp
         /** Feedback-loop low-cut: kills sub-bass buildup in a long ring (see the class doc). */
         static constexpr float  kFeedbackLowCutHz = 150.0f;
 
-        /** Longest copy prepare() can serve: bpm floor at the longest division, in seconds. */
-        static constexpr double maxCopySeconds() { return (60.0 / static_cast<double> (kMinBpm)) * 2.0; }
+        /** Longest copy prepare() can serve: bpm floor at the longest division (1/2D = 3 beats),
+            in seconds. The other divisions are shorter, so 3.0 bounds every entry in the table. */
+        static constexpr double maxCopySeconds() { return (60.0 / static_cast<double> (kMinBpm)) * 3.0; }
 
         /** Smallest power of two >= wanted: a power-of-two block is cache/page friendly, and the ring wrap in
          *  the audio loop stays a single conditional add because the read distance never exceeds capacity. */

@@ -860,18 +860,23 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     translatableLabels.push_back ({ &delayDivisionLabel, ovt::Keys::kLabelDelayDivision });
 
     // The division is a DETENTED knob (one step per note value), not a combo: the parameter is an
-    // AudioParameterChoice whose normalisable range is 0..4 step 1, so a rotary SliderAttachment
-    // snaps to the five values and the popup reads them as fractions. The fractions themselves are
-    // musical notation, not prose: they stay identical in every locale, like the scale names.
+    // AudioParameterChoice whose normalisable range is 0..8 step 1, so a rotary SliderAttachment
+    // snaps to the nine values and the popup reads them as fractions. The entries are ordered by
+    // REPETITION LENGTH (shortest first), so turning the knob walks the echoes from a 1/8T slap to
+    // a 1/2D long repeat. "D" is a dotted note and "T" a triplet, the DAW notation for the two.
+    // The fractions themselves are musical notation, not prose: they stay identical in every locale.
     delayDivisionKnob.setSliderStyle (juce::Slider::RotaryVerticalDrag);
-    delayDivisionKnob.setRange (0.0, 4.0, 1.0);
-    delayDivisionKnob.setValue (2.0, juce::dontSendNotification);   // index 2 = "1/4", the APVTS default
+    delayDivisionKnob.setRange (0.0, 8.0, 1.0);
+    delayDivisionKnob.setValue (4.0, juce::dontSendNotification);   // index 4 = "1/4", the APVTS default
     delayDivisionKnob.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     delayDivisionKnob.setPopupDisplayEnabled (true, false, this);
     delayDivisionKnob.textFromValueFunction = [] (double v)
     {
-        static const char* const fractions[] = { "1/8", "1/8.", "1/4", "1/4.", "1/2" };
-        return juce::String (fractions[juce::jlimit (0, 4, juce::roundToInt (v))]);
+        // Duration order, same as the APVTS choice list:
+        // 1/8T, 1/8, 1/4T, 1/8D, 1/4, 1/2T, 1/4D, 1/2, 1/2D.
+        static const char* const fractions[] = { "1/8T", "1/8", "1/4T", "1/8D", "1/4",
+                                                 "1/2T", "1/4D", "1/2", "1/2D" };
+        return juce::String (fractions[juce::jlimit (0, 8, juce::roundToInt (v))]);
     };
     delayDivisionKnob.setColour (juce::Slider::rotarySliderFillColourId, ebs::accent());
     delayDivisionKnob.setColour (juce::Slider::rotarySliderOutlineColourId, ebs::accentSoft());
@@ -5954,8 +5959,8 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("latency_mode",             (float) saved.latencyMode / 3.0f);
     setChoice ("editor_measures",          (float) (saved.editorMeasures - 1) / 31.0f);
     setChoice ("voice_type",               (float) saved.voiceType / 5.0f);
-    // Five divisions, so the combo index scales by 4 on the normalised axis.
-    setChoice ("delay_division",           (float) saved.delayDivision / 4.0f);
+    // Nine divisions, so the choice index scales by 8 on the normalised axis.
+    setChoice ("delay_division",           (float) saved.delayDivision / 8.0f);
     // Continuous-style morph params (key_source / companion_group are
     // normalised 0..1; key_detect steps). They were captured by captureState
     // but never re-applied here, so a slot switch left them at the previous

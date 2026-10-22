@@ -666,10 +666,18 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                              "deess_amount", "De-Esser Intensity",
                              juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.65f)
                        // Tempo-synced ping-pong delay on the corrected lead voice, added after the de-esser in
-                       // the effects bus. The division knob is a fraction OF A BEAT: {"1/8","1/8.","1/4","1/4.",
-                       // "1/2"} map to {0.5, 0.75, 1.0, 1.5, 2.0} beats, so the copy length is (60/bpm) x fraction
-                       // -- with ARA metadata the delay follows the host tempo exactly, without ARA it follows the
-                       // plugin's own BPM register. Two lines cross-feed each other (the L tail lands in the R line),
+                       // the effects bus. The division knob is a fraction OF A BEAT, ordered by repetition
+                       // length (shortest first): {"1/8T","1/8","1/4T","1/8D","1/4","1/2T","1/4D","1/2","1/2D"}
+                       // map to {1/3, 0.5, 2/3, 0.75, 1.0, 4/3, 1.5, 2.0, 3.0} beats, so the copy length is
+                       // (60/bpm) x fraction -- with ARA metadata the delay follows the host tempo exactly,
+                       // without ARA it follows the plugin's own BPM register. "D" is a dotted note, "T" a
+                       // triplet; every plain value has both siblings, and the table is sorted by duration so the
+                       // knob walks from the shortest slap to the longest repeat. The default "1/4" sits at
+                       // index 4 (the state stores the choice INDEX, so the ordering is part of the mapping).
+                       // The short end stops at 1/8T on purpose: the DSP's comb floor is 40 ms, and 1/8T is the
+                       // shortest value that stays above it at every legal tempo (50 ms at 400 BPM), so no
+                       // labelled division is ever silently clamped. Two lines cross-feed each other (the L tail
+                       // lands in the R line),
                        // which alternates echoes left/right; the feedback loop carries a 150 Hz one-pole low-cut so a
                        // long ring cannot build sub-bass mud or DC. Mix is the wet of the echo and the dry voice stays
                        // at unity: this stage ADDS, it never steals the lead (see IEffect.h). No latency is declared for
@@ -680,7 +688,8 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                               "delay_enable", "Delay Enable", false)
                         , std::make_unique<juce::AudioParameterChoice> (
                               "delay_division", "Delay Division",
-                              juce::StringArray { "1/8", "1/8.", "1/4", "1/4.", "1/2" }, 2)
+                              juce::StringArray { "1/8T", "1/8", "1/4T", "1/8D", "1/4",
+                                                  "1/2T", "1/4D", "1/2", "1/2D" }, 4)
                         , std::make_unique<juce::AudioParameterFloat> (
                               "delay_mix", "Delay Mix",
                               juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.30f)
@@ -827,7 +836,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     delayMixParam = parameters.getRawParameterValue ("delay_mix");
     delayFeedbackParam = parameters.getRawParameterValue ("delay_feedback");
     // Division goes through the choice object: getIndex() survives a non-normalized value restored by
-    // setStateInformation, where round(rawLoad * 5.0f) can land on the wrong index (cpp:4336-4338 rule).
+    // setStateInformation, where round(rawLoad * N) can land on the wrong index (cpp:4336-4338 rule).
     delayDivisionChoice = dynamic_cast<juce::AudioParameterChoice*> (parameters.getParameter ("delay_division"));
     flexTuneParam = parameters.getRawParameterValue ("flex_tune");
     humanizeParam = parameters.getRawParameterValue ("humanize");
@@ -4257,8 +4266,13 @@ void OpenVoxTunerAudioProcessor::applyLeadEffects (juce::AudioBuffer<float>& buf
             d->setBpm (tempoBpm);
 
             // Division reads through the choice object: getIndex() is reliable after setStateInformation, where
-            // round(rawLoad * 4.0f) can pick a wrong index on a non-normalized stored value. Default 2 = "1/4".
-            d->setDivision (juce::jlimit (0, 4, delayDivisionChoice != nullptr ? delayDivisionChoice->getIndex() : 2));
+            // round(rawLoad * N) can pick a wrong index on a non-normalized stored value. Seven choices now,
+            // ordered by duration; the default "1/4" sits at index 4. The clamp follows the choice count, so
+            // adding or reordering a division never needs a second edit here.
+            const int numDivisionChoices = (delayDivisionChoice != nullptr)
+                                               ? delayDivisionChoice->choices.size() : 1;
+            d->setDivision (juce::jlimit (0, numDivisionChoices - 1,
+                                          delayDivisionChoice != nullptr ? delayDivisionChoice->getIndex() : 4));
 
             if (delayMixParam != nullptr)
                 d->setMix (delayMixParam->load());

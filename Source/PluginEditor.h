@@ -340,15 +340,16 @@ private:
 
     // Delay: a tempo-synced ping-pong delay on the master output, after saturation and
     // before the limiter so the copies ride the same tail as the dry signal. One power
-    // switch (delay_enable), one division choice (delay_division, note values from 1/8
-    // dotted to 1/2, synced to the host tempo), one mix knob (delay_mix 0..1) and one
+    // switch (delay_enable), one division choice (delay_division, ordered by repetition
+    // length: 1/8T, 1/8, 1/4T, 1/8D, 1/4, 1/2T, 1/4D, 1/2, 1/2D, where D = dotted and
+    // T = triplet, synced to the host tempo), one mix knob (delay_mix 0..1) and one
     // feedback knob (delay_feedback 0..1 = how many pings the tail keeps). Switching off
     // greys the choice and the two knobs and keeps their values, exactly like saturation
     // does with its pair. The ARA source panel reads the host tempo already, so the
     // division is a musical note, never a raw millisecond dial.
     ovt::PowerToggleCaps delayEnableButton;
     // The note value is a DETENTED small knob, not a combo: the parameter is an AudioParameterChoice
-    // (0..4 step 1), so a rotary SliderAttachment snaps to the five values and the popup reads them
+    // (0..8 step 1), so a rotary SliderAttachment snaps to the nine values and the popup reads them
     // as fractions. That frees the 22 px the combo strip occupied for the Mix knob above it.
     ebs::Knob        delayDivisionKnob;           // note value of one ping (host-synced)
     // Delay: its dot rides the Mix knob, the amount the echo contributes.

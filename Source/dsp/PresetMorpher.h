@@ -77,7 +77,7 @@ namespace ovtdsp
         // can never land between two note values (a ramp between grid points would smear the
         // ping-pong rhythm instead of moving it).
         bool delayEnable = false;       // "delay_enable": power switch, knobs are kept
-        int delayDivision = 2;          // "delay_division": combo index, 2 = 1/4
+        int delayDivision = 4;          // "delay_division": duration-sorted choice index 0..8, 4 = 1/4
         float delayMix = 0.30f;         // "delay_mix": echo level, 0 = no echo at all
         float delayFeedback = 0.35f;    // "delay_feedback": repeats, low-cut in the loop
         float outputTrim = 0.5f;        // normalized "output_trim" (-12..+12 dB): 0.5 = 0 dB
@@ -160,8 +160,8 @@ namespace ovtdsp
         if (auto* p = params.getParameter ("delay_enable"))         s.delayEnable = p->getValue() > 0.5f;
         if (auto* p = params.getParameter ("delay_mix"))            s.delayMix = p->getValue();
         if (auto* p = params.getParameter ("delay_feedback"))       s.delayFeedback = p->getValue();
-        // Discrete (snap to int): five divisions, so the normalised value scales by 4.
-        if (auto* p = params.getParameter ("delay_division"))       s.delayDivision = (int) std::round (p->getValue() * 4.0f);
+        // Discrete (snap to int): nine divisions, so the normalised value scales by 8.
+        if (auto* p = params.getParameter ("delay_division"))       s.delayDivision = (int) std::round (p->getValue() * 8.0f);
         if (auto* p = params.getParameter ("correction_mode"))     s.correctionMode = p->getValue() > 0.5f;
 
         // Curve (copy)
@@ -295,7 +295,7 @@ namespace ovtdsp
         setParam ("latency_mode",           lerpOrStep ((float) source.latencyMode / 3.0f, (float) target.latencyMode / 3.0f, t));
         setParam ("editor_measures",        lerpOrStep ((float) (source.editorMeasures - 1) / 31.0f, (float) (target.editorMeasures - 1) / 31.0f, t));
         setParam ("voice_type",             lerpOrStep ((float) source.voiceType / 5.0f, (float) target.voiceType / 5.0f, t));
-        setParam ("delay_division",         lerpOrStep ((float) source.delayDivision / 4.0f, (float) target.delayDivision / 4.0f, t));
+        setParam ("delay_division",         lerpOrStep ((float) source.delayDivision / 8.0f, (float) target.delayDivision / 8.0f, t));
 
         // Boolean parameters (step at 50%)
         setParam ("formant_enable",    lerpOrStep (source.formantEnable ? 1.0f : 0.0f, target.formantEnable ? 1.0f : 0.0f, t));
