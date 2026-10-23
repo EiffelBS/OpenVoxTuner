@@ -1241,6 +1241,625 @@ void OpenVoxTunerAudioProcessor::processMasterTapAndOutput (juce::AudioBuffer<fl
 #endif
 }
 
+int OpenVoxTunerAudioProcessor::generateAndMixHarmony (juce::AudioBuffer<float>& buffer, float f0_out, int currentHarmonyTypeVal, int renderHarmonyType, float previousOutputPitch, float harmonyFormantRatio)
+{
+    // === HYBRID HARMONY GENERATION + MIXING ===
+
+    // Early calculation of useVoiceLocal / harmonyEnabled (needed for shiftedCount clamp).
+    bool useVoiceLocal = (harmonyUseVoiceParam != nullptr) ? (harmonyUseVoiceParam->load() > 0.5f) : false;
+    bool harmonyEnabled = (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f);
+
+    // Smooth the harmony master enable gain (25 ms) so toggling the Harmony
+    // button fades the bus in/out instead of hard-cutting it (no click).
+    harmonyEnableGain.setTargetValue (harmonyEnabled ? 1.0f : 0.0f);
+
+    // Early calculation of shiftedCount (needed for clamping before harmony generation).
+    int shiftedCount = 0;
+    if (useVoiceLocal && harmonyShiftedVoicesParam != nullptr)
+        shiftedCount = juce::jlimit (0, OpenVoxTunerAudioProcessor::maxShiftedVoices, static_cast<int> (std::round (harmonyShiftedVoicesParam->load())));
+
+    // Clamp shiftedCount to the actual voice count for this harmony type.
+    // The UI knob may allow up to maxShiftedVoices, but the harmony type
+    // determines how many voices actually exist. Without this clamp, the
+    // mismatch check expects more notes than getHarmonyNotes() returns.
+    const int maxVoicesForType = ovtdsp::HarmonyEngine::getHarmonyVoiceCount (
+        static_cast<ovtdsp::HarmonyType>(renderHarmonyType));
+    const int clampedShiftedCount = juce::jmin (shiftedCount, maxVoicesForType);
+
+    bool shiftedVoicesActive = false;
+    for (auto& g : shiftedVoiceGains)
+    {
+        if (g.getCurrentValue() > 0.001f)
+            shiftedVoicesActive = true;
+    }
+
+    // Forces harmony block evaluation if Use Voice is enabled,
+    // so shifted PSOLA modules keep ingesting background audio.
+    // This absolutely guarantees zero boundary clicks when actual singing starts.
+    bool forceShiftedProcessing = (renderHarmonyType != 0 && harmonyEnabled && useVoiceLocal);
+
+    if ( (renderHarmonyType != 0 && ( (f0_out > 0.0f) || (harmonyEngine != nullptr && harmonyEngine->isActive()) || shiftedVoicesActive ) && harmonyEnabled)
+         || forceShiftedProcessing
+         // Keep rendering while the enable gain is still fading out, so the
+         // harmony bus ramps to silence smoothly instead of clicking off.
+         || (harmonyEnableGain.getCurrentValue() > 1.0e-3f) )
+    {
+        const int numSamples = buffer.getNumSamples();
+        const int numChannels = juce::jmax (1, getMainBusNumOutputChannels());
+        const float harmonyBlend = (harmonyBlendParam ? harmonyBlendParam->load() : 0.0f);
+
+        // Push the user-configurable Harmony Attack (per-voice fade-in) into the
+        // engine. Only update when the value actually changes so the Harmony Debug
+        // window's manual envelope override is preserved between changes.
+        static float cachedHarmonyAttack = -1.0f;
+        const float harmonyAttackMs = (harmonyAttackParam ? harmonyAttackParam->load() : 35.0f);
+        if (harmonyEngine != nullptr && std::fabs (harmonyAttackMs - cachedHarmonyAttack) > 0.5f)
+        {
+            cachedHarmonyAttack = harmonyAttackMs;
+            harmonyEngine->setEnvelopeTimes (harmonyAttackMs, 80.0f);
+        }
+
+        int currentKey = keyIntParam != nullptr ? keyIntParam->get() : static_cast<int> (std::round (keyParam->load() * 11.0f));
+        int currentScaleIdx = scaleChoiceParam != nullptr ? scaleChoiceParam->getIndex() : static_cast<int>(scaleParam->load());
+
+        // choose notes to use for audio rendering: use cached harmony notes,
+        // fallback to harmonyFrequencies only if needed.
+        juce::Array<float> notesToUse = (lastHarmonyNotes.size() > 0) ? lastHarmonyNotes : harmonyFrequencies;
+
+        int shiftedCount = 0;
+        // Already calculated early for clamping; kept here for backward compat with
+        // code below that expects the variable name. Use clampedShiftedCount for logic.
+
+        harmonyBuffer.setSize (numChannels, numSamples, false, true, true);
+        harmonyBuffer.clear();
+
+        // 1) Shift tuned voice into harmony notes for the first N voices
+        if (useVoiceLocal)
+        {
+            uint32_t nowH = juce::Time::getMillisecondCounter();
+            uint32_t lastH = lastHarmonyLogTime.load();
+            if (nowH - lastH > 1000)
+            {
+                if (lastHarmonyLogTime.compare_exchange_strong (lastH, nowH))
+                {
+                    OVT_LOG ("Harmony generation: useVoice=" + juce::String((int)useVoiceLocal) +
+                                              " shiftedCount=" + juce::String(shiftedCount) +
+                                              " notesToUse=" + juce::String((int)notesToUse.size()));
+                }
+            }
+
+            // If the requested render type changed (deferred retarget), or the
+            // cache is empty / wrong size, regenerate the notes with the type
+            // actually being rendered so the OLD note set keeps playing during
+            // the fade-out and the NEW one during the fade-in.
+            const size_t expectedSize = (size_t)juce::jmax (1, clampedShiftedCount);
+            if (notesToUse.size() != expectedSize || lastHarmonyNotesType != renderHarmonyType)
+            {
+                OVT_LOG ("notesToUse SIZE MISMATCH: have=" + juce::String((int)notesToUse.size()) +
+                         " expected=" + juce::String((int)expectedSize) +
+                         " f0_out=" + juce::String(f0_out, 2) +
+                         " lastValidF0=" + juce::String(lastValidF0.load(), 2) +
+                         " harmonyEngine=" + juce::String((harmonyEngine != nullptr ? 1 : 0)) +
+                         " harmonyType=" + juce::String(currentHarmonyTypeVal));
+                // Use held pitch (lastValidF0) if live pitch is unavailable, to avoid stalling.
+                const float regenF0 = (f0_out > 0.0f) ? f0_out : lastValidF0.load();
+                if (regenF0 > 0.0f && harmonyEngine != nullptr)
+                {
+                    const juce::Array<int>& regenIntervals = scaleQuantizer->getScaleIntervals();
+                    notesToUse = harmonyEngine->getHarmonyNotes (
+                        regenF0, regenIntervals, static_cast<ovtdsp::HarmonyType>(renderHarmonyType));
+                    juce::String notesStr;
+                    for (int i = 0; i < notesToUse.size(); ++i)
+                        notesStr += (i > 0 ? "," : "") + juce::String(notesToUse[i], 2);
+                    OVT_LOG ("notesToUse regenerated: type=" + juce::String(currentHarmonyTypeVal) +
+                             " f0=" + juce::String(regenF0, 2) + " notes=[" + notesStr + "]");
+                    // Update the persistent cache so next block has valid data
+                    lastHarmonyNotes = notesToUse;
+                    lastHarmonyNotesType = renderHarmonyType;
+                }
+                else if (lastHarmonyNotes.size() > 0)
+                {
+                    notesToUse = lastHarmonyNotes; // best effort fallback
+                    OVT_LOG ("notesToUse fallback to lastHarmonyNotes: " + juce::String((int)notesToUse.size()));
+                }
+                else
+                {
+                    OVT_LOG ("notesToUse NO FALLBACK AVAILABLE - will use safe_f0 * 1.5f");
+                }
+            }
+
+            // Smooth the per-voice loudness normalization 4/sqrt(N) once per
+            // block (not per voice). On a harmony TYPE change the active voice
+            // count N steps instantly; without smoothing the remaining voices'
+            // level would jump (e.g. 4/sqrt(4)=2.0 -> 4/sqrt(1)=4.0 when N drops
+            // 4->1), audible as a one-way "pop" / louder attack. Fix HC.12.
+            const float perVoiceLevelTarget = 4.0f / std::sqrt ((float) juce::jmax (1, clampedShiftedCount));
+            const float perVoiceLevel = shiftedVoiceLevelSmoother.processBlock (perVoiceLevelTarget, numSamples);
+
+            for (int v = 0; v < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++v)
+            {
+                // f0_for_shifted uses held pitch (lastValidF0) so voices stay active
+                // even when live pitch momentarily drops to 0.
+                const float f0_for_shifted = (f0_out > 0.0f) ? f0_out : lastValidF0.load();
+
+                // Use f0_for_shifted (held pitch via lastValidF0) so voices stay active
+                // even when live pitch momentarily drops to 0.
+                const bool activeShiftedVoice = (f0_for_shifted > 0.0f && v < clampedShiftedCount && v < notesToUse.size() && notesToUse[v] > 0.0f);
+
+                // By continually calling process(), we seamlessly ingest tracking noise.
+                // The targetHz just falls back to a valid shifted ratio during silence.
+                const float safe_f0 = (f0_for_shifted > 0.0f) ? f0_for_shifted : 440.0f;
+                const float targetHz = (v < notesToUse.size() && notesToUse[v] > 0.0f) ? notesToUse[v]
+                                                                                       : (safe_f0 * 1.5f);
+
+                auto& tmp = shiftedVoiceBuffers[v];
+                if (tmp.getNumChannels() != numChannels || tmp.getNumSamples() != numSamples)
+                    tmp.setSize (numChannels, numSamples, false, true, false);
+
+                // When Follow Lead is OFF, use the scale-locked reference
+                // frequency (no vibrato) as the denominator so ratioH is
+                // constant and the pitch shifter produces a flat output.
+                // Using f0_out directly leaks a small amount of vibrato
+                // because the YIN detector has ~1-block latency, making
+                // f0_in/f0_out slightly non-constant.
+                const bool flActive = (harmonyFollowLeadParam != nullptr)
+                    ? harmonyFollowLeadParam->load() > 0.5f : true;
+                float ratioDenom = safe_f0;
+                if (! flActive && scaleQuantizer != nullptr && safe_f0 > 0.0f)
+                {
+                    const float refF0 = scaleQuantizer->quantize (safe_f0);
+                    if (refF0 > 0.0f) ratioDenom = refF0;
+                }
+                float ratioH = juce::jmax(0.25f, juce::jmin(4.0f, targetHz / ratioDenom));
+
+                // Unison detune (2026-10-14). HarmonyEngine generates identical
+                // notes for voices 0 and 1 of Unison2 / UnisonOctaves4, so those
+                // copies are fully correlated: the sum is +6 dB and the audible
+                // result is a level boost, not thickening. The fixed +/-5 cent
+                // spread from HarmonyEngine::unisonDetuneCents decorrelates them
+                // spectrally (~1.2 Hz beat at 200 Hz). Applied BEFORE the glide
+                // block below so snapTo stores the detuned ratio and a voice
+                // re-activating never starts from an undetuned value. The octave
+                // voices (v >= 2) get 0 cents and are untouched.
+                const float unisonCents = ovtdsp::HarmonyEngine::unisonDetuneCents (
+                    v, static_cast<ovtdsp::HarmonyType> (renderHarmonyType));
+                if (unisonCents != 0.0f)
+                    ratioH = juce::jlimit (0.25f, 4.0f,
+                        ratioH * static_cast<float> (std::pow (2.0, unisonCents / 1200.0)));
+
+                // Per-voice ratio glide to mask harmony TYPE changes (note jumps)
+                // WITHOUT muting the harmony bus. It glides only on LARGE ratio
+                // changes (>12%, ~a minor 3rd — i.e. a harmony note / type change);
+                // vibrato / follow-lead changes (3-5%) pass through instantly so the
+                // harmony does not wobble. The glide lets us drop the bus mute (dip)
+                // that was itself causing the audible level-hole "click". Voices that
+                // are off are kept in sync so no stale glide happens on re-activation.
+                if (! activeShiftedVoice)
+                {
+                    shiftedVoiceSmoothedRatio[v] = ratioH;
+                    shiftedVoiceRatioSmoothers[v].snapTo (ratioH);
+                }
+                else if (std::fabs (ratioH - shiftedVoiceSmoothedRatio[v]) > 0.12f)
+                {
+                    shiftedVoiceRatioSmoothers[v].setTimeConstantSeconds (0.040);
+                    shiftedVoiceRatioSmoothers[v].processBlock (ratioH, numSamples);
+                    shiftedVoiceSmoothedRatio[v] = shiftedVoiceRatioSmoothers[v].getCurrentValue();
+                    ratioH = shiftedVoiceSmoothedRatio[v];
+                }
+                else
+                {
+                    shiftedVoiceSmoothedRatio[v] = ratioH;
+                    shiftedVoiceRatioSmoothers[v].snapTo (ratioH);
+                }
+
+                // Option A (HC.13): the granular formant read-speed (F = formant
+                // ratio) is unstable on strongly pitch-shifted grains at extreme
+                // Harmony Formant — the OLA COLA sum no longer holds, producing a
+                // wobble / rapid pops lateralized per voice. Blend the effective
+                // formant ratio back toward 1.0 as the voice's pitch ratio deviates
+                // from 1.0. A FLOOR is kept (never fully 0) so the Harmony Formant
+                // knob stays audibly effective even on octave-shifted voices
+                // (Drone / Octave Below / Octave Above are single octave voices;
+                // zeroing their formant made the knob dead and left the raw
+                // no-formant granular sound). pitchDevOct = 0 at ratio 1, 1 at an octave.
+                const float pitchDevOct = std::fabs (std::log2 (ratioH));
+                const float formantBlend = juce::jlimit (0.5f, 1.0f, juce::jmap (pitchDevOct, 0.25f, 1.0f, 1.0f, 0.5f));
+                const float voiceFormantRatio = 1.0f + (harmonyFormantRatio - 1.0f) * formantBlend;
+
+                if (v < static_cast<int>(shiftedVoicePitchShifters.size()) && shiftedVoicePitchShifters[v] != nullptr)
+                    shiftedVoicePitchShifters[v]->process (synthWorkBuffer, tmp, ratioH, voiceFormantRatio, safe_f0);
+                else
+                    pitchShifter->process (synthWorkBuffer, tmp, ratioH, voiceFormantRatio, safe_f0);
+
+                // Log unexpected voice drop during active singing (f0_out > 0 but voice inactive)
+                if (f0_out > 0.0f && !activeShiftedVoice && v < clampedShiftedCount)
+                {
+                    static std::atomic<int> lastDropLogTime[OpenVoxTunerAudioProcessor::maxShiftedVoices] = {0, 0, 0, 0};
+                    uint32_t now = juce::Time::getMillisecondCounter();
+                    if (now - lastDropLogTime[v].load() > 2000) // throttle: max once per 2s per voice
+                    {
+                        lastDropLogTime[v].store(now);
+                        OVT_LOG ("Harmony VOICE DROP: v=" + juce::String(v) +
+                                 " f0_out=" + juce::String(f0_out, 2) +
+                                 " clampedShiftedCount=" + juce::String(clampedShiftedCount) +
+                                 " notesToUse.size=" + juce::String(notesToUse.size()) +
+                                 " targetHz=" + juce::String(targetHz, 2) +
+                                 " ratioH=" + juce::String(ratioH, 4));
+                    }
+                }
+
+                const float blendFactor = 1.0f - harmonyBlend;
+                // perVoiceLevel (the sqrt(N) loudness normalization) is computed
+                // once per block above and smoothed, so a voice-count change does
+                // not step the remaining voices' level.
+
+                if (!activeShiftedVoice) {
+                    shiftedVoiceGains[(size_t)v].setTargetValue (0.0f);
+                } else {
+                    shiftedVoiceGains[(size_t)v].setTargetValue (1.0f);
+                }
+
+                float leftGain = 1.0f;
+                float rightGain = 1.0f;
+                if (numChannels > 1)
+                {
+                    // 2026-07-23: pre-computed pan gains (cos/sin of a fixed
+                    // angle per voice) are now stored in a static lookup
+                    // table, filled once at first use. The previous code
+                    // recomputed std::cos/std::sin for every voice on every
+                    // block, even though the angles are CONSTANTS (depend
+                    // only on the voice index `v`). 4 voices * 172 blocks/sec
+                    // = 688 trig calls/sec for nothing. With this cache, the
+                    // cost is one array lookup per voice per block.
+                    static const std::array<float, OpenVoxTunerAudioProcessor::maxShiftedVoices> cachedLeftGain = []
+                    {
+                        // 1st=full right, 2nd=full left, 3rd=centre-right, 4th=centre-left
+                        static constexpr float panPos[OpenVoxTunerAudioProcessor::maxShiftedVoices] = { 1.0f, -1.0f, 0.5f, -0.5f };
+                        std::array<float, OpenVoxTunerAudioProcessor::maxShiftedVoices> out {};
+                        for (int i = 0; i < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++i)
+                        {
+                            const float pan = panPos[juce::jlimit (0, OpenVoxTunerAudioProcessor::maxShiftedVoices - 1, i)];
+                            const float angle = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
+                            out[(size_t) i] = std::cos (angle);
+                        }
+                        return out;
+                    }();
+                    static const std::array<float, OpenVoxTunerAudioProcessor::maxShiftedVoices> cachedRightGain = []
+                    {
+                        static constexpr float panPos[OpenVoxTunerAudioProcessor::maxShiftedVoices] = { 1.0f, -1.0f, 0.5f, -0.5f };
+                        std::array<float, OpenVoxTunerAudioProcessor::maxShiftedVoices> out {};
+                        for (int i = 0; i < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++i)
+                        {
+                            const float pan = panPos[juce::jlimit (0, OpenVoxTunerAudioProcessor::maxShiftedVoices - 1, i)];
+                            const float angle = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
+                            out[(size_t) i] = std::sin (angle);
+                        }
+                        return out;
+                    }();
+                    leftGain = cachedLeftGain[(size_t) v];
+                    rightGain = cachedRightGain[(size_t) v];
+                }
+
+                if (numChannels > 1)
+                {
+                    float* dstL = harmonyBuffer.getWritePointer (0);
+                    float* dstR = harmonyBuffer.getWritePointer (1);
+                    const float* srcL = tmp.getReadPointer (0);
+                    const float* srcR = tmp.getReadPointer (1);
+                    const float baseGL = blendFactor * perVoiceLevel * leftGain;
+                    const float baseGR = blendFactor * perVoiceLevel * rightGain;
+
+                    // 2026-07-23: SIMD optimisation of the per-sample mix loop.
+                    //
+                    // The original loop
+                    //     for (int i = 0; i < N; ++i) {
+                    //         float vg = shiftedVoiceGains[v].getNextValue();
+                    //         dstL[i] += srcL[i] * baseGL * vg;
+                    //         dstR[i] += srcR[i] * baseGR * vg;
+                    //     }
+                    // called getNextValue() (a branch + interpolation) per
+                    // sample, and did two scalar multiplies + two scalar
+                    // adds per sample. At 4 voices * 256 samples / block
+                    // * 172 blocks/sec = 176,128 per-sample iterations/sec,
+                    // the function-call overhead and the lack of SIMD
+                    // combined to cost ~0.4 ms/sec of pure waste.
+                    //
+                    // The new loop:
+                    //   1) Pre-computes the per-sample voice gain into a
+                    //      stack-allocated array. This still calls
+                    //      getNextValue() per sample, but the result is
+                    //      stored in a contiguous array, which the next
+                    //      pass can stream through linearly.
+                    //   2) Uses juce::FloatVectorOperations to do the
+                    //      multiply + add in SIMD (SSE/AVX/NEON depending
+                    //      on the host). This processes 4 (AVX) or 8 (AVX-512)
+                    //      samples per instruction.
+                    //   3) The base gain is pre-multiplied into the gain
+                    //      ramp so the multiply is by a single constant per
+                    //      sample, which is what the SIMD path expects.
+                    //
+                    // For the same 4 voices / 256 samples / 44.1 kHz workload,
+                    // measured speedup on x86-64 is ~2.5x (the per-sample
+                    // branch dominates the cost, so SIMD alone is worth ~1.5x;
+                    // the linear-access pre-compute adds another ~1.5x by
+                    // removing the per-sample getter from the hot path).
+                    //
+                    // Cost: one stack allocation of N floats per voice per
+                    // block (1 KB at 256 samples). This is well within the
+                    // audio thread stack budget (typically 1 MB on macOS,
+                    // 8 MB on Windows, 512 KB on Linux). We use a
+                    // HeapBlock<float> with a small initial heap allocation
+                    // to be safe on hosts that audit stack usage.
+                    //
+                    // 2026-07-23: share the smoother pass between L and R.
+                    // The original code called getNextValue() twice (once
+                    // per channel) because the smoother is stateful. We
+                    // now call it once into a shared `smootherRamp` array,
+                    // then pre-multiply into per-channel gain ramps. This
+                    // halves the smoother branch cost while still using the
+                    // array form of addWithMultiply (4 samples/instruction
+                    // SSE2, 8 samples/instruction AVX-256). The extra
+                    // multiplication pass is dominated by L1 cache hits
+                    // (~1 ns/sample) so the net win is ~1.5x over the
+                    // previous "2x getNextValue() + 2x addWithMultiply"
+                    // implementation.
+                    const int N = numSamples;
+                    jassert (N <= shiftedVoiceGainRamps.getNumSamples());
+                    float* smootherRamp = shiftedVoiceGainRamps.getWritePointer (0);
+                    float* gainRampL = shiftedVoiceGainRamps.getWritePointer (1);
+                    float* gainRampR = shiftedVoiceGainRamps.getWritePointer (2);
+                    for (int i = 0; i < N; ++i)
+                        smootherRamp[i] = shiftedVoiceGains[(size_t)v].getNextValue();
+                    for (int i = 0; i < N; ++i)
+                    {
+                        gainRampL[i] = smootherRamp[i] * baseGL;
+                        gainRampR[i] = smootherRamp[i] * baseGR;
+                    }
+                    juce::FloatVectorOperations::addWithMultiply (dstL, srcL, gainRampL, N);
+                    juce::FloatVectorOperations::addWithMultiply (dstR, srcR, gainRampR, N);
+                }
+                else
+                {
+                    float* dst = harmonyBuffer.getWritePointer (0);
+                    const float* src = tmp.getReadPointer (0);
+                    const float baseG = blendFactor * perVoiceLevel;
+                    // Mono path: same SIMD optimisation as above. 2026-07-23.
+                    const int N = numSamples;
+                    jassert (N <= shiftedVoiceGainRamps.getNumSamples());
+                    float* gainRamp = shiftedVoiceGainRamps.getWritePointer (0);
+                    for (int i = 0; i < N; ++i)
+                        gainRamp[i] = shiftedVoiceGains[(size_t)v].getNextValue() * baseG;
+                    juce::FloatVectorOperations::addWithMultiply (dst, src, gainRamp, N);
+                }
+            }
+        }
+
+        // Ramp down unused shifted voices completely (if Use Voice is off)
+        // Note: individual inactive voices are already faded out via setTargetValue(0.0f) above.
+        // If the entire Use Voice mode is off, zero them all.
+        for (int v = 0; v < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++v)
+        {
+            if (!useVoiceLocal)
+            {
+                shiftedVoiceGains[(size_t)v].setCurrentAndTargetValue (0.0f);
+            }
+        }
+
+        // 2) synthesize remaining voices and accumulate
+        juce::Array<float> synthNotes;
+        for (int v = clampedShiftedCount; v < notesToUse.size(); ++v)
+            synthNotes.add (notesToUse[v]);
+
+        if (synthNotes.size() > 0 && harmonyEngine != nullptr)
+        {
+            if (synthWorkBuffer.getNumChannels() != numChannels || synthWorkBuffer.getNumSamples() != numSamples)
+                synthWorkBuffer.setSize (numChannels, numSamples, false, true, true);
+            synthWorkBuffer.clear();
+            const int harmonyTone = (harmonyToneParam != nullptr)
+                ? static_cast<int> (std::round (harmonyToneParam->load()))
+                : 0;
+            const float harmonyToneColor = (harmonyToneColorParam != nullptr)
+                ? juce::jlimit (0.0f, 1.0f, harmonyToneColorParam->load())
+                : 0.5f;
+
+            harmonyEngine->renderHarmonies (
+                f0_out,
+                synthNotes,
+                1.0f,
+                currentSampleRate,
+                synthWorkBuffer,
+                currentKey,
+                currentScaleIdx,
+                harmonyBlend,
+                harmonyTone,
+                harmonyToneColor,
+                (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f)
+            );
+
+            const float blendFactor = 1.0f - harmonyBlend;
+            for (int ch = 0; ch < numChannels; ++ch)
+            {
+                float* dst = harmonyBuffer.getWritePointer (ch);
+                const float* src = synthWorkBuffer.getReadPointer (ch);
+                for (int i = 0; i < numSamples; ++i)
+                    dst[i] += src[i] * blendFactor;
+            }
+        }
+
+        // === SHARED REVERB BUS TAPS ===
+        // The sends are taken on the blended voices BEFORE they are mixed into the master
+        // output, so each room receives each voice exactly once at its own level. Sends
+        // never modify the dry path, so the voices below are mixed untouched.
+        applyHarmonySends (harmonyBuffer);
+
+        // Now mix harmonyBuffer into main output below
+        const float hGain = (harmonyGainParam ? harmonyGainParam->load() : 1.0f);
+        if (hGain > 0.001f)
+        {
+             const int numCh = harmonyBuffer.getNumChannels();
+             const int numS  = harmonyBuffer.getNumSamples();
+             const int outChannels = buffer.getNumChannels();
+
+             if (numS > 0 && (numCh == 2 || numCh == 1) && outChannels > 0)
+             {
+                 float* outL = buffer.getWritePointer (0);
+                 float* outR = (outChannels > 1) ? buffer.getWritePointer (1) : nullptr;
+
+                 // Gain match: when enabled, scale the harmony mix by
+                 // 1/sqrt(1 + N) so the additive contribution does not
+                 // boost the total RMS above the dry input RMS. N is the
+                 // number of active harmony voices for the current type
+                 // (e.g. Unison2 -> N=2, VocalStack4 -> N=4). The dry
+                 // signal is NOT scaled (it is already in the output
+                 // buffer before this mix). The user-facing harmony
+                 // volume knob still scales the result, so the user can
+                 // fine-tune. This is the same approach used by
+                 // Auto-Tune and other reference vocal harmonisers.
+                 const int currentHarmType = (harmonyTypeParam != nullptr)
+                     ? static_cast<int> (harmonyTypeParam->load()) : 0;
+                 const int numHarmVoices = (currentHarmType > 0)
+                     ? ovtdsp::HarmonyEngine::getHarmonyVoiceCount (
+                         static_cast<ovtdsp::HarmonyType> (currentHarmType))
+                     : 0;
+                 const bool gainMatchOn = (harmonyGainMatchParam != nullptr)
+                     && (harmonyGainMatchParam->load() > 0.5f);
+                 const float gainMatchFactor = (gainMatchOn && numHarmVoices > 0)
+                     ? (1.0f / std::sqrt (1.0f + static_cast<float> (numHarmVoices)))
+                     : 1.0f;
+                 const float hGainFinal = hGain * gainMatchFactor;
+
+                 // Scale the harmony contribution by the noise gate's current
+                // gain so that harmony voices track the gate envelope. When
+                // the gate is closed the harmony is silent; when the gate is
+                // opening the harmony is attenuated proportionally. This
+                // prevents an "over-volume" burst where the dry signal is still
+                // ramping up but the harmony voices are already at full
+                // amplitude (their 35-ms attack is faster than the gate's
+                // one-pole attack). When the gate is disabled, currentGain
+                // stays at 1.0 so the harmony is unaffected.
+                const float gateGain = (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f)
+                    ? noiseGate.getCurrentGain() : 1.0f;
+                // Smooth the raw gate gain to prevent clicks when the
+                // Noise Gate opens/closes abruptly.
+                 harmonyGateGain.setTargetValue (gateGain);
+
+                 // Apply the user attack to the FINAL harmony bus. The
+                 // harmony can come from shifted voice buffers, synthesized
+                 // voices, or both; applying the envelope here makes the
+                 // control effective for every path and prevents the harmony
+                 // from arriving before the tuned lead has settled.
+                 const bool harmonyOnset = (f0_out > 0.0f && previousOutputPitch <= 0.0f);
+                 if (harmonyOnset)
+                     harmonyAttackGain = 0.0f;
+
+                 const float requestedAttackMs = harmonyAttackParam != nullptr
+                     ? harmonyAttackParam->load() : 35.0f;
+                 const float attackMs = juce::jlimit (10.0f, 500.0f, requestedAttackMs);
+                 const float attackCoeff = 1.0f - std::exp (-1000.0f / (attackMs * currentSampleRate));
+                 const float releaseCoeff = 1.0f - std::exp (-1000.0f / (60.0f * currentSampleRate));
+                 const float harmonyAttackTarget = f0_out > 0.0f ? 1.0f : 0.0f;
+
+                 // 2026-07-23 SIMD optimisation of the harmony->main mix loop.
+                 const int Nmix = numS;
+                 juce::HeapBlock<float> mixGainRamp ((size_t) Nmix);
+                 for (int i = 0; i < Nmix; ++i)
+                 {
+                     const float coeff = harmonyAttackTarget > harmonyAttackGain
+                        ? attackCoeff : releaseCoeff;
+                    harmonyAttackGain += (harmonyAttackTarget - harmonyAttackGain) * coeff;
+
+                    // The whole-bus mute (dip to 0) was itself the audible
+                    // "click" (a ~16 ms level hole). The harmony-type change is
+                    // now masked by the per-voice ratio glide in the voice loop,
+                    // so the harmony bus stays at full level throughout the
+                    // transition. `blockStartRemaining` / `blockFadeTotal` are
+                    // still advanced by the deferred-retarget logic for state
+                    // timing, but no longer scale the mix gain.
+                    const float dip = 1.0f;
+
+                    const float enableGain = harmonyEnableGain.getNextValue();
+                    const float gateGain  = harmonyGateGain.getNextValue();
+                    const float gainScale = hGainFinal * enableGain * gateGain;
+                    mixGainRamp[i] = gainScale * harmonyAttackGain * dip;
+                 }
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+                if (diagTypeChangePending && numCh > 0)
+                {
+                    const float hj = computeMaxJump (harmonyBuffer.getReadPointer (0), Nmix);
+                    if (hj > diagHarmonyPeakJump) diagHarmonyPeakJump = hj;
+                    if (numCh > 1)
+                    {
+                        const float hj2 = computeMaxJump (harmonyBuffer.getReadPointer (1), Nmix);
+                        if (hj2 > diagHarmonyPeakJump) diagHarmonyPeakJump = hj2;
+                    }
+                    if (! diagWindowFilled)
+                    {
+                        diagWindowLen = juce::jmin (48, Nmix);
+                        const float* hr = harmonyBuffer.getReadPointer (0);
+                        for (int k = 0; k < diagWindowLen; ++k)
+                            diagHarmonyWindow[k] = hr[k];
+                        diagWindowFilled = true;
+                    }
+                }
+#endif
+                juce::FloatVectorOperations::addWithMultiply (outL, harmonyBuffer.getReadPointer (0), mixGainRamp.getData(), Nmix);
+                if (outR != nullptr)
+                {
+                    if (numCh == 1)
+                        juce::FloatVectorOperations::addWithMultiply (outR, harmonyBuffer.getReadPointer (0), mixGainRamp.getData(), Nmix);
+                    else
+                        juce::FloatVectorOperations::addWithMultiply (outR, harmonyBuffer.getReadPointer (1), mixGainRamp.getData(), Nmix);
+                }
+
+                // (Old-content snapshot fade-out removed: the clean whole-bus dip
+                // in the mix loop now masks the type retarget with no per-block
+                // restart discontinuity.)
+
+                 // Compute stereo level of harmony output
+                 harmonyOutputLevel.store (
+                    juce::jmax<float> (0.0f,
+                        juce::jlimit<float> (0.0f, 1.0f,
+                            (outChannels > 1) 
+                                ? juce::jmax (buffer.getMagnitude (0, 0, numS), buffer.getMagnitude (1, 0, numS))
+                                : buffer.getMagnitude (0, 0, numS)
+                        )
+                    )
+                );
+
+                // Save last mixed harmony contribution (scaled by the
+                // final post-gain-match gain) for potential crossfade on
+                // stop. We use the same hGainFinal that the live mix
+                // used, so the crossfade is inaudible if the harmony
+                // engine is stopped mid-block.
+                if (lastMixedHarmonyBuffer.getNumChannels() != numCh || lastMixedHarmonyBuffer.getNumSamples() != numS)
+                    lastMixedHarmonyBuffer.setSize (numCh, numS, false, true, true);
+                lastMixedHarmonyBuffer.clear();
+                for (int ch = 0; ch < numCh; ++ch)
+                {
+                    lastMixedHarmonyBuffer.copyFrom (ch, 0, harmonyBuffer, ch, 0, numS);
+                    juce::FloatVectorOperations::multiply (lastMixedHarmonyBuffer.getWritePointer (ch), hGainFinal, numS);
+                }
+                wasHarmonyActiveLastBlock = true;
+             }
+         }
+     }
+     else
+     {
+         // We did not mix this block. Hard-zero all voice gains.
+         for (int v = 0; v < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++v)
+         {
+             shiftedVoiceGains[(size_t)v].setCurrentAndTargetValue (0.0f);
+         }
+
+         // Clear the last mixed cache because overlapping past audio causes
+         // phase discontinuities and clicks. The smooth fade is now purely
+         // handled by shiftedVoiceGains decaying cleanly.
+         lastMixedHarmonyBuffer.clear();
+         wasHarmonyActiveLastBlock = false;
+     }
+    return clampedShiftedCount;
+}
+
 void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                                juce::MidiBuffer& midiMessages)
 {
@@ -2483,620 +3102,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Do NOT call pitchShifter->process a second time here; the re-entry
     // corrupts the grain scheduler state and causes scratchs / NaN.
 
-    // === HYBRID HARMONY GENERATION + MIXING ===
+    const int clampedShiftedCount = generateAndMixHarmony (buffer, f0_out, currentHarmonyTypeVal,
+                                                             renderHarmonyType, previousOutputPitch,
+                                                             harmonyFormantRatio);
 
-    // Early calculation of useVoiceLocal / harmonyEnabled (needed for shiftedCount clamp).
-    bool useVoiceLocal = (harmonyUseVoiceParam != nullptr) ? (harmonyUseVoiceParam->load() > 0.5f) : false;
-    bool harmonyEnabled = (harmonyEnableParam == nullptr || harmonyEnableParam->load() > 0.5f);
-
-    // Smooth the harmony master enable gain (25 ms) so toggling the Harmony
-    // button fades the bus in/out instead of hard-cutting it (no click).
-    harmonyEnableGain.setTargetValue (harmonyEnabled ? 1.0f : 0.0f);
-
-    // Early calculation of shiftedCount (needed for clamping before harmony generation).
-    int shiftedCount = 0;
-    if (useVoiceLocal && harmonyShiftedVoicesParam != nullptr)
-        shiftedCount = juce::jlimit (0, OpenVoxTunerAudioProcessor::maxShiftedVoices, static_cast<int> (std::round (harmonyShiftedVoicesParam->load())));
-
-    // Clamp shiftedCount to the actual voice count for this harmony type.
-    // The UI knob may allow up to maxShiftedVoices, but the harmony type
-    // determines how many voices actually exist. Without this clamp, the
-    // mismatch check expects more notes than getHarmonyNotes() returns.
-    const int maxVoicesForType = ovtdsp::HarmonyEngine::getHarmonyVoiceCount (
-        static_cast<ovtdsp::HarmonyType>(renderHarmonyType));
-    const int clampedShiftedCount = juce::jmin (shiftedCount, maxVoicesForType);
-
-    bool shiftedVoicesActive = false;
-    for (auto& g : shiftedVoiceGains)
-    {
-        if (g.getCurrentValue() > 0.001f)
-            shiftedVoicesActive = true;
-    }
-
-    // Forces harmony block evaluation if Use Voice is enabled,
-    // so shifted PSOLA modules keep ingesting background audio.
-    // This absolutely guarantees zero boundary clicks when actual singing starts.
-    bool forceShiftedProcessing = (renderHarmonyType != 0 && harmonyEnabled && useVoiceLocal);
-
-    if ( (renderHarmonyType != 0 && ( (f0_out > 0.0f) || (harmonyEngine != nullptr && harmonyEngine->isActive()) || shiftedVoicesActive ) && harmonyEnabled)
-         || forceShiftedProcessing
-         // Keep rendering while the enable gain is still fading out, so the
-         // harmony bus ramps to silence smoothly instead of clicking off.
-         || (harmonyEnableGain.getCurrentValue() > 1.0e-3f) )
-    {
-        const int numSamples = buffer.getNumSamples();
-        const int numChannels = juce::jmax (1, getMainBusNumOutputChannels());
-        const float harmonyBlend = (harmonyBlendParam ? harmonyBlendParam->load() : 0.0f);
-
-        // Push the user-configurable Harmony Attack (per-voice fade-in) into the
-        // engine. Only update when the value actually changes so the Harmony Debug
-        // window's manual envelope override is preserved between changes.
-        static float cachedHarmonyAttack = -1.0f;
-        const float harmonyAttackMs = (harmonyAttackParam ? harmonyAttackParam->load() : 35.0f);
-        if (harmonyEngine != nullptr && std::fabs (harmonyAttackMs - cachedHarmonyAttack) > 0.5f)
-        {
-            cachedHarmonyAttack = harmonyAttackMs;
-            harmonyEngine->setEnvelopeTimes (harmonyAttackMs, 80.0f);
-        }
-
-        int currentKey = keyIntParam != nullptr ? keyIntParam->get() : static_cast<int> (std::round (keyParam->load() * 11.0f));
-        int currentScaleIdx = scaleChoiceParam != nullptr ? scaleChoiceParam->getIndex() : static_cast<int>(scaleParam->load());
-
-        // choose notes to use for audio rendering: use cached harmony notes,
-        // fallback to harmonyFrequencies only if needed.
-        juce::Array<float> notesToUse = (lastHarmonyNotes.size() > 0) ? lastHarmonyNotes : harmonyFrequencies;
-
-        int shiftedCount = 0;
-        // Already calculated early for clamping; kept here for backward compat with
-        // code below that expects the variable name. Use clampedShiftedCount for logic.
-
-        harmonyBuffer.setSize (numChannels, numSamples, false, true, true);
-        harmonyBuffer.clear();
-
-        // 1) Shift tuned voice into harmony notes for the first N voices
-        if (useVoiceLocal)
-        {
-            uint32_t nowH = juce::Time::getMillisecondCounter();
-            uint32_t lastH = lastHarmonyLogTime.load();
-            if (nowH - lastH > 1000)
-            {
-                if (lastHarmonyLogTime.compare_exchange_strong (lastH, nowH))
-                {
-                    OVT_LOG ("Harmony generation: useVoice=" + juce::String((int)useVoiceLocal) +
-                                              " shiftedCount=" + juce::String(shiftedCount) +
-                                              " notesToUse=" + juce::String((int)notesToUse.size()));
-                }
-            }
-
-            // If the requested render type changed (deferred retarget), or the
-            // cache is empty / wrong size, regenerate the notes with the type
-            // actually being rendered so the OLD note set keeps playing during
-            // the fade-out and the NEW one during the fade-in.
-            const size_t expectedSize = (size_t)juce::jmax (1, clampedShiftedCount);
-            if (notesToUse.size() != expectedSize || lastHarmonyNotesType != renderHarmonyType)
-            {
-                OVT_LOG ("notesToUse SIZE MISMATCH: have=" + juce::String((int)notesToUse.size()) +
-                         " expected=" + juce::String((int)expectedSize) +
-                         " f0_out=" + juce::String(f0_out, 2) +
-                         " lastValidF0=" + juce::String(lastValidF0.load(), 2) +
-                         " harmonyEngine=" + juce::String((harmonyEngine != nullptr ? 1 : 0)) +
-                         " harmonyType=" + juce::String(currentHarmonyTypeVal));
-                // Use held pitch (lastValidF0) if live pitch is unavailable, to avoid stalling.
-                const float regenF0 = (f0_out > 0.0f) ? f0_out : lastValidF0.load();
-                if (regenF0 > 0.0f && harmonyEngine != nullptr)
-                {
-                    const juce::Array<int>& regenIntervals = scaleQuantizer->getScaleIntervals();
-                    notesToUse = harmonyEngine->getHarmonyNotes (
-                        regenF0, regenIntervals, static_cast<ovtdsp::HarmonyType>(renderHarmonyType));
-                    juce::String notesStr;
-                    for (int i = 0; i < notesToUse.size(); ++i)
-                        notesStr += (i > 0 ? "," : "") + juce::String(notesToUse[i], 2);
-                    OVT_LOG ("notesToUse regenerated: type=" + juce::String(currentHarmonyTypeVal) +
-                             " f0=" + juce::String(regenF0, 2) + " notes=[" + notesStr + "]");
-                    // Update the persistent cache so next block has valid data
-                    lastHarmonyNotes = notesToUse;
-                    lastHarmonyNotesType = renderHarmonyType;
-                }
-                else if (lastHarmonyNotes.size() > 0)
-                {
-                    notesToUse = lastHarmonyNotes; // best effort fallback
-                    OVT_LOG ("notesToUse fallback to lastHarmonyNotes: " + juce::String((int)notesToUse.size()));
-                }
-                else
-                {
-                    OVT_LOG ("notesToUse NO FALLBACK AVAILABLE - will use safe_f0 * 1.5f");
-                }
-            }
-
-            // Smooth the per-voice loudness normalization 4/sqrt(N) once per
-            // block (not per voice). On a harmony TYPE change the active voice
-            // count N steps instantly; without smoothing the remaining voices'
-            // level would jump (e.g. 4/sqrt(4)=2.0 -> 4/sqrt(1)=4.0 when N drops
-            // 4->1), audible as a one-way "pop" / louder attack. Fix HC.12.
-            const float perVoiceLevelTarget = 4.0f / std::sqrt ((float) juce::jmax (1, clampedShiftedCount));
-            const float perVoiceLevel = shiftedVoiceLevelSmoother.processBlock (perVoiceLevelTarget, numSamples);
-
-            for (int v = 0; v < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++v)
-            {
-                // f0_for_shifted uses held pitch (lastValidF0) so voices stay active
-                // even when live pitch momentarily drops to 0.
-                const float f0_for_shifted = (f0_out > 0.0f) ? f0_out : lastValidF0.load();
-
-                // Use f0_for_shifted (held pitch via lastValidF0) so voices stay active
-                // even when live pitch momentarily drops to 0.
-                const bool activeShiftedVoice = (f0_for_shifted > 0.0f && v < clampedShiftedCount && v < notesToUse.size() && notesToUse[v] > 0.0f);
-
-                // By continually calling process(), we seamlessly ingest tracking noise.
-                // The targetHz just falls back to a valid shifted ratio during silence.
-                const float safe_f0 = (f0_for_shifted > 0.0f) ? f0_for_shifted : 440.0f;
-                const float targetHz = (v < notesToUse.size() && notesToUse[v] > 0.0f) ? notesToUse[v]
-                                                                                       : (safe_f0 * 1.5f);
-
-                auto& tmp = shiftedVoiceBuffers[v];
-                if (tmp.getNumChannels() != numChannels || tmp.getNumSamples() != numSamples)
-                    tmp.setSize (numChannels, numSamples, false, true, false);
-
-                // When Follow Lead is OFF, use the scale-locked reference
-                // frequency (no vibrato) as the denominator so ratioH is
-                // constant and the pitch shifter produces a flat output.
-                // Using f0_out directly leaks a small amount of vibrato
-                // because the YIN detector has ~1-block latency, making
-                // f0_in/f0_out slightly non-constant.
-                const bool flActive = (harmonyFollowLeadParam != nullptr)
-                    ? harmonyFollowLeadParam->load() > 0.5f : true;
-                float ratioDenom = safe_f0;
-                if (! flActive && scaleQuantizer != nullptr && safe_f0 > 0.0f)
-                {
-                    const float refF0 = scaleQuantizer->quantize (safe_f0);
-                    if (refF0 > 0.0f) ratioDenom = refF0;
-                }
-                float ratioH = juce::jmax(0.25f, juce::jmin(4.0f, targetHz / ratioDenom));
-
-                // Unison detune (2026-10-14). HarmonyEngine generates identical
-                // notes for voices 0 and 1 of Unison2 / UnisonOctaves4, so those
-                // copies are fully correlated: the sum is +6 dB and the audible
-                // result is a level boost, not thickening. The fixed +/-5 cent
-                // spread from HarmonyEngine::unisonDetuneCents decorrelates them
-                // spectrally (~1.2 Hz beat at 200 Hz). Applied BEFORE the glide
-                // block below so snapTo stores the detuned ratio and a voice
-                // re-activating never starts from an undetuned value. The octave
-                // voices (v >= 2) get 0 cents and are untouched.
-                const float unisonCents = ovtdsp::HarmonyEngine::unisonDetuneCents (
-                    v, static_cast<ovtdsp::HarmonyType> (renderHarmonyType));
-                if (unisonCents != 0.0f)
-                    ratioH = juce::jlimit (0.25f, 4.0f,
-                        ratioH * static_cast<float> (std::pow (2.0, unisonCents / 1200.0)));
-
-                // Per-voice ratio glide to mask harmony TYPE changes (note jumps)
-                // WITHOUT muting the harmony bus. It glides only on LARGE ratio
-                // changes (>12%, ~a minor 3rd — i.e. a harmony note / type change);
-                // vibrato / follow-lead changes (3-5%) pass through instantly so the
-                // harmony does not wobble. The glide lets us drop the bus mute (dip)
-                // that was itself causing the audible level-hole "click". Voices that
-                // are off are kept in sync so no stale glide happens on re-activation.
-                if (! activeShiftedVoice)
-                {
-                    shiftedVoiceSmoothedRatio[v] = ratioH;
-                    shiftedVoiceRatioSmoothers[v].snapTo (ratioH);
-                }
-                else if (std::fabs (ratioH - shiftedVoiceSmoothedRatio[v]) > 0.12f)
-                {
-                    shiftedVoiceRatioSmoothers[v].setTimeConstantSeconds (0.040);
-                    shiftedVoiceRatioSmoothers[v].processBlock (ratioH, numSamples);
-                    shiftedVoiceSmoothedRatio[v] = shiftedVoiceRatioSmoothers[v].getCurrentValue();
-                    ratioH = shiftedVoiceSmoothedRatio[v];
-                }
-                else
-                {
-                    shiftedVoiceSmoothedRatio[v] = ratioH;
-                    shiftedVoiceRatioSmoothers[v].snapTo (ratioH);
-                }
-
-                // Option A (HC.13): the granular formant read-speed (F = formant
-                // ratio) is unstable on strongly pitch-shifted grains at extreme
-                // Harmony Formant — the OLA COLA sum no longer holds, producing a
-                // wobble / rapid pops lateralized per voice. Blend the effective
-                // formant ratio back toward 1.0 as the voice's pitch ratio deviates
-                // from 1.0. A FLOOR is kept (never fully 0) so the Harmony Formant
-                // knob stays audibly effective even on octave-shifted voices
-                // (Drone / Octave Below / Octave Above are single octave voices;
-                // zeroing their formant made the knob dead and left the raw
-                // no-formant granular sound). pitchDevOct = 0 at ratio 1, 1 at an octave.
-                const float pitchDevOct = std::fabs (std::log2 (ratioH));
-                const float formantBlend = juce::jlimit (0.5f, 1.0f, juce::jmap (pitchDevOct, 0.25f, 1.0f, 1.0f, 0.5f));
-                const float voiceFormantRatio = 1.0f + (harmonyFormantRatio - 1.0f) * formantBlend;
-
-                if (v < static_cast<int>(shiftedVoicePitchShifters.size()) && shiftedVoicePitchShifters[v] != nullptr)
-                    shiftedVoicePitchShifters[v]->process (synthWorkBuffer, tmp, ratioH, voiceFormantRatio, safe_f0);
-                else
-                    pitchShifter->process (synthWorkBuffer, tmp, ratioH, voiceFormantRatio, safe_f0);
-
-                // Log unexpected voice drop during active singing (f0_out > 0 but voice inactive)
-                if (f0_out > 0.0f && !activeShiftedVoice && v < clampedShiftedCount)
-                {
-                    static std::atomic<int> lastDropLogTime[OpenVoxTunerAudioProcessor::maxShiftedVoices] = {0, 0, 0, 0};
-                    uint32_t now = juce::Time::getMillisecondCounter();
-                    if (now - lastDropLogTime[v].load() > 2000) // throttle: max once per 2s per voice
-                    {
-                        lastDropLogTime[v].store(now);
-                        OVT_LOG ("Harmony VOICE DROP: v=" + juce::String(v) +
-                                 " f0_out=" + juce::String(f0_out, 2) +
-                                 " clampedShiftedCount=" + juce::String(clampedShiftedCount) +
-                                 " notesToUse.size=" + juce::String(notesToUse.size()) +
-                                 " targetHz=" + juce::String(targetHz, 2) +
-                                 " ratioH=" + juce::String(ratioH, 4));
-                    }
-                }
-
-                const float blendFactor = 1.0f - harmonyBlend;
-                // perVoiceLevel (the sqrt(N) loudness normalization) is computed
-                // once per block above and smoothed, so a voice-count change does
-                // not step the remaining voices' level.
-
-                if (!activeShiftedVoice) {
-                    shiftedVoiceGains[(size_t)v].setTargetValue (0.0f);
-                } else {
-                    shiftedVoiceGains[(size_t)v].setTargetValue (1.0f);
-                }
-
-                float leftGain = 1.0f;
-                float rightGain = 1.0f;
-                if (numChannels > 1)
-                {
-                    // 2026-07-23: pre-computed pan gains (cos/sin of a fixed
-                    // angle per voice) are now stored in a static lookup
-                    // table, filled once at first use. The previous code
-                    // recomputed std::cos/std::sin for every voice on every
-                    // block, even though the angles are CONSTANTS (depend
-                    // only on the voice index `v`). 4 voices * 172 blocks/sec
-                    // = 688 trig calls/sec for nothing. With this cache, the
-                    // cost is one array lookup per voice per block.
-                    static const std::array<float, OpenVoxTunerAudioProcessor::maxShiftedVoices> cachedLeftGain = []
-                    {
-                        // 1st=full right, 2nd=full left, 3rd=centre-right, 4th=centre-left
-                        static constexpr float panPos[OpenVoxTunerAudioProcessor::maxShiftedVoices] = { 1.0f, -1.0f, 0.5f, -0.5f };
-                        std::array<float, OpenVoxTunerAudioProcessor::maxShiftedVoices> out {};
-                        for (int i = 0; i < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++i)
-                        {
-                            const float pan = panPos[juce::jlimit (0, OpenVoxTunerAudioProcessor::maxShiftedVoices - 1, i)];
-                            const float angle = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
-                            out[(size_t) i] = std::cos (angle);
-                        }
-                        return out;
-                    }();
-                    static const std::array<float, OpenVoxTunerAudioProcessor::maxShiftedVoices> cachedRightGain = []
-                    {
-                        static constexpr float panPos[OpenVoxTunerAudioProcessor::maxShiftedVoices] = { 1.0f, -1.0f, 0.5f, -0.5f };
-                        std::array<float, OpenVoxTunerAudioProcessor::maxShiftedVoices> out {};
-                        for (int i = 0; i < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++i)
-                        {
-                            const float pan = panPos[juce::jlimit (0, OpenVoxTunerAudioProcessor::maxShiftedVoices - 1, i)];
-                            const float angle = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
-                            out[(size_t) i] = std::sin (angle);
-                        }
-                        return out;
-                    }();
-                    leftGain = cachedLeftGain[(size_t) v];
-                    rightGain = cachedRightGain[(size_t) v];
-                }
-
-                if (numChannels > 1)
-                {
-                    float* dstL = harmonyBuffer.getWritePointer (0);
-                    float* dstR = harmonyBuffer.getWritePointer (1);
-                    const float* srcL = tmp.getReadPointer (0);
-                    const float* srcR = tmp.getReadPointer (1);
-                    const float baseGL = blendFactor * perVoiceLevel * leftGain;
-                    const float baseGR = blendFactor * perVoiceLevel * rightGain;
-
-                    // 2026-07-23: SIMD optimisation of the per-sample mix loop.
-                    //
-                    // The original loop
-                    //     for (int i = 0; i < N; ++i) {
-                    //         float vg = shiftedVoiceGains[v].getNextValue();
-                    //         dstL[i] += srcL[i] * baseGL * vg;
-                    //         dstR[i] += srcR[i] * baseGR * vg;
-                    //     }
-                    // called getNextValue() (a branch + interpolation) per
-                    // sample, and did two scalar multiplies + two scalar
-                    // adds per sample. At 4 voices * 256 samples / block
-                    // * 172 blocks/sec = 176,128 per-sample iterations/sec,
-                    // the function-call overhead and the lack of SIMD
-                    // combined to cost ~0.4 ms/sec of pure waste.
-                    //
-                    // The new loop:
-                    //   1) Pre-computes the per-sample voice gain into a
-                    //      stack-allocated array. This still calls
-                    //      getNextValue() per sample, but the result is
-                    //      stored in a contiguous array, which the next
-                    //      pass can stream through linearly.
-                    //   2) Uses juce::FloatVectorOperations to do the
-                    //      multiply + add in SIMD (SSE/AVX/NEON depending
-                    //      on the host). This processes 4 (AVX) or 8 (AVX-512)
-                    //      samples per instruction.
-                    //   3) The base gain is pre-multiplied into the gain
-                    //      ramp so the multiply is by a single constant per
-                    //      sample, which is what the SIMD path expects.
-                    //
-                    // For the same 4 voices / 256 samples / 44.1 kHz workload,
-                    // measured speedup on x86-64 is ~2.5x (the per-sample
-                    // branch dominates the cost, so SIMD alone is worth ~1.5x;
-                    // the linear-access pre-compute adds another ~1.5x by
-                    // removing the per-sample getter from the hot path).
-                    //
-                    // Cost: one stack allocation of N floats per voice per
-                    // block (1 KB at 256 samples). This is well within the
-                    // audio thread stack budget (typically 1 MB on macOS,
-                    // 8 MB on Windows, 512 KB on Linux). We use a
-                    // HeapBlock<float> with a small initial heap allocation
-                    // to be safe on hosts that audit stack usage.
-                    //
-                    // 2026-07-23: share the smoother pass between L and R.
-                    // The original code called getNextValue() twice (once
-                    // per channel) because the smoother is stateful. We
-                    // now call it once into a shared `smootherRamp` array,
-                    // then pre-multiply into per-channel gain ramps. This
-                    // halves the smoother branch cost while still using the
-                    // array form of addWithMultiply (4 samples/instruction
-                    // SSE2, 8 samples/instruction AVX-256). The extra
-                    // multiplication pass is dominated by L1 cache hits
-                    // (~1 ns/sample) so the net win is ~1.5x over the
-                    // previous "2x getNextValue() + 2x addWithMultiply"
-                    // implementation.
-                    const int N = numSamples;
-                    jassert (N <= shiftedVoiceGainRamps.getNumSamples());
-                    float* smootherRamp = shiftedVoiceGainRamps.getWritePointer (0);
-                    float* gainRampL = shiftedVoiceGainRamps.getWritePointer (1);
-                    float* gainRampR = shiftedVoiceGainRamps.getWritePointer (2);
-                    for (int i = 0; i < N; ++i)
-                        smootherRamp[i] = shiftedVoiceGains[(size_t)v].getNextValue();
-                    for (int i = 0; i < N; ++i)
-                    {
-                        gainRampL[i] = smootherRamp[i] * baseGL;
-                        gainRampR[i] = smootherRamp[i] * baseGR;
-                    }
-                    juce::FloatVectorOperations::addWithMultiply (dstL, srcL, gainRampL, N);
-                    juce::FloatVectorOperations::addWithMultiply (dstR, srcR, gainRampR, N);
-                }
-                else
-                {
-                    float* dst = harmonyBuffer.getWritePointer (0);
-                    const float* src = tmp.getReadPointer (0);
-                    const float baseG = blendFactor * perVoiceLevel;
-                    // Mono path: same SIMD optimisation as above. 2026-07-23.
-                    const int N = numSamples;
-                    jassert (N <= shiftedVoiceGainRamps.getNumSamples());
-                    float* gainRamp = shiftedVoiceGainRamps.getWritePointer (0);
-                    for (int i = 0; i < N; ++i)
-                        gainRamp[i] = shiftedVoiceGains[(size_t)v].getNextValue() * baseG;
-                    juce::FloatVectorOperations::addWithMultiply (dst, src, gainRamp, N);
-                }
-            }
-        }
-
-        // Ramp down unused shifted voices completely (if Use Voice is off)
-        // Note: individual inactive voices are already faded out via setTargetValue(0.0f) above.
-        // If the entire Use Voice mode is off, zero them all.
-        for (int v = 0; v < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++v)
-        {
-            if (!useVoiceLocal)
-            {
-                shiftedVoiceGains[(size_t)v].setCurrentAndTargetValue (0.0f);
-            }
-        }
-
-        // 2) synthesize remaining voices and accumulate
-        juce::Array<float> synthNotes;
-        for (int v = clampedShiftedCount; v < notesToUse.size(); ++v)
-            synthNotes.add (notesToUse[v]);
-
-        if (synthNotes.size() > 0 && harmonyEngine != nullptr)
-        {
-            if (synthWorkBuffer.getNumChannels() != numChannels || synthWorkBuffer.getNumSamples() != numSamples)
-                synthWorkBuffer.setSize (numChannels, numSamples, false, true, true);
-            synthWorkBuffer.clear();
-            const int harmonyTone = (harmonyToneParam != nullptr)
-                ? static_cast<int> (std::round (harmonyToneParam->load()))
-                : 0;
-            const float harmonyToneColor = (harmonyToneColorParam != nullptr)
-                ? juce::jlimit (0.0f, 1.0f, harmonyToneColorParam->load())
-                : 0.5f;
-
-            harmonyEngine->renderHarmonies (
-                f0_out,
-                synthNotes,
-                1.0f,
-                currentSampleRate,
-                synthWorkBuffer,
-                currentKey,
-                currentScaleIdx,
-                harmonyBlend,
-                harmonyTone,
-                harmonyToneColor,
-                (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f)
-            );
-
-            const float blendFactor = 1.0f - harmonyBlend;
-            for (int ch = 0; ch < numChannels; ++ch)
-            {
-                float* dst = harmonyBuffer.getWritePointer (ch);
-                const float* src = synthWorkBuffer.getReadPointer (ch);
-                for (int i = 0; i < numSamples; ++i)
-                    dst[i] += src[i] * blendFactor;
-            }
-        }
-
-        // === SHARED REVERB BUS TAPS ===
-        // The sends are taken on the blended voices BEFORE they are mixed into the master
-        // output, so each room receives each voice exactly once at its own level. Sends
-        // never modify the dry path, so the voices below are mixed untouched.
-        applyHarmonySends (harmonyBuffer);
-
-        // Now mix harmonyBuffer into main output below
-        const float hGain = (harmonyGainParam ? harmonyGainParam->load() : 1.0f);
-        if (hGain > 0.001f)
-        {
-             const int numCh = harmonyBuffer.getNumChannels();
-             const int numS  = harmonyBuffer.getNumSamples();
-             const int outChannels = buffer.getNumChannels();
-
-             if (numS > 0 && (numCh == 2 || numCh == 1) && outChannels > 0)
-             {
-                 float* outL = buffer.getWritePointer (0);
-                 float* outR = (outChannels > 1) ? buffer.getWritePointer (1) : nullptr;
-
-                 // Gain match: when enabled, scale the harmony mix by
-                 // 1/sqrt(1 + N) so the additive contribution does not
-                 // boost the total RMS above the dry input RMS. N is the
-                 // number of active harmony voices for the current type
-                 // (e.g. Unison2 -> N=2, VocalStack4 -> N=4). The dry
-                 // signal is NOT scaled (it is already in the output
-                 // buffer before this mix). The user-facing harmony
-                 // volume knob still scales the result, so the user can
-                 // fine-tune. This is the same approach used by
-                 // Auto-Tune and other reference vocal harmonisers.
-                 const int currentHarmType = (harmonyTypeParam != nullptr)
-                     ? static_cast<int> (harmonyTypeParam->load()) : 0;
-                 const int numHarmVoices = (currentHarmType > 0)
-                     ? ovtdsp::HarmonyEngine::getHarmonyVoiceCount (
-                         static_cast<ovtdsp::HarmonyType> (currentHarmType))
-                     : 0;
-                 const bool gainMatchOn = (harmonyGainMatchParam != nullptr)
-                     && (harmonyGainMatchParam->load() > 0.5f);
-                 const float gainMatchFactor = (gainMatchOn && numHarmVoices > 0)
-                     ? (1.0f / std::sqrt (1.0f + static_cast<float> (numHarmVoices)))
-                     : 1.0f;
-                 const float hGainFinal = hGain * gainMatchFactor;
-
-                 // Scale the harmony contribution by the noise gate's current
-                // gain so that harmony voices track the gate envelope. When
-                // the gate is closed the harmony is silent; when the gate is
-                // opening the harmony is attenuated proportionally. This
-                // prevents an "over-volume" burst where the dry signal is still
-                // ramping up but the harmony voices are already at full
-                // amplitude (their 35-ms attack is faster than the gate's
-                // one-pole attack). When the gate is disabled, currentGain
-                // stays at 1.0 so the harmony is unaffected.
-                const float gateGain = (noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f)
-                    ? noiseGate.getCurrentGain() : 1.0f;
-                // Smooth the raw gate gain to prevent clicks when the
-                // Noise Gate opens/closes abruptly.
-                 harmonyGateGain.setTargetValue (gateGain);
-
-                 // Apply the user attack to the FINAL harmony bus. The
-                 // harmony can come from shifted voice buffers, synthesized
-                 // voices, or both; applying the envelope here makes the
-                 // control effective for every path and prevents the harmony
-                 // from arriving before the tuned lead has settled.
-                 const bool harmonyOnset = (f0_out > 0.0f && previousOutputPitch <= 0.0f);
-                 if (harmonyOnset)
-                     harmonyAttackGain = 0.0f;
-
-                 const float requestedAttackMs = harmonyAttackParam != nullptr
-                     ? harmonyAttackParam->load() : 35.0f;
-                 const float attackMs = juce::jlimit (10.0f, 500.0f, requestedAttackMs);
-                 const float attackCoeff = 1.0f - std::exp (-1000.0f / (attackMs * currentSampleRate));
-                 const float releaseCoeff = 1.0f - std::exp (-1000.0f / (60.0f * currentSampleRate));
-                 const float harmonyAttackTarget = f0_out > 0.0f ? 1.0f : 0.0f;
-
-                 // 2026-07-23 SIMD optimisation of the harmony->main mix loop.
-                 const int Nmix = numS;
-                 juce::HeapBlock<float> mixGainRamp ((size_t) Nmix);
-                 for (int i = 0; i < Nmix; ++i)
-                 {
-                     const float coeff = harmonyAttackTarget > harmonyAttackGain
-                        ? attackCoeff : releaseCoeff;
-                    harmonyAttackGain += (harmonyAttackTarget - harmonyAttackGain) * coeff;
-
-                    // The whole-bus mute (dip to 0) was itself the audible
-                    // "click" (a ~16 ms level hole). The harmony-type change is
-                    // now masked by the per-voice ratio glide in the voice loop,
-                    // so the harmony bus stays at full level throughout the
-                    // transition. `blockStartRemaining` / `blockFadeTotal` are
-                    // still advanced by the deferred-retarget logic for state
-                    // timing, but no longer scale the mix gain.
-                    const float dip = 1.0f;
-
-                    const float enableGain = harmonyEnableGain.getNextValue();
-                    const float gateGain  = harmonyGateGain.getNextValue();
-                    const float gainScale = hGainFinal * enableGain * gateGain;
-                    mixGainRamp[i] = gainScale * harmonyAttackGain * dip;
-                 }
-#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
-                if (diagTypeChangePending && numCh > 0)
-                {
-                    const float hj = computeMaxJump (harmonyBuffer.getReadPointer (0), Nmix);
-                    if (hj > diagHarmonyPeakJump) diagHarmonyPeakJump = hj;
-                    if (numCh > 1)
-                    {
-                        const float hj2 = computeMaxJump (harmonyBuffer.getReadPointer (1), Nmix);
-                        if (hj2 > diagHarmonyPeakJump) diagHarmonyPeakJump = hj2;
-                    }
-                    if (! diagWindowFilled)
-                    {
-                        diagWindowLen = juce::jmin (48, Nmix);
-                        const float* hr = harmonyBuffer.getReadPointer (0);
-                        for (int k = 0; k < diagWindowLen; ++k)
-                            diagHarmonyWindow[k] = hr[k];
-                        diagWindowFilled = true;
-                    }
-                }
-#endif
-                juce::FloatVectorOperations::addWithMultiply (outL, harmonyBuffer.getReadPointer (0), mixGainRamp.getData(), Nmix);
-                if (outR != nullptr)
-                {
-                    if (numCh == 1)
-                        juce::FloatVectorOperations::addWithMultiply (outR, harmonyBuffer.getReadPointer (0), mixGainRamp.getData(), Nmix);
-                    else
-                        juce::FloatVectorOperations::addWithMultiply (outR, harmonyBuffer.getReadPointer (1), mixGainRamp.getData(), Nmix);
-                }
-
-                // (Old-content snapshot fade-out removed: the clean whole-bus dip
-                // in the mix loop now masks the type retarget with no per-block
-                // restart discontinuity.)
-
-                 // Compute stereo level of harmony output
-                 harmonyOutputLevel.store (
-                    juce::jmax<float> (0.0f,
-                        juce::jlimit<float> (0.0f, 1.0f,
-                            (outChannels > 1) 
-                                ? juce::jmax (buffer.getMagnitude (0, 0, numS), buffer.getMagnitude (1, 0, numS))
-                                : buffer.getMagnitude (0, 0, numS)
-                        )
-                    )
-                );
-
-                // Save last mixed harmony contribution (scaled by the
-                // final post-gain-match gain) for potential crossfade on
-                // stop. We use the same hGainFinal that the live mix
-                // used, so the crossfade is inaudible if the harmony
-                // engine is stopped mid-block.
-                if (lastMixedHarmonyBuffer.getNumChannels() != numCh || lastMixedHarmonyBuffer.getNumSamples() != numS)
-                    lastMixedHarmonyBuffer.setSize (numCh, numS, false, true, true);
-                lastMixedHarmonyBuffer.clear();
-                for (int ch = 0; ch < numCh; ++ch)
-                {
-                    lastMixedHarmonyBuffer.copyFrom (ch, 0, harmonyBuffer, ch, 0, numS);
-                    juce::FloatVectorOperations::multiply (lastMixedHarmonyBuffer.getWritePointer (ch), hGainFinal, numS);
-                }
-                wasHarmonyActiveLastBlock = true;
-             }
-         }
-     }
-     else
-     {
-         // We did not mix this block. Hard-zero all voice gains.
-         for (int v = 0; v < OpenVoxTunerAudioProcessor::maxShiftedVoices; ++v)
-         {
-             shiftedVoiceGains[(size_t)v].setCurrentAndTargetValue (0.0f);
-         }
-
-         // Clear the last mixed cache because overlapping past audio causes
-         // phase discontinuities and clicks. The smooth fade is now purely
-         // handled by shiftedVoiceGains decaying cleanly.
-         lastMixedHarmonyBuffer.clear();
-         wasHarmonyActiveLastBlock = false;
-     }
 
     writeMidiOut (midiMessages, buffer, f0_out);
 

@@ -1147,6 +1147,11 @@ private:
     // The block-boundary work processBlock used to carry inline. Each takes the values it
     // used to read as locals, named the same so the moved bodies stay identical.
     void processInputConditioning (juce::AudioBuffer<float>& buffer);
+    // Generates the harmony voices for this block and mixes them into the output; returns
+    // the clamped voice count the master tap reports.
+    int generateAndMixHarmony (juce::AudioBuffer<float>& buffer, float f0_out,
+                               int currentHarmonyTypeVal, int renderHarmonyType,
+                               float previousOutputPitch, float harmonyFormantRatio);
     void writeMidiOut (juce::MidiBuffer& midiMessages, juce::AudioBuffer<float>& buffer,
                      float f0_out);
     void processMasterTapAndOutput (juce::AudioBuffer<float>& buffer,
