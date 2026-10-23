@@ -1146,6 +1146,24 @@ private:
     // === processBlock stages ===
     // The block-boundary work processBlock used to carry inline. Each takes the values it
     // used to read as locals, named the same so the moved bodies stay identical.
+    /// What the pitch/correction stage hands to the rest of the block.
+    struct ProcessBlockStage
+    {
+        float f0_out = {};
+        int currentHarmonyTypeVal = {};
+        int renderHarmonyType = {};
+        int blockStartRemaining = {};
+        int blockFadeTotal = {};
+        float previousOutputPitch = {};
+        float harmonyFormantRatio = {};
+        bool finished = false;
+    };
+
+    /// Runs everything between the input conditioning and the harmony mix: pitch
+    /// detection, quantisation, correction, formants, doubler and the lead taps.
+    ProcessBlockStage processPitchAndCorrection (juce::AudioBuffer<float>& buffer,
+                                                 juce::MidiBuffer& midiMessages);
+
     void processInputConditioning (juce::AudioBuffer<float>& buffer);
     // Generates the harmony voices for this block and mixes them into the output; returns
     // the clamped voice count the master tap reports.

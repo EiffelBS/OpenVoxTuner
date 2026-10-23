@@ -1860,33 +1860,8 @@ int OpenVoxTunerAudioProcessor::generateAndMixHarmony (juce::AudioBuffer<float>&
     return clampedShiftedCount;
 }
 
-void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
-                                               juce::MidiBuffer& midiMessages)
+OpenVoxTunerAudioProcessor::ProcessBlockStage OpenVoxTunerAudioProcessor::processPitchAndCorrection (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    juce::ScopedNoDenormals noDenormals;
-    const auto blockStartTime = juce::Time::getHighResolutionTicks();
-    // MIDI out may be produced below if enabled by parameter.
-
-    // Bypass: pass the audio through unchanged.
-    if (bypassParam != nullptr && bypassParam->load() > 0.5f)
-    {
-        flushPendingMidiNotes (midiMessages);
-        harmonyFrequencies.clear();
-        harmonyFrequenciesClean.clear();
-        publishHarmonySnapshots();
-        lastInputPitch.store (0.0f);
-        lastOutputPitch.store (0.0f);
-        lastCentsOffset.store (0.0f);
-        lastRawYinPitch.store (0.0f, std::memory_order_relaxed);
-        return;
-    }
-
-    // === PITCH DETECTOR SWITCHING (YIN only - single mode) ===
-    // The pitch_detector parameter is read-only (single choice "YIN").
-    // No switching needed - always use index 0.
-
-    processInputConditioning (buffer);
-
     // === ARA METADATA READOUT ===
     // Moved to updateAraMetadata() (UI thread) to avoid audio/UI deadlocks
     // caused by HostContentReader + setValueNotifyingHost on the audio
@@ -2041,7 +2016,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         harmonyFrequenciesClean.clear();
         publishHarmonySnapshots();
         lastRawYinPitch.store (0.0f, std::memory_order_relaxed);
-        return; // CPU drops to ~1%
+        return ProcessBlockStage { 0.0f, 0, 0, 0, 0, 0.0f, 1.0f, true }; // silent block
     }
 
     // 1) Input pitch detection (very CPU heavy).
@@ -3101,11 +3076,51 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // or pitchShifter at ratio 1.0 + LPC cross-synthesis + creative re-apply).
     // Do NOT call pitchShifter->process a second time here; the re-entry
     // corrupts the grain scheduler state and causes scratchs / NaN.
+    return ProcessBlockStage { f0_out, currentHarmonyTypeVal, renderHarmonyType,
+                              blockStartRemaining, blockFadeTotal, previousOutputPitch, harmonyFormantRatio };
+}
+
+void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+                                               juce::MidiBuffer& midiMessages)
+{
+    juce::ScopedNoDenormals noDenormals;
+    const auto blockStartTime = juce::Time::getHighResolutionTicks();
+    // MIDI out may be produced below if enabled by parameter.
+
+    // Bypass: pass the audio through unchanged.
+    if (bypassParam != nullptr && bypassParam->load() > 0.5f)
+    {
+        flushPendingMidiNotes (midiMessages);
+        harmonyFrequencies.clear();
+        harmonyFrequenciesClean.clear();
+        publishHarmonySnapshots();
+        lastInputPitch.store (0.0f);
+        lastOutputPitch.store (0.0f);
+        lastCentsOffset.store (0.0f);
+        lastRawYinPitch.store (0.0f, std::memory_order_relaxed);
+        return;
+    }
+
+    // === PITCH DETECTOR SWITCHING (YIN only - single mode) ===
+    // The pitch_detector parameter is read-only (single choice "YIN").
+    // No switching needed - always use index 0.
+
+    processInputConditioning (buffer);
+
+    const ProcessBlockStage stage = processPitchAndCorrection (buffer, midiMessages);
+    const float f0_out = stage.f0_out;
+    const int currentHarmonyTypeVal = stage.currentHarmonyTypeVal;
+    const int renderHarmonyType = stage.renderHarmonyType;
+    const int blockStartRemaining = stage.blockStartRemaining;
+    const int blockFadeTotal = stage.blockFadeTotal;
+    const float previousOutputPitch = stage.previousOutputPitch;
+    const float harmonyFormantRatio = stage.harmonyFormantRatio;
+    if (stage.finished)
+        return;   // silent block: the stage cleared the caches and stopped
 
     const int clampedShiftedCount = generateAndMixHarmony (buffer, f0_out, currentHarmonyTypeVal,
                                                              renderHarmonyType, previousOutputPitch,
                                                              harmonyFormantRatio);
-
 
     writeMidiOut (midiMessages, buffer, f0_out);
 
