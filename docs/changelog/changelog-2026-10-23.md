@@ -303,6 +303,17 @@ writing a new shifter, the shipped one and the structural limits were measured.
   worse than the shipped shifter at 200 Hz. The objective metrics do **not**
   measure the family's flanging/phasiness, so the prototype is an existence
   proof, not a product decision: a listening test is mandatory.
+- **A/B renderer, second pass**: the first listening pass used tune-perfect
+  material (both the original phrase and the recette take are equal-temperament
+  takes), so the correction was only 10-20 cents of vibrato, every OLA take
+  sounded like the dry take and only the Formant +2 take stood out (its wobble
+  is the creative formant stage, not the tuner). The renderer now generates a
+  deliberately detuned phrase (+38/-42/+27/-35/+44 cents, mean |correction|
+  34.7 cents), fixes a phase bug in the phrase's vibrato, and adds
+  `--fixed <semitones>` for a constant-ratio shifter stress set. Chain verified
+  on a steady 224.9 Hz tone: OLA takes land on 220 Hz within 1 cent, the
+  Doppler 2.5 ms probe at +7 cents. A real out-of-tune take remains required
+  for the decision.
 - **Latency-declaration matrix** (declared mode x fundamental, `bench_pitchshift_latency
   --latency-matrix`): the four shipped modes really run at ~17/18/21/31 ms for a mid voice
   and at ~30/33/37/34 ms for a bass voice, so the honest replacement is either the

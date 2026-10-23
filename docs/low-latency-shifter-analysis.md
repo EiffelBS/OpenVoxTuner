@@ -237,9 +237,28 @@ dry take and written to `build/ab_hard_tune/` (or the directory you pass) as `dr
 
 ```powershell
 cmake --build build --config Release --target render_hard_tune_ab
-build\render_hard_tune_ab_artefacts\Release\render_hard_tune_ab.exe               # synthetic phrase
+build\render_hard_tune_ab_artefacts\Release\render_hard_tune_ab.exe               # detuned synthetic phrase
 build\render_hard_tune_ab_artefacts\Release\render_hard_tune_ab.exe mytake.wav    # a real take
+build\render_hard_tune_ab_artefacts\Release\render_hard_tune_ab.exe --fixed 2     # shifter stress set
 ```
+
+!!! note "Demo material must be out of tune"
+    The first listening pass was run on tune-perfect material (the original synthetic
+    phrase and the recette take are equal-temperament takes with 5 Hz vibrato): the
+    correction was only 10-20 cents of vibrato, so every OLA take sounded like the dry
+    take and the only clearly different one was the Formant +2 take - whose wobble is the
+    creative formant stage, not the tuner. The renderer now ships a deliberately detuned
+    phrase (+38 / -42 / +27 / -35 / +44 cents per note; mean |correction| 34.7 cents) and
+    a `--fixed <semitones>` constant-ratio stress set that exposes the shifter itself
+    whatever the intonation is. A real, naturally out-of-tune take is still the only
+    material that decides the question.
+
+Pitch verification for a render directory: `python tools/analyze_ab_pitch.py build/ab_hard_tune`.
+The render chain was validated on a steady 224.9 Hz tone (+38 cents): the OLA takes land
+at 220 Hz within 1 cent, the Doppler 2.5 ms probe at +7 cents (linear interpolation). On the
+detuned phrase the takes do correct the mean pitch; a residual vibrato remains because the
+46 ms analysis window cannot follow a 5 Hz vibrato, and that residual is part of what the
+listener judges.
 
 What to listen for: sustained notes (flanging/combing, warble at the wrap rate), note attacks
 and splices (clicks), low register, vibrato. Decision rule: if the Doppler is at least as

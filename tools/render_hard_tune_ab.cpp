@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <random>
@@ -64,6 +65,12 @@ namespace
     std::vector<float> makePhrase (double sr)
     {
         const double notes[] = { 220.0, 261.63, 329.63, 293.66, 220.0 };
+        // Deliberate intonation errors: an in-tune take cannot demonstrate a tuner
+        // (the first A/B pass on tune-perfect material made every OLA take sound
+        // like the dry take). Each note is sung 27-44 cents off; every offset stays
+        // inside +/-50 cents, so the chromatic snap pulls each note back to its own
+        // semitone and the correction is audible.
+        const double detuneCents[] = { 38.0, -42.0, 27.0, -35.0, 44.0 };
         const double noteDur = 1.15;
         const double gap = 0.10;
         const int n = (int) std::llround ((5 * (noteDur + gap) + 0.4) * sr);
@@ -74,7 +81,8 @@ namespace
             const double start = 0.2 + note * (noteDur + gap);
             const int s0 = (int) std::llround (start * sr);
             const int len = (int) std::llround (noteDur * sr);
-            const double f0 = notes[note];
+            const double f0 = notes[note] * std::pow (2.0, detuneCents[note] / 1200.0);
+            double phase = 0.0;
 
             for (int i = 0; i < len && s0 + i < n; ++i)
             {
@@ -82,7 +90,9 @@ namespace
                 const double env = std::min ({ 1.0, t / 0.035, (noteDur - t) / 0.06 });
                 const double vib = (t > 0.25) ? 20.0 * std::sin (twoPi() * 5.0 * (t - 0.25)) : 0.0;
                 const double inst = f0 * std::pow (2.0, vib / 1200.0);
-                const double phase = twoPi() * inst * t;
+                // Integrate the phase: writing sin(2*pi*inst*t) with a time-varying
+                // inst multiplies a drift by t and destroys the intended pitch.
+                phase += twoPi() * inst / sr;
                 const double s = 0.60 * std::sin (phase)
                                + 0.28 * std::sin (2.0 * phase)
                                + 0.12 * std::sin (3.0 * phase);
@@ -330,16 +340,30 @@ int main (int argc, char* argv[])
 {
     std::printf ("OpenVoxTuner — Hard Tune shifter A/B renderer\n");
 
-    const juce::File outputDir = (argc > 2) ? juce::File::getCurrentWorkingDirectory().getChildFile (argv[2])
-                                            : juce::File::getCurrentWorkingDirectory().getChildFile ("build/ab_hard_tune");
+    // CLI: [--fixed <semitones>] [input.wav] [output-dir]
+    int argIndex = 1;
+    bool fixedMode = false;
+    double fixedSemitones = 0.0;
+    if (argc > 2 && std::strcmp (argv[1], "--fixed") == 0)
+    {
+        fixedMode = true;
+        fixedSemitones = std::atof (argv[2]);
+        argIndex = 3;
+    }
+
+    const juce::File outputDir = (argc > argIndex + 1)
+        ? juce::File::getCurrentWorkingDirectory().getChildFile (argv[argIndex + 1])
+        : juce::File::getCurrentWorkingDirectory().getChildFile (fixedMode
+              ? "build/ab_hard_tune_fixed"
+              : "build/ab_hard_tune");
     outputDir.createDirectory();
 
     std::vector<float> input;
     double sr = kRefRate;
 
-    if (argc > 1)
+    if (argc > argIndex)
     {
-        const juce::File inFile = juce::File::getCurrentWorkingDirectory().getChildFile (argv[1]);
+        const juce::File inFile = juce::File::getCurrentWorkingDirectory().getChildFile (argv[argIndex]);
         input = readWav (inFile, sr);
         if (input.empty())
             return 1;
@@ -349,45 +373,68 @@ int main (int argc, char* argv[])
     else
     {
         input = makePhrase (sr);
-        std::printf ("input: synthetic voice-like phrase (%.2f s, %.0f Hz)\n",
+        std::printf ("input: synthetic voice-like phrase, deliberately detuned per note (%.2f s, %.0f Hz)\n",
                      (double) input.size() / sr, sr);
     }
 
-    // First pass: estimate the register with the widest range, then re-detect on a
-    // range around the median so the anti-octave heuristic cannot transpose the take.
+    // Register probe runs with the batch heuristics off: the live anti-octave
+    // heuristic can transpose a clean held tone down an octave when the octave-down
+    // lag is still inside the search range (see DetectorResponseTest), and a wrong
+    // octave would set a 2x correction ratio for the whole render.
     const auto probe = computeTrajectory (input, sr, 30.0f, 1000.0f, true);
     const float median = medianPitch (probe);
-    float rangeMin = 60.0f, rangeMax = 1200.0f;
-    if (median > 0.0f)
-    {
-        rangeMin = juce::jmax (40.0f, median * 0.6f);
-        rangeMax = juce::jmin (2000.0f, median * 1.8f);
-    }
-    const auto trajectory = computeTrajectory (input, sr, rangeMin, rangeMax);
-    std::printf ("detected median %.1f Hz; detector range %.0f..%.0f Hz; %d detections\n",
-                 median, rangeMin, rangeMax, (int) trajectory.size());
 
-    if (trajectory.empty())
+    std::vector<Detection> trajectory;
+    if (fixedMode)
     {
-        std::printf ("ERROR: no voiced pitch detected; nothing to correct.\n");
-        return 1;
+        // Constant-ratio shifter stress test: no detector, no quantiser. This is
+        // what exposes the shifter's own character (combing, flanging) whatever the
+        // take's intonation is.
+        Detection d;
+        d.sample = 0;
+        d.f0 = (median > 0.0f) ? median : 220.0f;
+        d.ratio = (float) std::pow (2.0, fixedSemitones / 12.0);
+        trajectory.push_back (d);
+        std::printf ("fixed transposition %+.2f semitones (no detection, shifter stress test)\n",
+                     fixedSemitones);
+    }
+    else
+    {
+        float rangeMin = 60.0f, rangeMax = 1200.0f;
+        if (median > 0.0f)
+        {
+            rangeMin = juce::jmax (40.0f, median * 0.6f);
+            rangeMax = juce::jmin (2000.0f, median * 1.8f);
+        }
+        trajectory = computeTrajectory (input, sr, rangeMin, rangeMax);
+        std::printf ("detected median %.1f Hz; detector range %.0f..%.0f Hz; %d detections\n",
+                     median, rangeMin, rangeMax, (int) trajectory.size());
+
+        if (trajectory.empty())
+        {
+            std::printf ("ERROR: no voiced pitch detected; nothing to correct.\n");
+            return 1;
+        }
+
+        double corrected = 0.0, sumCents = 0.0;
+        for (auto& d : trajectory)
+        {
+            const double cents = 1200.0 * std::log2 ((double) d.ratio);
+            sumCents += std::abs (cents);
+            if (std::abs (cents) > 5.0) ++corrected;
+        }
+        std::printf ("correction: mean |cents| %.1f, %.0f %% of frames moved > 5 cents (chromatic snap)\n",
+                     sumCents / (double) trajectory.size(), 100.0 * corrected / (double) trajectory.size());
     }
 
-    double corrected = 0.0, sumCents = 0.0;
-    for (auto& d : trajectory)
-    {
-        const double cents = 1200.0 * std::log2 ((double) d.ratio);
-        sumCents += std::abs (cents);
-        if (std::abs (cents) > 5.0) ++corrected;
-    }
-    std::printf ("correction: mean |cents| %.1f, %.0f %% of frames moved > 5 cents (chromatic snap)\n",
-                 sumCents / (double) trajectory.size(), 100.0 * corrected / (double) trajectory.size());
-
+    const std::string prefix = fixedMode
+        ? ("fixed " + juce::String (fixedSemitones, 2).toStdString() + " st: ")
+        : std::string();
     std::vector<Variant> variants;
-    variants.push_back ({ "OLA 10 ms, Formant +2 st (shipped preset colour)", false, 10.0, std::pow (2.0, 2.0 / 12.0), {} });
-    variants.push_back ({ "OLA 10 ms, Formant 0", false, 10.0, 1.0, {} });
-    variants.push_back ({ "Doppler 2.5 ms", true, 2.5, 1.0, {} });
-    variants.push_back ({ "Doppler 4.0 ms", true, 4.0, 1.0, {} });
+    variants.push_back ({ prefix + "OLA 10 ms, Formant +2 st (shipped preset colour)", false, 10.0, std::pow (2.0, 2.0 / 12.0), {} });
+    variants.push_back ({ prefix + "OLA 10 ms, Formant 0", false, 10.0, 1.0, {} });
+    variants.push_back ({ prefix + "Doppler 2.5 ms", true, 2.5, 1.0, {} });
+    variants.push_back ({ prefix + "Doppler 4.0 ms", true, 4.0, 1.0, {} });
 
     const double dryRms = rmsOf (input, (size_t) (0.1 * sr));
     for (auto& v : variants)
@@ -426,5 +473,6 @@ int main (int argc, char* argv[])
     std::printf ("\nwrote %s\n", outputDir.getFullPathName().toRawUTF8());
     std::printf ("listen to dry.wav then take_01..take_04 BEFORE reading key.txt.\n");
     std::printf ("for a real take: render_hard_tune_ab <vocal.wav> [output-dir]\n");
+    std::printf ("shifter stress test: render_hard_tune_ab --fixed 2 [input.wav] [output-dir]\n");
     return 0;
 }
