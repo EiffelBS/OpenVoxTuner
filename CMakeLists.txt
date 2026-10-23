@@ -656,3 +656,36 @@ target_link_libraries(bench_vibrato_residual PRIVATE
     juce::juce_data_structures
     juce::juce_events
 )
+
+# tools/bench_processblock.cpp - times the REAL OpenVoxTunerAudioProcessor::
+# processBlock(). The unit-test target cannot instantiate the processor (it does
+# not compile the plugin sources), so PerformanceBudgetTest only covers the DSP
+# components it can build on its own; processBlock itself - the hot path - had no
+# gate at all. This target links the plugin's shared-code target so the code under
+# measurement is the shipped code, compiled with the shipped flags.
+juce_add_console_app(bench_processblock
+    PRODUCT_NAME "bench_processblock"
+    VERSION 0.1.0)
+
+target_sources(bench_processblock PRIVATE
+    tools/bench_processblock.cpp
+    # juce_ara_sdk only exports include directories, and the plugin target gets the
+    # ARA library through juce_add_plugin's ARA integration. A console app has to
+    # compile the SDK's own implementation files itself.
+    external/ARA_SDK/ARA_Library/PlugIn/ARAPlug.cpp
+    external/ARA_SDK/ARA_Library/Dispatch/ARAHostDispatch.cpp
+    external/ARA_SDK/ARA_Library/Dispatch/ARAPlugInDispatch.cpp
+    external/ARA_SDK/ARA_Library/Utilities/ARAChannelArrangement.cpp
+    external/ARA_SDK/ARA_Library/Utilities/ARAPitchInterpretation.cpp
+)
+target_link_libraries(bench_processblock PRIVATE
+    OpenVoxTuner
+    juce::juce_audio_processors
+    # The ARA library glue lives in the plugin-client module (external/ARA_SDK is
+    # installed into it); without this the module's ARA half does not link.
+    juce::juce_audio_plugin_client
+    juce::juce_recommended_config_flags
+    # The shared code is built with ARA on, so juce_audio_processors' ARA half needs
+    # the SDK library here too (same conditional link as the plugin target).
+    $<$<BOOL:${OVT_ENABLE_ARA}>:juce_ara_sdk>
+)
