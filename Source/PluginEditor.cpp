@@ -276,8 +276,32 @@ void OpenVoxTunerAudioProcessorEditor::setupFramedIcon (ebs::IconButton& btn, co
     addAndMakeVisible (btn);
 }
 
-OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTunerAudioProcessor& p)
-    : AudioProcessorEditor (&p), processorRef (p)
+// === SVG icons as full XML strings (Lucide-style, 24x24 viewBox) ===
+// Each uses stroke="#010101" as a placeholder for per-state coloring.
+
+// The toolbar glyphs that IconButton does not carry are gone: zoom, scroll,
+// reset, gear, hamburger, grid, save, undo / redo and the preset chevrons
+// all come from ebs::IconButton now. These six stay for the toggle buttons
+// below, which need a solid accent pill on their ON state (snap, grid, step,
+// bypass, MIDI out) plus the play / stop pair.
+static const char* svgScale = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="18" r="3"/><path d="M10 18V4l11-2v15"/></svg>)";
+
+static const char* svgGrid = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>)";
+
+static const char* svgStep = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20v-5h6v-6h6V4h4"/></svg>)";
+
+static const char* svgPower = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/></svg>)";
+
+// Transport (standalone only).
+static const char* svgPlay = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>)";
+static const char* svgStop = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>)";
+
+// === Constructor sections ===
+// Split out of the constructor (step 3 of the source split): each method is a
+// verbatim slice of the original body. The call order in the constructor is the
+// initialisation order.
+
+void OpenVoxTunerAudioProcessorEditor::restorePreferences()
 {
     // Reset the editor-shutdown flag set by the previous editor instance's
     // destructor.  The processor outlives the editor, so without this
@@ -330,6 +354,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // wrench / Interface / Tooltip Delay submenu).
     setTooltipDelayChoice (tooltipDelayChoice);
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createUpdateButton()
+{
     updateButton.setButtonText (ovt::tr(ovt::Keys::kLabelUpdates));
     updateButton.setTooltip (ovt::tr(ovt::Keys::kTooltipCheckUpdates));
     updateButton.onClick = [this]
@@ -351,6 +379,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     startUpdateCheck();
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createCorrectionSliders()
+{
     // === Configuration of the 4 sliders (rotary knobs) ===
 
     setupKnob (speedSlider,  &speedLabel,  "Speed (ms)");
@@ -467,6 +499,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     formantSlider.setPopupDisplayEnabled (true, false, this);
     formantSlider.textFromValueFunction = [] (double v) { return juce::String (v, 1) + " st"; };
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createHarmonyControls()
+{
     // === Harmony UI ===
     // Harmony enable toggle (use same visual style as Formant)
     harmonyEnableButton.setButtonText (ovt::tr(ovt::Keys::kLabelHarmonyBtn));
@@ -848,6 +884,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     latencyModeBox.setColour (juce::ComboBox::arrowColourId, ebs::accent());
     addAndMakeVisible (latencyModeBox);
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createMenuButton()
+{
     // === Hamburger menu button (gear icon) ===
     menuButton.onClick = [this]
     {
@@ -1207,6 +1247,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     };
     addAndMakeVisible (menuButton);
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createABAndMorphControls()
+{
     // === A/B Comparison buttons ===
     // Colours come from ABTextButton::paint tokens directly; a repaint on
     // theme switches keeps them current (see applyThemeToAllComponents).
@@ -1333,6 +1377,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     amountSlider.setRange (0.0, 1.0, 0.01);
     amountSlider.setValue (1.0);
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createScaleAndAdvancedControls()
+{
     // === Bindings for the Key/Scale ComboBoxes to their parameters ===
     // ComboBoxAttachment keeps the combo box and the host parameter in sync in BOTH
     // directions: parameter -> combo box (so morph/automation correctly drives the displayed
@@ -1500,26 +1548,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
 
-    // === SVG icons as full XML strings (Lucide-style, 24x24 viewBox) ===
-    // Each uses stroke="#010101" as a placeholder for per-state coloring.
+}
 
-    // The toolbar glyphs that IconButton does not carry are gone: zoom, scroll,
-    // reset, gear, hamburger, grid, save, undo / redo and the preset chevrons
-    // all come from ebs::IconButton now. These six stay for the toggle buttons
-    // below, which need a solid accent pill on their ON state (snap, grid, step,
-    // bypass, MIDI out) plus the play / stop pair.
-    static const char* svgScale = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="18" r="3"/><path d="M10 18V4l11-2v15"/></svg>)";
-
-    static const char* svgGrid = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>)";
-
-    static const char* svgStep = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20v-5h6v-6h6V4h4"/></svg>)";
-
-    static const char* svgPower = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/></svg>)";
-
-    // Transport (standalone only).
-    static const char* svgPlay = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>)";
-    static const char* svgStop = R"(<svg viewBox="0 0 24 24" fill="none" stroke="#010101" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>)";
-
+void OpenVoxTunerAudioProcessorEditor::createToolbarButtons()
+{
     // Setup Toolbar Buttons
     // Curve Editor "Options" and Preset Gallery: framed icon buttons from the
     // shared library. Framed mode gives them the pressable affordance the old
@@ -1631,6 +1663,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     setupEbsIcon (redoButton, ovt::tr(ovt::Keys::kTooltipRedo));
     redoButton.onClick = [this] { performGlobalRedo(); };
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createPresetBarAndTopBar()
+{
     // === Plugin Preset selector (separate from Curve Presets) ===
     // Centred in the top banner: [<] [Combo: name] [>] [save]. Mirrors the
     // standard plugin-preset bar. Applies the full parameter state (no
@@ -1878,6 +1914,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     formantEnableButton.setColour (juce::ToggleButton::tickColourId, ebs::accent());
     addAndMakeVisible (formantEnableButton);
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createReverbSends()
+{
     // Reverb bus controls: TWO SHARED ROOMS (ROOM + HALL), four sends, one sidechain
     // ducker. Each voice column is one power switch carrying the voice name, with the two
     // amounts that voice sends under it; the knob IS the send (no separate send control,
@@ -1942,6 +1982,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     duckDepthSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipReverbDucking));
     translatableLabels.push_back ({ &duckDepthLabel, ovt::Keys::kLabelDuckBtn });
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createOutputStageControls()
+{
     // Output stage (master bus): the trim is a raw dB gain applied before the limiter,
     // and the limiter is a true-peak guard with a declared 8-sample lookahead. Trim stays
     // live with the limiter
@@ -2019,6 +2063,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     upwardCompAmountSlider.setTooltip (ovt::tr(ovt::Keys::kTooltipUpwardCompAmount));
     addAndMakeVisible (upwardCompAmountSlider);
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createBottomRowFrames()
+{
     // Effects frame (ebs::ExpansibleFrame): the effect cells live inside the frame body, so
     // the chevron on its right edge folds everything past the two always-visible columns away
     // - Formant/De-Esser, Saturation and Output Limit + meter. The frame owns the open flag;
@@ -2094,6 +2142,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // not added to the visible UI and not attached to parameters.
     // The setupKnob calls are commented out to keep the code
     // available as reference.
+}
+
+void OpenVoxTunerAudioProcessorEditor::createCorrectionModeControls()
+{
     // ----------------------------------------------------------------
     // FlexTune / Humanize knobs
     // setupKnob (flexTuneSlider, &flexTuneLabel, "FlexTune");
@@ -2241,6 +2293,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // second addAndMakeVisible here would move it back to the editor and give its
     // frame-local bounds editor-local meaning.
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createParameterAttachments()
+{
     // === Bidirectional attachments to AudioParameters ===
     auto& tree = processorRef.getParameters();
     speedAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (tree, "speed",  speedSlider);
@@ -2338,6 +2394,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     }
 
     // Key/scale ComboBox binding was already done above via ComboBoxAttachment.
+}
+
+void OpenVoxTunerAudioProcessorEditor::createVisualizerAndTabs()
+{
     // === Pitch visualizer ===
     pitchVisualizer = std::make_unique<ui::PitchVisualizer>();
     pitchVisualizer->onRightClick = [this] {
@@ -2524,6 +2584,10 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // Refresh labels with current language translations
     refreshLabels();
 
+}
+
+void OpenVoxTunerAudioProcessorEditor::createGlobalUndoControls()
+{
     // === Global plugin Undo/Redo (Option 1) ===
     // Seed the live snapshot with the current state and wire the gesture
     // listeners. The UndoManager itself lives in the processor.
@@ -2532,6 +2596,29 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
 
     // Timer to update the visualizer (~30 fps).
     startTimerHz (30);
+}
+
+OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTunerAudioProcessor& p)
+    : AudioProcessorEditor (&p), processorRef (p)
+{
+    // The constructor only orchestrates: one call per part of the editor, in
+    // initialisation order. The sections are defined just above.
+    restorePreferences();
+    createUpdateButton();
+    createCorrectionSliders();
+    createHarmonyControls();
+    createMenuButton();
+    createABAndMorphControls();
+    createScaleAndAdvancedControls();
+    createToolbarButtons();
+    createPresetBarAndTopBar();
+    createReverbSends();
+    createOutputStageControls();
+    createBottomRowFrames();
+    createCorrectionModeControls();
+    createParameterAttachments();
+    createVisualizerAndTabs();
+    createGlobalUndoControls();
 }
 
 OpenVoxTunerAudioProcessorEditor::~OpenVoxTunerAudioProcessorEditor()

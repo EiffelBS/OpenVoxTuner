@@ -244,6 +244,27 @@ private:
     };
     HelpOverlayComponent helpOverlay { *this };
 
+    // === Constructor sections ===
+    // The constructor only calls these, in this order: it builds the whole editor, and the
+    // order IS the initialisation order (a frame must exist before its children are added,
+    // and the persisted fold flags are written before the width model runs).
+    void restorePreferences();
+    void createUpdateButton();
+    void createCorrectionSliders();
+    void createHarmonyControls();
+    void createMenuButton();
+    void createABAndMorphControls();
+    void createScaleAndAdvancedControls();
+    void createToolbarButtons();
+    void createPresetBarAndTopBar();
+    void createReverbSends();
+    void createOutputStageControls();
+    void createBottomRowFrames();
+    void createCorrectionModeControls();
+    void createParameterAttachments();
+    void createVisualizerAndTabs();
+    void createGlobalUndoControls();
+
     // === Constructor helpers ===
     // The constructor builds the whole editor; these builders are the parts several
     // sections share, so they are methods rather than local lambdas.
