@@ -980,56 +980,38 @@ void OpenVoxTunerAudioProcessor::reset()
 }
 
 // === Main audio routine (called block by block by the host) ===
-void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
-                                               juce::MidiBuffer& midiMessages)
+// === processBlock stages ===
+// Block-boundary work split out of processBlock (step 5): the bodies are
+// byte-identical to the inline code they replace, and each parameter is named
+// like the local that used to hold it.
+
+void OpenVoxTunerAudioProcessor::flushPendingMidiNotes (juce::MidiBuffer& midiMessages)
 {
-    juce::ScopedNoDenormals noDenormals;
-    const auto blockStartTime = juce::Time::getHighResolutionTicks();
-    // MIDI out may be produced below if enabled by parameter.
-
-    auto flushPendingMidiNotes = [&midiMessages, this]
+    bool hadAny = false;
+    for (int ch = 0; ch < 16; ++ch)
     {
-        bool hadAny = false;
-        for (int ch = 0; ch < 16; ++ch)
+        const int lastNote = lastSentMidiNote[ch];
+        if (lastNote != -1)
         {
-            const int lastNote = lastSentMidiNote[ch];
-            if (lastNote != -1)
-            {
-                const int midiChannel = ch + 1;
-                midiMessages.addEvent (juce::MidiMessage::noteOff (midiChannel, lastNote), 0);
-                lastSentMidiNote[ch] = -1;
-                hadAny = true;
-            }
+            const int midiChannel = ch + 1;
+            midiMessages.addEvent (juce::MidiMessage::noteOff (midiChannel, lastNote), 0);
+            lastSentMidiNote[ch] = -1;
+            hadAny = true;
         }
-
-        if (hadAny)
-        {
-            for (int midiChannel = 1; midiChannel <= 16; ++midiChannel)
-            {
-                midiMessages.addEvent (juce::MidiMessage::allNotesOff (midiChannel), 0);
-                midiMessages.addEvent (juce::MidiMessage::allSoundOff (midiChannel), 0);
-            }
-        }
-    };
-
-    // Bypass: pass the audio through unchanged.
-    if (bypassParam != nullptr && bypassParam->load() > 0.5f)
-    {
-        flushPendingMidiNotes();
-        harmonyFrequencies.clear();
-        harmonyFrequenciesClean.clear();
-        publishHarmonySnapshots();
-        lastInputPitch.store (0.0f);
-        lastOutputPitch.store (0.0f);
-        lastCentsOffset.store (0.0f);
-        lastRawYinPitch.store (0.0f, std::memory_order_relaxed);
-        return;
     }
 
-    // === PITCH DETECTOR SWITCHING (YIN only - single mode) ===
-    // The pitch_detector parameter is read-only (single choice "YIN").
-    // No switching needed - always use index 0.
+    if (hadAny)
+    {
+        for (int midiChannel = 1; midiChannel <= 16; ++midiChannel)
+        {
+            midiMessages.addEvent (juce::MidiMessage::allNotesOff (midiChannel), 0);
+            midiMessages.addEvent (juce::MidiMessage::allSoundOff (midiChannel), 0);
+        }
+    }
+}
 
+void OpenVoxTunerAudioProcessor::processInputConditioning (juce::AudioBuffer<float>& buffer)
+{
     // === NOISE GATE (input, before pitch detection) ===
     {
         const bool gateEnabled = noiseGateEnableParam != nullptr && noiseGateEnableParam->load() > 0.5f;
@@ -1078,6 +1060,213 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             }
         }
     }
+}
+
+void OpenVoxTunerAudioProcessor::writeMidiOut (juce::MidiBuffer& midiMessages, juce::AudioBuffer<float>& buffer, float f0_out)
+{
+    // === MIDI OUT ===
+    // If enabled, send tuned note on channel 1 and harmony notes on channels 2..9
+    bool sendMidi = (midiOutEnableParam == nullptr) ? true : (midiOutEnableParam->load() > 0.5f);
+    if (sendMidi)
+    {
+        // helper: frequency -> MIDI note (rounded)
+        auto freqToMidi = [] (float hz) -> int {
+            if (hz <= 0.0f) return -1;
+            float m = 69.0f + 12.0f * std::log2(hz / 440.0f);
+            int midi = static_cast<int>(std::round(m));
+            midi = juce::jlimit(0, 127, midi);
+            return midi;
+        };
+
+        // Desired notes per channel (1..16) -> index 0..15
+        int desired[16];
+        for (int i = 0; i < 16; ++i) desired[i] = -1;
+
+        // Tuned note -> channel 1
+        int tunedMidi = -1;
+        float f0_out = lastOutputPitch.load();
+        if (f0_out > 0.0f)
+        {
+            tunedMidi = freqToMidi(f0_out);
+        }
+        desired[0] = tunedMidi;
+
+        // Harmony notes -> channels 2..9.
+        // Ignored Follow Lead: pushed MIDI notes are always clean scale notes.
+        juce::Array<float> notesToUse;
+        if (f0_out > 0.0f && harmonyFrequenciesClean.size() > 0)
+            notesToUse = harmonyFrequenciesClean;
+        else if (harmonyEngine != nullptr && harmonyEngine->isActive())
+            notesToUse = lastHarmonyNotesClean;
+
+        for (int v = 0; v < notesToUse.size() && v < 8; ++v)
+        {
+            desired[1 + v] = freqToMidi(notesToUse[v]);
+        }
+
+        // Compare desired vs lastSent and emit NoteOff/NoteOn as needed
+        const int numSamples = buffer.getNumSamples();
+        for (int ch = 0; ch < 16; ++ch)
+        {
+            int lastNote = lastSentMidiNote[ch];
+            int want = desired[ch];
+            const int midiChannel = ch + 1;
+            if (lastNote != -1 && lastNote != want)
+            {
+                auto off = juce::MidiMessage::noteOff(midiChannel, lastNote);
+                midiMessages.addEvent(off, 0);
+                lastSentMidiNote[ch] = -1;
+            }
+            if (want != -1 && want != lastNote)
+            {
+                uint8_t vel = (ch == 0) ? 127 : 100; // tuned=127, harmonies=100
+                auto on = juce::MidiMessage::noteOn(midiChannel, want, (juce::uint8)vel);
+                midiMessages.addEvent(on, 0);
+                lastSentMidiNote[ch] = want;
+            }
+        }
+    }
+    else
+    {
+        // If MIDI out is disabled while notes were active, send a proper release.
+        flushPendingMidiNotes (midiMessages);
+    }
+}
+
+void OpenVoxTunerAudioProcessor::processMasterTapAndOutput (juce::AudioBuffer<float>& buffer, juce::int64 blockStartTime, int currentHarmonyTypeVal, int renderHarmonyType, int blockStartRemaining, int blockFadeTotal, int clampedShiftedCount)
+{
+    // === MASTER EFFECTS TAP + OUTPUT STAGE ===
+    // The master bus is the tap point AFTER every bus has been blended: shared sends
+    // and glue land here. The output trim + true-peak limiter (declared 8-sample lookahead)
+    // runs last, on the fully mixed signal, so it guards the ceiling of what the user finally hears.
+    applyMasterEffects (buffer);
+
+    // CPU usage: ratio of time spent in processBlock to available block time.
+    const auto blockEndTime = juce::Time::getHighResolutionTicks();
+    const double blockElapsedSec = juce::Time::highResolutionTicksToSeconds (blockEndTime - blockStartTime);
+    const double availableSec = (double) buffer.getNumSamples() / currentSampleRate;
+    const float instantCpu = (availableSec > 0.0) ? (float) juce::jlimit (0.0, 1.0, blockElapsedSec / availableSec) : 0.0f;
+    // Exponential moving average to smooth the meter.
+    cpuUsage.store (cpuUsage.load() * 0.9f + instantCpu * 0.1f);
+
+#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
+    // If a harmony-type change happened this block, measure the final output
+    // jump and capture a raw window of the output, then log once. The raw
+    // samples let us distinguish a pitch step, a low-frequency pop (small
+    // sample-to-sample jump but still audible), a phase reset, or a block
+    // boundary step. NOTE: this runs BEFORE updating diagPrevLastOut /
+    // diagPrevHarmonyLast below, so those two still hold the PREVIOUS block's
+    // last samples — a true boundary check against this block's output[0].
+
+    // Log EVERY block of a harmony-type transition (not just the first) so we
+    // can see the fade progress `p`, whether the harmony level dips into a
+    // hole, and whether any single transition block has a boundary / level
+    // discontinuity that reads as a click.
+    if (diagTypeChangePending || typeCrossfadeActive)
+    {
+        const int ns2 = buffer.getNumSamples();
+        const float prog = (blockFadeTotal > 0)
+            ? juce::jlimit (0.0f, 1.0f, 1.0f - (float) blockStartRemaining / (float) blockFadeTotal)
+            : 0.0f;
+        float hPeak = 0.0f, oPeak = 0.0f;
+        if (harmonyBuffer.getNumChannels() > 0 && harmonyBuffer.getNumSamples() >= ns2)
+        {
+            const float* hp = harmonyBuffer.getReadPointer (0);
+            for (int i = 0; i < ns2; ++i) hPeak = juce::jmax (hPeak, std::fabs (hp[i]));
+        }
+        const float* op2 = buffer.getReadPointer (0);
+        for (int i = 0; i < ns2; ++i) oPeak = juce::jmax (oPeak, std::fabs (op2[i]));
+        const float hFirst = (harmonyBuffer.getNumChannels() > 0 && harmonyBuffer.getNumSamples() > 0)
+            ? harmonyBuffer.getSample (0, 0) : 0.0f;
+        const float oFirst = (ns2 > 0) ? buffer.getSample (0, 0) : 0.0f;
+        OVT_LOG ("[DIAG] xfade p=" + juce::String (prog, 3)
+                 + " rendered=" + juce::String (renderHarmonyType)
+                 + " hPeak=" + juce::String (hPeak, 4)
+                 + " oPeak=" + juce::String (oPeak, 4)
+                 + " hBound=" + juce::String (diagPrevHarmonyLast, 4) + "->" + juce::String (hFirst, 4)
+                 + " oBound=" + juce::String (diagPrevLastOut, 4) + "->" + juce::String (oFirst, 4)
+                 + " requested=" + juce::String (currentHarmonyTypeVal)
+                 + " rem=" + juce::String (typeDipFadeRemaining));
+    }
+
+    if (diagTypeChangePending)
+    {
+        const int nc = buffer.getNumChannels();
+        const int ns = buffer.getNumSamples();
+        if (nc > 0)
+        {
+            const float oj = computeMaxJump (buffer.getReadPointer (0), ns);
+            if (oj > diagOutputPeakJump) diagOutputPeakJump = oj;
+            if (nc > 1)
+            {
+                const float oj2 = computeMaxJump (buffer.getReadPointer (1), ns);
+                if (oj2 > diagOutputPeakJump) diagOutputPeakJump = oj2;
+            }
+            const int outLen = juce::jmin (48, ns);
+            const float* orp = buffer.getReadPointer (0);
+            for (int k = 0; k < outLen; ++k)
+                diagOutputWindow[k] = orp[k];
+        }
+
+        juce::String hw, ow;
+        const int logLen = juce::jmin (32, diagWindowLen);
+        for (int k = 0; k < logLen; ++k)
+        {
+            hw += juce::String (diagHarmonyWindow[k], 3) + (k + 1 < logLen ? "," : "");
+            ow += juce::String (diagOutputWindow[k], 3) + (k + 1 < logLen ? "," : "");
+        }
+        OVT_LOG ("[DIAG] type-change block -> harmonyJump=" + juce::String (diagHarmonyPeakJump, 4)
+                 + " outputJump=" + juce::String (diagOutputPeakJump, 4)
+                 + " prevLast=" + juce::String (diagPrevLastOut, 4)
+                 + " prevHarmony=" + juce::String (diagPrevHarmonyLast, 4)
+                 + " requested=" + juce::String (currentHarmonyTypeVal)
+                 + " rendered=" + juce::String (renderHarmonyType)
+                 + " last=" + juce::String (lastHarmonyTypeVal)
+                 + " pending=" + juce::String (pendingHarmonyType)
+                 + " active=" + juce::String (typeCrossfadeActive ? 1 : 0)
+                 + " rem=" + juce::String (typeDipFadeRemaining)
+                 + " shifted=" + juce::String (clampedShiftedCount)
+                 + " harmony=[" + hw + "]"
+                 + " output=[" + ow + "]");
+        diagTypeChangePending = false;
+    }
+
+    // Update the "previous block's last" samples for the next block's boundary
+    // check. Deliberately AFTER the diag log above, so the log sees the values
+    // captured from the block that ran BEFORE the type change.
+    if (buffer.getNumSamples() > 0)
+        diagPrevLastOut = buffer.getSample (0, buffer.getNumSamples() - 1);
+    if (harmonyBuffer.getNumSamples() > 0)
+        diagPrevHarmonyLast = harmonyBuffer.getSample (0, harmonyBuffer.getNumSamples() - 1);
+#endif
+}
+
+void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+                                               juce::MidiBuffer& midiMessages)
+{
+    juce::ScopedNoDenormals noDenormals;
+    const auto blockStartTime = juce::Time::getHighResolutionTicks();
+    // MIDI out may be produced below if enabled by parameter.
+
+    // Bypass: pass the audio through unchanged.
+    if (bypassParam != nullptr && bypassParam->load() > 0.5f)
+    {
+        flushPendingMidiNotes (midiMessages);
+        harmonyFrequencies.clear();
+        harmonyFrequenciesClean.clear();
+        publishHarmonySnapshots();
+        lastInputPitch.store (0.0f);
+        lastOutputPitch.store (0.0f);
+        lastCentsOffset.store (0.0f);
+        lastRawYinPitch.store (0.0f, std::memory_order_relaxed);
+        return;
+    }
+
+    // === PITCH DETECTOR SWITCHING (YIN only - single mode) ===
+    // The pitch_detector parameter is read-only (single choice "YIN").
+    // No switching needed - always use index 0.
+
+    processInputConditioning (buffer);
 
     // === ARA METADATA READOUT ===
     // Moved to updateAraMetadata() (UI thread) to avoid audio/UI deadlocks
@@ -1189,7 +1378,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         buffer.clear();
 
         // Ensure MIDI notes are released when entering sleep mode
-            flushPendingMidiNotes();
+            flushPendingMidiNotes (midiMessages);
 
         lastInputPitch.store (0.0f);
         lastOutputPitch.store (0.0f);
@@ -2909,178 +3098,12 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
          wasHarmonyActiveLastBlock = false;
      }
 
-    // === MIDI OUT ===
-    // If enabled, send tuned note on channel 1 and harmony notes on channels 2..9
-    bool sendMidi = (midiOutEnableParam == nullptr) ? true : (midiOutEnableParam->load() > 0.5f);
-    if (sendMidi)
-    {
-        // helper: frequency -> MIDI note (rounded)
-        auto freqToMidi = [] (float hz) -> int {
-            if (hz <= 0.0f) return -1;
-            float m = 69.0f + 12.0f * std::log2(hz / 440.0f);
-            int midi = static_cast<int>(std::round(m));
-            midi = juce::jlimit(0, 127, midi);
-            return midi;
-        };
+    writeMidiOut (midiMessages, buffer, f0_out);
 
-        // Desired notes per channel (1..16) -> index 0..15
-        int desired[16];
-        for (int i = 0; i < 16; ++i) desired[i] = -1;
+    processMasterTapAndOutput (buffer, blockStartTime, currentHarmonyTypeVal,
+                                renderHarmonyType, blockStartRemaining, blockFadeTotal,
+                                clampedShiftedCount);
 
-        // Tuned note -> channel 1
-        int tunedMidi = -1;
-        float f0_out = lastOutputPitch.load();
-        if (f0_out > 0.0f)
-        {
-            tunedMidi = freqToMidi(f0_out);
-        }
-        desired[0] = tunedMidi;
-
-        // Harmony notes -> channels 2..9.
-        // Ignored Follow Lead: pushed MIDI notes are always clean scale notes.
-        juce::Array<float> notesToUse;
-        if (f0_out > 0.0f && harmonyFrequenciesClean.size() > 0)
-            notesToUse = harmonyFrequenciesClean;
-        else if (harmonyEngine != nullptr && harmonyEngine->isActive())
-            notesToUse = lastHarmonyNotesClean;
-
-        for (int v = 0; v < notesToUse.size() && v < 8; ++v)
-        {
-            desired[1 + v] = freqToMidi(notesToUse[v]);
-        }
-
-        // Compare desired vs lastSent and emit NoteOff/NoteOn as needed
-        const int numSamples = buffer.getNumSamples();
-        for (int ch = 0; ch < 16; ++ch)
-        {
-            int lastNote = lastSentMidiNote[ch];
-            int want = desired[ch];
-            const int midiChannel = ch + 1;
-            if (lastNote != -1 && lastNote != want)
-            {
-                auto off = juce::MidiMessage::noteOff(midiChannel, lastNote);
-                midiMessages.addEvent(off, 0);
-                lastSentMidiNote[ch] = -1;
-            }
-            if (want != -1 && want != lastNote)
-            {
-                uint8_t vel = (ch == 0) ? 127 : 100; // tuned=127, harmonies=100
-                auto on = juce::MidiMessage::noteOn(midiChannel, want, (juce::uint8)vel);
-                midiMessages.addEvent(on, 0);
-                lastSentMidiNote[ch] = want;
-            }
-        }
-    }
-    else
-    {
-        // If MIDI out is disabled while notes were active, send a proper release.
-        flushPendingMidiNotes();
-    }
-
-    // === MASTER EFFECTS TAP + OUTPUT STAGE ===
-    // The master bus is the tap point AFTER every bus has been blended: shared sends
-    // and glue land here. The output trim + true-peak limiter (declared 8-sample lookahead)
-    // runs last, on the fully mixed signal, so it guards the ceiling of what the user finally hears.
-    applyMasterEffects (buffer);
-
-    // CPU usage: ratio of time spent in processBlock to available block time.
-    const auto blockEndTime = juce::Time::getHighResolutionTicks();
-    const double blockElapsedSec = juce::Time::highResolutionTicksToSeconds (blockEndTime - blockStartTime);
-    const double availableSec = (double) buffer.getNumSamples() / currentSampleRate;
-    const float instantCpu = (availableSec > 0.0) ? (float) juce::jlimit (0.0, 1.0, blockElapsedSec / availableSec) : 0.0f;
-    // Exponential moving average to smooth the meter.
-    cpuUsage.store (cpuUsage.load() * 0.9f + instantCpu * 0.1f);
-
-#if defined(JUCE_DEBUG) || defined(OVT_FORCE_LOG)
-    // If a harmony-type change happened this block, measure the final output
-    // jump and capture a raw window of the output, then log once. The raw
-    // samples let us distinguish a pitch step, a low-frequency pop (small
-    // sample-to-sample jump but still audible), a phase reset, or a block
-    // boundary step. NOTE: this runs BEFORE updating diagPrevLastOut /
-    // diagPrevHarmonyLast below, so those two still hold the PREVIOUS block's
-    // last samples — a true boundary check against this block's output[0].
-
-    // Log EVERY block of a harmony-type transition (not just the first) so we
-    // can see the fade progress `p`, whether the harmony level dips into a
-    // hole, and whether any single transition block has a boundary / level
-    // discontinuity that reads as a click.
-    if (diagTypeChangePending || typeCrossfadeActive)
-    {
-        const int ns2 = buffer.getNumSamples();
-        const float prog = (blockFadeTotal > 0)
-            ? juce::jlimit (0.0f, 1.0f, 1.0f - (float) blockStartRemaining / (float) blockFadeTotal)
-            : 0.0f;
-        float hPeak = 0.0f, oPeak = 0.0f;
-        if (harmonyBuffer.getNumChannels() > 0 && harmonyBuffer.getNumSamples() >= ns2)
-        {
-            const float* hp = harmonyBuffer.getReadPointer (0);
-            for (int i = 0; i < ns2; ++i) hPeak = juce::jmax (hPeak, std::fabs (hp[i]));
-        }
-        const float* op2 = buffer.getReadPointer (0);
-        for (int i = 0; i < ns2; ++i) oPeak = juce::jmax (oPeak, std::fabs (op2[i]));
-        const float hFirst = (harmonyBuffer.getNumChannels() > 0 && harmonyBuffer.getNumSamples() > 0)
-            ? harmonyBuffer.getSample (0, 0) : 0.0f;
-        const float oFirst = (ns2 > 0) ? buffer.getSample (0, 0) : 0.0f;
-        OVT_LOG ("[DIAG] xfade p=" + juce::String (prog, 3)
-                 + " rendered=" + juce::String (renderHarmonyType)
-                 + " hPeak=" + juce::String (hPeak, 4)
-                 + " oPeak=" + juce::String (oPeak, 4)
-                 + " hBound=" + juce::String (diagPrevHarmonyLast, 4) + "->" + juce::String (hFirst, 4)
-                 + " oBound=" + juce::String (diagPrevLastOut, 4) + "->" + juce::String (oFirst, 4)
-                 + " requested=" + juce::String (currentHarmonyTypeVal)
-                 + " rem=" + juce::String (typeDipFadeRemaining));
-    }
-
-    if (diagTypeChangePending)
-    {
-        const int nc = buffer.getNumChannels();
-        const int ns = buffer.getNumSamples();
-        if (nc > 0)
-        {
-            const float oj = computeMaxJump (buffer.getReadPointer (0), ns);
-            if (oj > diagOutputPeakJump) diagOutputPeakJump = oj;
-            if (nc > 1)
-            {
-                const float oj2 = computeMaxJump (buffer.getReadPointer (1), ns);
-                if (oj2 > diagOutputPeakJump) diagOutputPeakJump = oj2;
-            }
-            const int outLen = juce::jmin (48, ns);
-            const float* orp = buffer.getReadPointer (0);
-            for (int k = 0; k < outLen; ++k)
-                diagOutputWindow[k] = orp[k];
-        }
-
-        juce::String hw, ow;
-        const int logLen = juce::jmin (32, diagWindowLen);
-        for (int k = 0; k < logLen; ++k)
-        {
-            hw += juce::String (diagHarmonyWindow[k], 3) + (k + 1 < logLen ? "," : "");
-            ow += juce::String (diagOutputWindow[k], 3) + (k + 1 < logLen ? "," : "");
-        }
-        OVT_LOG ("[DIAG] type-change block -> harmonyJump=" + juce::String (diagHarmonyPeakJump, 4)
-                 + " outputJump=" + juce::String (diagOutputPeakJump, 4)
-                 + " prevLast=" + juce::String (diagPrevLastOut, 4)
-                 + " prevHarmony=" + juce::String (diagPrevHarmonyLast, 4)
-                 + " requested=" + juce::String (currentHarmonyTypeVal)
-                 + " rendered=" + juce::String (renderHarmonyType)
-                 + " last=" + juce::String (lastHarmonyTypeVal)
-                 + " pending=" + juce::String (pendingHarmonyType)
-                 + " active=" + juce::String (typeCrossfadeActive ? 1 : 0)
-                 + " rem=" + juce::String (typeDipFadeRemaining)
-                 + " shifted=" + juce::String (clampedShiftedCount)
-                 + " harmony=[" + hw + "]"
-                 + " output=[" + ow + "]");
-        diagTypeChangePending = false;
-    }
-
-    // Update the "previous block's last" samples for the next block's boundary
-    // check. Deliberately AFTER the diag log above, so the log sees the values
-    // captured from the block that ran BEFORE the type change.
-    if (buffer.getNumSamples() > 0)
-        diagPrevLastOut = buffer.getSample (0, buffer.getNumSamples() - 1);
-    if (harmonyBuffer.getNumSamples() > 0)
-        diagPrevHarmonyLast = harmonyBuffer.getSample (0, harmonyBuffer.getNumSamples() - 1);
-#endif
     publishHarmonySnapshots();
 }
 

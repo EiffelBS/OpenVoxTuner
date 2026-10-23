@@ -1143,6 +1143,19 @@ private:
     void applyLeadEffects (juce::AudioBuffer<float>& buffer);
     void applyMasterEffects (juce::AudioBuffer<float>& buffer);
 
+    // === processBlock stages ===
+    // The block-boundary work processBlock used to carry inline. Each takes the values it
+    // used to read as locals, named the same so the moved bodies stay identical.
+    void processInputConditioning (juce::AudioBuffer<float>& buffer);
+    void writeMidiOut (juce::MidiBuffer& midiMessages, juce::AudioBuffer<float>& buffer,
+                     float f0_out);
+    void processMasterTapAndOutput (juce::AudioBuffer<float>& buffer,
+                                    juce::int64 blockStartTime,
+                                    int currentHarmonyTypeVal, int renderHarmonyType,
+                                    int blockStartRemaining, int blockFadeTotal,
+                                    int clampedShiftedCount);
+    void flushPendingMidiNotes (juce::MidiBuffer& midiMessages);
+
     // Shared reverb bus taps. The lead sends are taken from the processed lead, the
     // harmony sends from the blended voices BEFORE they are mixed into the output;
     // the returns are summed into the master inside applyMasterEffects, so the
