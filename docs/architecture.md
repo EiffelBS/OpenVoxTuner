@@ -21,6 +21,13 @@ Source/
   PluginProcessor.h / .cpp        # Audio pipeline (DSP entry point)
   PluginEditor.h / .cpp           # GUI (visual entry point)
   PluginEditorHelp.cpp            # GUI: keyboard-shortcuts overlay definitions
+  PluginEditorLayout.cpp          # GUI: resized() + bottom-band widths
+  PluginEditorPresets.cpp         # GUI: presets, A/B slots, factory preset menu
+  PluginEditorTheme.cpp           # GUI: theme switching and component restyling
+  PluginEditorImport.cpp          # GUI: drag & drop, MIDI and audio import
+  PluginEditorMorph.cpp           # GUI: preset morphing
+  PluginEditorUndo.cpp            # GUI: global undo/redo
+  PluginEditorLabels.cpp          # GUI: refreshLabels()
   BuildInfo.h.in                  # CMake-generated build metadata
   dsp/
     YinPitchDetector.h / .cpp      # Pitch detection (active YIN implementation)
@@ -51,6 +58,7 @@ Source/
     CorrectionModeSwitch.h        # Modern / Transparent / Hard console switch
     MidiChannelSelectorComponent.h # MIDI import: channel selection dialog
     AudioImportDialogComponent.h  # Audio import: confirmation dialog
+    PluginEditorInternal.h        # Helpers shared by the editor TUs (inline)
   external/
     presonus/ipsleditcontroller.h # Presonus micro-view VST3 extension
 ```
