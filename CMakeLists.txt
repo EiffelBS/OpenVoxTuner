@@ -217,6 +217,9 @@ target_sources(OpenVoxTuner PRIVATE
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
+    # The editor is split by domain. This TU holds only the HelpOverlayComponent
+    # definitions; the class stays declared in PluginEditor.h.
+    Source/PluginEditorHelp.cpp
     Source/dsp/IPitchDetector.h
     Source/dsp/YinPitchDetector.cpp
     Source/dsp/YinPitchDetector.h
@@ -261,6 +264,11 @@ target_sources(OpenVoxTuner PRIVATE
     Source/ui/ScaleKeyboardComponent.h
     Source/ui/PianoKeyboard.cpp
     Source/ui/PianoKeyboard.h
+    # Self-contained editor components that used to live inside PluginEditor.cpp.
+    # Each one defines every member inline, so there is no .cpp to list.
+    Source/ui/CorrectionModeSwitch.h
+    Source/ui/AudioImportDialogComponent.h
+    Source/ui/MidiChannelSelectorComponent.h
     Source/external/presonus/ipsleditcontroller.h
 )
 

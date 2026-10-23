@@ -20,6 +20,7 @@ detailed in the dedicated [DSP Pipeline](architecture/dsp-pipeline.md) page.
 Source/
   PluginProcessor.h / .cpp        # Audio pipeline (DSP entry point)
   PluginEditor.h / .cpp           # GUI (visual entry point)
+  PluginEditorHelp.cpp            # GUI: keyboard-shortcuts overlay definitions
   BuildInfo.h.in                  # CMake-generated build metadata
   dsp/
     YinPitchDetector.h / .cpp      # Pitch detection (active YIN implementation)
@@ -47,6 +48,9 @@ Source/
     OVTTheme.h                    # Centralized dark/light theme accessors
     OVTLanguages.h                # i18n string tables
     OVTFonts.h                    # Centralized font system
+    CorrectionModeSwitch.h        # Modern / Transparent / Hard console switch
+    MidiChannelSelectorComponent.h # MIDI import: channel selection dialog
+    AudioImportDialogComponent.h  # Audio import: confirmation dialog
   external/
     presonus/ipsleditcontroller.h # Presonus micro-view VST3 extension
 ```

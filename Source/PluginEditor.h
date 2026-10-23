@@ -30,7 +30,7 @@ struct OpenVoxTunerUpdateCheckState;
 
 class PresetGallery; // defined in ui/PResetGallery.h
 
-class CorrectionModeSwitch; // graphic Modern/Transparent console switch (defined in PluginEditor.cpp)
+class CorrectionModeSwitch; // graphic Modern/Transparent console switch (defined in ui/CorrectionModeSwitch.h)
 
 
 /** Local host around the shared eiffelbs-ui LookAndFeel. Everything is
