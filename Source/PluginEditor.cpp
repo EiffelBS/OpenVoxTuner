@@ -5,6 +5,7 @@
 
 
 #include "PluginProcessor.h"
+#include "dsp/LatencyDeclaration.h"
 #include "PluginEditor.h"
 #include "ui/OVTFonts.h"
 #include "ui/OVTTheme.h"
@@ -1123,21 +1124,35 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     {
         juce::PopupMenu menu;
 
-        // 1. Latency submenu (4 modes: Direct Monitoring / Low Latency / Quality / Safe)
+        // 1. Latency submenu (4 modes: Direct Monitoring / Low Latency / Quality / Safe).
+        // The suffix is the DECLARED latency (the measured effective delay for the
+        // selected Voice Type, see Source/dsp/LatencyDeclaration.h), not the internal
+        // mode value: it changes with the register, and it is what the host compensates.
+        int declaredVoiceType = 0;
+        if (auto* vp = processorRef.getParameters().getParameter ("voice_type"))
+            if (auto* choice = dynamic_cast<juce::AudioParameterChoice*> (vp))
+                declaredVoiceType = choice->getIndex();
+
+        auto withDeclaredMs = [declaredVoiceType] (const char* key, int mode)
+        {
+            return ovt::tr (key) + "  (~"
+                 + juce::String (ovtdsp::declaredLatencyMs (mode, declaredVoiceType)) + " ms)";
+        };
+
         juce::PopupMenu latencyMenu;
-        latencyMenu.addItem (ovt::tr(ovt::Keys::kMenuDirectMonitoring), true, latencyModeBox.getSelectedId() == 1, [this] {
+        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuDirectMonitoring, 0), true, latencyModeBox.getSelectedId() == 1, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
                 p->setValueNotifyingHost (0.0f);
     });
-        latencyMenu.addItem (ovt::tr(ovt::Keys::kMenuLowLatency), true, latencyModeBox.getSelectedId() == 2, [this] {
+        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuLowLatency, 1), true, latencyModeBox.getSelectedId() == 2, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
                 p->setValueNotifyingHost (1.0f / 3.0f);
     });
-        latencyMenu.addItem (ovt::tr(ovt::Keys::kMenuQuality), true, latencyModeBox.getSelectedId() == 3, [this] {
+        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuQuality, 2), true, latencyModeBox.getSelectedId() == 3, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
                 p->setValueNotifyingHost (2.0f / 3.0f);
     });
-        latencyMenu.addItem (ovt::tr(ovt::Keys::kMenuSafe), true, latencyModeBox.getSelectedId() == 4, [this] {
+        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuSafe, 3), true, latencyModeBox.getSelectedId() == 4, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
                 p->setValueNotifyingHost (3.0f / 3.0f);
     });

@@ -23,6 +23,7 @@
 #include "dsp/SidechainBusLayoutTest.cpp"
 #include "dsp/SpeedFloorTest.cpp"
 #include "dsp/HardTuneAttackTest.cpp"
+#include "dsp/LatencyDeclarationTest.cpp"
 #include "dsp/DetectorResponseTest.cpp"
 #include "dsp/FormantPreserverModulationTest.cpp"
 #include "dsp/BlockAwareOnePoleTest.cpp"

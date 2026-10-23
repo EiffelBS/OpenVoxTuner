@@ -366,3 +366,56 @@ fix (analysis document, Section 1.3), not a new shifter.
   detection limitation, not a shifter one, and deserves its own measurement.
 - No further shifter work: a phase-vocoder path needs about 12 ms (not better
   than the OLA for this purpose), and the two-tap family is closed.
+## Fix - honest PDC latency declaration
+
+### Context
+
+The plugin declared its internal latency-mode value (10/12/20/30 ms) to the host,
+but the measured effective delay of the pitch-synchronous OLA shifter is
+`internal + 1.25 periods - pitch-mark alignment`: 16.7 ms for a 200 Hz voice in
+the 10 ms mode and 29.9 ms at 82 Hz. The DAW therefore aligned the other tracks
+6-20 ms off, and the error changed with the sung register, so no fixed nudge
+could correct it.
+
+### What shipped
+
+- **`Source/dsp/LatencyDeclaration.h`**: the measured effective delay per
+  (latency mode, Voice Type), rounded up by 1 ms and held monotone in both
+  directions (a higher mode never declares less, a lower register never declares
+  less than a higher one). Universal declares the Bass floor (82.41 Hz); below
+  that the declaration is optimistic and documented as such.
+- **`applyLatencyMode()`** now calls `setLatencySamples()` with that table plus
+  the limiter's 8-sample lookahead, instead of the shifter's internal latency.
+  The applied-value cache includes the Voice Type, so changing it re-applies the
+  declaration.
+- **Options > Latency** shows the declared value for the current Voice Type,
+  e.g. "Low Latency  (~24 ms)" for a tenor.
+- The internal modes stay 10/12/20/30 ms (state compatibility); only the value
+  reported to the host changes.
+- New `LatencyDeclarationTest` (6 groups): monotonicity in both directions,
+  Universal = Bass floor, sane range, sample conversion at 44.1/48/96 kHz,
+  out-of-range clamping.
+- Docs: user-guide latency table, default parameters note, analysis Section 1.3
+  marked implemented.
+
+### Design facts
+
+- Declaring the register floor means the corrected voice is never late; notes
+  higher in the register land early by up to ~10 ms. That is the unavoidable
+  price of one PDC value for a pitch-dependent delay.
+- The creative Formant shift grows the grain by its ratio and can add a few ms
+  to the true delay; it is not in the table because the knob is not a
+  PDC-stable setting.
+- The two shortest modes now declare within 1-2 ms of each other: the mode count
+  is a processing-character choice, not a latency ladder. Simplifying it is a
+  separate product decision (it changes a choice parameter stored in sessions).
+
+### Testing
+
+- `cmake --build build --config Release --target OpenVoxTuner_Standalone
+  OpenVoxTunerTests`: OK.
+- Full suite: **234 OK / 0 FAILED** (228 before, +6 LatencyDeclaration groups,
+  140 assertions).
+- The runtime declaration itself is not exercised by the test target (it does
+  not compile the processor); the table and the conversion are, and the
+  processor wiring is covered by the build plus code review.

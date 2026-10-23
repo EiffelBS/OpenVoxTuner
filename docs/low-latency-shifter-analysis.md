@@ -96,6 +96,12 @@ up; the 8 ms clamp is 17 ms too). Exact around 200 Hz, still late by up to ~13 m
 | Soprano (261.63 Hz) | 14 | 14 | 21 | 30 |
 | Universal (vocal floor 82.41) | 31 | 35 | 38 | 38 |
 
+**Implemented (2026-10-23).** The per-Voice-Type table now lives in
+`Source/dsp/LatencyDeclaration.h` and drives `setLatencySamples()`; the Options >
+Latency menu shows the declared value for the current Voice Type, and the internal
+modes stay 10/12/20/30 ms for state compatibility. The table below is exactly what
+shipped.
+
 What this implies:
 
 - **The mode ladder loses its meaning at the extremes.** At 262 Hz the 10, 12 and 8 ms modes

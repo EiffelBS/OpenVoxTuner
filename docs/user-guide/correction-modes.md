@@ -87,14 +87,30 @@ Constrains the pitch-detection range to a specific voice so the detector locks o
 
 ### Latency Mode
 
-Trades latency against processing quality:
+The four modes trade latency against processing quality. The value the plugin
+declares to the host (what the DAW compensates) is not the internal mode number:
+it is the **measured effective delay** at the lowest note of the selected Voice
+Type (the grain has to look a fraction of a period ahead, so the delay grows as
+the voice goes down). See the
+[low-latency analysis](../low-latency-shifter-analysis.md#13-what-to-declare-instead-pdc-replacement-values)
+for the measurements behind the table.
 
-| Mode | Latency |
-|------|---------|
-| **Direct Monitoring** | 10 ms |
-| **Low Latency** (default) | 12 ms |
-| **Quality** | 20 ms |
-| **Safe** | 30 ms |
+| Voice Type | Direct Monitoring | Low Latency (default) | Quality | Safe |
+|---|---|---|---|---|
+| Universal | ~31 ms | ~35 ms | ~38 ms | ~38 ms |
+| Bass | 31 ms | 35 ms | 38 ms | 38 ms |
+| Baritone | 26 ms | 27 ms | 28 ms | 39 ms |
+| Tenor | 23 ms | 24 ms | 27 ms | 36 ms |
+| Alto | 20 ms | 20 ms | 27 ms | 35 ms |
+| Soprano | 14 ms | 14 ms | 21 ms | 30 ms |
+
+The declared value is the worst case for the register, so the corrected voice is
+never late; notes higher in the register land a few ms early. That is the price
+of one PDC value for a delay that depends on the pitch. The creative **Formant**
+shift grows the grain and can add a few ms on top; it is not part of the table.
+
+The two shortest modes declare within 1–2 ms of each other: pick them for their
+processing character (grain size), not for a large latency difference.
 
 ---
 

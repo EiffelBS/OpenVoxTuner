@@ -1046,6 +1046,10 @@ private:
     std::atomic<uint32_t> lastProcessLogTime { 0 };
     std::atomic<uint32_t> lastHarmonyLogTime { 0 };
     int appliedLatencyMode = -1;
+    // Voice Type the declared latency was last computed for: the declaration is
+    // the measured effective delay at the register's floor (dsp/LatencyDeclaration.h),
+    // so it must be re-applied when Voice Type changes, not only when the mode does.
+    int appliedLatencyVoiceType = -1;
 
     // CPU usage tracking (smoothed ratio of processBlock time to available time).
     std::atomic<float> cpuUsage { 0.0f };

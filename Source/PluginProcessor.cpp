@@ -14,6 +14,7 @@
 // Generated build info (created by CMake)
 #include "BuildInfo.h"
 #include "dsp/PitchShifter.h"
+#include "dsp/LatencyDeclaration.h"
 #include <vector>
 #include <array>
 #include <algorithm>
@@ -1340,6 +1341,7 @@ void OpenVoxTunerAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     // gets overwritten a few lines later, causing a 576↔960 ping-pong
     // that made Live 12 re-setActive 600 000+ times per session.
     appliedLatencyMode = -1;
+    appliedLatencyVoiceType = -1;
     applyLatencyMode();
 
     // Configure the plugin latency based on the host's block size.
@@ -1442,6 +1444,7 @@ void OpenVoxTunerAudioProcessor::reset()
     lastCentsOffset.store (0.0f);
     lastRawYinPitch.store (0.0f, std::memory_order_relaxed);
     appliedLatencyMode = -1;
+    appliedLatencyVoiceType = -1;
 
     for (int i = 0; i < 1; ++i)
         if (pitchDetectors[i] != nullptr) pitchDetectors[i]->reset();
@@ -4222,7 +4225,13 @@ void OpenVoxTunerAudioProcessor::applyLatencyMode()
         ? juce::jlimit (0, 3, (int) std::round (latencyModeParam->load()))
         : 1;
 
-    if (mode == appliedLatencyMode)
+    // Voice Type selects which row/column of the declaration table applies: the
+    // honest value is the measured effective delay at the register's floor.
+    const int voiceType = (voiceTypeParam != nullptr)
+        ? juce::jlimit (0, 5, (int) std::round (voiceTypeParam->load()))
+        : 0;
+
+    if (mode == appliedLatencyMode && voiceType == appliedLatencyVoiceType)
         return;
 
     const float latencyMs = (mode == 0) ? 10.0f : (mode == 1 ? 12.0f : (mode == 2 ? 20.0f : 30.0f));
@@ -4241,13 +4250,19 @@ void OpenVoxTunerAudioProcessor::applyLatencyMode()
 
     // The output limiter looks ahead by its reconstruction filter group delay (8 samples),
     // declared here so the host compensates it; it is a constant, independent of the mode.
-    setLatencySamples (pitchShifter->getLatencySamples() + outputLimiter.getLatencySamples());
+    // The shifter itself is declared with its MEASURED effective delay for this Voice
+    // Type (not its internal `latencySamples`): see dsp/LatencyDeclaration.h.
+    setLatencySamples (ovtdsp::declaredLatencySamples (currentSampleRate, mode, voiceType)
+                       + outputLimiter.getLatencySamples());
     appliedLatencyMode = mode;
+    appliedLatencyVoiceType = voiceType;
 
     const char* modeNames[] = { "Direct Monitoring", "Low Latency", "Quality", "Safe" };
     const juce::String modeName = (mode >= 0 && mode <= 3) ? modeNames[mode] : "Unknown";
     OVT_LOG ("Latency mode changed: " + modeName +
-             " (" + juce::String (latencyMs, 1) + " ms)");
+             " (" + juce::String (latencyMs, 1) + " ms internal, " +
+             juce::String (ovtdsp::declaredLatencyMs (mode, voiceType)) +
+             " ms declared for voice type " + juce::String (voiceType) + ")");
 }
  
 // === Effects buses: one tap point of the vocal chain each ===

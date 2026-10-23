@@ -15,6 +15,8 @@
 | Hard Tune | `hard_tune` | Bool | **false** | false / true — bypasses the 80 ms anti-jitter speed floor, the pitch shifter's ratio-jump duck and the formant preserver, and switches pitch analysis to the short window (2048/512, 3-frame median); note attacks keep their click mask (the Hard position of the mode switch) |
 | Pitch Detector | `pitch_detector` | Choice | **0 (YIN)** | 0=YIN, 1=Reserved |
 
+The latency_mode values 0-3 select internal processing modes of 10 / 12 / 20 / 30 ms. The latency the plugin **declares** to the host is the measured effective delay of the correction engine for the selected Voice Type (see [the low-latency analysis](low-latency-shifter-analysis.md#13-what-to-declare-instead-pdc-replacement-values)); it is larger than the mode number and grows as the voice goes down.
+
 ## Key / Scale
 
 | Parameter | ID | Type | Default | Range |
