@@ -80,14 +80,58 @@ contributor is the **detector lag**, not the OLA chain: the ratio applied at tim
   every shifter change (the two-tap low-latency path was closed for other
   reasons), and the ideal-detector floor shows what the rest of the chain can do.
 
+## Option 1 measurement (shorter Hard Tune analysis)
+
+The Hard Tune detector is already mode-scoped (2048/512, median 3), so shortening
+it further only touches that path. Candidates, residual at the same 220 Hz tone:
+
+| config | 3 Hz | 4 Hz | 5 Hz | 6 Hz | 7 Hz |
+|---|---|---|---|---|---|
+| shipped 2048/512/median 3 | 77 % | 101 % | 122 % | 143 % | 156 % |
+| **1536/256/median 1** | **37-43 %** | **49-53 %** | **58-62 %** | **69-74 %** | **81-84 %** |
+| 1536/256/median 3 | 46-52 % | 61-67 % | 73-77 % | 88-91 % | 103-104 % |
+| 1024/256/median 1 | 21-36 % | 29-31 % | 37-38 % | 43-46 % | 47-52 % |
+| 1024/512/median 1 | 29-55 % | 36-39 % | 45-51 % | 55-58 % | 59-67 % |
+
+(the range is across the 15/30/50 cent depths).
+
+The 1024 window wins but has a hard floor: **it cannot detect the 82.41 Hz bass
+note at all**. Steady-tone detection accuracy (mean |cents|, max |cents|, gross
+errors > 100 cents):
+
+| config | 82 Hz | 110 Hz | 131 Hz | 175 Hz | 262 Hz |
+|---|---|---|---|---|---|
+| 2048/512 med3 (shipped) | 0.1 / 2 / 0 | 0.1 / 2 / 0 | 0.1 / 1 / 0 | 0.2 / 1 / 0 | 0.5 / 1 / 0 |
+| 1536/256 med1 | 0.1 / 5 / 0 | 0.2 / 5 / 0 | 0.2 / 5 / 0 | 0.3 / 2 / 0 | 0.5 / 3 / 0 |
+| 1024/256 med1 | **no detections** | 0.2 / 5 / 0 | 0.2 / 5 / 0 | 0.3 / 4 / 0 | 0.6 / 4 / 0 |
+
+A 1024-sample window is 23 ms at 44.1 kHz: the decimated half-window (11.6 ms) is
+shorter than the 82.41 Hz period (12.14 ms), so YIN has no valid minimum. The
+shortest **register-safe** candidate is therefore **1536/256/median 1**.
+
+Cross-check in the A/B renderer (`render_hard_tune_ab --fast-detector`) on the
+5 Hz / 30 cent vibrato tone: the OLA takes measure 33.2 cents of vibrato with the
+shipped detector and **16.0 cents** with 1536/256/1 (dry = 27.7 cents), i.e. the
+same ~58 % residual the benchmark predicts. Listening sets:
+
+- `build/ab_hard_tune/` (shipped) vs `build/ab_hard_tune_short/` (option 1a) on
+  the detuned phrase;
+- `build/ab_vibrato/` vs `build/ab_vibrato_short/` on the vibrato tone.
+
+**Verdict:** 1536/256/median 1 is safe for every register and roughly **halves**
+the residual (5 Hz: 122 % to ~60 %; 7 Hz: 156 % to ~82 %). A 1024 window would
+reach ~37 % at 5 Hz but needs a per-voice-type fallback (Bass/Universal keep
+1536) and is a bigger, riskier change. Neither reaches the ideal-detector floor
+of 13-33 %: true flatness still needs option 2 (ratio derived from the local
+grain period).
+
 ## Options (measured or estimated, not implemented)
 
-1. **Shorten the Hard Tune analysis further**: window 1536/1024, hop 256,
-   median 1. Estimated `tau` ~20-26 ms -> residual at 5 Hz ~60-77 %, at 3 Hz
-   ~35-50 %. Cheap and mode-scoped (the Hard Tune path already uses a shorter
-   window than the normal path), but the detector needs ~2-3 periods: at 82 Hz
-   (12.2 ms period) a 1024-sample window is only 1.9 periods, so bass stability
-   must be measured before shipping.
+1. **Shorten the Hard Tune analysis further** (measured, see the section above):
+   1536/256/median 1 is register-safe and roughly halves the residual; a 1024
+   window is better still but cannot detect the 82.41 Hz bass note, so it would
+   need a per-voice-type fallback. Cheap and mode-scoped (the Hard Tune path
+   already uses a shorter window than the normal path).
 2. **Align the ratio with the audio**: derive the correction ratio from the
    local period at the shifter's grain read position (the OLA already searches
    pitch marks there) instead of from the detector's window half. Aligned by
@@ -98,10 +142,11 @@ contributor is the **detector lag**, not the OLA chain: the ratio applied at tim
 4. **Accept and document**: the Hard Tune path preserves vibrato. Then the
    preset documentation must stop claiming a flat vibrato.
 
-Recommendation: measure option 1 with this benchmark and a listening pass; if it
-does not reach a convincing flattening, take option 2 as its own small project
-(the ratio source is a single point in the chain, and the ideal-detector row
-bounds the achievable result).
+Recommendation: wire option 1a (1536/256/median 1) for Hard Tune now - it is
+register-safe and halves the residual - and listen to the two A/B sets. A 1024
+window with a per-voice-type fallback is the next step if the listening asks for
+more; full flatness still requires option 2 (the ratio source is a single point
+in the chain, and the ideal-detector row bounds the achievable result).
 
 ## Reproducing the numbers
 

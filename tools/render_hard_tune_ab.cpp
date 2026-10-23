@@ -153,10 +153,11 @@ namespace
 
     std::vector<Detection> computeTrajectory (const std::vector<float>& x, double sr,
                                              float rangeMin, float rangeMax,
-                                             bool offlineProbe = false)
+                                             int windowSamples = 2048, int hopSamples = 512,
+                                             int medianFrames = 3, bool offlineProbe = false)
     {
-        const int window = juce::jmax (128, (int) std::lround (2048.0 * sr / kRefRate));
-        const int hop    = juce::jmax (32,  (int) std::lround (512.0  * sr / kRefRate));
+        const int window = juce::jmax (128, (int) std::lround ((double) windowSamples * sr / kRefRate));
+        const int hop    = juce::jmax (32,  (int) std::lround ((double) hopSamples * sr / kRefRate));
         const int fifoSize = juce::jmax (4096, window * 2);
         const int decim = 4;
         const int decimWindow = juce::jmax (2, window / decim);
@@ -164,7 +165,7 @@ namespace
         ovtdsp::YinPitchDetector det;
         det.prepare (sr / (double) decim, 512);
         det.setFrequencyRange (rangeMin, rangeMax);
-        det.setMedianFrames (3);
+        det.setMedianFrames (medianFrames);
 
         // The register probe runs with the batch heuristics off: the live
         // anti-octave heuristic can transpose a clean held tone down an octave
@@ -340,9 +341,9 @@ int main (int argc, char* argv[])
 {
     std::printf ("OpenVoxTuner — Hard Tune shifter A/B renderer\n");
 
-    // CLI: [--fixed <semitones>] [input.wav] [output-dir]
+    // CLI: [--fixed <semitones>] [--fast-detector] [input.wav] [output-dir]
     int argIndex = 1;
-    bool fixedMode = false;
+    bool fixedMode = false, fastDetector = false;
     double fixedSemitones = 0.0;
     if (argc > 2 && std::strcmp (argv[1], "--fixed") == 0)
     {
@@ -350,12 +351,24 @@ int main (int argc, char* argv[])
         fixedSemitones = std::atof (argv[2]);
         argIndex = 3;
     }
+    if (argc > argIndex && std::strcmp (argv[argIndex], "--fast-detector") == 0)
+    {
+        fastDetector = true;
+        ++argIndex;
+    }
+
+    // Option 1 (Hard Tune vibrato residual): a shorter analysis window, a shorter
+    // hop and no median. 1536/256/1 is the shortest config that still resolves the
+    // 82.41 Hz bass floor (a 1024 window has no valid YIN minimum there).
+    const int analysisWindow = fastDetector ? 1536 : 2048;
+    const int analysisHop    = fastDetector ? 256 : 512;
+    const int analysisMedian = fastDetector ? 1 : 3;
 
     const juce::File outputDir = (argc > argIndex + 1)
         ? juce::File::getCurrentWorkingDirectory().getChildFile (argv[argIndex + 1])
-        : juce::File::getCurrentWorkingDirectory().getChildFile (fixedMode
-              ? "build/ab_hard_tune_fixed"
-              : "build/ab_hard_tune");
+        : juce::File::getCurrentWorkingDirectory().getChildFile (
+              fixedMode ? "build/ab_hard_tune_fixed"
+                        : (fastDetector ? "build/ab_hard_tune_short" : "build/ab_hard_tune"));
     outputDir.createDirectory();
 
     std::vector<float> input;
@@ -381,7 +394,7 @@ int main (int argc, char* argv[])
     // heuristic can transpose a clean held tone down an octave when the octave-down
     // lag is still inside the search range (see DetectorResponseTest), and a wrong
     // octave would set a 2x correction ratio for the whole render.
-    const auto probe = computeTrajectory (input, sr, 30.0f, 1000.0f, true);
+    const auto probe = computeTrajectory (input, sr, 30.0f, 1000.0f, 2048, 512, 3, true);
     const float median = medianPitch (probe);
 
     std::vector<Detection> trajectory;
@@ -406,8 +419,10 @@ int main (int argc, char* argv[])
             rangeMin = juce::jmax (40.0f, median * 0.6f);
             rangeMax = juce::jmin (2000.0f, median * 1.8f);
         }
-        trajectory = computeTrajectory (input, sr, rangeMin, rangeMax);
-        std::printf ("detected median %.1f Hz; detector range %.0f..%.0f Hz; %d detections\n",
+        trajectory = computeTrajectory (input, sr, rangeMin, rangeMax, analysisWindow, analysisHop, analysisMedian);
+        std::printf ("detector: %d/%d/median %d%s; detected median %.1f Hz; range %.0f..%.0f Hz; %d detections\n",
+                     analysisWindow, analysisHop, analysisMedian,
+                     fastDetector ? " (fast-detector option 1a)" : " (shipped hard tune)",
                      median, rangeMin, rangeMax, (int) trajectory.size());
 
         if (trajectory.empty())

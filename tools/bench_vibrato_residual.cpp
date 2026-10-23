@@ -328,6 +328,55 @@ int main()
     run ("shipped detector + f0 smoothing OFF (fix candidate)", 2048, 512, 3, false, true);
     const auto ideal = run ("IDEAL detector (true pitch; shifter smoothing only)", 2048, 512, 3, true);
 
+    // --- Option 1: a shorter Hard Tune analysis window ------------------------
+    // The residual is proportional to the detector lag (tau), so the shortest
+    // window that still resolves the lowest voice is the interesting candidate.
+    // 1024 samples at 44.1 kHz is 23 ms, i.e. 1.9 periods at 82.41 Hz, so the
+    // detection-stability section below gates that choice.
+    run ("option 1a: 1536/256, median 1", 1536, 256, 1, false);
+    run ("option 1b: 1536/256, median 3", 1536, 256, 3, false);
+    run ("option 1c: 1024/256, median 1", 1024, 256, 1, false);
+    run ("option 1d: 1024/512, median 1", 1024, 512, 1, false);
+
+    // --- Detection stability (the cost of a shorter window) -------------------
+    // A steady harmonic tone per register floor: how accurate and octave-safe is
+    // the detector at each config? Mean |cents| error and gross errors (>100 c).
+    std::printf ("detection accuracy on a steady tone (mean |cents|, max |cents|, gross errors)\n");
+    std::printf ("  %-22s", "config\\f0");
+    const double pitches[] = { 82.41, 110.0, 130.81, 174.61, 261.63 };
+    for (double p : pitches) std::printf ("   %6.0f Hz", p);
+    std::printf ("\n");
+
+    auto detectionQuality = [&] (const char* label, int window, int hop, int median)
+    {
+        std::printf ("  %-22s", label);
+        for (double p : pitches)
+        {
+            const auto tone = makeVibrato (p, 0.0, 0.0, sampleRate, 1.0);
+            const auto dets = detect (tone, sampleRate, window, hop, median,
+                                      (float) (p * 0.7), (float) (p * 1.4));
+            double sum = 0.0, worst = 0.0;
+            int gross = 0;
+            for (const auto& d : dets)
+            {
+                if (d.f0 <= 0.0f) continue;
+                const double c = std::abs (1200.0 * std::log2 ((double) d.f0 / p));
+                sum += c;
+                worst = std::max (worst, c);
+                if (c > 100.0) ++gross;
+            }
+            const double mean = dets.empty() ? 999.0 : sum / (double) dets.size();
+            std::printf ("  %5.1f/%4.0f/%2d", mean, worst, gross);
+        }
+        std::printf ("\n");
+    };
+
+    detectionQuality ("2048/512 med3 (shipped)", 2048, 512, 3);
+    detectionQuality ("2048/512 med1", 2048, 512, 1);
+    detectionQuality ("1536/256 med1", 1536, 256, 1);
+    detectionQuality ("1024/256 med1", 1024, 256, 1);
+    std::printf ("\n");
+
     // --- sanity gates ----------------------------------------------------------
     int failures = 0;
     auto check = [&] (bool ok, const char* what)

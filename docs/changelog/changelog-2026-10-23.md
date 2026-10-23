@@ -508,3 +508,36 @@ not convincing, option 2 as a small dedicated project.
 
 - Bench builds and runs; its sanity gates pass.
 - Documented in `docs/hard-tune-vibrato-residual.md` (Development nav).
+## Analysis - Hard Tune vibrato residual, option 1 (shorter analysis)
+
+### Measurement
+
+The vibrato-residual benchmark gained the option-1 detector configs and a
+steady-tone detection-accuracy section. The shortest register-safe candidate is
+**1536/256/median 1**: residual at 5 Hz drops from 122 % to 58-62 %, at 7 Hz from
+156 % to 81-84 %, and the detector stays accurate at 82.41 Hz (0.1 cents mean,
+max 5, no gross errors). A **1024** window reaches 37-38 % at 5 Hz but cannot
+detect the 82.41 Hz bass note at all (decimated half-window 11.6 ms < 12.14 ms
+period), so it would need a per-voice-type fallback. 1536/256/median 3 is worse
+than median 1 (73 % at 5 Hz): the median itself adds lag.
+
+### Cross-check
+
+`render_hard_tune_ab --fast-detector` (1536/256/1) on the 5 Hz / 30 cent vibrato
+tone: the OLA takes measure 16.0 cents of vibrato instead of 33.2 (dry 27.7),
+matching the benchmark's ~58 % residual. Listening sets:
+`build/ab_hard_tune_short/` vs `build/ab_hard_tune/`, and
+`build/ab_vibrato_short/` vs `build/ab_vibrato/`.
+
+### Decision
+
+Recommend wiring 1536/256/median 1 as the Hard Tune detector config (mode-scoped,
+register-safe, ~2x improvement) and judging it by ear; a per-voice-type 1024
+window and the option-2 ratio source remain the paths to a truly flat vibrato.
+Not wired into the plugin yet: the bool `fastDetector` lives in the A/B renderer,
+not in the processor.
+
+### Testing
+
+- Bench builds, runs and passes its sanity gates.
+- Renderer builds and renders both option-1 sets.
