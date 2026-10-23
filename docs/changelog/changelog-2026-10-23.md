@@ -266,6 +266,12 @@ writing a new shifter, the shipped one and the structural limits were measured.
 - **`docs/low-latency-shifter-analysis.md`**: the audit, the measurements, the
   candidate families (with sources), and the Phase 3 recommendation and
   acceptance criteria. Added to the mkdocs "Development" nav.
+- **`tools/render_hard_tune_ab.cpp`** (new target `render_hard_tune_ab`): renders
+  one Hard Tune correction trajectory through the OLA shifter (with and without
+  the preset formant colour) and through the two-tap probe (2.5 and 4 ms),
+  level-matched, anonymised as `take_01..04.wav` + `key.txt` so the decision is
+  made by ear on a real take. The analysis document gains the listening
+  procedure and the decision rule.
 
 ### Measurements
 

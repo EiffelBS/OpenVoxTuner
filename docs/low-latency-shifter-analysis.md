@@ -171,7 +171,34 @@ risk (the family is 40 years old), medium product risk: the flanging character i
 "exactly the hard-tune attitude" or "cheap", and only ears decide. Plan B is a one-period
 PSOLA gated to F0 ≥ ~180 Hz (~8–10 ms), which does not solve bass.
 
-## 5. Reproducing the benchmark
+## 5. Listening A/B — the decision step
+
+The objective metrics cannot judge flanging, so the decision is made by ear on one take.
+`tools/render_hard_tune_ab.cpp` (target `render_hard_tune_ab`) renders the SAME Hard Tune
+correction trajectory (short YIN window 2048/512, median 3, chromatic snap, no retarget
+smoothing, no speed floor, no ratio-jump duck; the OLA keeps its note-onset mask) through:
+
+- OLA 10 ms with the shipped preset colour (creative Formant +2 st);
+- OLA 10 ms with Formant 0 (separates the formant colour from the shifter);
+- Doppler probe 2.5 ms and 4.0 ms (formants follow pitch; no creative formant).
+
+It is deliberately not the full plugin chain: no detector-side anti-octave filter, no
+de-esser, saturation or limiter, no formant preserver. The variants are level-matched to the
+dry take and written to `build/ab_hard_tune/` (or the directory you pass) as `dry.wav`,
+`take_01..04.wav` (anonymised, shuffled) and `key.txt`. Listen before reading the key.
+
+```powershell
+cmake --build build --config Release --target render_hard_tune_ab
+build\render_hard_tune_ab_artefacts\Release\render_hard_tune_ab.exe               # synthetic phrase
+build\render_hard_tune_ab_artefacts\Release\render_hard_tune_ab.exe mytake.wav    # a real take
+```
+
+What to listen for: sustained notes (flanging/combing, warble at the wrap rate), note attacks
+and splices (clicks), low register, vibrato. Decision rule: if the Doppler is at least as
+convincing as the OLA on a mid/high voice, prototype the separate class (Section 4); if it
+sounds cheap on held notes, stop and spend the effort on the PDC finding instead.
+
+## 6. Reproducing the benchmark
 
 ```powershell
 cmake --build build --config Release --target bench_pitchshift_latency

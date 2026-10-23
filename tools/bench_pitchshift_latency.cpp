@@ -33,6 +33,7 @@
 
 #include "../Source/dsp/PitchShifter.h"
 #include "../Source/dsp/YinPitchDetector.h"
+#include "DopplerProbe.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
@@ -173,92 +174,34 @@ namespace
         }
     };
 
-    /** Two-tap crossfaded delay-line shifter ("Doppler"): the cheapest way to a
-        2-4 ms algorithmic latency. The delay of each tap sweeps linearly and
-        wraps; a triangular crossfade hides the wrap. Quality is expected to be
-        poor - that is exactly the number this benchmark exists to report. */
+    /** Adapter around tools/DopplerProbe.h: the two-tap crossfade probe, behind
+        the benchmark's Shifter interface. Quality is expected to be poor - that
+        is exactly the number this benchmark exists to report. */
     struct DopplerShifter : Shifter
     {
-        std::vector<float> ring;
-        int writeIdx = 0;
-        int written = 0;
-        double minDelay = 0.0;   // samples
-        double sweep = 0.0;      // samples
-        double phase = 0.0;
-        double ratioSmoothed = 1.0;
+        ovtprobe::DopplerShifter probe;
+        double latencyMs = 2.5;
 
         const char* name() const override { return "Doppler 2-tap"; }
 
         void prepare() override
         {
-            ring.assign (1 << 15, 0.0f);
-            writeIdx = 0;
-            written = 0;
-            phase = 0.0;
-            ratioSmoothed = 1.0;
-            setDelays (declaredBaseMs, declaredSweepMs);
-        }
-
-        double declaredBaseMs = 1.0;
-        double declaredSweepMs = 3.0;
-
-        void setDelays (double baseMs, double sweepMs)
-        {
-            declaredBaseMs = baseMs;
-            declaredSweepMs = sweepMs;
-            minDelay = baseMs * kSampleRate / 1000.0;
-            sweep = juce::jmax (1.0, sweepMs * kSampleRate / 1000.0);
+            probe.prepare (kSampleRate);
+            probe.setLatencyMs (latencyMs);
         }
 
         void setDeclaredLatencyMs (double ms) override
         {
-            // Applies to the AVERAGE delay of the shifter: min + sweep/2.
-            setDelays (ms * 0.4, ms * 1.2);
+            latencyMs = ms;
+            probe.setLatencyMs (ms);
         }
 
-        int declaredLatencySamples() const override
-        {
-            return (int) std::lround (minDelay + 0.5 * sweep);
-        }
-
-        float readAt (double delay) const
-        {
-            const double pos = (double) written - delay;
-            const int i0 = (int) std::floor (pos);
-            const double frac = pos - (double) i0;
-            const int mask = (int) ring.size() - 1;
-            const float a = ring[(size_t) (i0 & mask)];
-            const float b = ring[(size_t) ((i0 + 1) & mask)];
-            return (float) ((1.0 - frac) * a + frac * b);
-        }
+        int declaredLatencySamples() const override { return probe.latencySamples(); }
 
         void processBlock (const float* in, float* out, int n, float ratio, float f0) override
         {
             juce::ignoreUnused (f0);
-            for (int i = 0; i < n; ++i)
-            {
-                ratioSmoothed += 0.0005 * ((double) ratio - ratioSmoothed);
-
-                ring[(size_t) (writeIdx & ((int) ring.size() - 1))] = in[i];
-                ++writeIdx;
-                ++written;
-
-                // Delay decreases at (ratio - 1) samples per output sample, so
-                // phase advances at (ratio - 1) / sweep (negative when shifting
-                // up). frac() then makes each tap wrap from max back to min.
-                phase -= (ratioSmoothed - 1.0) / sweep;
-                const double pA = phase - std::floor (phase);
-                const double pB = pA + 0.5 - std::floor (pA + 0.5);
-
-                const double dA = minDelay + sweep * pA;
-                const double dB = minDelay + sweep * pB;
-
-                // Triangular crossfade: the tap that wraps has weight 0.
-                const double gA = 1.0 - std::abs (2.0 * pA - 1.0);
-                const double gB = 1.0 - gA;
-
-                out[i] = (float) (gA * readAt (dA) + gB * readAt (dB));
-            }
+            probe.process (in, out, n, ratio);
         }
     };
 

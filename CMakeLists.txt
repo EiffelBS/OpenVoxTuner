@@ -587,3 +587,26 @@ target_link_libraries(bench_pitchshift_latency PRIVATE
     juce::juce_events
     juce::juce_dsp
 )
+
+# === Hard Tune shifter A/B renderer (console app) ===
+# tools/render_hard_tune_ab.cpp - renders ONE Hard Tune correction trajectory
+# (short YIN window, chromatic snap, no smoothing) through the shipped OLA
+# shifter and through the two-tap low-latency probe, then writes anonymised WAVs
+# plus a key so the shifter difference can be judged by ear on a real take.
+# Analysis tool: not part of the plugin, and no audio file is committed.
+juce_add_console_app(render_hard_tune_ab
+    PRODUCT_NAME "render_hard_tune_ab"
+    VERSION 0.1.0)
+
+target_sources(render_hard_tune_ab PRIVATE
+    tools/render_hard_tune_ab.cpp
+    Source/dsp/PitchShifter.cpp
+    Source/dsp/YinPitchDetector.cpp
+)
+target_link_libraries(render_hard_tune_ab PRIVATE
+    juce::juce_audio_basics
+    juce::juce_audio_formats
+    juce::juce_audio_processors
+    juce::juce_data_structures
+    juce::juce_events
+)
