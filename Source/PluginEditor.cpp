@@ -45,28 +45,40 @@ static void applyMenuLookAndFeel (juce::PopupMenu& m, OvtLookAndFeel& lf)
     m.setLookAndFeel (&lf);
 }
 
-// === Modern / Transparent graphic switch (studio-console style) ===
-// Two-position horizontal switch placed below the Speed/Amount knobs. It is
-// backed by the existing (otherwise invisible) correctionModeButton so the
-// parameter value, undo gesture and external sync (preset load, etc.) are all
-// handled by the existing wiring. A light Timer keeps the visual in sync when
-// the parameter changes from elsewhere.
+// === Modern / Transparent / Hard graphic switch (studio-console style) ===
+// Three-position horizontal switch placed below the Speed/Amount knobs:
+//   Modern / Transparent write the `correction_mode` parameter (false / true),
+//   Hard writes `hard_tune` on and `correction_mode` off.
+// The two parameters stay independent in the APVTS, so host automation on either
+// one keeps working; the switch paints the COMPOSITE state (hard wins over
+// transparent). Backing buttons keep the existing wiring: their ButtonAttachments
+// write the parameters, and the editor owns the undo transaction because onSelect
+// is called ONCE per click (a mode change is a single Ctrl+Z). A light Timer keeps
+// the visual in sync when a parameter changes from elsewhere.
 class CorrectionModeSwitch : public juce::Component,
                              public juce::SettableTooltipClient,
                              private juce::Timer
 {
 public:
-    explicit CorrectionModeSwitch (juce::Button& backingButton)
-        : button (backingButton)
-        , pillPos (backingButton.getToggleState() ? 1.0f : 0.0f)
-        , targetPillPos (pillPos)
+    static constexpr int kNumSegments = 3;
+
+    CorrectionModeSwitch (juce::Button& modeBackingButton,
+                          juce::Button& hardBackingButton)
+        : modeButton (modeBackingButton)
+        , hardButton (hardBackingButton)
     {
         setTooltip (ovt::tr (ovt::Keys::kTooltipCorrection));
         setWantsKeyboardFocus (false);
+        animPos = static_cast<float> (activeSegment());
+        targetPos = animPos;
         startTimerHz (60); // 60 Hz for smooth animation
     }
 
     ~CorrectionModeSwitch() override { stopTimer(); }
+
+    /** Called once per click with the requested composite state. The editor
+        wraps the two parameter writes in one undo transaction. */
+    std::function<void (bool transparent, bool hard)> onSelect;
 
     void paint (juce::Graphics& g) override
     {
@@ -79,61 +91,137 @@ public:
         g.setColour (ebs::text().withAlpha (0.18f));
         g.drawRoundedRectangle (area, radius, 1.0f);
 
-        const float half = area.getWidth() * 0.5f;
-        auto leftRect  = area.withWidth (half);
-        auto rightRect = area.withTrimmedLeft (half);
+        const auto segs = segments();
+        const int active = activeSegment();
 
-        // Sliding accent pill - animated position.
-        const float pillW = half - 4.0f;
-        const float pillX = leftRect.getX() + 2.0f + pillPos * half;
-        auto pillRect = juce::Rectangle<float> (pillX, area.getY() + 2.0f, pillW, area.getHeight() - 4.0f);
+        // Sliding accent pill - animated position AND width, because the three
+        // segments are measured rather than equal thirds (a long translated
+        // label such as the Japanese "トランスペアレント" must not clip).
+        const int from = juce::jlimit (0, kNumSegments - 1, (int) std::floor (animPos));
+        const int to   = juce::jlimit (0, kNumSegments - 1, (int) std::ceil  (animPos));
+        const float t  = juce::jlimit (0.0f, 1.0f, animPos - (float) from);
+        const float cx = segs[(size_t) from].getCentreX()
+                       + (segs[(size_t) to].getCentreX() - segs[(size_t) from].getCentreX()) * t;
+        const float w  = segs[(size_t) from].getWidth()
+                       + (segs[(size_t) to].getWidth() - segs[(size_t) from].getWidth()) * t;
+        auto pillRect = juce::Rectangle<float> (cx - (w - 6.0f) * 0.5f,
+                                                area.getY() + 2.0f,
+                                                juce::jmax (12.0f, w - 6.0f),
+                                                area.getHeight() - 4.0f);
         g.setColour (ebs::accent());
         g.fillRoundedRectangle (pillRect, pillRect.getHeight() * 0.5f);
 
         // Labels: active = white, inactive = dimmed.
-        const float fontH = juce::jmax (9.0f, area.getHeight() * 0.40f);
-        g.setFont (juce::Font (fontH, juce::Font::bold));
-        const bool isTrans = targetPillPos > 0.5f;
-        g.setColour (isTrans ? ebs::text().withAlpha (0.55f) : juce::Colours::white);
-        g.drawText (ovt::tr (ovt::Keys::kLabelModernBtn), leftRect,
-                    juce::Justification::centred);
-        g.setColour (isTrans ? juce::Colours::white : ebs::text().withAlpha (0.55f));
-        g.drawText (ovt::tr (ovt::Keys::kLabelTransparentBtn), rightRect,
-                    juce::Justification::centred);
+        const auto font = segmentFont (area);
+        g.setFont (font);
+        const juce::String labels[kNumSegments] = { ovt::tr (ovt::Keys::kLabelModernBtn),
+                                                    ovt::tr (ovt::Keys::kLabelTransparentBtn),
+                                                    ovt::tr (ovt::Keys::kLabelHardTune) };
+        for (int i = 0; i < kNumSegments; ++i)
+        {
+            g.setColour (i == active ? juce::Colours::white : ebs::text().withAlpha (0.55f));
+            g.drawText (labels[i], segs[(size_t) i], juce::Justification::centred);
+        }
     }
 
-    void mouseUp (const juce::MouseEvent&) override
+    void mouseUp (const juce::MouseEvent& e) override
     {
-        // Toggle the backing button (fires its onClick + ButtonAttachment, which
-        // writes the parameter and triggers the editor's undo gesture).
-        const bool newState = ! button.getToggleState();
-        button.setToggleState (newState, juce::sendNotification);
-        targetPillPos = newState ? 1.0f : 0.0f;
+        const auto segs = segments();
+        int clicked = activeSegment();
+        for (int i = 0; i < kNumSegments; ++i)
+            if (segs[(size_t) i].contains (e.position))
+            {
+                clicked = i;
+                break;
+            }
+
+        if (clicked == activeSegment())
+            return; // already there: no parameter write, no undo entry
+
+        const bool wantTransparent = (clicked == 1);
+        const bool wantHard        = (clicked == 2);
+
+        if (onSelect != nullptr)
+        {
+            onSelect (wantTransparent, wantHard);
+        }
+        else
+        {
+            // Defensive fallback for a future reuse without the editor callback.
+            modeButton.setToggleState (wantTransparent, juce::sendNotification);
+            hardButton.setToggleState (wantHard, juce::sendNotification);
+        }
+        targetPos = (float) clicked;
     }
 
     bool hitTest (int, int) override { return true; }
 
 private:
+    /** Composite state: Hard wins over Transparent, which wins over Modern. */
+    int activeSegment() const noexcept
+    {
+        if (hardButton.getToggleState())
+            return 2;
+        return modeButton.getToggleState() ? 1 : 0;
+    }
+
+    juce::Font segmentFont (juce::Rectangle<float> area) const
+    {
+        // 0.34 x the track height rather than the old 0.40: three labels share the
+        // strip now, and the widest one has to fit its segment in all six locales.
+        return juce::Font (juce::jmax (8.0f, area.getHeight() * 0.34f), juce::Font::bold);
+    }
+
+    std::array<juce::Rectangle<float>, kNumSegments> segments() const
+    {
+        auto area = getLocalBounds().toFloat().reduced (1.0f);
+        const auto font = segmentFont (area);
+        const juce::String labels[kNumSegments] = { ovt::tr (ovt::Keys::kLabelModernBtn),
+                                                    ovt::tr (ovt::Keys::kLabelTransparentBtn),
+                                                    ovt::tr (ovt::Keys::kLabelHardTune) };
+
+        // Natural width (text + air), then scaled to the strip: the long segment
+        // takes the room it needs instead of an equal third that would clip it.
+        std::array<float, kNumSegments> weights {};
+        float total = 0.0f;
+        for (int i = 0; i < kNumSegments; ++i)
+        {
+            weights[(size_t) i] = juce::jmax (24.0f,
+                juce::GlyphArrangement::getStringWidth (font, labels[i]) + 12.0f);
+            total += weights[(size_t) i];
+        }
+
+        std::array<juce::Rectangle<float>, kNumSegments> out {};
+        float x = area.getX();
+        for (int i = 0; i < kNumSegments; ++i)
+        {
+            const float w = area.getWidth() * weights[(size_t) i] / total;
+            out[(size_t) i] = { x, area.getY(), w, area.getHeight() };
+            x += w;
+        }
+        return out;
+    }
+
     void timerCallback() override
     {
-        // Sync with external parameter changes.
-        const bool t = button.getToggleState();
-        const float target = t ? 1.0f : 0.0f;
-        if (std::abs (target - targetPillPos) > 0.001f)
-            targetPillPos = target;
+        // Sync with external parameter changes (preset load, host automation).
+        const float target = static_cast<float> (activeSegment());
+        if (std::abs (target - targetPos) > 0.001f)
+            targetPos = target;
 
-        // Animate pillPos toward targetPillPos.
+        // Animate the pill toward its target segment.
         constexpr float kSmoothing = 0.18f; // ~8-10 frames at 60Hz = smooth but snappy
-        if (std::abs (pillPos - targetPillPos) > 0.001f)
+        if (std::abs (animPos - targetPos) > 0.001f)
         {
-            pillPos += (targetPillPos - pillPos) * kSmoothing;
+            animPos += (targetPos - animPos) * kSmoothing;
             repaint();
         }
     }
 
-    juce::Button& button;
-    float pillPos = 0.0f;      // current animated position [0..1]
-    float targetPillPos = 0.0f; // target position [0..1]
+    juce::Button& modeButton;
+    juce::Button& hardButton;
+    float animPos = 0.0f;    // current animated segment index
+    float targetPos = 0.0f;  // target segment index
 };
 
 const juce::Colour OpenVoxTunerAudioProcessorEditor::kBgDark     = juce::Colour::fromString("#FF121318"); // Deep background
@@ -1609,6 +1697,7 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     // attackAwareAttachment = std::make_unique<...> (...);   // DEPRECATED
     // attackReleaseAttachment = std::make_unique<...> (...); // DEPRECATED
     correctionModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "correction_mode", correctionModeButton);
+    hardTuneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (processorRef.getParameters(), "hard_tune", hardTuneButton);
 
     // === Voice Type combo (Correction block, Advanced area, row 2) ===
     // Same visual style as the other dropdowns (Scale, Key, etc.).
@@ -2389,9 +2478,29 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     };
     addAndMakeVisible (correctionModeButton);
 
-    // Graphic Modern/Transparent switch below the Speed/Amount knobs (console style).
-    // Backed by correctionModeButton so undo + parameter sync are reused.
-    modeSwitch = std::make_unique<CorrectionModeSwitch> (correctionModeButton);
+    // Hard Tune backing button: the third position of the mode switch. Invisible
+    // like correctionModeButton, attached to `hard_tune`. The switch writes both
+    // parameters through the editor callback, in ONE undo transaction.
+    hardTuneButton.setButtonText (ovt::tr (ovt::Keys::kLabelHardTune));
+    hardTuneButton.setClickingTogglesState (true);
+    hardTuneButton.setTooltip (ovt::tr (ovt::Keys::kTooltipCorrection));
+    addAndMakeVisible (hardTuneButton);
+
+    // Graphic Modern / Transparent / Hard switch below the Speed/Amount knobs
+    // (console style). Backed by correctionModeButton + hardTuneButton so the
+    // parameter attachments and external sync are reused unchanged.
+    modeSwitch = std::make_unique<CorrectionModeSwitch> (correctionModeButton, hardTuneButton);
+    modeSwitch->onSelect = [this] (bool transparent, bool hard)
+    {
+        // One user gesture -> one undo entry. The two buttons fire their
+        // ButtonAttachments (which write the parameters); the editor is not
+        // registered as a listener on them, so this snapshot is the only commit.
+        pushUndoAroundCall ([this, transparent, hard]
+        {
+            correctionModeButton.setToggleState (transparent, juce::sendNotification);
+            hardTuneButton.setToggleState (hard, juce::sendNotification);
+        });
+    };
     // The studio-console switch lives inside the Correction frame, like every widget of
     // that block: as a child of the body it paints above the frame and is clipped by it.
     correctionFrame.addAndMakeVisible (*modeSwitch);
@@ -5358,7 +5467,8 @@ void OpenVoxTunerAudioProcessorEditor::registerUndoGestureListeners()
     noiseGateEnableButton.addListener (this);
     // 2026-07-24 (Deprecation): Attack-Aware button listener disabled.
     // attackAwareButton.addListener (this);
-    correctionModeButton.addListener (this);
+    // correctionModeButton is NOT registered here: the mode switch wraps the
+    // correction_mode + hard_tune pair in one pushUndoAroundCall transaction.
     harmonyEnableButton.addListener (this);
     harmonyFollowLeadButton.addListener (this);
     harmonyGainMatchButton.addListener (this);
@@ -5985,6 +6095,7 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("saturation_enable",  saved.saturationEnable ? 1.0f : 0.0f);
     setChoice ("delay_enable",       saved.delayEnable ? 1.0f : 0.0f);
     setChoice ("correction_mode",   saved.correctionMode ? 1.0f : 0.0f);
+    setChoice ("hard_tune",         saved.hardTune ? 1.0f : 0.0f);
 
     // Restore the pitch curve
     if (curveEditor != nullptr)
@@ -6155,6 +6266,11 @@ namespace
         //   - speed 0 is the fastest retune the engine offers;
         //   - vibrato_preserve 0 + humanize 0 leave no modulation alive, so the
         //     voice snaps to the scale grid instead of gliding like a singer.
+        // `hard_tune` 1 switches on the Hard Tune engine path: it bypasses the
+        // 80 ms anti-jitter speed floor, the pitch shifter's attack duck and the
+        // formant preserver, which is what turns the very fast glide into a snap
+        // (see the mode's comment in PluginProcessor.cpp). Without it the preset
+        // still sounds hard-tuned, but with the engine's ~80 ms glide.
         // Formant +2 st is the Cher "chipmunk" colour. The T-Pain flavour is the
         // same sound with the Formant switch off (or +1 st) and less drive; it
         // is documented in docs/reference/presets.md rather than shipped as a
@@ -6167,6 +6283,7 @@ namespace
         // latency. The limiter stays on, as in every factory preset.
         static const std::map<juce::String, float> hardTune = {
             { "speed", 0.0f }, { "amount", 1.0f }, { "correction_mode", 0.0f },
+            { "hard_tune", 1.0f },
             { "flex_tune", 0.0f }, { "humanize", 0.0f }, { "vibrato_preserve", 0.0f },
             { "harmony_enable", 0.0f }, { "double_enable", 0.0f },
             { "formant_enable", 1.0f }, { "formant_mode", 1.0f }, { "formant", 2.0f },

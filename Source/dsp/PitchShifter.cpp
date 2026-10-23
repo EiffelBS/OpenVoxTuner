@@ -510,7 +510,7 @@ namespace ovtdsp
             // currentRatio is buffer-rate and we want to detect the
             // INTENTION of the caller, not the in-block average.
             bool ratioJumpDetected = false;
-            if (attackEnvelopeEnabled && !onsetDetected)
+            if (attackEnvelopeEnabled && ratioJumpEnvelopeEnabled && !onsetDetected)
             {
                 const float ratioDelta = std::abs (pitchRatio - lastPitchRatio);
                 if (ratioDelta > 0.03f) // 3% = ~50 cents at ratio=1

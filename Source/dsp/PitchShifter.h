@@ -59,6 +59,25 @@ namespace ovtdsp
 
         bool isAttackEnvelopeEnabled() const noexcept { return attackEnvelopeEnabled; }
 
+        /** Enable/disable ONLY the ratio-jump arming of the internal envelope.
+         *
+         *  The envelope has two arming paths: note onsets (f0 transitions and
+         *  > 2 semitone jumps) and caller ratio jumps (> 3 % in one block). The
+         *  onset path masks the OLA reorganisation at a note attack and must keep
+         *  running even in Hard Tune - switching the whole envelope off there
+         *  re-opens a measured onset click (max sample jump 0.39 vs 0.10 with the
+         *  envelope on). The ratio-jump path is different: Hard Tune bypasses the
+         *  speed floor, so every semitone becomes a > 3 % step, and without this
+         *  switch the envelope would duck on every single snap - the pre-break
+         *  swell the mode exists to remove. Default: ON (normal path).
+         */
+        void setRatioJumpEnvelopeEnabled (bool enabled) noexcept
+        {
+            ratioJumpEnvelopeEnabled = enabled;
+        }
+
+        bool isRatioJumpEnvelopeEnabled() const noexcept { return ratioJumpEnvelopeEnabled; }
+
         // 2026-07-23: external attack-gain driver (Fix AW - see
         // PluginProcessor.cpp for the call site). When set, the value is
         // used as the BLOCK-LEVEL target for the envelope gain, with a
@@ -183,6 +202,7 @@ namespace ovtdsp
         // Attack envelope state
         float attackMs = 30.0f;
         bool attackEnvelopeEnabled = true; // Disable when an external helper (AttackAwareEnv) owns the envelope.
+        bool ratioJumpEnvelopeEnabled = true; // Hard Tune turns this off; onset arming keeps running
         bool wasVoiced = false;
         float lastF0 = 0.0f; // For detecting sudden pitch jumps (note attacks)
 

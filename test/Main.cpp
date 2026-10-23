@@ -22,6 +22,7 @@
 #include "dsp/KeyBridgeTest.cpp"
 #include "dsp/SidechainBusLayoutTest.cpp"
 #include "dsp/SpeedFloorTest.cpp"
+#include "dsp/HardTuneAttackTest.cpp"
 #include "dsp/FormantPreserverModulationTest.cpp"
 #include "dsp/BlockAwareOnePoleTest.cpp"
 #include "dsp/PerformanceBudgetTest.cpp"

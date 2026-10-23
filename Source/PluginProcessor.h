@@ -569,6 +569,7 @@ private:
     std::atomic<float>* flexTuneParam = nullptr;    // FlexTune deadband (0-100 cents)
     std::atomic<float>* humanizeParam = nullptr;    // Humanize random cents (0-50)
     std::atomic<float>* correctionModeParam = nullptr; // 0=Modern, 1=Transparent        
+    std::atomic<float>* hardTuneParam = nullptr;       // 0=off, 1=Hard Tune mode
     std::atomic<float>* vibratoPreserveParam = nullptr; // Vibrato preservation (0-100%)
     std::atomic<float>* attackAwareParam = nullptr;    // Attack-aware correction enable (bool)
     std::atomic<float>* attackReleaseParam = nullptr;  // Attack-aware release time (ms)
@@ -1004,6 +1005,15 @@ private:
     // perceptibly faster than Speed=100ms (compounded ~14 vs ~36 blocks to
     // reach 90%).
     ovtdsp::BlockAwareOnePole speedFloor;            // 80 ms TC, on `ratio` after retarget
+
+    // Hard Tune mode (2026-10-23): the "Auto-Tune as an instrument" path. When the
+    // `hard_tune` parameter is on, the block bypasses the 80 ms speedFloor above,
+    // switches off the PitchShifter's RATIO-JUMP duck (its onset masking stays on:
+    // it is what keeps note attacks click-free) and skips the FormantPreserver, so
+    // the correction snaps instead of gliding. `hardTuneWasOn` is the edge
+    // detector used to reset the formant preserver when the mode is left, so its
+    // stale filter states cannot click.
+    bool hardTuneWasOn = false;
 
     // Vibrato preservation: smooths the detected pitch to a center reference
     // (vibrato modulation removed) so the correction can preserve the vibrato.

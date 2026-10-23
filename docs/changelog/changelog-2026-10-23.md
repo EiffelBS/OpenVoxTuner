@@ -60,8 +60,8 @@ while its description promised a hard tune.
   the retune envelope (`Source/PluginProcessor.h`, `speedFloor`;
   `test/dsp/SpeedFloorTest.cpp` measures 90 % in 20–45 blocks at 256 samples).
   The preset therefore gives a very fast glide rather than a mathematically
-  instantaneous jump; bypassing the floor for a true snap is a separate DSP
-  change, not part of this preset.
+  instantaneous jump. The Hard Tune mode shipped later the same day removes that
+  floor — see the next section.
 
 ### Testing
 
@@ -73,3 +73,99 @@ while its description promised a hard tune.
   does not compile, so no automated test exercises the new entry; the load is
   checked by the build and by the preset-reference documentation. A manual
   recette (load the preset, read the panel values) remains to be run.
+
+## Feature — Hard Tune mode: the snap path
+
+### Context
+
+The preset delivered the recipe, but the engine still smoothed the correction:
+`Speed 0` only reached 90 % of the target in ~184 ms, because the `speedFloor`
+one-pole (80 ms) runs unconditionally after the retarget envelope, and the
+PitchShifter's attack envelope moves its output gain on every onset and on every
+ratio step. A true "Auto-Tune as an instrument" snap needed an engine path, not
+another preset value.
+
+### What shipped
+
+- **New APVTS parameter `hard_tune`** (bool, default **false**), declared right
+  after `correction_mode` in `Source/PluginProcessor.cpp`. Off by default, so
+  every existing session and every factory preset that does not name it keep the
+  current behaviour.
+- **Processor** (`processBlock` / `syncParameters`):
+  - the retarget `speedFloor` is bypassed with `processBypassed()` (which still
+    stores the live ratio, so leaving the mode resumes from the right value);
+  - the Transparent clamp (Amount × 0.8, Speed floor at 30 ms) is ignored while
+    the mode is on — the mode IS the hard path, the `correction_mode` value only
+    matters when it is off;
+  - `pitchShifter->setRatioJumpEnvelopeEnabled(false)` for the lead shifter and
+    for the doubler copy: the ratio-jump arming is the one that would now fire on
+    every semitone (the floor no longer hides the > 3 % steps), and its duck +
+    recovery is exactly the swell a snap must not have. The ONSET arming stays
+    ON: it masks the OLA reorganisation at note attacks (see the click
+    measurement in the design facts);
+  - the `FormantPreserver` is disabled (it is a zero-latency IIR, so this is a
+    CPU/transient/artefact choice, not a latency one) and is `reset()` when the
+    mode is left so stale biquad states cannot click;
+  - the creative Formant shift keeps working (it lives inside the pitch
+    shifter), so the Cher colour survives the mode.
+- **UI**: the Modern/Transparent console switch is now a **three-position**
+  switch, **Modern | Transparent | Hard**, inside the same 178 × 30 strip. The
+  segment widths are MEASURED from the translated labels at paint time (so the
+  Japanese "トランスペアレント" cannot clip) and the accent pill animates both
+  position and width. One click writes `correction_mode` and `hard_tune` through
+  `pushUndoAroundCall`, so a mode change is a single undo entry. The host
+  parameters stay independent, so automation on either one keeps working.
+- **Morph / A-B**: `hard_tune` is captured in `MorphState`, stepped at 50 % by
+  `applyInterpolatedState`, listed in `getMorphParameterIds()`, persisted as a
+  `hardTune` attribute in the A/B slot XML and applied by `applyMorphState()`.
+- **Preset**: Hard Tune (Cher / T-Pain) now enables `hard_tune`.
+- **Docs**: presets reference (mode row + engine note rewritten), user guide
+  (three-mode table and the hard-tune tip), default parameters, architecture
+  parameter list, preset-morphing table (also corrected its stale "custom scale
+  excluded" row — the notes have been morphed since the coverage test landed).
+- **Test**: new `test/dsp/HardTuneAttackTest.cpp` (4 groups) — the ratio-jump
+  duck exists on the normal path, disappears with the mode, comes back when the
+  mode is left, and the onset mask keeps a note attack click-free.
+
+### Design facts
+
+- **A separate parameter, not a Speed value or inference.** `Speed < 0` would
+  overload a time constant with an engine switch, and inferring the mode from
+  `Speed == 0` would silently change the sound of every existing session that
+  uses Speed 0 for a soft reason. The floor also exists for a reason (it
+  absorbs YIN per-block jitter); the mode must be explicit and opt-in.
+- **The floor bypass alone is not enough, but the whole envelope cannot go.**
+  With the raw ratio step passing through, the shifter's ratio-jump detector
+  (>3 % per block) would arm the envelope on every semitone, so the mode must
+  silence that path. The first implementation disabled the whole envelope and
+  the click test caught the cost: a note onset then jumps by 0.39 of full scale
+  instead of 0.10, because the ONSET arming is also the click mask for the OLA
+  grain reorganisation. The mode therefore disables only the ratio-jump arming
+  (`setRatioJumpEnvelopeEnabled`), and the onset mask keeps working. Measured:
+  the ratio-jump ramp uses the 80 ms slow alpha, so its "15 ms ramp" is a ~17 %
+  amplitude dip followed by a slow recovery — subtle, but precisely the swell
+  that makes a fast tune sound soft.
+- **What still bounds the snap.** The YIN estimate averages a 4096-sample window
+  (~93 ms at 44.1 kHz) and refreshes every 2048 samples (~46 ms); the PSOLA
+  declares 10–30 ms and keeps a ~4.5 ms per-sample ratio smoother. Those are
+  Phase 2 (shorter analysis window/hop, bass caveat) and Phase 3 (a low-latency
+  shifter) of the plan; they are not part of this change.
+- **The formant stage is not a latency lever in OVT.** Auto-Tune's Classic Mode
+  disables its formant/throat modelling, but OVT's preserver is a zero-latency
+  IIR cascade and the only declared latency is the shifter plus the limiter's
+  8 samples. Bypassing it buys CPU, cleaner transients and the raw chipmunk
+  artefact, not milliseconds.
+
+### Testing
+
+- `cmake --build build --config Release --target OpenVoxTuner_Standalone`: OK
+  (PluginEditor.cpp, PluginProcessor.cpp and PitchShifter.h compiled, standalone
+  linked).
+- `cmake --build ... --target OpenVoxTunerTests` then the runner:
+  **Result: 226 OK, 0 FAILED** (222 before, +4 HardTuneAttack groups), including
+  `MorphCoverage` (the new parameter is classified) and
+  `TranslationCompleteness` (the new "Hard" label exists in all six locales).
+- The processor itself is not compiled into the test target, so the
+  `hard_tune` wiring in `processBlock` is covered by the build plus code review,
+  and the DSP behaviour it relies on is covered by `HardTuneAttack`. A manual
+  recette (switch to Hard, play a glide, then leave the mode) remains to be run.

@@ -55,7 +55,7 @@ verbatim.
 | Live Scene | Fast correction, direct monitoring, no effects. | off | off | off |
 | Spoken Voice / Podcast | Gentle correction, gate, strong upward compression. | on, 65% | on, drive 25%, warmth 70% | off |
 | Creative Robot | Hard tune (Modern, Speed 0) with a strong formant shift. | off | on, drive 45%, warmth 20% | off |
-| Hard Tune (Cher / T-Pain) | Hard tune: Modern, Speed 0, 100 %, no vibrato, formant +2 st. | off | on, drive 40%, warmth 25% | off |
+| Hard Tune (Cher / T-Pain) | Hard mode (bypasses the speed floor, the ratio-jump duck and formant preservation): Speed 0, 100 %, no vibrato, formant +2 st. | off | on, drive 40%, warmth 25% | off |
 | Broadcast Voice | Firm gate + 0.8 upward lift for streaming/radio loudness. | on, 80% | on, drive 30%, warmth 60% | off |
 | Breathy Vocals | Airy lo-fi voice: no gate, gentle upward lift, light reverb. | off | on, drive 15%, warmth 80% | lead: room 15% + hall 40%, duck 30% |
 | Lead Vocal | Thickened lead: gate, −3/+3 harmony, reverb, upward compression. | on, 65% | on, drive 35%, warmth 50% | lead: room 15% + hall 45%, duck 35%; harmony: room 10% + hall 30% |
@@ -91,13 +91,16 @@ saturation values a preset sets.
 
 The **Hard Tune (Cher / T-Pain)** factory preset is the "Auto-Tune as an
 instrument" sound: the voice is snapped to the scale grid instead of being
-gently corrected. Three settings carry the effect, and two of them are easy to
-miss because they are not sound-flavoured values:
+gently corrected. The **Hard** position of the correction-mode switch is the
+engine half of it — it bypasses the 80 ms anti-jitter speed floor, the pitch
+shifter's ratio-jump duck (the onset mask stays on, so note attacks do not
+click) and the formant preserver. The other settings
+remove everything that would soften or colour the correction:
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| Correction mode | **Modern** | Transparent (the factory default) multiplies Amount by 0.8 and floors Speed at 30 ms. |
-| Speed | **0 ms** | The fastest retune the engine offers. |
+| Correction mode | **Hard** (switch) | The third position: Modern + the Hard Tune engine path. Transparent (the factory default) multiplies Amount by 0.8 and floors Speed at 30 ms on its own. |
+| Speed | **0 ms** | The fastest retune the engine offers; with Hard Tune the floor no longer overrides it. |
 | Amount | **100 %** | The full correction ratio. |
 | Vibrato Preserve | **0 %** | No modulation survives: the note is corrected against the instantaneous pitch, not a smoothed centre. |
 | Humanize | **0 cents** | No random fluctuation. |
@@ -117,12 +120,12 @@ instrument" effect, enable *Tuning follows MIDI IN* (Options menu) and hold the
 target notes on a MIDI keyboard: the correction target becomes the held note
 instead of the nearest scale note.
 
-**Engine note.** Speed 0 is the fastest setting, but the engine keeps an 80 ms
-anti-jitter one-pole after the retune envelope, so the correction is a very fast
-glide rather than a mathematically instantaneous jump; the robotic character
-comes mainly from the scale quantisation and from the removed vibrato. A truly
-instantaneous snap would need a hard-tune path that bypasses that smoother (not
-shipped).
+**Engine note.** Hard Tune removes the engine's own smoothing, so Speed 0 now
+snaps instead of gliding. What still bounds the response is the pitch detector:
+the YIN estimate averages about 93 ms of audio and refreshes every ~46 ms, so a
+note change is locked within roughly one to two analysis hops. A sub-5 ms
+Auto-Tune-style response would need a shorter analysis window — a separate engine
+change, not a preset value.
 
 ## Curve presets gallery
 

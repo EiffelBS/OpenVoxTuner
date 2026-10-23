@@ -128,7 +128,7 @@ The complete parameter reference (IDs, types, defaults, ranges) is maintained
 in [Default Parameters](default-parameters.md), which is kept in sync with
 `Source/PluginProcessor.cpp`. In summary:
 
-- **Correction**: speed, latency_mode, amount, bypass, mode, correction_mode,
+- **Correction**: speed, latency_mode, amount, bypass, mode, correction_mode, hard_tune,
   pitch_detector
 - **Key / Scale**: key, scale (+ custom0..custom11 for Custom mode),
   key_detect, key_source, companion_group

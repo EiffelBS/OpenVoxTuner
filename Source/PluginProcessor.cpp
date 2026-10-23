@@ -717,6 +717,16 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       // Correction mode: Modern (false) / Transparent (true)
                       , std::make_unique<juce::AudioParameterBool> (
                             "correction_mode", "Correction Mode", true)
+                      // Hard Tune: the "Auto-Tune as an instrument" mode. It bypasses
+                      // the 80 ms anti-jitter speed floor, the pitch shifter's
+                      // ratio-jump duck (the pre-break swell on every semitone) and
+                      // the formant preserver, so the correction snaps instead of
+                      // gliding. It is a separate mode rather than a Speed value
+                      // because it changes the ENGINE path, not a time constant.
+                      // Default off: every existing session and every preset that
+                      // does not name it keeps the current behaviour.
+                      , std::make_unique<juce::AudioParameterBool> (
+                            "hard_tune", "Hard Tune", false)
                       // Vibrato preservation: 0% = classic instantaneous correction,
                       // 100% = correction against the smoothed center pitch so the
                       // vibrato modulation survives.
@@ -841,6 +851,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
     flexTuneParam = parameters.getRawParameterValue ("flex_tune");
     humanizeParam = parameters.getRawParameterValue ("humanize");
     correctionModeParam = parameters.getRawParameterValue ("correction_mode");
+    hardTuneParam = parameters.getRawParameterValue ("hard_tune");
     vibratoPreserveParam = parameters.getRawParameterValue ("vibrato_preserve");
     attackAwareParam = parameters.getRawParameterValue ("attack_aware");
     attackReleaseParam = parameters.getRawParameterValue ("attack_release");
@@ -1579,6 +1590,10 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     // Synchronize parameters with the DSP modules.
     syncParameters();
+
+    // Hard Tune mode: one read per block, used by the amount clamp, the
+    // speed-floor bypass and the formant-preserver bypass below.
+    const bool hardTuneOn = (hardTuneParam != nullptr) && hardTuneParam->load() > 0.5f;
 
     // === Host transport read ===
     // The actual getPlayHead()->getPosition() call now runs on a
@@ -2341,7 +2356,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // updated every audio block and is buffer-size independent.
         amount *= flexTuneSmoother.getCurrentValue();
         int modeCorr = (correctionModeParam != nullptr) ? static_cast<int>(correctionModeParam->load()) : 0;
-        if (modeCorr == 1) // Transparent: 20% less correction
+        if (modeCorr == 1 && ! hardTuneOn) // Transparent: 20% less correction
             amount *= 0.8f;
 
         // DEBUG: log Amount values (once per second)
@@ -2513,7 +2528,17 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         const float blockDur = static_cast<float> (buffer.getNumSamples())
                              / static_cast<float> (currentSampleRate);
-        ratio = speedFloor.step (ratio, blockDur);
+        if (hardTuneOn)
+        {
+            // Hard Tune: no floor at all. processBypassed() still stores the
+            // current ratio, so leaving the mode resumes from the live value
+            // instead of the stale one the smoother last held.
+            ratio = speedFloor.processBypassed (ratio);
+        }
+        else
+        {
+            ratio = speedFloor.step (ratio, blockDur);
+        }
     }
 
     // Store the ratio after smoothing for reuse during micro-pauses.
@@ -2651,7 +2676,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // is the most accurate stable strategy we have today. The LPC code
         // remains in place (LpcFormantPreserver.h/.cpp) for future
         // refinement; see roadmap 8l item LP.7.
-        formantPreserver.setEnabled (true);
+        // Hard Tune skips formant preservation: the pre-warp is a zero-latency IIR
+        // but it smears the transient and counteracts the chipmunk artefact that
+        // the hard-tune sound wants. The creative Formant shift below is separate
+        // and keeps working (it is applied inside the pitch shifter).
+        formantPreserver.setEnabled (! hardTuneOn);
         formantPreserver.setFormantShift (shiftSemitones);
         formantPreserver.process (buffer, ratio);
         pitchShifter->process (buffer, ratio, userFormantRatio, f0_in);
@@ -2659,7 +2688,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     else
     {
         // Current / P0: pre-warp the formants BEFORE the PSOLA pitch shift.
-        formantPreserver.setEnabled (true);
+        formantPreserver.setEnabled (! hardTuneOn);
         formantPreserver.setFormantShift (shiftSemitones);
         formantPreserver.process (buffer, ratio);
         pitchShifter->process (buffer, ratio, userFormantRatio, f0_in);
@@ -4447,9 +4476,10 @@ void OpenVoxTunerAudioProcessor::syncParameters()
     }
 
     // Retargeting speed - modulated by the correction mode.
+    const bool hardTuneOn = (hardTuneParam != nullptr) && hardTuneParam->load() > 0.5f;
     float speed = (speedParam != nullptr) ? speedParam->load() : 50.0f;
     int modeVal = (correctionModeParam != nullptr) ? static_cast<int>(correctionModeParam->load()) : 0;
-    if (modeVal == 1) // Transparent
+    if (modeVal == 1 && ! hardTuneOn) // Transparent
     {
         // Transparent mode: speed floor at 30ms + reduce effective Amount
         // by 20% so the correction is gentler and more natural-sounding
@@ -4457,8 +4487,30 @@ void OpenVoxTunerAudioProcessor::syncParameters()
         speed = juce::jmax (30.0f, speed);
     }
     // Mode Modern (0): no restriction - user speed is applied as-is.
+    // Hard Tune: the mode is read by processBlock, which bypasses the
+    // speedFloor and the Transparent clamp entirely.
     retargetEnvelope->setSpeed (speed);
-    
+
+    // Hard Tune disables ONLY the ratio-jump arming of the shifter's attack
+    // envelope. With the speed floor bypassed, every semitone is a > 3 % ratio
+    // step, so that path would duck on every snap - the swell the mode removes.
+    // The ONSET arming stays on: it masks the OLA reorganisation at a note
+    // attack, and switching the whole envelope off re-opens a measured onset
+    // click (max sample jump 0.39 vs 0.10). The doubler copy follows the lead.
+    if (pitchShifter != nullptr)
+        pitchShifter->setRatioJumpEnvelopeEnabled (! hardTuneOn);
+    if (doublerPitchShifter != nullptr)
+        doublerPitchShifter->setRatioJumpEnvelopeEnabled (! hardTuneOn);
+
+    // Leaving the mode restarts the formant preserver from a clean state: its
+    // biquad states are stale after a stretch with the stage bypassed.
+    if (hardTuneOn != hardTuneWasOn)
+    {
+        if (! hardTuneOn)
+            formantPreserver.reset();
+        hardTuneWasOn = hardTuneOn;
+    }
+
     applyLatencyMode();
 }
 
@@ -5079,6 +5131,7 @@ void OpenVoxTunerAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         slotXml->setAttribute ("outputTrim",       (double) ms.outputTrim);
         slotXml->setAttribute ("limiterEnable",    ms.limiterEnable);
         slotXml->setAttribute ("correctionMode",   ms.correctionMode);
+        slotXml->setAttribute ("hardTune",         ms.hardTune);
         slotXml->setAttribute ("noiseGateEnable",  ms.noiseGateEnable);
         slotXml->setAttribute ("noiseGateThreshold", (double) ms.noiseGateThreshold);
         slotXml->setAttribute ("upwardCompEnable", ms.upwardCompEnable);
@@ -5242,6 +5295,7 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             ms.outputTrim         = (float) slotXml->getDoubleAttribute ("outputTrim", 0.5);
             ms.limiterEnable      = slotXml->getBoolAttribute ("limiterEnable", true);
             ms.correctionMode     = slotXml->getBoolAttribute ("correctionMode", false);
+            ms.hardTune           = slotXml->getBoolAttribute ("hardTune", false);
             ms.noiseGateEnable    = slotXml->getBoolAttribute ("noiseGateEnable", false);
             ms.noiseGateThreshold = (float) slotXml->getDoubleAttribute ("noiseGateThreshold", 0.375);
             ms.upwardCompEnable   = slotXml->getBoolAttribute ("upwardCompEnable", false);

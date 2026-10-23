@@ -488,10 +488,15 @@ private:
     juce::Slider      attackReleaseSlider;  // DEPRECATED: hidden, no attachment
     juce::Label       attackReleaseLabel;   // DEPRECATED: hidden
     juce::TextButton  correctionModeButton;
+    // Backing button for the third position of the correction mode switch
+    // ("Hard"): the switch drives `correction_mode` and `hard_tune` together,
+    // and the two parameters stay independent in the APVTS so host automation
+    // on either one keeps working.
+    juce::TextButton  hardTuneButton;
 
-    // Graphic Modern/Transparent console switch, placed below the Speed/Amount
-    // knobs. Backed by correctionModeButton so the existing undo + parameter
-    // wiring is reused unchanged.
+    // Graphic Modern/Transparent/Hard console switch, placed below the
+    // Speed/Amount knobs. Backed by correctionModeButton + hardTuneButton so the
+    // existing undo + parameter wiring is reused unchanged.
     std::unique_ptr<CorrectionModeSwitch> modeSwitch;
 
     // iPhone-style Live / Curve Editor tab switch, replacing the standard
@@ -596,6 +601,7 @@ private:
     // std::unique_ptr<...::ButtonAttachment> attackAwareAttachment;    // DEPRECATED
     // std::unique_ptr<...::SliderAttachment> attackReleaseAttachment;  // DEPRECATED
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> correctionModeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> hardTuneAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> detectorAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keySourceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> companionGroupAttachment;

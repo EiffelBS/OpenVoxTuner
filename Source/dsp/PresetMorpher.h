@@ -83,6 +83,7 @@ namespace ovtdsp
         float outputTrim = 0.5f;        // normalized "output_trim" (-12..+12 dB): 0.5 = 0 dB
         bool limiterEnable = true;      // "limiter_enable": master peak limiter on/off
         bool correctionMode = false; // false = Modern
+        bool hardTune = false;       // "hard_tune": the Hard Tune engine path
 
         // PitchCurve
         PitchCurve curve;
@@ -163,6 +164,7 @@ namespace ovtdsp
         // Discrete (snap to int): nine divisions, so the normalised value scales by 8.
         if (auto* p = params.getParameter ("delay_division"))       s.delayDivision = (int) std::round (p->getValue() * 8.0f);
         if (auto* p = params.getParameter ("correction_mode"))     s.correctionMode = p->getValue() > 0.5f;
+        if (auto* p = params.getParameter ("hard_tune"))           s.hardTune = p->getValue() > 0.5f;
 
         // Curve (copy)
         s.curve = curve;
@@ -200,6 +202,7 @@ namespace ovtdsp
                         "delay_enable", "delay_division",
                         "output_trim", "limiter_enable",
                         "correction_mode",
+                        "hard_tune",
                         // The twelve notes of a Custom scale: the morph carries the scale DATA, not
                         // just the scale NAME.
                         "custom0", "custom1", "custom2", "custom3", "custom4", "custom5",
@@ -318,6 +321,7 @@ namespace ovtdsp
         setParam ("delay_enable",      lerpOrStep (source.delayEnable ? 1.0f : 0.0f, target.delayEnable ? 1.0f : 0.0f, t));
         setParam ("limiter_enable",    lerpOrStep (source.limiterEnable ? 1.0f : 0.0f, target.limiterEnable ? 1.0f : 0.0f, t));
         setParam ("correction_mode",   lerpOrStep (source.correctionMode ? 1.0f : 0.0f, target.correctionMode ? 1.0f : 0.0f, t));
+        setParam ("hard_tune",         lerpOrStep (source.hardTune ? 1.0f : 0.0f, target.hardTune ? 1.0f : 0.0f, t));
     }
 }
 
