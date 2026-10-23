@@ -28,7 +28,7 @@ build\bench_vibrato_residual_artefacts\Release\bench_vibrato_residual.exe
 
 ## Results
 
-Shipped Hard Tune chain (2048/512, median 3):
+Hard Tune chain before the 2026-10-23 change (2048/512, median 3):
 
 | rate | depth 15 cents | depth 30 cents | depth 50 cents |
 |---|---|---|---|
@@ -56,7 +56,7 @@ Variants:
 
 | config | 5 Hz / 30 c residual | note |
 |---|---|---|
-| shipped 2048/512, median 3 | 122 % | baseline |
+| previous 2048/512, median 3 | 122 % | baseline |
 | median 1 (less lag) | 92 % | cheaper, still not flat |
 | 4096 window, hop 1024 | 187 % | more lag = worse |
 | shipped detector + shifter f0 smoothing OFF | 124 % | proves the shifter's 290 ms f0 one-pole is NOT the cause |
@@ -101,7 +101,7 @@ errors > 100 cents):
 
 | config | 82 Hz | 110 Hz | 131 Hz | 175 Hz | 262 Hz |
 |---|---|---|---|---|---|
-| 2048/512 med3 (shipped) | 0.1 / 2 / 0 | 0.1 / 2 / 0 | 0.1 / 1 / 0 | 0.2 / 1 / 0 | 0.5 / 1 / 0 |
+| 2048/512 med3 (previous) | 0.1 / 2 / 0 | 0.1 / 2 / 0 | 0.1 / 1 / 0 | 0.2 / 1 / 0 | 0.5 / 1 / 0 |
 | 1536/256 med1 | 0.1 / 5 / 0 | 0.2 / 5 / 0 | 0.2 / 5 / 0 | 0.3 / 2 / 0 | 0.5 / 3 / 0 |
 | 1024/256 med1 | **no detections** | 0.2 / 5 / 0 | 0.2 / 5 / 0 | 0.3 / 4 / 0 | 0.6 / 4 / 0 |
 
@@ -124,6 +124,14 @@ reach ~37 % at 5 Hz but needs a per-voice-type fallback (Bass/Universal keep
 1536) and is a bigger, riskier change. Neither reaches the ideal-detector floor
 of 13-33 %: true flatness still needs option 2 (ratio derived from the local
 grain period).
+
+**Wired (2026-10-23).** `Source/PluginProcessor.h` now ships the
+1536/256/median-1 Hard Tune detector (the normal path is untouched). Measured
+side effects with the new config (DetectorResponseTest): note-change lock time
+**55.7 -> 32.5 ms** (the live path stays at 218 ms), YIN cost 0.89 -> 1.29 ms per
+second of audio (0.13 % of one core), and the bass G2 step still locks in
+26.7 ms with 0.0 cents of error. The A/B renderer keeps the previous config as
+its default and exposes the new one as `--fast-detector`.
 
 ## Options (measured or estimated, not implemented)
 
@@ -151,7 +159,7 @@ in the chain, and the ideal-detector row bounds the achievable result).
 ## Reproducing the numbers
 
 ```
-shipped Hard Tune detector (2048/512, median 3)   -> the first table
+previous Hard Tune detector (2048/512, median 3)   -> the first table
 median 1 (less detector lag)
 4096 window, hop 1024, median 3 (more lag)
 shipped detector + f0 smoothing OFF (fix candidate)

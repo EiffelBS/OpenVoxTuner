@@ -1084,10 +1084,16 @@ private:
     // the newest window is analysed.
     static constexpr int analysisWindow = 4096;
     static constexpr int analysisHopSize = 2048; // Calculate YIN every ~46ms to halve CPU load
-    static constexpr int hardTuneAnalysisWindow = 2048;   // ~46 ms of audio at 44.1 kHz
-    static constexpr int hardTuneAnalysisHopSize = 512;  // ~11.6 ms between analyses
+    // Hard Tune detector: the shortest analysis that still resolves the 82.41 Hz
+    // bass floor with a useful margin. 1536/256/median 1 halves the vibrato
+    // residual against the previous 2048/512/median 3 (measured in
+    // tools/bench_vibrato_residual.cpp; a 1024 window cannot detect 82.41 Hz at
+    // all). It also shortens the note-change report further, and scales the
+    // anti-octave persistence window automatically (see syncParameters()).
+    static constexpr int hardTuneAnalysisWindow = 1536;  // ~35 ms of audio at 44.1 kHz
+    static constexpr int hardTuneAnalysisHopSize = 256;  // ~5.8 ms between analyses
     static constexpr int liveMedianFrames = 5;           // YinPitchDetector default
-    static constexpr int hardTuneMedianFrames = 3;       // shorter outlier window follows a step sooner
+    static constexpr int hardTuneMedianFrames = 1;       // no median: shortest lag, halves the vibrato residual
     int lastAppliedMedianFrames = liveMedianFrames;
     int octaveJumpPersistenceFrames = octaveJumpPersistenceThreshold; // hop-scaled, see syncParameters()
     int samplesSinceLastAnalysis = 0;

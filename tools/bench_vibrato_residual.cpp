@@ -322,10 +322,10 @@ int main()
         return rows;
     };
 
-    const auto shipped = run ("shipped Hard Tune detector (2048/512, median 3)", 2048, 512, 3, false);
+    const auto shipped = run ("previous Hard Tune detector (2048/512, median 3)", 2048, 512, 3, false);
     run ("median 1 (less detector lag)", 2048, 512, 1, false);
     run ("4096 window, hop 1024, median 3 (more lag)", 4096, 1024, 3, false);
-    run ("shipped detector + f0 smoothing OFF (fix candidate)", 2048, 512, 3, false, true);
+    run ("previous detector + f0 smoothing OFF (fix candidate)", 2048, 512, 3, false, true);
     const auto ideal = run ("IDEAL detector (true pitch; shifter smoothing only)", 2048, 512, 3, true);
 
     // --- Option 1: a shorter Hard Tune analysis window ------------------------

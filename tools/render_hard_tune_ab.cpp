@@ -10,12 +10,15 @@
 //   Doppler probe 2.5 ms                (tools/DopplerProbe.h; formants follow pitch)
 //   Doppler probe 4.0 ms
 //
-// The correction chain mirrors the Hard Tune mode: YIN detection with the short
-// analysis window (2048/512 at 44.1 kHz, median 3), chromatic quantisation,
-// zero retarget smoothing, no speed floor and no ratio-jump duck (the OLA
-// shifter keeps its note-onset mask). It is NOT the full plugin chain: no
-// detector-side anti-octave filter, no de-esser/saturation/limiter, no formant
-// preserver - so the comparison stays about the shifter itself.
+// The correction chain mirrors the Hard Tune mode: YIN detection with a short
+// analysis window, chromatic quantisation, zero retarget smoothing, no speed
+// floor and no ratio-jump duck (the OLA shifter keeps its note-onset mask). The
+// default detector config is the legacy 2048/512/median 3 (so the earlier A/B
+// sets stay reproducible); `--fast-detector` switches to 1536/256/median 1, the
+// configuration the plugin now ships after the vibrato-residual measurement. It
+// is NOT the full plugin chain: no detector-side anti-octave filter, no
+// de-esser/saturation/limiter, no formant preserver - so the comparison stays
+// about the shifter itself.
 //
 // Outputs are written to <outDir> (default build/ab_hard_tune): dry.wav,
 // take_01.wav .. take_04.wav (anonymised, shuffled order) and key.txt. Listen

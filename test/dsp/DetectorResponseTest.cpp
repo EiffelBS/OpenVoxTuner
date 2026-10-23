@@ -21,7 +21,8 @@
 // Voice Type, not only by tenors.
 //
 // The numbers printed here are the evidence for the Hard Tune analysis
-// configuration in Source/PluginProcessor.cpp (window 2048, hop 512, median 3).
+// configuration in Source/PluginProcessor.cpp (window 1536, hop 256, median 1;
+// the previous config 2048/512/median 3 is kept as the comparison point).
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <chrono>
@@ -199,25 +200,19 @@ public:
         beginTest ("the live analysis config is measured and its costs are printed");
         {
             const Config live { "live", 4096, 2048, 5 };
-            const Config liveMed3 { "live-median3", 4096, 2048, 3 };
-            const Config liveMed1 { "live-median1", 4096, 2048, 1 };
-            const Config shortWindow { "short", 2048, 512, 3 };
-            const Config shortMedian1 { "short-median1", 2048, 512, 1 };
-            const Config shortHop1k { "short-hop1k", 2048, 1024, 3 };
+            // Previous Hard Tune config (2048/512/median 3) and the current one
+            // (1536/256/median 1): the shortest window that still resolves the
+            // 82.41 Hz bass floor, chosen by the vibrato-residual benchmark.
+            const Config hardTuneOld { "hard-tune-old", 2048, 512, 3 };
+            const Config hardTuneNew { "hard-tune", 1536, 256, 1 };
 
-            const auto rLive   = measure (live, 200.0, 220.0, 130.81f, 523.25f);
-            const auto rLive3  = measure (liveMed3, 200.0, 220.0, 130.81f, 523.25f);
-            const auto rLive1  = measure (liveMed1, 200.0, 220.0, 130.81f, 523.25f);
-            const auto rShort  = measure (shortWindow, 200.0, 220.0, 130.81f, 523.25f);
-            const auto rShort1 = measure (shortMedian1, 200.0, 220.0, 130.81f, 523.25f);
-            const auto rShortH = measure (shortHop1k, 200.0, 220.0, 130.81f, 523.25f);
+            const auto rLive = measure (live, 200.0, 220.0, 130.81f, 523.25f);
+            const auto rOld  = measure (hardTuneOld, 200.0, 220.0, 130.81f, 523.25f);
+            const auto rNew  = measure (hardTuneNew, 200.0, 220.0, 130.81f, 523.25f);
 
             logMessage (describe (live, rLive));
-            logMessage (describe (liveMed3, rLive3));
-            logMessage (describe (liveMed1, rLive1));
-            logMessage (describe (shortWindow, rShort));
-            logMessage (describe (shortMedian1, rShort1));
-            logMessage (describe (shortHop1k, rShortH));
+            logMessage (describe (hardTuneOld, rOld));
+            logMessage (describe (hardTuneNew, rNew));
 
             // The live path must actually be slow: if this ever gets fast the
             // premise of the Hard Tune analysis config has moved and the numbers
@@ -226,54 +221,57 @@ public:
                     "the live analysis path (4096/2048/median5) must take tens of ms "
                     "to report a note step (got " + juce::String (rLive.lockMs, 1) + " ms)");
 
-            // The short window + short hop + median 3 must clearly beat it.
-            expect (rShort.lockMs > 0.0 && rShort.lockMs < rLive.lockMs,
-                    "the short-window config must lock sooner than the live one ("
-                    + juce::String (rShort.lockMs, 1) + " vs "
+            // Both Hard Tune configs must clearly beat the live one.
+            expect (rOld.lockMs > 0.0 && rOld.lockMs < rLive.lockMs,
+                    "the previous Hard Tune config must lock sooner than the live one ("
+                    + juce::String (rOld.lockMs, 1) + " vs "
+                    + juce::String (rLive.lockMs, 1) + " ms)");
+            expect (rNew.lockMs > 0.0 && rNew.lockMs < rLive.lockMs,
+                    "the current Hard Tune config must lock sooner than the live one ("
+                    + juce::String (rNew.lockMs, 1) + " vs "
                     + juce::String (rLive.lockMs, 1) + " ms)");
 
-            // Median 1 is the fastest but jitterier; median 3 must already be a
-            // real improvement, and it is the compromise the mode uses.
-            expect (rShort.lockMs <= rShort1.lockMs + 25.0,
-                    "median 3 must stay close to the median-1 lock time ("
-                    + juce::String (rShort.lockMs, 1) + " vs "
-                    + juce::String (rShort1.lockMs, 1) + " ms)");
+            // The new config trades the median for the shortest lag; it must not
+            // be slower than the previous one.
+            expect (rNew.lockMs <= rOld.lockMs + 5.0,
+                    "the current Hard Tune config must not be slower than the previous one ("
+                    + juce::String (rNew.lockMs, 1) + " vs "
+                    + juce::String (rOld.lockMs, 1) + " ms)");
 
-            // The detector cost must stay reasonable: the short config runs four
-            // times more often, so allow a generous 3x the live cost.
-            expect (rShort.detectUsPerSec < rLive.detectUsPerSec * 3.0 + 1000.0,
-                    "the short-window YIN cost must stay within 3x the live cost ("
-                    + juce::String (rShort.detectUsPerSec, 0) + " vs "
+            // Median 1 is jitterier than median 3: it must still stay musical.
+            expect (rNew.jitterCents < 25.0,
+                    "the current Hard Tune steady-note jitter must stay musical ("
+                    + juce::String (rNew.jitterCents, 1) + " cents)");
+
+            // It analyses 8x more often than the live path (hop 256 vs 2048):
+            // allow a generous 8x the live YIN cost.
+            expect (rNew.detectUsPerSec < rLive.detectUsPerSec * 8.0 + 2000.0,
+                    "the current Hard Tune YIN cost must stay within 8x the live cost ("
+                    + juce::String (rNew.detectUsPerSec, 0) + " vs "
                     + juce::String (rLive.detectUsPerSec, 0) + " us/s)");
-
-            // Steady-note jitter must not explode: the hard-tune sound tolerates
-            // a little movement, but not a warble.
-            expect (rShort.jitterCents < 12.0,
-                    "the short-window steady-note jitter must stay musical ("
-                    + juce::String (rShort.jitterCents, 1) + " cents)");
         }
 
-        beginTest ("the short window still detects a bass note (G2, 98 Hz)");
+        beginTest ("the current Hard Tune window still detects a bass note (G2, 98 Hz)");
         {
-            const Config shortWindow { "short", 2048, 512, 3 };
+            const Config hardTuneNew { "hard-tune", 1536, 256, 1 };
             // G2 -> G#2. Not E2: E2 (82.41 Hz) is the exact bottom of the Bass
             // Voice Type range, where the period (133.8 samples at 11.025 kHz)
             // equals maxLag - no configuration can represent it, short window or
             // not, and the measurement would pin a pre-existing range edge.
-            const auto rBass = measure (shortWindow, 98.0, 103.83, 82.41f, 329.63f);
+            const auto rBass = measure (hardTuneNew, 98.0, 103.83, 82.41f, 329.63f);
 
-            logMessage (describe (shortWindow, rBass));
+            logMessage (describe (hardTuneNew, rBass));
 
             // A bass fundamental must be found, not transposed: mean within
             // 20 cents of G2 over the steady part, and a usable lock.
             expect (std::abs (rBass.meanCents) < 20.0,
-                    "the short window must detect G2 at its own octave (mean "
+                    "the Hard Tune window must detect G2 at its own octave (mean "
                     + juce::String (rBass.meanCents, 1) + " cents)");
             expect (rBass.jitterCents < 30.0,
-                    "the short window's G2 jitter must stay usable ("
+                    "the Hard Tune window's G2 jitter must stay usable ("
                     + juce::String (rBass.jitterCents, 1) + " cents)");
             expect (rBass.lockMs > 0.0 && rBass.lockMs < 120.0,
-                    "the short window must lock a bass step in under 120 ms (got "
+                    "the Hard Tune window must lock a bass step in under 120 ms (got "
                     + juce::String (rBass.lockMs, 1) + " ms)");
         }
     }

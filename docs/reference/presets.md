@@ -123,7 +123,7 @@ instead of the nearest scale note.
 **Engine note.** Hard Tune removes the engine's own smoothing, so Speed 0 now
 snaps instead of gliding, and it switches the pitch analysis to a 2048-sample
 window refreshed every 512 samples with a 3-frame median: a note change is
-reported in about **56 ms instead of ~218 ms** (measured by
+reported in about **32 ms instead of ~218 ms** (measured by
 `test/dsp/DetectorResponseTest.cpp`). What still bounds the response is the pitch
 shifter's declared latency (10–30 ms) and its ~4.5 ms per-sample ratio smoother;
 a sub-5 ms Auto-Tune-style response would need a new low-latency shifter.

@@ -4,7 +4,7 @@
 **Benchmark:** `tools/bench_pitchshift_latency.cpp` (target `bench_pitchshift_latency`).
 **Context:** the Hard Tune mode removed the engine's own smoothing (80 ms speed floor,
 ratio-jump duck), which made the pitch detector the dominant delay; the detector was
-shortened in Phase 2 (note-change response 218 ms → 56 ms). The pitch shifter is now the
+shortened in Phase 2 (note-change response 218 ms → 56 ms, now ~32 ms after the 2026-10-23 Hard Tune detector change). The pitch shifter is now the
 last large block: its declared latency is 10–30 ms and the model of a low-latency path
 had never been measured.
 
@@ -238,7 +238,7 @@ PSOLA gated to F0 ≥ ~180 Hz (~8–10 ms), which does not solve bass.
 
 The objective metrics cannot judge flanging, so the decision is made by ear on one take.
 `tools/render_hard_tune_ab.cpp` (target `render_hard_tune_ab`) renders the SAME Hard Tune
-correction trajectory (short YIN window 2048/512, median 3, chromatic snap, no retarget
+correction trajectory (short YIN window; the renderer defaults to the legacy 2048/512/median 3, the plugin now runs 1536/256/no median via `--fast-detector`; chromatic snap, no retarget
 smoothing, no speed floor, no ratio-jump duck; the OLA keeps its note-onset mask) through:
 
 - OLA 10 ms with the shipped preset colour (creative Formant +2 st);
@@ -286,7 +286,7 @@ not implicated.
 
 Decision: **NO-GO for the two-tap delay-line family.** The OLA keeps the shifter role; the
 gain (17 ms -> 2.5 ms) does not buy back the quality, especially when the detection stage
-(56 ms note-change response) dominates the chain. The PDC declaration fix (Section 1.3) is
+(~32 ms note-change response after the 2026-10-23 detector change) dominates the chain. The PDC declaration fix (Section 1.3) is
 the remaining latency action.
 
 What to listen for: sustained notes (flanging/combing, warble at the wrap rate), note attacks

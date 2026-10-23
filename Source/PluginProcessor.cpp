@@ -4532,10 +4532,10 @@ void OpenVoxTunerAudioProcessor::syncParameters()
     }
 
     // Hard Tune's analysis configuration (computeInputPitch uses the short
-    // window/hop): the shorter hop needs the detector's median to follow a step
-    // sooner (3 frames instead of 5), and the anti-octave persistence counter is
-    // expressed in FRAMES - scale it so the ~140 ms register-change window is
-    // preserved at the shorter hop (3 x 2048 = 12 x 512 samples).
+    // window/hop): no median (1 frame) so the target follows a vibrato with the
+    // shortest lag, and the anti-octave persistence counter is expressed in
+    // FRAMES - scale it so the ~140 ms register-change window is preserved at the
+    // shorter hop (3 x 2048 / 256 = 24 frames).
     const int wantedMedian = hardTuneOn ? hardTuneMedianFrames : liveMedianFrames;
     if (wantedMedian != lastAppliedMedianFrames)
     {
@@ -4647,11 +4647,12 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
     if (buffer.getNumChannels() == 0)
         return lastInputPitch.load();
 
-    // Hard Tune analyses the newest 2048 samples every 512 samples (~46 ms window,
-    // ~11.6 ms hop, median 3) instead of the live 4096/2048/5: the measured time to
-    // REPORT a note change drops from ~218 ms to ~56 ms (DetectorResponseTest), and
-    // the YIN cost stays under 1 ms per second of audio. The FIFO length is
-    // unchanged; only the analysed slice moves.
+    // Hard Tune analyses the newest 1536 samples every 256 samples (~35 ms window,
+    // ~5.8 ms hop, no median) instead of the live 4096/2048/5: this is the shortest
+    // window that still resolves the 82.41 Hz bass floor, it halves the vibrato
+    // residual (tools/bench_vibrato_residual.cpp), and it reports a note change
+    // sooner than the previous 2048/512/median 3. The YIN cost stays well under
+    // 1 ms per second of audio. The FIFO length is unchanged; only the slice moves.
     const bool hardTuneOn = (hardTuneParam != nullptr) && hardTuneParam->load() > 0.5f;
     const int windowSize = hardTuneOn ? hardTuneAnalysisWindow : analysisWindow;
     const int hopSize    = hardTuneOn ? hardTuneAnalysisHopSize : analysisHopSize;

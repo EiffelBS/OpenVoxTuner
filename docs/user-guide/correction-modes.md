@@ -45,7 +45,7 @@ These controls shape *how* the correction is applied in both modes.
 |---------|-----------|
 | **Modern** | Tight, aggressive correction — notes are locked to the scale firmly. |
 | **Transparent** | Gentle, subtle correction that preserves more of the natural performance. Transparent also multiplies Amount by 0.8 and ignores Speed below 30 ms, so it can never deliver a hard tune. |
-| **Hard** | The hard-tune engine path: bypasses the 80 ms anti-jitter speed floor, the pitch shifter's ratio-jump duck and the formant preservation, and analyses pitch with a shorter window (a note change is reported in ~56 ms instead of ~218 ms), so the correction snaps instead of gliding. Note attacks keep their click mask. Speed 0 gives the rawest result; use it for the Cher / T-Pain effect. |
+| **Hard** | The hard-tune engine path: bypasses the 80 ms anti-jitter speed floor, the pitch shifter's ratio-jump duck and the formant preservation, and analyses pitch with a shorter window (a note change is reported in ~32 ms instead of ~218 ms), so the correction snaps instead of gliding. Note attacks keep their click mask. Speed 0 gives the rawest result; use it for the Cher / T-Pain effect. |
 
 ### Speed (0 – 200 ms)
 

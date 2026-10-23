@@ -541,3 +541,40 @@ not in the processor.
 
 - Bench builds, runs and passes its sanity gates.
 - Renderer builds and renders both option-1 sets.
+## Change - Hard Tune detector tuned (vibrato residual, option 1a)
+
+### Context
+
+The vibrato-residual measurement showed that the Hard Tune chain retained - and
+above 5 Hz amplified - the singer's vibrato, because the correction ratio is
+computed from a pitch estimate about 41 ms old. Option 1 measured the plausible
+shorter detector configurations: 1536/256/median 1 is the shortest that still
+resolves the 82.41 Hz bass floor, and it roughly halves the residual.
+
+### What shipped
+
+- `Source/PluginProcessor.h`: `hardTuneAnalysisWindow` 2048 -> **1536**,
+  `hardTuneAnalysisHopSize` 512 -> **256**, `hardTuneMedianFrames` 3 -> **1**.
+  The normal (non-Hard-Tune) analysis path is unchanged.
+- The anti-octave persistence counter scales automatically with the hop
+  (3 x 2048 / 256 = 24 frames), so the ~140 ms register-change window is kept.
+- Measured side effects (DetectorResponseTest): note-change lock **55.7 -> 32.5
+  ms** (the live path stays at 218 ms); YIN cost 0.89 -> 1.29 ms per second of
+  audio (~0.13 % of one core); the bass G2 step still locks in 26.7 ms with 0.0
+  cents of error. A 1024 window was rejected: it cannot detect the 82.41 Hz bass
+  note at all (no valid YIN minimum).
+- A/B renderer: its default detector stays the previous 2048/512/median 3 so the
+  earlier listening sets remain reproducible; `--fast-detector` renders the new
+  configuration.
+- Listening (author): on the isolated vibrato tone the new set is clearly less
+  wavy; on the musical phrase there is no flagrant difference (no regression).
+  The "strange third note" heard on the Formant +2 take is **pre-existing**
+  (the creative formant stage) and unrelated to this change.
+
+### Testing
+
+- `DetectorResponseTest` updated to the new configuration: 2 OK / 0 FAILED.
+- Full suite: **234 OK / 0 FAILED**; standalone, tests, bench and renderer build.
+- Docs: user guide (Hard mode), presets reference, default parameters and the
+  low-latency analysis updated with the new ~32 ms response; the vibrato analysis
+  marks option 1a as wired.
