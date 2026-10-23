@@ -178,6 +178,104 @@ void OpenVoxTunerAudioProcessorEditor::startUpdateCheck()
     }).detach();
 }
 
+// === Constructor helpers ===
+// Promoted out of the constructor (step 3 of the source split) so the section
+// methods can share them. Bodies are byte-identical to the local lambdas they
+// replace; only the header line and the indentation changed.
+
+// Helper for creating Drawables from full SVG XML (with viewBox).
+// Uses a placeholder color (#010101) that gets replaced by the desired state color.
+static std::unique_ptr<juce::Drawable> createDrawableSVG (const char* svgChars, juce::Colour strokeColor)
+{
+    auto baseXml = juce::XmlDocument::parse(svgChars);
+    if (baseXml == nullptr) return std::make_unique<juce::DrawablePath>();
+    auto d = juce::Drawable::createFromSVG(*baseXml);
+    if (d == nullptr) return std::make_unique<juce::DrawablePath>();
+    // Replace placeholder color with the desired state color
+    d->replaceColour(juce::Colour(0xff010101), strokeColor);
+    return d;
+}
+
+void OpenVoxTunerAudioProcessorEditor::setupKnob (juce::Slider& s, juce::Label* l, const juce::String& name)
+{
+    s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
+    s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, 20);
+    s.setColour (juce::Slider::rotarySliderFillColourId,    ebs::accent());
+    s.setColour (juce::Slider::rotarySliderOutlineColourId, ebs::accentSoft());
+    s.setColour (juce::Slider::thumbColourId,               juce::Colours::white);
+    s.setColour (juce::Slider::textBoxTextColourId,         ebs::text());
+    s.setColour (juce::Slider::textBoxOutlineColourId,      juce::Colours::transparentBlack);
+    s.setColour (juce::Slider::textBoxBackgroundColourId,   juce::Colours::transparentBlack);
+    addAndMakeVisible (s);
+
+    if (l != nullptr)
+    {
+        l->setText (name, juce::dontSendNotification);
+        l->setJustificationType (juce::Justification::centred);
+        l->setColour (juce::Label::textColourId, ebs::text());
+        l->setFont (ovt::fontCaption());   // a caption in a frame names its knob, it does not shout
+        addAndMakeVisible (*l);
+    }
+}
+
+// Theme-aware icon states: strokes track ebs::text() instead of the old
+// fixed grey/lightgrey/white ramp so toolbar icons stay readable on
+// Light backgrounds too. Registered skins are regenerated on every
+// ebs::setTheme() through restyleIconButtons().
+void OpenVoxTunerAudioProcessorEditor::setupIconButton (juce::DrawableButton& btn, const char* svgChars,
+                                                         bool isToggle, const juce::String& tooltip)
+{
+    // Toolstrip icons sit on THEMED page backgrounds under both
+    // palettes, so rest strokes follow the palette text token.
+    // Only ACTIVE toggle states flip to bright white over the
+    // accent-tinted pill, which reads on any backdrop.
+    auto normal   = createDrawableSVG(svgChars, ebs::text().withAlpha(0.75f));
+    auto over     = createDrawableSVG(svgChars, ebs::text());
+    auto down     = createDrawableSVG(svgChars, ebs::accent());
+
+    // Active state must read against the accent-tinted ON pill under
+    // BOTH themes: bright white glyphs, never palette/accent strokes.
+    if (isToggle) {
+        auto normalOn = createDrawableSVG(svgChars, juce::Colours::white);
+        auto overOn   = createDrawableSVG(svgChars, juce::Colours::white);
+        auto downOn   = createDrawableSVG(svgChars, juce::Colours::white.withAlpha(0.85f));
+        btn.setImages(normal.get(), over.get(), down.get(), nullptr,
+                      normalOn.get(), overOn.get(), downOn.get(), nullptr);
+        btn.setClickingTogglesState(true);
+    } else {
+        btn.setImages(normal.get(), over.get(), down.get());
+    }
+    iconSkins.push_back ({ &btn, svgChars, nullptr, isToggle });
+
+    btn.setTooltip(tooltip);
+    btn.setColour(juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
+    // Solid accent when toggled so the bright-white ON glyphs keep
+    // contrast over themed strips under BOTH palettes.
+    btn.setColour(juce::DrawableButton::backgroundOnColourId, ebs::accent());
+    btn.setColour(juce::DrawableButton::textColourId, juce::Colours::white);
+    btn.setColour(juce::DrawableButton::textColourOnId, juce::Colours::white);
+    addAndMakeVisible(btn);
+}
+
+// Non-toggle toolbar icons are the shared library's IconButton: it owns the
+// glyph, the palette-aware ink and the accent hover, so these buttons need
+// no SVG string, no per-state drawable set and no theme restyling pass.
+void OpenVoxTunerAudioProcessorEditor::setupEbsIcon (ebs::IconButton& btn, const juce::String& tooltip)
+{
+    btn.setTooltip (tooltip);
+    addAndMakeVisible (btn);
+}
+
+// Framed variant for icons sitting in a toolbar row: a real button
+// affordance (body + outline), the same language as the old accent-tinted
+// drawable backgrounds they replace.
+void OpenVoxTunerAudioProcessorEditor::setupFramedIcon (ebs::IconButton& btn, const juce::String& tooltip)
+{
+    btn.setFramed (true);
+    btn.setTooltip (tooltip);
+    addAndMakeVisible (btn);
+}
+
 OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTunerAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
@@ -254,27 +352,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     startUpdateCheck();
 
     // === Configuration of the 4 sliders (rotary knobs) ===
-    auto setupKnob = [this] (juce::Slider& s, juce::Label* l, const juce::String& name)
-    {
-        s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
-        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, 20);
-        s.setColour (juce::Slider::rotarySliderFillColourId,    ebs::accent());
-        s.setColour (juce::Slider::rotarySliderOutlineColourId, ebs::accentSoft());
-        s.setColour (juce::Slider::thumbColourId,               juce::Colours::white);
-        s.setColour (juce::Slider::textBoxTextColourId,         ebs::text());
-        s.setColour (juce::Slider::textBoxOutlineColourId,      juce::Colours::transparentBlack);
-        s.setColour (juce::Slider::textBoxBackgroundColourId,   juce::Colours::transparentBlack);
-        addAndMakeVisible (s);
-
-        if (l != nullptr)
-        {
-            l->setText (name, juce::dontSendNotification);
-            l->setJustificationType (juce::Justification::centred);
-            l->setColour (juce::Label::textColourId, ebs::text());
-            l->setFont (ovt::fontCaption());   // a caption in a frame names its knob, it does not shout
-            addAndMakeVisible (*l);
-        }
-    };
 
     setupKnob (speedSlider,  &speedLabel,  "Speed (ms)");
     translatableLabels.push_back ({ &speedLabel, ovt::Keys::kLabelSpeed    });
@@ -1422,76 +1499,6 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     translatableLabels.push_back ({ &formantStrategyLabel, ovt::Keys::kLabelFormantStrategy });
 
     // UI updates (visibility of custom buttons, etc.) are handled in timerCallback.
-
-    // Helper for creating Drawables from full SVG XML (with viewBox).
-    // Uses a placeholder color (#010101) that gets replaced by the desired state color.
-    auto createDrawableSVG = [](const char* svgChars, juce::Colour strokeColor) -> std::unique_ptr<juce::Drawable> {
-        auto baseXml = juce::XmlDocument::parse(svgChars);
-        if (baseXml == nullptr) return std::make_unique<juce::DrawablePath>();
-        auto d = juce::Drawable::createFromSVG(*baseXml);
-        if (d == nullptr) return std::make_unique<juce::DrawablePath>();
-        // Replace placeholder color with the desired state color
-        d->replaceColour(juce::Colour(0xff010101), strokeColor);
-        return d;
-    };
-
-    // Theme-aware icon states: strokes track ebs::text() instead of the old
-    // fixed grey/lightgrey/white ramp so toolbar icons stay readable on
-    // Light backgrounds too. Registered skins are regenerated on every
-    // ebs::setTheme() through restyleIconButtons().
-    auto setupIconButton = [&] (juce::DrawableButton& btn, const char* svgChars,
-                                bool isToggle, const juce::String& tooltip)
-    {
-        // Toolstrip icons sit on THEMED page backgrounds under both
-        // palettes, so rest strokes follow the palette text token.
-        // Only ACTIVE toggle states flip to bright white over the
-        // accent-tinted pill, which reads on any backdrop.
-        auto normal   = createDrawableSVG(svgChars, ebs::text().withAlpha(0.75f));
-        auto over     = createDrawableSVG(svgChars, ebs::text());
-        auto down     = createDrawableSVG(svgChars, ebs::accent());
-
-        // Active state must read against the accent-tinted ON pill under
-        // BOTH themes: bright white glyphs, never palette/accent strokes.
-        if (isToggle) {
-            auto normalOn = createDrawableSVG(svgChars, juce::Colours::white);
-            auto overOn   = createDrawableSVG(svgChars, juce::Colours::white);
-            auto downOn   = createDrawableSVG(svgChars, juce::Colours::white.withAlpha(0.85f));
-            btn.setImages(normal.get(), over.get(), down.get(), nullptr,
-                          normalOn.get(), overOn.get(), downOn.get(), nullptr);
-            btn.setClickingTogglesState(true);
-        } else {
-            btn.setImages(normal.get(), over.get(), down.get());
-        }
-        iconSkins.push_back ({ &btn, svgChars, nullptr, isToggle });
-
-        btn.setTooltip(tooltip);
-        btn.setColour(juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
-        // Solid accent when toggled so the bright-white ON glyphs keep
-        // contrast over themed strips under BOTH palettes.
-        btn.setColour(juce::DrawableButton::backgroundOnColourId, ebs::accent());
-        btn.setColour(juce::DrawableButton::textColourId, juce::Colours::white);
-        btn.setColour(juce::DrawableButton::textColourOnId, juce::Colours::white);
-        addAndMakeVisible(btn);
-    };
-
-    // Non-toggle toolbar icons are the shared library's IconButton: it owns the
-    // glyph, the palette-aware ink and the accent hover, so these buttons need
-    // no SVG string, no per-state drawable set and no theme restyling pass.
-    auto setupEbsIcon = [&] (ebs::IconButton& btn, const juce::String& tooltip)
-    {
-        btn.setTooltip (tooltip);
-        addAndMakeVisible (btn);
-    };
-
-    // Framed variant for icons sitting in a toolbar row: a real button
-    // affordance (body + outline), the same language as the old accent-tinted
-    // drawable backgrounds they replace.
-    auto setupFramedIcon = [&] (ebs::IconButton& btn, const juce::String& tooltip)
-    {
-        btn.setFramed (true);
-        btn.setTooltip (tooltip);
-        addAndMakeVisible (btn);
-    };
 
     // === SVG icons as full XML strings (Lucide-style, 24x24 viewBox) ===
     // Each uses stroke="#010101" as a placeholder for per-state coloring.

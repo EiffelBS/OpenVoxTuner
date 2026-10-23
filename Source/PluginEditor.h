@@ -244,6 +244,15 @@ private:
     };
     HelpOverlayComponent helpOverlay { *this };
 
+    // === Constructor helpers ===
+    // The constructor builds the whole editor; these builders are the parts several
+    // sections share, so they are methods rather than local lambdas.
+    void setupKnob (juce::Slider& s, juce::Label* l, const juce::String& name);
+    void setupIconButton (juce::DrawableButton& btn, const char* svgChars,
+                          bool isToggle, const juce::String& tooltip);
+    void setupEbsIcon (ebs::IconButton& btn, const juce::String& tooltip);
+    void setupFramedIcon (ebs::IconButton& btn, const juce::String& tooltip);
+
     // === i18n label refresh ===
     struct TranslatableLabel { juce::Label* label; const char* key; };
     std::vector<TranslatableLabel> translatableLabels;
