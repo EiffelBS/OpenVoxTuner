@@ -56,6 +56,7 @@ nav:
   - Development:
     - Build Guide: build-guide.md
     - Tests: testing.md
+    - Low-latency shifter analysis: low-latency-shifter-analysis.md
     - Contributing: contributing.md
   - Reference:
     - DSP API: reference/dsp-api.md

@@ -247,3 +247,68 @@ every config (synthetic tone; the real figure is dominated by the signal).
 - The measurement test is deterministic (fixed signal, fixed hop grid); the YIN
   cost is logged and only bounded loosely (3x) because wall-clock timing is not
   bit-stable across machines.
+
+## Analysis — Phase 3: low-latency pitch shifter benchmark
+
+### Context
+
+Phase 2 left the pitch shifter as the last large delay in the Hard Tune path. Its
+declared latency is 10-30 ms, and "below 5 ms" had never been measured. Before
+writing a new shifter, the shipped one and the structural limits were measured.
+
+### What shipped (analysis only, no production code)
+
+- **`tools/bench_pitchshift_latency.cpp`** (new target `bench_pitchshift_latency`):
+  reports declared vs **effective** latency (AM-envelope cross-correlation), CPU,
+  level, click stress, pitch accuracy, spectral distortion and amplitude warble
+  for the shipped shifter at declared 8/10/12/20/30 ms and at 82/120/200/400 Hz,
+  plus a two-tap crossfaded delay-line prototype at ~2.5 and ~4 ms.
+- **`docs/low-latency-shifter-analysis.md`**: the audit, the measurements, the
+  candidate families (with sources), and the Phase 3 recommendation and
+  acceptance criteria. Added to the mkdocs "Development" nav.
+
+### Measurements
+
+| Config | Effective latency | CPU | Warble |
+|--------|-------------------|-----|--------|
+| Shipped OLA, declared 8 ms, 200 Hz | **16.71 ms** | 5.7 ms/s | 1.8 % |
+| Shipped OLA, declared 10 ms, 200 Hz | **16.87 ms** | 6.5-8.5 ms/s | 1.8 % |
+| Shipped OLA, declared 10 ms, 82 Hz | **29.93 ms** | 3.5-5.2 ms/s | 14.7 % |
+| Shipped OLA, declared 30 ms, 200 Hz | **31.41 ms** | ~10 ms/s | 1.8 % |
+| Doppler two-tap, avg 2.5 ms | **2.47 ms** | ~0.4 ms/s | 2.7 % |
+| Doppler two-tap, avg 4.0 ms | **3.97 ms** | ~0.4 ms/s | 5.4 % |
+
+### Design facts
+
+- **The declared latency is a lower bound.** The grain is rendered forward from
+  the creation sample and its window peaks half a grain later, so the true delay
+  is `declared + 1.25 periods (× formant ratio) − pitch-mark alignment`. That is
+  +6.9 ms at 200 Hz and +19.9 ms at 82 Hz for the declared 10 ms mode. The PDC
+  declaration therefore understates the real delay by 6-20 ms depending on the
+  register; this is a **separate finding** to decide on (conservative declaration
+  and/or read-position compensation), not part of this analysis.
+- **The architecture cannot reach 5 ms.** The grain needs half a grain of
+  lookahead, so `declared >= 1.25 × min period`; at 82 Hz that is 15.2 ms before
+  any margin, and the 10 ms mode already loses 5.8 dB and adds 14.7 % warble
+  there (future-read degradation). Only the delay-line family has a latency
+  independent of F0; every pitch-synchronous method needs at least one period.
+- **A 2.5-4 ms path exists and is cheap.** The two-tap prototype measures
+  2.47/3.97 ms at ~0.04 % of a core, with level, pitch and spectral metrics not
+  worse than the shipped shifter at 200 Hz. The objective metrics do **not**
+  measure the family's flanging/phasiness, so the prototype is an existence
+  proof, not a product decision: a listening test is mandatory.
+- **Recommendation on record**: a separate `LowLatencyPitchShifter` (2 taps,
+  cubic interpolation, correlation-aligned splices, fixed 4 ms declared latency
+  decided in `prepare()`), used only by Hard Tune; formant preservation is not
+  available at that budget (bypass or tilt the knob); ratios > ~3 st route to the
+  quality path. Acceptance criteria and risks are in the analysis document.
+
+### Testing
+
+- `cmake --build build --config Release --target bench_pitchshift_latency`: OK,
+  benchmark runs to completion and its sanity gates pass (effective latency
+  measurable, +1 semitone within 25 cents, level within 6 dB, Doppler faster than
+  the 10 ms mode).
+- No production source was touched, so the unit suite is unchanged (228 OK).
+- Wall-clock CPU figures vary run to run on this machine (shared desktop); only
+  the ranking is used.

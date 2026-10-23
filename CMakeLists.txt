@@ -564,3 +564,26 @@ target_link_libraries(bench_deesser_placement PRIVATE
     juce::juce_events
     juce::juce_dsp
 )
+# === Low-latency pitch-shifter analysis benchmark (console app) ===
+# tools/bench_pitchshift_latency.cpp - Phase 3 of the Hard Tune plan: measures
+# the shipped pitch-synchronous OLA shifter at declared latencies 8/10/12/20/30
+# ms and at fundamentals 82..400 Hz (declared vs EFFECTIVE latency, CPU, level,
+# clicks, pitch accuracy, spectral distortion), and prices the same metrics on a
+# two-tap crossfade delay-line prototype that reaches ~2.5-4 ms. Informational
+# tool: it prints the tables and fails only its own sanity gates.
+juce_add_console_app(bench_pitchshift_latency
+    PRODUCT_NAME "bench_pitchshift_latency"
+    VERSION 0.1.0)
+
+target_sources(bench_pitchshift_latency PRIVATE
+    tools/bench_pitchshift_latency.cpp
+    Source/dsp/PitchShifter.cpp
+    Source/dsp/YinPitchDetector.cpp
+)
+target_link_libraries(bench_pitchshift_latency PRIVATE
+    juce::juce_audio_basics
+    juce::juce_audio_processors
+    juce::juce_data_structures
+    juce::juce_events
+    juce::juce_dsp
+)
