@@ -303,6 +303,12 @@ writing a new shifter, the shipped one and the structural limits were measured.
   worse than the shipped shifter at 200 Hz. The objective metrics do **not**
   measure the family's flanging/phasiness, so the prototype is an existence
   proof, not a product decision: a listening test is mandatory.
+- **Latency-declaration matrix** (declared mode x fundamental, `bench_pitchshift_latency
+  --latency-matrix`): the four shipped modes really run at ~17/18/21/31 ms for a mid voice
+  and at ~30/33/37/34 ms for a bass voice, so the honest replacement is either the
+  mid-voice set or a per-Voice-Type table (Bass 31/35/38/38, Tenor 23/24/24/36, ...).
+  The matrix and the proposed values are in Section 1.3 of the analysis document; the
+  four-mode ladder loses most of its meaning once the numbers are honest.
 - **Recommendation on record**: a separate `LowLatencyPitchShifter` (2 taps,
   cubic interpolation, correlation-aligned splices, fixed 4 ms declared latency
   decided in `prepare()`), used only by Hard Tune; formant preservation is not

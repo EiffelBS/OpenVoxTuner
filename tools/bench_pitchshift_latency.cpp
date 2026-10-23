@@ -523,12 +523,41 @@ namespace
     }
 }
 
-int main()
+int main (int argc, char* argv[])
 {
     std::printf ("OpenVoxTuner — low-latency pitch shifter benchmark\n");
     std::printf ("44.1 kHz, mono, block %d; effective latency from AM-envelope correlation\n", kBlock);
 
     const double ratioUp = 1.0594630943592953; // +1 semitone
+
+    // `--latency-matrix`: the data behind the declared-latency decision. Only the
+    // effective latency is measured (no CPU/spectral metrics), so the full
+    // declared x register grid is quick.
+    if (argc > 1 && std::strcmp (argv[1], "--latency-matrix") == 0)
+    {
+        const double pitches[] = { 65.41, 82.41, 110.0, 130.81, 174.61, 261.63, 400.0 };
+        std::printf ("\neffective latency matrix (ms): declared mode x fundamental\n");
+        std::printf ("  %-8s", "mode\\f0");
+        for (double f : pitches) std::printf (" %8.0f", f);
+        std::printf ("\n");
+        for (double ms : { 8.0, 10.0, 12.0, 20.0, 30.0 })
+        {
+            std::printf ("  %-8.0f", ms);
+            for (double f0 : pitches)
+            {
+                PsolaShifter sh;
+                sh.setDeclaredLatencyMs (ms);
+                sh.prepare();
+                auto am = makeAmSine (f0, 1.6);
+                std::vector<float> out;
+                processAll (sh, am, out, (float) ratioUp, (float) f0);
+                std::printf (" %8.2f", effectiveLatencyMs (am, out));
+            }
+            std::printf ("\n");
+        }
+        std::printf ("\n");
+        return 0;
+    }
 
     // --- 1) shipped shifter: declared latency sweep at a 200 Hz voice ---------
     std::vector<Row> psolaLatency;

@@ -55,14 +55,62 @@ And the same declared 10 ms across registers:
 | 400 Hz | **10.98 ms** | +1.0 ms |
 
 So the **minimum effective latency of the shipped architecture is ~16.7 ms for a 200 Hz
-voice, ~30 ms for a bass voice**, even at the 8 ms clamp. For comparison, a 10 ms declared
-plugin reports 10 ms to the host: the PDC declaration understates the real delay by
-6–20 ms depending on the sung register. This is a separate finding that should be decided
-on its own (declare a conservative value, and/or compensate the read position); a fixed PDC
-cannot track a pitch-dependent delay, but the current gap is larger than a declaration
-choice should be.
+voice, ~26.5 ms for a bass voice at the 8 ms clamp (~30 ms in the 10 ms mode)**, and the
+declared value only becomes a decent approximation at high pitch. For comparison, a 10 ms
+declared plugin reports 10 ms to the host: the PDC declaration understates the real delay by
+6–20 ms depending on the sung register. A fixed PDC cannot track a pitch-dependent delay,
+but the current gap is larger than a declaration choice should be.
 
-### 1.3 Other measured properties (declared 10 ms unless stated)
+### 1.3 What to declare instead (PDC replacement values)
+
+A declaration is what the host compensates, so it must be the **largest** effective delay the
+mode can produce for the notes it will see — not the nominal mode value. Because the delay
+depends on the sung pitch, a single set cannot be right for every register. Measured
+effective latency (ms), declared mode × fundamental, AM-envelope method, +1 semitone:
+
+| declared | 65.4 | 82.4 | 110 | 130.8 | 174.6 | 261.6 | 400 |
+|---|---|---|---|---|---|---|---|
+| 8 | 31.47 | 26.49 | 24.35 | 19.61 | 16.62 | 12.70 | 10.95 |
+| 10 | 36.30 | 29.93 | 24.31 | 21.16 | 18.96 | 12.93 | 10.98 |
+| 12 | 34.97 | 33.29 | 25.90 | 22.72 | 18.44 | 12.81 | 11.22 |
+| 20 | 41.61 | 36.92 | 26.51 | 22.56 | 25.31 | 19.27 | 19.66 |
+| 30 | 46.69 | 34.44 | 37.69 | 34.92 | 33.47 | 28.14 | 28.16 |
+
+The 8 ms row is the internal clamp, not a UI mode; it is kept for the model. The AM-sine
+measurement carries a phase-dependent uncertainty of ±1–2 ms, and the pitch-mark alignment
+(not a bug) makes some rows non-monotone.
+
+**Minimal fix — stop mis-labelling a mid voice:** 10 / 12 / 20 / 30 ms become
+**17 / 18 / 21 / 31 ms** (measured at 200 Hz: 16.71 / 16.87 / 17.57 / 21.36 / 31.41, rounded
+up; the 8 ms clamp is 17 ms too). Exact around 200 Hz, still late by up to ~13 ms at 82 Hz.
+
+**PDC-correct fix — declare per Voice Type at its lowest documented note** (measured value
++1 ms, held monotone in the mode):
+
+| Voice Type (floor) | 10 ms | 12 ms | 20 ms | 30 ms |
+|---|---|---|---|---|
+| Bass (82.41 Hz) | 31 | 35 | 38 | 38 |
+| Baritone (110 Hz) | 26 | 27 | 28 | 39 |
+| Tenor (130.81 Hz) | 23 | 24 | 24 | 36 |
+| Alto (174.61 Hz) | 20 | 20 | 27 | 35 |
+| Soprano (261.63 Hz) | 14 | 14 | 21 | 30 |
+| Universal (vocal floor 82.41) | 31 | 35 | 38 | 38 |
+
+What this implies:
+
+- **The mode ladder loses its meaning at the extremes.** At 262 Hz the 10, 12 and 8 ms modes
+  all measure 12.7–12.9 ms; in the bass, Quality and Safe both land at ~37–38 ms. Three modes
+  (minimal / standard / high quality) would carry the same information with clearer labels.
+- **Universal is the hard case.** Its detector range starts at 30 Hz, where no practical
+  declaration exists (65 Hz already needs 32–47 ms; 30 Hz would need well over 55 ms). Either
+  declare Universal for the 82.41 Hz vocal floor and document that lower inputs are
+  under-declared, or narrow Universal's range to the vocal floor.
+- **Declaring the truth does not make monitoring later** — the delay is already there. It
+  makes the host align the other tracks correctly and the UI number honest, but the mode
+  names must stop promising "10 ms": show the computed value, or rename to quality modes.
+- The real fix is still Phase 3: a 2–4 ms shifter would let the ladder advertise those numbers.
+
+### 1.4 Other measured properties (declared 10 ms unless stated)
 
 | Property | Value |
 |---|---|
@@ -80,7 +128,7 @@ already loses level, adds warble and takes 30 ms of real delay there.
 
 **Conclusion:** the shipped OLA architecture cannot reach 5 ms for a mid voice, and cannot
 reach it for a bass voice at any declared setting. A low-latency path needs another
-algorithm. PDCA/declaration should be revisited separately.
+algorithm. The PDC declaration should be revisited separately (Section 1.3).
 
 ## 2. Candidate algorithm families
 
