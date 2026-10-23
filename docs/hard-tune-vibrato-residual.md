@@ -170,3 +170,27 @@ The `f0 smoothing OFF` row uses `PitchShifter::setF0SmoothingEnabled(false)`, an
 experimental API added for this benchmark (default ON, so the shipped behaviour
 is unchanged). The `IDEAL detector` row feeds the true instantaneous pitch and
 the ratio against it, bypassing the detector entirely.
+
+
+## The "ghost octave" on the Formant +2 take: checked, not a defect
+
+The first listening pass flagged one note of the Formant +2 take as odd, and a
+pitch tracker locked an octave below on it. Isolated reproduction: a steady
+329.63 Hz harmonic tone through `render_hard_tune_ab --fixed 0` (ratio 1.0, no
+detector, so only the shifter colours the tone). Spectrum, level of the half-
+frequency component relative to the fundamental:
+
+| take | 330 Hz | 165 Hz | relative |
+|---|---|---|---|
+| dry | 68.7 dB | -56.1 dB | -125 dB |
+| OLA + Formant +2 | 69.6 dB | -0.4 dB | **-70 dB** |
+| OLA, Formant 0 | 69.2 dB | 5.3 dB | **-64 dB** |
+| Doppler 4.0 / 2.5 ms | 68.7 dB | -57.6 dB | -126 dB |
+
+Conclusion: the half-frequency component is a property of the **OLA itself**
+(its grain pattern is coherent over two input periods), it is **not** formant
+specific (the formant take has it 6 dB *lower*), and at -64 to -70 dB it is
+inaudible. The octave-down reading was a pitch-tracker lock on that weak
+two-period coherence, not audible evidence. The Formant +2 "strange" note is
+therefore the intended creative formant coloration (plus the residual vibrato),
+not a bug to fix.

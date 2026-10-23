@@ -578,3 +578,14 @@ resolves the 82.41 Hz bass floor, and it roughly halves the residual.
 - Docs: user guide (Hard mode), presets reference, default parameters and the
   low-latency analysis updated with the new ~32 ms response; the vibrato analysis
   marks option 1a as wired.
+## Analysis correction - the Formant +2 "ghost octave" is not a defect
+
+The Hard Tune detector entry above attributed the odd third note of the Formant
++2 take to "the creative formant stage". Isolated reproduction on a steady
+329.63 Hz tone (`render_hard_tune_ab --fixed 0`, ratio 1.0) shows the
+half-frequency component is at -70 dB on the formant take and -64 dB on the
+plain OLA take (dry: -125 dB): it is a **generic OLA two-period coherence**, not
+formant specific (the formant take is 6 dB lower), and inaudible. The octave-down
+pitch-tracker reading was a lock on that weak coherence. The Formant +2 note is
+the intended creative coloration plus the residual vibrato; no fix is warranted.
+Records updated in docs/hard-tune-vibrato-residual.md.
