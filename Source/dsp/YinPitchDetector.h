@@ -42,6 +42,17 @@ public:
     float getThreshold() const override { return threshold; }
     juce::String getName() const override { return "YIN"; }
 
+    /** Number of frames used by the outlier-rejection median filter (1..5).
+        Default 5 (the live tuning path). A shorter median follows a real pitch
+        step sooner - the 5-frame median at a 46 ms hop needs two frames before
+        the median itself moves - at the cost of more jitter on a noisy signal.
+        The Hard Tune mode uses 3 with its shorter hop. */
+    void setMedianFrames (int frames)
+    {
+        medianFrames = juce::jlimit (1, MEDIAN_SIZE, frames);
+    }
+    int getMedianFrames() const { return medianFrames; }
+
     /** Update the detection frequency range at runtime (no-op if sampleRate==0).
         Used by the Voice Type selector to constrain the YIN search range to a
         vocal register (Bass, Tenor, Soprano, etc.). Recomputes the lag bounds
@@ -98,6 +109,7 @@ private:
 
     // Anti-octave error: median filter + octave continuity.
     static constexpr int MEDIAN_SIZE = 5;
+    int medianFrames = MEDIAN_SIZE; // 1..5, see setMedianFrames()
     float history[MEDIAN_SIZE] = { 0.0f };
     int historyIdx = 0;
     float lastValidPitch = 0.0f;

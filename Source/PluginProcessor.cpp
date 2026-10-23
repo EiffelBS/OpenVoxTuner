@@ -720,11 +720,13 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                       // Hard Tune: the "Auto-Tune as an instrument" mode. It bypasses
                       // the 80 ms anti-jitter speed floor, the pitch shifter's
                       // ratio-jump duck (the pre-break swell on every semitone) and
-                      // the formant preserver, so the correction snaps instead of
-                      // gliding. It is a separate mode rather than a Speed value
-                      // because it changes the ENGINE path, not a time constant.
-                      // Default off: every existing session and every preset that
-                      // does not name it keeps the current behaviour.
+                      // the formant preserver, and it analyses pitch with the short
+                      // window (2048/512, 3-frame median) so a note change is
+                      // reported in ~56 ms instead of ~218 ms. It is a separate mode
+                      // rather than a Speed value because it changes the ENGINE
+                      // path, not a time constant. Default off: every existing
+                      // session and every preset that does not name it keeps the
+                      // current behaviour.
                       , std::make_unique<juce::AudioParameterBool> (
                             "hard_tune", "Hard Tune", false)
                       // Vibrato preservation: 0% = classic instantaneous correction,
@@ -1735,8 +1737,11 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     // Anti-octave-jump filter: if f0_in jumps by a factor of ~2 or ~0.5
     // relative to the last valid pitch, keep the old value temporarily.
-    // A persistence counter lets REAL register changes through after
-    // ~140 ms of stable detection.
+    // A persistence counter lets REAL register changes through after ~140 ms of
+    // stable detection. The counter is expressed in ANALYSIS FRAMES, so the
+    // frame budget is scaled by the active hop (12 frames at the Hard Tune hop,
+    // 3 at the live one) - otherwise the shorter hop would let octave glitches
+    // through in ~35 ms.
     if (f0_in > 0.0f)
     {
         // If YIN detected silence during its last analysis (lastRawYinPitch=0),
@@ -1758,7 +1763,7 @@ void OpenVoxTunerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             if (isOctaveJump)
             {
                 ++octaveJumpRejectionCount;
-                if (octaveJumpRejectionCount >= octaveJumpPersistenceThreshold)
+                if (octaveJumpRejectionCount >= octaveJumpPersistenceFrames)
                 {
                     lastOctaveValidatedPitch.store (f0_in);
                     octaveJumpRejectionCount = 0;
@@ -4511,6 +4516,26 @@ void OpenVoxTunerAudioProcessor::syncParameters()
         hardTuneWasOn = hardTuneOn;
     }
 
+    // Hard Tune's analysis configuration (computeInputPitch uses the short
+    // window/hop): the shorter hop needs the detector's median to follow a step
+    // sooner (3 frames instead of 5), and the anti-octave persistence counter is
+    // expressed in FRAMES - scale it so the ~140 ms register-change window is
+    // preserved at the shorter hop (3 x 2048 = 12 x 512 samples).
+    const int wantedMedian = hardTuneOn ? hardTuneMedianFrames : liveMedianFrames;
+    if (wantedMedian != lastAppliedMedianFrames)
+    {
+        if (pitchDetectors[0] != nullptr)
+            if (auto* pd = dynamic_cast<ovtdsp::YinPitchDetector*> (pitchDetectors[0].get()))
+                pd->setMedianFrames (wantedMedian);
+        lastAppliedMedianFrames = wantedMedian;
+    }
+    octaveJumpPersistenceFrames = hardTuneOn
+        ? juce::jmax (octaveJumpPersistenceThreshold,
+                      (int) std::lround ((double) octaveJumpPersistenceThreshold
+                                         * (double) analysisHopSize
+                                         / (double) hardTuneAnalysisHopSize))
+        : octaveJumpPersistenceThreshold;
+
     applyLatencyMode();
 }
 
@@ -4607,6 +4632,15 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
     if (buffer.getNumChannels() == 0)
         return lastInputPitch.load();
 
+    // Hard Tune analyses the newest 2048 samples every 512 samples (~46 ms window,
+    // ~11.6 ms hop, median 3) instead of the live 4096/2048/5: the measured time to
+    // REPORT a note change drops from ~218 ms to ~56 ms (DetectorResponseTest), and
+    // the YIN cost stays under 1 ms per second of audio. The FIFO length is
+    // unchanged; only the analysed slice moves.
+    const bool hardTuneOn = (hardTuneParam != nullptr) && hardTuneParam->load() > 0.5f;
+    const int windowSize = hardTuneOn ? hardTuneAnalysisWindow : analysisWindow;
+    const int hopSize    = hardTuneOn ? hardTuneAnalysisHopSize : analysisHopSize;
+
     // Copy the block samples into the FIFO (mono downmix if needed).
     const int numSamples = buffer.getNumSamples();
     float* fifo = analysisFifo.getWritePointer (0);
@@ -4625,14 +4659,14 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
     samplesSinceLastAnalysis += numSamples;
 
     // Window not filled yet: pitch cannot be detected yet.
-    if (fifoFillCount < analysisWindow)
+    if (fifoFillCount < windowSize)
     {
         lastRawYinPitch.store (0.0f);
         return lastInputPitch.load();
     }
 
     // Already analysed recently (hop size): save CPU.
-    if (samplesSinceLastAnalysis < analysisHopSize)
+    if (samplesSinceLastAnalysis < hopSize)
         return lastInputPitch.load();
 
     samplesSinceLastAnalysis = 0;
@@ -4648,11 +4682,13 @@ float OpenVoxTunerAudioProcessor::computeInputPitch (const juce::AudioBuffer<flo
     // 4x decimation to 11025 Hz (44.1k/4) is enough for voice (Nyquist ~5512 Hz).
     // The 4-sample moving average acts as the anti-aliasing filter.
     constexpr int decimation = 4;
-    const int decimatedWindow = analysisWindow / decimation;
+    const int decimatedWindow = windowSize / decimation;
     
-    // Extract FIFO data in chronological order.
-    // When the FIFO is full, fifoWriteIndex points at the oldest sample.
-    int idx = fifoWriteIndex;
+    // Extract the NEWEST `windowSize` samples in chronological order. The FIFO
+    // holds the last 4096 samples, so the slice starts `windowSize` back from the
+    // write head (the write head itself only marks the oldest sample of the FULL
+    // FIFO, which is what the live configuration reads).
+    int idx = (fifoWriteIndex - windowSize + analysisWindow) % analysisWindow;
     for (int i = 0; i < decimatedWindow; ++i)
     {
         float sum = 0.0f;

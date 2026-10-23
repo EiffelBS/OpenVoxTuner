@@ -147,9 +147,9 @@ another preset value.
   that makes a fast tune sound soft.
 - **What still bounds the snap.** The YIN estimate averages a 4096-sample window
   (~93 ms at 44.1 kHz) and refreshes every 2048 samples (~46 ms); the PSOLA
-  declares 10–30 ms and keeps a ~4.5 ms per-sample ratio smoother. Those are
-  Phase 2 (shorter analysis window/hop, bass caveat) and Phase 3 (a low-latency
-  shifter) of the plan; they are not part of this change.
+  declares 10–30 ms and keeps a ~4.5 ms per-sample ratio smoother. Phase 2 (the
+  next section) shortened the analysis the same day; the shifter is Phase 3 and
+  is not part of these changes.
 - **The formant stage is not a latency lever in OVT.** Auto-Tune's Classic Mode
   disables its formant/throat modelling, but OVT's preserver is a zero-latency
   IIR cascade and the only declared latency is the shifter plus the limiter's
@@ -169,3 +169,81 @@ another preset value.
   `hard_tune` wiring in `processBlock` is covered by the build plus code review,
   and the DSP behaviour it relies on is covered by `HardTuneAttack`. A manual
   recette (switch to Hard, play a glide, then leave the mode) remains to be run.
+
+## Feature — Hard Tune analysis path (Phase 2)
+
+### Context
+
+Phase 1 removed the engine's own smoothing (speed floor, ratio-jump duck), which
+left the pitch DETECTOR as the dominant delay. Shortening the analysis window is
+not free - it can destabilise bass notes and it costs CPU - so it was measured
+first: a new test replays the processor's exact analysis chain and reports the
+time to *report* a note change for each candidate configuration.
+
+### Measurements (test/dsp/DetectorResponseTest.cpp)
+
+200 -> 220 Hz step, Tenor search range, harmonic-rich voice-like signal:
+
+| Config | Window | Hop | Median | Lock time | YIN cost |
+|--------|--------|-----|--------|-----------|----------|
+| Live | 4096 | 2048 | 5 | **218.3 ms** | 0.47 ms/s |
+| Live, median 3 | 4096 | 2048 | 3 | 171.8 ms | 0.48 ms/s |
+| Live, median 1 | 4096 | 2048 | 1 | 125.4 ms | 0.47 ms/s |
+| **Hard Tune** | **2048** | **512** | **3** | **55.7 ms** | 0.89 ms/s |
+| Hard, median 1 | 2048 | 512 | 1 | 44.1 ms | 0.89 ms/s |
+| Hard, hop 1024 | 2048 | 1024 | 3 | 78.9 ms | 0.45 ms/s |
+
+"Lock time" is the first reported pitch within 15 cents of the new note that
+stays within 30 cents for 200 ms. Jitter on the steady note is 0.0-0.1 cents for
+every config (synthetic tone; the real figure is dominated by the signal).
+
+### What shipped
+
+- **`YinPitchDetector::setMedianFrames(1..5)`**: the outlier-rejection median
+  becomes configurable (default 5 = the live behaviour, unchanged); the ring is
+  read in chronological order so a shorter window only looks at the newest
+  frames.
+- **Hard Tune analysis path** (`computeInputPitch` / `syncParameters`): while
+  `hard_tune` is on, the analysis uses a 2048-sample window refreshed every 512
+  samples and a 3-frame median; the live path keeps 4096/2048/5. The FIFO stays
+  4096 samples - only the analysed slice moves, starting `windowSize` back from
+  the write head.
+- **The anti-octave guard is hop-scaled**: its persistence counter is expressed
+  in analysis frames, so Hard Tune uses 12 frames instead of 3 to keep the same
+  ~140 ms register-change window (3 x 2048 == 12 x 512 samples). Without this the
+  shorter hop would let octave glitches through in ~35 ms.
+- Docs updated (preset reference engine note, user guide, parameter reference).
+
+### Design facts
+
+- **The 5-frame median was a large, invisible share of the delay.** At the live
+  46 ms hop it spans ~232 ms and only moves after two frames: dropping it alone
+  takes 218 -> 125 ms. The window+hop cut then takes 218 -> 56 ms.
+- **Median 3 is the compromise**: median 1 would save another ~12 ms but only
+  smooths one frame; on real, noisy voice the 3-frame median keeps the hard-tune
+  staircase without exposing per-frame outliers.
+- **CPU is not a concern.** YIN costs 0.47 ms of CPU per second of audio on the
+  live path and 0.89 ms/s in Hard Tune (Tenor range; Universal is higher because
+  the lag search is wider). That is under 0.1 % of one core either way, so the
+  4x analysis rate is affordable.
+- **Bass is safe.** The short window's half-length is 256 samples at 11.025 kHz,
+  so YIN can represent periods down to 43 Hz; G2 (98 Hz) measures 0.0 cents with
+  the same 55.7 ms lock. E2 at the exact bottom of the Bass range (82.41 Hz) is a
+  pre-existing range edge - its period equals `maxLag` - not a short-window
+  regression, and the test says so explicitly.
+- **Why not a 1024-sample window**: it would cut the representable bass to 86 Hz
+  and break Bass/Baritone. 2048 is the shortest window that keeps every Voice
+  Type usable.
+- **What still bounds the snap**: the PSOLA's declared latency (10-30 ms) and its
+  ~4.5 ms per-sample ratio smoother, plus the averaging a pitch estimate
+  inherently needs. A sub-5 ms response remains Phase 3 (a low-latency shifter).
+
+### Testing
+
+- `cmake --build build --config Release --target OpenVoxTuner_Standalone
+  OpenVoxTunerTests`: OK.
+- Full suite: **Result: 228 OK, 0 FAILED** (226 before, +2 DetectorResponse
+  groups / 8 assertions), including the bass case and the YIN-cost bound.
+- The measurement test is deterministic (fixed signal, fixed hop grid); the YIN
+  cost is logged and only bounded loosely (3x) because wall-clock timing is not
+  bit-stable across machines.

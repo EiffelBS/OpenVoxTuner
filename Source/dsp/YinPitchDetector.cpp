@@ -70,16 +70,22 @@ float YinPitchDetector::getMedianFiltered (float newValue)
     history[historyIdx] = newValue;
     historyIdx = (historyIdx + 1) % MEDIAN_SIZE;
 
+    // Median over the last `medianFrames` values, in chronological order (the
+    // ring's write index points at the next free slot, so the newest value is
+    // one slot behind it). With n == 1 this is a plain pass-through, which the
+    // Hard Tune mode can ask for when its shorter hop makes the 5-frame window
+    // dominate the response time.
+    const int n = juce::jlimit (1, MEDIAN_SIZE, medianFrames);
     float sorted[MEDIAN_SIZE];
-    for (int i = 0; i < MEDIAN_SIZE; ++i)
-        sorted[i] = history[i];
+    for (int i = 0; i < n; ++i)
+        sorted[i] = history[(historyIdx - 1 - i + MEDIAN_SIZE) % MEDIAN_SIZE];
 
-    for (int i = 0; i < MEDIAN_SIZE - 1; ++i)
-        for (int j = 0; j < MEDIAN_SIZE - i - 1; ++j)
+    for (int i = 0; i < n - 1; ++i)
+        for (int j = 0; j < n - i - 1; ++j)
             if (sorted[j] > sorted[j + 1])
                 std::swap (sorted[j], sorted[j + 1]);
 
-    return sorted[MEDIAN_SIZE / 2];
+    return sorted[n / 2];
 }
 
 float YinPitchDetector::detectPitch (const float* samples, int numSamples)

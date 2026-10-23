@@ -12,7 +12,7 @@
 | Bypass | `bypass` | Bool | **false** | false / true |
 | Mode | `mode` | Choice | **0 (Live)** | 0=Live, 1=Curve Editor |
 | Correction Mode | `correction_mode` | Bool | **true (Transparent)** | false=Modern, true=Transparent |
-| Hard Tune | `hard_tune` | Bool | **false** | false / true — bypasses the 80 ms anti-jitter speed floor, the pitch shifter's ratio-jump duck and the formant preserver (the Hard position of the mode switch; note attacks keep their click mask) |
+| Hard Tune | `hard_tune` | Bool | **false** | false / true — bypasses the 80 ms anti-jitter speed floor, the pitch shifter's ratio-jump duck and the formant preserver, and switches pitch analysis to the short window (2048/512, 3-frame median); note attacks keep their click mask (the Hard position of the mode switch) |
 | Pitch Detector | `pitch_detector` | Choice | **0 (YIN)** | 0=YIN, 1=Reserved |
 
 ## Key / Scale

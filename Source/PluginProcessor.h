@@ -1009,10 +1009,11 @@ private:
     // Hard Tune mode (2026-10-23): the "Auto-Tune as an instrument" path. When the
     // `hard_tune` parameter is on, the block bypasses the 80 ms speedFloor above,
     // switches off the PitchShifter's RATIO-JUMP duck (its onset masking stays on:
-    // it is what keeps note attacks click-free) and skips the FormantPreserver, so
-    // the correction snaps instead of gliding. `hardTuneWasOn` is the edge
-    // detector used to reset the formant preserver when the mode is left, so its
-    // stale filter states cannot click.
+    // it is what keeps note attacks click-free), skips the FormantPreserver and
+    // analyses pitch with the short window below (2048/512, median 3), so the
+    // correction snaps instead of gliding. `hardTuneWasOn` is the edge detector
+    // used to reset the formant preserver when the mode is left, so its stale
+    // filter states cannot click.
     bool hardTuneWasOn = false;
 
     // Vibrato preservation: smooths the detected pitch to a center reference
@@ -1071,8 +1072,20 @@ private:
 
     // FIFO to accumulate samples for pitch detection.
     // Necessary because the analysis window is larger than the block.
+    // The live path uses a 4096-sample window analysed every 2048 samples (~46 ms
+    // hop). Hard Tune switches to the shorter configuration below: the measured
+    // note-change reporting time drops from ~218 ms to ~56 ms
+    // (test/dsp/DetectorResponseTest.cpp), which is what makes Speed 0 read as a
+    // snap rather than a glide. The FIFO stays at 4096 samples in both modes; only
+    // the newest window is analysed.
     static constexpr int analysisWindow = 4096;
     static constexpr int analysisHopSize = 2048; // Calculate YIN every ~46ms to halve CPU load
+    static constexpr int hardTuneAnalysisWindow = 2048;   // ~46 ms of audio at 44.1 kHz
+    static constexpr int hardTuneAnalysisHopSize = 512;  // ~11.6 ms between analyses
+    static constexpr int liveMedianFrames = 5;           // YinPitchDetector default
+    static constexpr int hardTuneMedianFrames = 3;       // shorter outlier window follows a step sooner
+    int lastAppliedMedianFrames = liveMedianFrames;
+    int octaveJumpPersistenceFrames = octaveJumpPersistenceThreshold; // hop-scaled, see syncParameters()
     int samplesSinceLastAnalysis = 0;
     juce::AudioBuffer<float> analysisFifo;
     int fifoWriteIndex = 0;
