@@ -453,7 +453,10 @@ namespace ovtdsp
                 // the per-grain attack (40%) smooths the start. Without
                 // this, the grain targets a wrong period -> discontinuity
                 // at the note jump.
-                smoothedF0 += kF0SmoothAlpha * (f0 - smoothedF0);
+                if (f0SmoothingEnabled)
+                    smoothedF0 += kF0SmoothAlpha * (f0 - smoothedF0);
+                else
+                    smoothedF0 = f0; // Hard Tune experiment (bench): follow the caller
             }
             else
                 smoothedF0 = 0.0f; // silence: keep 0

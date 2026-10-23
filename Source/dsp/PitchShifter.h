@@ -78,6 +78,16 @@ namespace ovtdsp
 
         bool isRatioJumpEnvelopeEnabled() const noexcept { return ratioJumpEnvelopeEnabled; }
 
+        /** Bypass the internal f0 one-pole (TC ~290 ms, kF0SmoothAlpha) so the
+            grain periods follow the caller's f0 sample by sample. OFF by default:
+            the smoothing is what prevents period jumps when the reported f0 jumps
+            at a note attack. The Hard Tune vibrato-residual benchmark turns it off
+            to isolate the shifter's own share of the residual
+            (tools/bench_vibrato_residual.cpp); the product wiring for Hard Tune is
+            a separate decision. */
+        void setF0SmoothingEnabled (bool enabled) noexcept { f0SmoothingEnabled = enabled; }
+        bool isF0SmoothingEnabled() const noexcept { return f0SmoothingEnabled; }
+
         // 2026-07-23: external attack-gain driver (Fix AW - see
         // PluginProcessor.cpp for the call site). When set, the value is
         // used as the BLOCK-LEVEL target for the envelope gain, with a
@@ -182,6 +192,7 @@ namespace ovtdsp
         // vibrato preservation on the targetRatio, not on smoothedF0).
         float smoothedF0 = 0.0f;
         static constexpr float kF0SmoothAlpha = 0.02f;
+        bool f0SmoothingEnabled = true; // see setF0SmoothingEnabled()
         
         double outPhase = 0.0;
         double lastGrainCenter = 0.0;

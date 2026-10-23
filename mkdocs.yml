@@ -57,6 +57,7 @@ nav:
     - Build Guide: build-guide.md
     - Tests: testing.md
     - Low-latency shifter analysis: low-latency-shifter-analysis.md
+  - Hard Tune vibrato residual: hard-tune-vibrato-residual.md
     - Contributing: contributing.md
   - Reference:
     - DSP API: reference/dsp-api.md

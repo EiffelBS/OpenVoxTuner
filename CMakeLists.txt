@@ -610,3 +610,24 @@ target_link_libraries(render_hard_tune_ab PRIVATE
     juce::juce_data_structures
     juce::juce_events
 )
+
+# === Hard Tune vibrato-residual benchmark (console app) ===
+# tools/bench_vibrato_residual.cpp - how much of a 3-7 Hz vibrato survives the
+# Hard Tune chain (short YIN window, chromatic snap, instant ratio), and which
+# part of the residual comes from the detector vs the shifter's own f0
+# smoothing. Informational: prints tables and fails only its own sanity gates.
+juce_add_console_app(bench_vibrato_residual
+    PRODUCT_NAME "bench_vibrato_residual"
+    VERSION 0.1.0)
+
+target_sources(bench_vibrato_residual PRIVATE
+    tools/bench_vibrato_residual.cpp
+    Source/dsp/PitchShifter.cpp
+    Source/dsp/YinPitchDetector.cpp
+)
+target_link_libraries(bench_vibrato_residual PRIVATE
+    juce::juce_audio_basics
+    juce::juce_audio_processors
+    juce::juce_data_structures
+    juce::juce_events
+)

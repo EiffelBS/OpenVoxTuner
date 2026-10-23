@@ -458,3 +458,53 @@ latency ladder that does not exist; the extra entry only added a decision.
   ("Direct Monitoring", "Low Latency", "Quality", "Safe"). Rewriting them means
   changing the parameter definition, which breaks state compatibility; it is left
   for a future major version.
+## Analysis - Hard Tune vibrato residual
+
+### Question
+
+The Hard Tune preset (Speed 0, Vibrato 0) promises a flat, robotic pitch. How
+much of a singer's vibrato does the chain actually remove?
+
+### Method
+
+New `tools/bench_vibrato_residual.cpp` (target `bench_vibrato_residual`): a
+synthetic 220 Hz harmonic tone with a sinusoidal vibrato (3-7 Hz, 15-50 cents)
+rendered through the same chain as the plugin (YIN 2048/512 median 3, chromatic
+quantisation, instant ratio, OLA shifter at 10 ms with the ratio-jump duck off);
+input and output vibrato depth are measured with the same fine YIN tracker.
+
+### Findings
+
+- The shipped chain does not flatten vibrato. Residual (output/input depth):
+  82-77 % at 3 Hz, ~100 % at 4 Hz, 125-119 % at 5 Hz, 143-138 % at 6 Hz,
+  157-153 % at 7 Hz. From ~4 Hz upward the output vibrato is *deeper* than the
+  input.
+- The residual follows `2 * A * sin(pi * f_vib * tau)` with **tau ~= 41-42 ms**,
+  the detector lag (half of the 46 ms analysis window + hop + median 3 + block
+  hold). It is independent of the vibrato depth.
+- The shifter's internal 290 ms f0 one-pole is not the cause: bypassing it
+  (`setF0SmoothingEnabled(false)`, a new experimental API, default ON) changes
+  the residual by 1-2 points only.
+- With a zero-lag (ideal) detector the residual drops to 13-33 % (3-12 cents),
+  so the detector lag is the dominant contributor and the achievable floor is
+  the rest of the chain.
+- Detector settings matter in the expected direction: median 1 improves (5 Hz:
+  92 %), a 4096 window worsens (187 %).
+
+### Options recorded (not implemented)
+
+1. Shorten the Hard Tune detector further (1536/1024, hop 256, median 1):
+   estimated tau 20-26 ms, residual at 5 Hz ~60-77 %; bass stability (82 Hz,
+   1.9 periods in 1024 samples) must be measured before shipping.
+2. Derive the ratio from the local period at the shifter's grain read position
+   (aligned by construction, ~0 residual) - a real DSP change.
+3. Delay the audio by tau (clean math, unacceptable latency).
+4. Accept and document that the Hard Tune path preserves vibrato.
+
+Recommendation: measure option 1 with the benchmark plus a listening pass; if
+not convincing, option 2 as a small dedicated project.
+
+### Testing
+
+- Bench builds and runs; its sanity gates pass.
+- Documented in `docs/hard-tune-vibrato-residual.md` (Development nav).
