@@ -335,3 +335,34 @@ writing a new shifter, the shipped one and the structural limits were measured.
 - No production source was touched, so the unit suite is unchanged (228 OK).
 - Wall-clock CPU figures vary run to run on this machine (shared desktop); only
   the ranking is used.
+## Analysis - Phase 3 verdict: no low-latency shifter
+
+### Listening result
+
+The author listened to both A/B sets (the detuned Hard Tune phrase and the
+`--fixed 2` stress set). The two OLA takes sound transparent - the dry take with
+the corrected pitch - while the two delay-line takes (2.5 ms and 4.0 ms) sound
+audibly degraded: "doubled" (the two crossfaded taps comb-filter the voice,
+adding a second image) and "bitcrushed" (the fractional-delay interpolation
+artifacts). The earlier "wobble" on the Formant +2 take did not reappear on the
+fixed (correctly phased, detuned) phrase, so the creative formant stage is not
+implicated.
+
+### Decision
+
+**NO-GO for the two-tap delay-line low-latency path.** The family's predicted
+cost is audible and unacceptable, and the gain (17 ms -> 2.5 ms) does not buy
+back the quality - all the more so as the detection stage now dominates the
+chain (56 ms note-change response, Phase 2). The shipped OLA shifter keeps its
+role and its 10-30 ms modes; the remaining latency work is the PDC declaration
+fix (analysis document, Section 1.3), not a new shifter.
+
+### What remains open
+
+- The PDC declaration: replace 10/12/20/30 with the honest values (mid-voice
+  17/18/21/31 ms; the per-Voice-Type table for full correctness).
+- The residual vibrato: the 46 ms analysis window cannot follow a 5 Hz vibrato,
+  so the Hard Tune path leaves a phase-shifted vibrato residual. This is a
+  detection limitation, not a shifter one, and deserves its own measurement.
+- No further shifter work: a phase-vocoder path needs about 12 ms (not better
+  than the OLA for this purpose), and the two-tap family is closed.

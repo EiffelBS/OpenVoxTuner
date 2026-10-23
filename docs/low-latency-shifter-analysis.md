@@ -180,6 +180,15 @@ with crossfade rates from 2 ms to 200 ms in the Eventide lineage ([H9 guide](htt
 
 ## 4. Recommendation
 
+> **Decision (2026-10-23): NO-GO.** The listening A/B (Section 5) closed this
+> recommendation: the two delay-line takes (2.5 ms and 4.0 ms) sound audibly degraded -
+> "doubled" (the two crossfaded taps are a comb) and "bitcrushed" (fractional-delay
+> interpolation artifacts) - while the two OLA takes sound like the dry take with the
+> corrected pitch. The family is dropped as a product path. The OLA shifter stays, the
+> residual latency is accepted as structural, and the PDC declaration (Section 1.3) becomes
+> the remaining latency action. The rest of this section is kept as the record of the
+> evaluated design.
+
 **Build a separate `LowLatencyPitchShifter` class for Hard Tune; do not bend the OLA
 shifter.** The existing class is structurally a 10–30 ms algorithm (grain size, pitch-mark
 search, ring alignment) and every parameter that makes it good at 10–30 ms works against
@@ -259,6 +268,20 @@ at 220 Hz within 1 cent, the Doppler 2.5 ms probe at +7 cents (linear interpolat
 detuned phrase the takes do correct the mean pitch; a residual vibrato remains because the
 46 ms analysis window cannot follow a 5 Hz vibrato, and that residual is part of what the
 listener judges.
+
+**Result (author listening, 2026-10-23).** On the detuned phrase, the two OLA takes
+(`take_02` Formant +2, `take_03` Formant 0) sound like the dry take with the correct pitch -
+transparent correction, no audible degradation. The two delay-line takes (`take_01` 4.0 ms,
+`take_04` 2.5 ms) are audibly worse: "doubled" (the two crossfaded taps comb-filter the voice)
+and "bitcrushed" (fractional-delay interpolation). That is exactly the cost the research
+predicted, and it is not acceptable for a shipping path. `take_02`'s earlier "wobble" did not
+reappear on the fixed (detuned, correctly phased) phrase, so the creative Formant +2 stage is
+not implicated.
+
+Decision: **NO-GO for the two-tap delay-line family.** The OLA keeps the shifter role; the
+gain (17 ms -> 2.5 ms) does not buy back the quality, especially when the detection stage
+(56 ms note-change response) dominates the chain. The PDC declaration fix (Section 1.3) is
+the remaining latency action.
 
 What to listen for: sustained notes (flanging/combing, warble at the wrap rate), note attacks
 and splices (clicks), low register, vibrato. Decision rule: if the Doppler is at least as
