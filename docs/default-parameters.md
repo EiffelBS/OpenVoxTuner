@@ -1,6 +1,7 @@
 # Default Parameters Reference — OpenVoxTuner v0.1.1+
 
-> Kept in sync with `Source/PluginProcessor.cpp`. Last updated: 2026-07-29.
+> Kept in sync with `Source/PluginParameters.cpp` (the parameter table).
+> Last updated: 2026-07-29.
 
 ## Audio Processing
 
@@ -229,7 +230,7 @@ scale (an ARA buffer can exceed ±1) are compressed into the curve before shapin
 
 ## Plugin Presets (Factory)
 
-The factory plugin presets are defined in `Source/PluginEditor.cpp`
+The factory plugin presets are defined in `Source/PluginEditorPresets.cpp`
 (`getFactoryPluginPresetNames()` / `getFactoryPluginPresetOverrides()`) and
 catalogued, with their exact overrides, in
 [docs/reference/presets.md](reference/presets.md#factory-plugin-presets). That

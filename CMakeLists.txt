@@ -215,6 +215,13 @@ target_compile_definitions(OpenVoxTuner PRIVATE
 target_sources(OpenVoxTuner PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
+    # The processor is split by domain too: state persistence, ARA metadata and the
+    # parameter table each own a translation unit. PluginProcessorInternal.h carries
+    # what they share (OVT_LOG and the parameter-layout declaration).
+    Source/PluginProcessorState.cpp
+    Source/PluginProcessorAra.cpp
+    Source/PluginParameters.cpp
+    Source/PluginProcessorInternal.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
     # The editor is split by domain. PluginEditor.cpp keeps the lifecycle, paint,

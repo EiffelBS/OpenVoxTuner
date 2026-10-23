@@ -19,6 +19,10 @@ detailed in the dedicated [DSP Pipeline](architecture/dsp-pipeline.md) page.
 ```
 Source/
   PluginProcessor.h / .cpp        # Audio pipeline (DSP entry point)
+  PluginProcessorState.cpp        # DSP: state save/load + VST3 bundle dump
+  PluginProcessorAra.cpp          # DSP: ARA metadata reading
+  PluginParameters.cpp            # DSP: the parameter table (createParameterLayout)
+  PluginProcessorInternal.h       # DSP: OVT_LOG + parameter-layout declaration
   PluginEditor.h / .cpp           # GUI (visual entry point)
   PluginEditorHelp.cpp            # GUI: keyboard-shortcuts overlay definitions
   PluginEditorLayout.cpp          # GUI: resized() + bottom-band widths
@@ -138,7 +142,8 @@ The mode is saved in the plugin state via the "mode" parameter (AudioParameterCh
 
 The complete parameter reference (IDs, types, defaults, ranges) is maintained
 in [Default Parameters](default-parameters.md), which is kept in sync with
-`Source/PluginProcessor.cpp`. In summary:
+`Source/PluginParameters.cpp` (the `createParameterLayout()` table that the
+processor constructor hands to the APVTS). In summary:
 
 - **Correction**: speed, latency_mode, amount, bypass, mode, correction_mode, hard_tune,
   pitch_detector

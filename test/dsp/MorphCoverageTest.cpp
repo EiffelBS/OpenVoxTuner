@@ -8,10 +8,11 @@
 // "harmony_attack" ended up CAPTURED but never APPLIED: a morph carried the value in its state
 // and never wrote it, so an A/B move left the per-voice fade-in where it was.
 //
-// This test reads the parameter declarations straight out of Source/PluginProcessor.cpp (the path
+// This test reads the parameter declarations straight out of the plugin sources (the path
 // arrives as a compile definition) and classifies EVERY one of them: either the morph drives it,
 // or it is listed here with the reason it must not. A new parameter therefore has to make a
-// decision, and the build fails until it does.
+// decision, and the build fails until it does. The parameter table has its own translation unit
+// (PluginParameters.cpp) since the processor was split, so both files are scanned as one text.
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <iostream>
@@ -31,14 +32,24 @@ public:
     void runTest() override
     {
         // --- every parameter the plugin declares ------------------------------------------------
-        const juce::File source (juce::String (OVT_SOURCE_DIR) + "/PluginProcessor.cpp");
-        if (! source.existsAsFile())
-        {
-            expect (false, "Source/PluginProcessor.cpp is readable at OVT_SOURCE_DIR");
-            return;
-        }
+        // The declarations are read from every source file that can hold them: the parameter
+        // table lives in PluginParameters.cpp, and PluginProcessor.cpp is scanned too so that a
+        // parameter added back next to the constructor is never silently invisible.
+        const juce::StringArray sourceNames { "PluginProcessor.cpp", "PluginParameters.cpp" };
+        juce::String text;
 
-        const juce::String text = source.loadFileAsString();
+        for (const auto& sourceName : sourceNames)
+        {
+            const juce::File source (juce::String (OVT_SOURCE_DIR) + "/" + sourceName);
+
+            if (! source.existsAsFile())
+            {
+                expect (false, "Source/" + sourceName + " is readable at OVT_SOURCE_DIR");
+                return;
+            }
+
+            text += source.loadFileAsString();
+        }
 
         // Plain scanning rather than a regex: every parameter is built as
         // `make_unique<juce::AudioParameterXxx> ("id", "Name", ...)`, so the first quoted string
