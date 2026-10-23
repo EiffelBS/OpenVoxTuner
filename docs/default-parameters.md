@@ -7,7 +7,7 @@
 | Parameter | ID | Type | Default | Range |
 |-----------|-----|------|---------|-------|
 | Speed | `speed` | Float | **20.0** | 0 – 200 ms |
-| Latency Mode | `latency_mode` | Choice | **1 (Low Latency)** | 0=Direct Monitoring, 1=Low Latency, 2=Quality, 3=Safe |
+| Latency Mode | `latency_mode` | Choice | **0 (Fast)** | 0=Fast (10 ms), 1=legacy 12 ms (not exposed; migrated to Fast on load), 2=Standard (20 ms), 3=High quality (30 ms) |
 | Amount | `amount` | Float | **1.0** (100%) | 0 – 1 (0–100%) |
 | Bypass | `bypass` | Bool | **false** | false / true |
 | Mode | `mode` | Choice | **0 (Live)** | 0=Live, 1=Curve Editor |

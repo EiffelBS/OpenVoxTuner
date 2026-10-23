@@ -1124,10 +1124,13 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
     {
         juce::PopupMenu menu;
 
-        // 1. Latency submenu (4 modes: Direct Monitoring / Low Latency / Quality / Safe).
-        // The suffix is the DECLARED latency (the measured effective delay for the
-        // selected Voice Type, see Source/dsp/LatencyDeclaration.h), not the internal
-        // mode value: it changes with the register, and it is what the host compensates.
+        // 1. Latency submenu: three modes (Fast = internal 10 ms, Standard = 20 ms,
+        // High quality = 30 ms). The old 12 ms entry was removed; the parameter keeps
+        // four values for state compatibility, so the legacy value 1 is migrated to
+        // Fast when a state/preset/slot is loaded (see PluginProcessor). The suffix is
+        // the DECLARED latency (the measured effective delay for the selected Voice
+        // Type, Source/dsp/LatencyDeclaration.h), not the internal mode value: it
+        // changes with the register, and it is what the host compensates.
         int declaredVoiceType = 0;
         if (auto* vp = processorRef.getParameters().getParameter ("voice_type"))
             if (auto* choice = dynamic_cast<juce::AudioParameterChoice*> (vp))
@@ -1140,19 +1143,15 @@ OpenVoxTunerAudioProcessorEditor::OpenVoxTunerAudioProcessorEditor (OpenVoxTuner
         };
 
         juce::PopupMenu latencyMenu;
-        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuDirectMonitoring, 0), true, latencyModeBox.getSelectedId() == 1, [this] {
+        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuLatencyFast, 0), true, latencyModeBox.getSelectedId() == 1, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
                 p->setValueNotifyingHost (0.0f);
     });
-        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuLowLatency, 1), true, latencyModeBox.getSelectedId() == 2, [this] {
-            if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
-                p->setValueNotifyingHost (1.0f / 3.0f);
-    });
-        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuQuality, 2), true, latencyModeBox.getSelectedId() == 3, [this] {
+        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuLatencyStandard, 2), true, latencyModeBox.getSelectedId() == 3, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
                 p->setValueNotifyingHost (2.0f / 3.0f);
     });
-        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuSafe, 3), true, latencyModeBox.getSelectedId() == 4, [this] {
+        latencyMenu.addItem (withDeclaredMs (ovt::Keys::kMenuLatencyHigh, 3), true, latencyModeBox.getSelectedId() == 4, [this] {
             if (auto* p = processorRef.getParameters().getParameter ("latency_mode"))
                 p->setValueNotifyingHost (3.0f / 3.0f);
     });
@@ -6081,7 +6080,9 @@ void OpenVoxTunerAudioProcessorEditor::loadSlot (const ABState& slot)
     setChoice ("harmony_type",             (float) saved.harmonyType / 21.0f);
     setChoice ("harmony_tone",             (float) curTone / 1.0f);
     setChoice ("harmony_shifted_voices",   (float) (saved.harmonyShiftedVoices - 1) / 3.0f);
-    setChoice ("latency_mode",             (float) saved.latencyMode / 3.0f);
+    // Legacy 12 ms slot -> Fast: that mode is no longer in the menu.
+    const int latencyModeChoice = (saved.latencyMode == 1) ? 0 : saved.latencyMode;
+    setChoice ("latency_mode",             (float) latencyModeChoice / 3.0f);
     setChoice ("editor_measures",          (float) (saved.editorMeasures - 1) / 31.0f);
     setChoice ("voice_type",               (float) saved.voiceType / 5.0f);
     // Nine divisions, so the choice index scales by 8 on the normalised axis.

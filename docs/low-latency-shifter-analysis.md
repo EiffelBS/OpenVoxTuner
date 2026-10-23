@@ -99,7 +99,7 @@ up; the 8 ms clamp is 17 ms too). Exact around 200 Hz, still late by up to ~13 m
 **Implemented (2026-10-23).** The per-Voice-Type table now lives in
 `Source/dsp/LatencyDeclaration.h` and drives `setLatencySamples()`; the Options >
 Latency menu shows the declared value for the current Voice Type, and the internal
-modes stay 10/12/20/30 ms for state compatibility. The table below is exactly what
+modes stay 10/12/20/30 ms for state compatibility (the UI exposes three, Fast / Standard / High quality; the legacy 12 ms value migrates to Fast on load). The table below is exactly what
 shipped.
 
 What this implies:

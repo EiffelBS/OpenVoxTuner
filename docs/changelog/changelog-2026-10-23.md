@@ -419,3 +419,42 @@ could correct it.
 - The runtime declaration itself is not exercised by the test target (it does
   not compile the processor); the table and the conversion are, and the
   processor wiring is covered by the build plus code review.
+## Change - three latency modes
+
+### Context
+
+The honest effective latencies showed that the 10 ms and 12 ms modes differ by
+less than 1 ms at a mid/high voice (17 vs 18 ms at 200 Hz, 13 vs 13 ms at
+262 Hz) and by ~2 ms in the bass. Four user-facing choices therefore suggested a
+latency ladder that does not exist; the extra entry only added a decision.
+
+### What shipped
+
+- **Three modes** in **Options > Latency**: **Fast** (internal 10 ms),
+  **Standard** (20 ms), **High quality** (30 ms), each labelled with the declared
+  latency for the current Voice Type (e.g. "Standard  (~27 ms)" for a tenor).
+- **State compatibility**: the `latency_mode` parameter keeps its four values
+  (removing one would corrupt old sessions and user presets). The legacy 12 ms
+  value (normalised 1/3) is migrated to Fast on load in three paths:
+  `setStateInformation()`, `applyPluginPresetState()` (user presets) and the A/B
+  slot restore; a stale morph slot that stored 12 ms is also mapped to Fast.
+- **Default** latency mode is now Fast (was Low Latency 12 ms) so a fresh
+  instance never sits on a choice the menu cannot display.
+- Dropping the fourth menu entry is the only user-visible change; the DSP is
+  untouched.
+- Translations: three new menu keys in all six languages
+  (Fast/Standard/High quality); completeness test still green.
+
+### Testing
+
+- `cmake --build build --config Release --target OpenVoxTuner_Standalone
+  OpenVoxTunerTests`: OK.
+- Full suite: **234 OK / 0 FAILED** (TranslationCompleteness included, so the new
+  labels are present in every locale).
+
+### Follow-ups
+
+- The host automation list still shows the parameter's four original labels
+  ("Direct Monitoring", "Low Latency", "Quality", "Safe"). Rewriting them means
+  changing the parameter definition, which breaks state compatibility; it is left
+  for a future major version.

@@ -87,36 +87,39 @@ Constrains the pitch-detection range to a specific voice so the detector locks o
 
 ### Latency Mode
 
-The four modes trade latency against processing quality. The value the plugin
-declares to the host (what the DAW compensates) is not the internal mode number:
-it is the **measured effective delay** at the lowest note of the selected Voice
-Type (the grain has to look a fraction of a period ahead, so the delay grows as
-the voice goes down). See the
+Three modes trade latency against processing quality: **Fast** (internal 10 ms),
+**Standard** (20 ms) and **High quality** (30 ms). The value the plugin declares
+to the host (what the DAW compensates) is not the internal mode number: it is the
+**measured effective delay** at the lowest note of the selected Voice Type (the
+grain has to look a fraction of a period ahead, so the delay grows as the voice
+goes down). See the
 [low-latency analysis](../low-latency-shifter-analysis.md#13-what-to-declare-instead-pdc-replacement-values)
 for the measurements behind the table.
 
-| Voice Type | Direct Monitoring | Low Latency (default) | Quality | Safe |
-|---|---|---|---|---|
-| Universal | ~31 ms | ~35 ms | ~38 ms | ~38 ms |
-| Bass | 31 ms | 35 ms | 38 ms | 38 ms |
-| Baritone | 26 ms | 27 ms | 28 ms | 39 ms |
-| Tenor | 23 ms | 24 ms | 27 ms | 36 ms |
-| Alto | 20 ms | 20 ms | 27 ms | 35 ms |
-| Soprano | 14 ms | 14 ms | 21 ms | 30 ms |
+| Voice Type | Fast (default) | Standard | High quality |
+|---|---|---|---|
+| Universal | ~31 ms | ~38 ms | ~38 ms |
+| Bass | 31 ms | 38 ms | 38 ms |
+| Baritone | 26 ms | 28 ms | 38 ms |
+| Tenor | 23 ms | 27 ms | 36 ms |
+| Alto | 20 ms | 27 ms | 35 ms |
+| Soprano | 14 ms | 21 ms | 30 ms |
 
 The declared value is the worst case for the register, so the corrected voice is
 never late; notes higher in the register land a few ms early. That is the price
 of one PDC value for a delay that depends on the pitch. The creative **Formant**
 shift grows the grain and can add a few ms on top; it is not part of the table.
 
-The two shortest modes declare within 1–2 ms of each other: pick them for their
-processing character (grain size), not for a large latency difference.
+The old fourth mode (**Low Latency**, internal 12 ms) was removed: it was within
+1–2 ms of **Fast** in every register, so it added a choice without a measurable
+latency difference. Sessions, presets and A/B slots that stored it load as
+**Fast**; the parameter keeps its fourth value only for state compatibility.
 
 ---
 
 ## Quick workflow tips
 
-- **Live**: use **Auto** mode, **Direct Monitoring** latency, and a speed around 30–60 ms.
+- **Live**: use **Auto** mode, **Fast** latency, and a speed around 30–60 ms.
 - **Ballad / slow track**: raise **Speed** toward 150–200 ms and keep **Vibrato Preserve** high.
 - **Pop / tight**: use **Modern** correction with a low **Speed**.
 - **Hard tune (Cher / T-Pain)**: load the **Hard Tune (Cher / T-Pain)** factory preset — the switch reads **Hard**, Speed 0, Amount 100 %, Vibrato 0, Humanize 0, Formant +2 st. Keep the voice dry and put reverb after the plugin. Chromatic scale gives the rawest effect; the song's key and scale is the production setting. For the T-Pain flavour, switch Formant off.

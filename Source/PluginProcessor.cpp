@@ -366,7 +366,7 @@ OpenVoxTunerAudioProcessor::OpenVoxTunerAudioProcessor()
                           20.0f),
                       std::make_unique<juce::AudioParameterChoice> (
                           "latency_mode", "Latency Mode",
-                          juce::StringArray { "Direct Monitoring", "Low Latency", "Quality", "Safe" }, 1),
+                          juce::StringArray { "Direct Monitoring", "Low Latency", "Quality", "Safe" }, 0),
 
                       // Amount: correction intensity (0-100%)
                       std::make_unique<juce::AudioParameterFloat> (
@@ -5074,7 +5074,20 @@ void OpenVoxTunerAudioProcessor::applyPluginPresetState (const juce::ValueTree& 
     // tree is swapped in a single, atomic step before we restore the
     // user/session preferences below.
     const juce::ValueTree before = parameters.copyState();
-    const juce::ValueTree after  = presetState.createCopy();
+    juce::ValueTree after = presetState.createCopy();
+
+    // Legacy latency_mode migration (2026-10-23): the UI now exposes three modes
+    // (Fast = internal 10 ms, Standard = 20 ms, High quality = 30 ms) and the old
+    // 12 ms "Low Latency" entry is gone. A preset saved with the old default
+    // carries the normalised value 1/3; map it to Fast (index 0), with which it
+    // was within 1-2 ms of effective delay anyway.
+    if (auto child = after.getChildWithProperty ("id", "latency_mode"); child.isValid())
+    {
+        const float v = (float) child.getProperty ("value", 0.0);
+        if (std::abs (v - (1.0f / 3.0f)) < 1.0e-3f)
+            child.setProperty ("value", 0.0, nullptr);
+    }
+
     pushUndoAction (before, after);
 
     // Re-apply the preserved user/session preferences (replaceState swapped
@@ -5338,6 +5351,10 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
         }
             ms.voiceType          = slotXml->getIntAttribute ("voiceType", 0);
             ms.latencyMode        = slotXml->getIntAttribute ("latencyMode", 1);
+            // Legacy 12 ms "Low Latency" slot -> Fast: the mode is no longer in
+            // the menu (see setStateInformation for the same migration).
+            if (ms.latencyMode == 1)
+                ms.latencyMode = 0;
             ms.editorMeasures     = slotXml->getIntAttribute ("editorMeasures", 8);
             ms.formantEnable      = slotXml->getBoolAttribute ("formantEnable", false);
             ms.bypass             = slotXml->getBoolAttribute ("bypass", false);
@@ -5468,7 +5485,22 @@ void OpenVoxTunerAudioProcessor::setStateInformation (const void* data, int size
             }
         }
 
-        parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
+        // Legacy latency_mode migration (2026-10-23): the UI now exposes three
+        // modes (Fast = internal 10 ms, Standard = 20 ms, High quality = 30 ms);
+        // the old 12 ms "Low Latency" entry is gone. A state saved with it carries
+        // the normalised value 1/3, which no menu entry can display any more, so it
+        // is mapped to Fast (index 0) - the two were within 1-2 ms of effective
+        // delay anyway. New states can only hold 0, 2/3 or 1.
+        {
+            juce::ValueTree state = juce::ValueTree::fromXml (*xmlState);
+            if (auto child = state.getChildWithProperty ("id", "latency_mode"); child.isValid())
+            {
+                const float v = (float) child.getProperty ("value", 0.0);
+                if (std::abs (v - (1.0f / 3.0f)) < 1.0e-3f)
+                    child.setProperty ("value", 0.0, nullptr);
+            }
+            parameters.replaceState (state);
+        }
     }
 }
 

@@ -52,7 +52,7 @@ verbatim.
 | Pure Correction | Pitch correction only, no dynamics on the lead. | off | off | off |
 | Transparent / Doubling | Light correction + stereo doubler, no dynamics. | off | off | off |
 | Studio Stack | 4-voice unison/octave stack with formant preservation. | on, 55% | on, drive 25%, warmth 60% | harmony: room 10% + hall 35% |
-| Live Scene | Fast correction, direct monitoring, no effects. | off | off | off |
+| Live Scene | Fast correction, Fast latency, no effects. | off | off | off |
 | Spoken Voice / Podcast | Gentle correction, gate, strong upward compression. | on, 65% | on, drive 25%, warmth 70% | off |
 | Creative Robot | Hard tune (Modern, Speed 0) with a strong formant shift. | off | on, drive 45%, warmth 20% | off |
 | Hard Tune (Cher / T-Pain) | Hard mode (bypasses the speed floor, the ratio-jump duck and formant preservation): Speed 0, 100 %, no vibrato, formant +2 st. | off | on, drive 40%, warmth 25% | off |
@@ -108,7 +108,7 @@ remove everything that would soften or colour the correction:
 | Formant Strategy | **Precise** | The allpass path: shifts the tone without colouring it. |
 | Saturation | on, drive 40 %, warmth 25 % | Optional edge; switch it off for the dry 1998 sound. |
 | Scale | your choice | The preset preserves the Key & Scale selection. **Chromatic** is the rawest target set (every semitone is a target); the song's key and scale is the production setting. |
-| Latency mode | your choice | Left alone so loading the preset never changes the session's monitored latency. Direct Monitoring is the live choice, Quality the studio one. |
+| Latency mode | your choice | Left alone so loading the preset never changes the session's monitored latency. Fast is the live choice; Standard and High quality are the studio ones. |
 
 The T-Pain flavour is the same recipe with Formant off (or +1 st) and a lower
 Saturation drive (25–35 %, warmth 40–60 %). The preset ships the Cher flavour

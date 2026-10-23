@@ -166,17 +166,22 @@ and the internal timers are bypassed; when the envelope is disabled or
 `attack_ms == 0`, the gain is forced to 1.
 
 **Latency:** reported via `setLatencySamples()`; `PitchShifter::setLatencyMs()`
-clamps the requested latency to **8–40 ms**. The `latency_mode` parameter picks
-one of four presets:
+clamps the requested latency to **8–40 ms**. The UI exposes three modes; the
+`latency_mode` parameter keeps four values for state compatibility, and the
+legacy 12 ms value is migrated to Fast when a state, preset or A/B slot loads:
 
-| latency_mode            | Latency (ms) |
-|-------------------------|--------------|
-| Direct Monitoring       | 10           |
-| Low Latency (default)   | 12           |
-| Quality                 | 20           |
-| Safe                    | 30           |
+| latency_mode | UI label | Internal latency |
+|---|---|---|
+| 0 | Fast | 10 ms |
+| 1 | *(legacy 12 ms, migrated to 0)* | 12 ms |
+| 2 | Standard | 20 ms |
+| 3 | High quality | 30 ms |
 
-The shifter default before a mode is applied is 20 ms.
+The plugin does **not** declare the internal value: `applyLatencyMode()` reports
+the measured effective delay for the selected Voice Type (table in
+`Source/dsp/LatencyDeclaration.h`; measurements in
+`docs/low-latency-shifter-analysis.md`, Section 1.3), plus the output limiter's
+8-sample lookahead. The shifter default before a mode is applied is 20 ms.
 
 ### 6. FormantPreserver (`ovtdsp::FormantPreserver`)
 

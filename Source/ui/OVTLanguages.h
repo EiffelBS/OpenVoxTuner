@@ -62,6 +62,11 @@ namespace ovt
         static const char* kMenuQuality        = "menu.quality";
         static const char* kMenuSafe           = "menu.safe";
         static const char* kMenuDirectMonitoring = "menu.direct_monitoring";
+        // Three exposed latency modes (the old 12 ms entry is gone; the parameter
+        // keeps four values for state compatibility).
+        static const char* kMenuLatencyFast     = "menu.latency_fast";
+        static const char* kMenuLatencyStandard = "menu.latency_standard";
+        static const char* kMenuLatencyHigh     = "menu.latency_high_quality";
         static const char* kMenuYinActive      = "menu.yin_active";
         static const char* kMenuShowWaveform   = "menu.show_waveform";
         static const char* kMenuWaveformDisplay = "menu.waveform_display";
@@ -509,6 +514,9 @@ namespace ovt
             { kMenuQuality,        "Quality" },
             { kMenuSafe,           "Safe" },
             { kMenuDirectMonitoring, "Direct Monitoring" },
+            { kMenuLatencyFast,    "Fast" },
+            { kMenuLatencyStandard, "Standard" },
+            { kMenuLatencyHigh,    "High quality" },
             { kMenuYinActive,      "YIN (active)" },
             { kMenuShowWaveform,   "Show Waveform" },
             { kMenuWaveformDisplay, "Waveform Display" },
@@ -906,6 +914,9 @@ namespace ovt
             { kMenuQuality,        "Qualite" },
             { kMenuSafe,           "Securise" },
             { kMenuDirectMonitoring, "Surveillance directe" },
+            { kMenuLatencyFast,    "Rapide" },
+            { kMenuLatencyStandard, "Standard" },
+            { kMenuLatencyHigh,    "Haute qualite" },
             { kMenuYinActive,      "YIN (actif)" },
             { kMenuShowWaveform,   "Afficher la forme d'onde" },
             { kMenuWaveformDisplay, "Affichage de la forme d'onde" },
@@ -1298,6 +1309,9 @@ namespace ovt
             { kMenuQuality,        "Qualitaet" },
             { kMenuSafe,           "Sicher" },
             { kMenuDirectMonitoring, "Direktueberwachung" },
+            { kMenuLatencyFast,    "Schnell" },
+            { kMenuLatencyStandard, "Standard" },
+            { kMenuLatencyHigh,    "Hohe Qualitaet" },
             { kMenuYinActive,      "YIN (aktiv)" },
             { kMenuShowWaveform,   "Wellenform anzeigen" },
             { kMenuWaveformDisplay, "Wellenform-Anzeige" },
@@ -1689,6 +1703,9 @@ namespace ovt
             { kMenuQuality,        "Calidad" },
             { kMenuSafe,           "Seguro" },
             { kMenuDirectMonitoring, "Monitorizacion directa" },
+            { kMenuLatencyFast,    "Rapido" },
+            { kMenuLatencyStandard, "Estandar" },
+            { kMenuLatencyHigh,    "Alta calidad" },
             { kMenuYinActive,      "YIN (activo)" },
             { kMenuShowWaveform,   "Mostrar forma de onda" },
             { kMenuWaveformDisplay, "Visualizacion de forma de onda" },
@@ -2080,6 +2097,9 @@ namespace ovt
             { kMenuQuality,        "クオリティ" },
             { kMenuSafe,           "セーフ" },
             { kMenuDirectMonitoring, "ダイレクトモニタリング" },
+            { kMenuLatencyFast,    "高速" },
+            { kMenuLatencyStandard, "標準" },
+            { kMenuLatencyHigh,    "高音質" },
             { kMenuYinActive,      "YIN (アクティブ)" },
             { kMenuShowWaveform,   "波形を表示" },
             { kMenuWaveformDisplay, "波形表示" },
@@ -2471,6 +2491,9 @@ namespace ovt
             { kMenuQuality,        "质量" },
             { kMenuSafe,           "安全" },
             { kMenuDirectMonitoring, "直接监听" },
+            { kMenuLatencyFast,    "快速" },
+            { kMenuLatencyStandard, "标准" },
+            { kMenuLatencyHigh,    "高品质" },
             { kMenuYinActive,      "YIN（激活）" },
             { kMenuShowWaveform,   "显示波形" },
             { kMenuWaveformDisplay, "波形显示" },

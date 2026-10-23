@@ -52,7 +52,7 @@ The most important controls are:
 | **Humanize** | 0 – 50 cents | Adds subtle random variation for a more natural sound. |
 | **Vibrato Preserve** | 0 – 100% | Retains the singer's natural vibrato through correction. |
 | **Voice Type** | Universal, Bass, Baritone, Tenor, Alto, Soprano | Constrains the pitch-detection range to the selected voice. |
-| **Latency Mode** | Direct Monitoring, Low Latency, Quality, Safe | Latency/quality trade-off (see table below). |
+| **Latency Mode** | Fast, Standard, High quality | Latency/quality trade-off (see table below). |
 
 ### Speed cheat-sheet
 
@@ -64,15 +64,22 @@ The most important controls are:
 
 ### Latency modes
 
-| Mode | Latency |
+| Mode | Declared latency (bass → soprano) |
 |------|---------|
-| **Direct Monitoring** | 10 ms |
-| **Low Latency** (default) | 12 ms |
-| **Quality** | 20 ms |
-| **Safe** | 30 ms |
+| **Fast** (default) | 31 → 14 ms |
+| **Standard** | 38 → 21 ms |
+| **High quality** | 38 → 30 ms |
+
+The declared value is the measured **effective** delay for the lowest note of
+the selected Voice Type (not the internal mode value); the full per-register
+table is in
+[Correction Modes](correction-modes.md#latency-mode). The old 12 ms
+**Low Latency** mode is gone: it was within 1–2 ms of **Fast**, and sessions,
+presets and A/B slots that stored it load as **Fast**.
 
 !!! tip
-    For live singing, use **Direct Monitoring** or **Low Latency**. For finished mixes, **Quality** or **Safe** give the processor more room and can sound better.
+    For live singing, use **Fast**. For finished mixes, **Standard** or
+    **High quality** give the processor more room and can sound better.
 
 ---
 
