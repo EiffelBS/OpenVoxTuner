@@ -226,14 +226,11 @@ scale (an ARA buffer can exceed ±1) are compressed into the curve before shapin
 
 ## Plugin Presets (Factory)
 
-| Preset | Description |
-|--------|-------------|
-| Default | True factory defaults (all parameters at default) |
-| Natural Light | Subtle correction, transparent mode |
-| Modern Pop | Fast correction, bright formant |
-| Ballad Slow | Slow retarget, vibrato preserved |
-| Electronic | Heavy correction, formant shift |
-| Live Vocal | Balanced for live use |
-| Podcast Speech | Optimized for spoken voice |
+The factory plugin presets are defined in `Source/PluginEditor.cpp`
+(`getFactoryPluginPresetNames()` / `getFactoryPluginPresetOverrides()`) and
+catalogued, with their exact overrides, in
+[docs/reference/presets.md](reference/presets.md#factory-plugin-presets). That
+page is the single source of truth: the list changes with features, so it is not
+duplicated here.
 
 *(Plugin presets store only APVTS parameter state, never the pitch curve.)*

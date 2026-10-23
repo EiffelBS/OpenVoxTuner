@@ -44,7 +44,7 @@ These controls shape *how* the correction is applied in both modes.
 | Setting | Character |
 |---------|-----------|
 | **Modern** | Tight, aggressive correction — notes are locked to the scale firmly. |
-| **Transparent** | Gentle, subtle correction that preserves more of the natural performance. |
+| **Transparent** | Gentle, subtle correction that preserves more of the natural performance. Transparent also multiplies Amount by 0.8 and ignores Speed below 30 ms, so it can never deliver a hard tune. |
 
 ### Speed (0 – 200 ms)
 
@@ -52,7 +52,7 @@ Controls the retarget envelope — how quickly the pitch glides toward the targe
 
 | Speed | Result |
 |-------|--------|
-| **0 ms** | Instant correction — the classic "T-Pain" robotic effect. |
+| **0 ms** | Fastest correction — the classic "T-Pain" hard-tune character. Pair it with Modern mode and zero vibrato (the **Hard Tune (Cher / T-Pain)** preset does all three). |
 | **~50 ms** | Fast but smooth — the Antares default feel. |
 | **200 ms** | Slow, very natural correction with almost no audible effect. |
 
@@ -102,6 +102,7 @@ Trades latency against processing quality:
 - **Live**: use **Auto** mode, **Direct Monitoring** latency, and a speed around 30–60 ms.
 - **Ballad / slow track**: raise **Speed** toward 150–200 ms and keep **Vibrato Preserve** high.
 - **Pop / tight**: use **Modern** correction with a low **Speed**.
+- **Hard tune (Cher / T-Pain)**: load the **Hard Tune (Cher / T-Pain)** factory preset — Modern mode, Speed 0, Amount 100 %, Vibrato 0, Humanize 0, Formant +2 st. Keep the voice dry and put reverb after the plugin. Chromatic scale gives the rawest effect; the song's key and scale is the production setting. For the T-Pain flavour, switch Formant off.
 - **Background vocal layers**: lower **Amount** (60–80%) so they sit naturally behind the lead.
 - **Sibilant takes**: when you push **Upward Comp** (the quiet "s" gets lifted to the same level as the vowels), switch the **De-Esser** on with it — Intensity around 65%, and Voice Type on the register you sing (a low voice is tamed around 5 kHz, a soprano around 8.4 kHz). It works on the corrected lead, before the reverb, so the room you add stays bright.
 - **Master glue**: switch **Saturation** on with **Drive** around 20–35% and **Warmth** around 60%. It sits on the master output, ahead of the shared reverb return, so it thickens the whole voice and never the room tail. Drive 0 adds nothing at all — the stage is bypassed — and loudness stays matched at every setting, so judge it by tone, not by level: turn **Warmth** up if the added harmonics read as harsh on your monitors.

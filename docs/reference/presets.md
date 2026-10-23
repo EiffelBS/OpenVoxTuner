@@ -54,7 +54,8 @@ verbatim.
 | Studio Stack | 4-voice unison/octave stack with formant preservation. | on, 55% | on, drive 25%, warmth 60% | harmony: room 10% + hall 35% |
 | Live Scene | Fast correction, direct monitoring, no effects. | off | off | off |
 | Spoken Voice / Podcast | Gentle correction, gate, strong upward compression. | on, 65% | on, drive 25%, warmth 70% | off |
-| Creative Robot | Hard tune with a strong formant shift. | off | on, drive 45%, warmth 20% | off |
+| Creative Robot | Hard tune (Modern, Speed 0) with a strong formant shift. | off | on, drive 45%, warmth 20% | off |
+| Hard Tune (Cher / T-Pain) | Hard tune: Modern, Speed 0, 100 %, no vibrato, formant +2 st. | off | on, drive 40%, warmth 25% | off |
 | Broadcast Voice | Firm gate + 0.8 upward lift for streaming/radio loudness. | on, 80% | on, drive 30%, warmth 60% | off |
 | Breathy Vocals | Airy lo-fi voice: no gate, gentle upward lift, light reverb. | off | on, drive 15%, warmth 80% | lead: room 15% + hall 40%, duck 30% |
 | Lead Vocal | Thickened lead: gate, −3/+3 harmony, reverb, upward compression. | on, 65% | on, drive 35%, warmth 50% | lead: room 15% + hall 45%, duck 35%; harmony: room 10% + hall 30% |
@@ -78,11 +79,50 @@ placement table is in section 8v of `docs/implementation-roadmap.md`.
 The master Saturation stage follows the same rule: the presets that promise nothing added
 (Pure Correction, Transparent / Doubling, Live Scene) name it **off** explicitly, so a live
 monitor path never gains loudness from the plugin. The stack and on-air presets take a low
-drive (25–30%) with warmth high enough to keep the added harmonics below the de-esser band;
-Creative Robot is the one preset that wants the edge, at 45% drive and low warmth. Drive and
-warmth are the only saturation values a preset sets.
+drive (25–30%) with warmth high enough to keep the added harmonics below the de-esser band.
+The two hard-tune presets are the ones that want the edge — Creative Robot at 45% drive and
+20% warmth, Hard Tune at 40% and 25% — and both leave the De-Esser off on purpose: the added
+harmonics ARE the effect, so taming them would undo the preset. Drive and warmth are the only
+saturation values a preset sets.
 
 *(Plugin presets store only APVTS parameter state, never the pitch curve.)*
+
+## Hard tune (Cher / T-Pain)
+
+The **Hard Tune (Cher / T-Pain)** factory preset is the "Auto-Tune as an
+instrument" sound: the voice is snapped to the scale grid instead of being
+gently corrected. Three settings carry the effect, and two of them are easy to
+miss because they are not sound-flavoured values:
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| Correction mode | **Modern** | Transparent (the factory default) multiplies Amount by 0.8 and floors Speed at 30 ms. |
+| Speed | **0 ms** | The fastest retune the engine offers. |
+| Amount | **100 %** | The full correction ratio. |
+| Vibrato Preserve | **0 %** | No modulation survives: the note is corrected against the instantaneous pitch, not a smoothed centre. |
+| Humanize | **0 cents** | No random fluctuation. |
+| Formant | **+2 st** | The Cher "chipmunk" colour. Formant **off** (or +1 st) gives the T-Pain flavour: the same hard tune with a natural timbre. |
+| Formant Strategy | **Precise** | The allpass path: shifts the tone without colouring it. |
+| Saturation | on, drive 40 %, warmth 25 % | Optional edge; switch it off for the dry 1998 sound. |
+| Scale | your choice | The preset preserves the Key & Scale selection. **Chromatic** is the rawest target set (every semitone is a target); the song's key and scale is the production setting. |
+| Latency mode | your choice | Left alone so loading the preset never changes the session's monitored latency. Direct Monitoring is the live choice, Quality the studio one. |
+
+The T-Pain flavour is the same recipe with Formant off (or +1 st) and a lower
+Saturation drive (25–35 %, warmth 40–60 %). The preset ships the Cher flavour
+because it is the more distinctive of the two; one switch gives the other.
+
+**Production notes.** Feed the plugin a clean, dry, monophonic voice, first in
+the chain; put EQ, compression and reverb after it. For the precise "played
+instrument" effect, enable *Tuning follows MIDI IN* (Options menu) and hold the
+target notes on a MIDI keyboard: the correction target becomes the held note
+instead of the nearest scale note.
+
+**Engine note.** Speed 0 is the fastest setting, but the engine keeps an 80 ms
+anti-jitter one-pole after the retune envelope, so the correction is a very fast
+glide rather than a mathematically instantaneous jump; the robotic character
+comes mainly from the scale quantisation and from the removed vibrato. A truly
+instantaneous snap would need a hard-tune path that bypasses that smoother (not
+shipped).
 
 ## Curve presets gallery
 

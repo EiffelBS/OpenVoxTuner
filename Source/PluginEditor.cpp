@@ -6032,6 +6032,7 @@ namespace
             "Live Scene",
             "Spoken Voice / Podcast",
             "Creative Robot",
+            "Hard Tune (Cher / T-Pain)",
             "Broadcast Voice",
             "Breathy Vocals",
             "Lead Vocal"
@@ -6127,6 +6128,12 @@ namespace
         };
         static const std::map<juce::String, float> creativeRobot = {
             { "amount", 1.0f }, { "flex_tune", 0.0f }, { "humanize", 0.0f },
+            // The name promises a hard tune, and the two parameters that make it
+            // hard are NOT sound-flavoured ones: the factory correction mode is
+            // Transparent (which scales the amount by 0.8 and floors the retune
+            // speed at 30 ms) and the factory speed is 20 ms. A preset that leaves
+            // both alone loads as a soft robot, so pin them explicitly.
+            { "speed", 0.0f }, { "correction_mode", 0.0f },
             { "harmony_enable", 0.0f }, { "formant_enable", 1.0f },
             { "formant_mode", 1.0f }, { "formant", 3.0f }, // strong formant shift
             { "vibrato_preserve", 0.0f },
@@ -6137,6 +6144,38 @@ namespace
             // The robot voice stays hard-tuned and dry: a ping-pong tail would smear the
             // locked pitch, so the delay stage is switched off here explicitly.
             { "delay_enable", 0.0f }
+        };
+        // Hard Tune (Cher / T-Pain): the "Auto-Tune as an instrument" sound. The
+        // recipe is deliberately small -- three settings carry the effect and two
+        // of them are easy to miss:
+        //   - correction_mode 0 is mandatory. The factory default is Transparent,
+        //     which multiplies the amount by 0.8 and floors the retune speed at
+        //     30 ms (PluginProcessor::syncParameters / processBlock), so a hard
+        //     tune that forgets it always sounds half-corrected;
+        //   - speed 0 is the fastest retune the engine offers;
+        //   - vibrato_preserve 0 + humanize 0 leave no modulation alive, so the
+        //     voice snaps to the scale grid instead of gliding like a singer.
+        // Formant +2 st is the Cher "chipmunk" colour. The T-Pain flavour is the
+        // same sound with the Formant switch off (or +1 st) and less drive; it
+        // is documented in docs/reference/presets.md rather than shipped as a
+        // second preset, because the two differ by one parameter and the factory
+        // list is the user's first screen.
+        // The key/scale is NOT overridden: applyPluginPresetState() preserves the
+        // user's musical choice (chromatic is the rawest target set, the song's
+        // key/scale is the production one). Same for the latency mode: the preset
+        // leaves it alone so loading it never changes the session's monitored
+        // latency. The limiter stays on, as in every factory preset.
+        static const std::map<juce::String, float> hardTune = {
+            { "speed", 0.0f }, { "amount", 1.0f }, { "correction_mode", 0.0f },
+            { "flex_tune", 0.0f }, { "humanize", 0.0f }, { "vibrato_preserve", 0.0f },
+            { "harmony_enable", 0.0f }, { "double_enable", 0.0f },
+            { "formant_enable", 1.0f }, { "formant_mode", 1.0f }, { "formant", 2.0f },
+            { "formant_strategy", 4.0f }, // Precise: the allpass path, no tone colouring
+            { "lead_reverb_enable", 0.0f }, { "harmony_reverb_enable", 0.0f },
+            { "noise_gate_enable", 0.0f }, { "upward_comp_enable", 0.0f },
+            { "deess_enable", 0.0f },
+            { "saturation_enable", 1.0f }, { "saturation_drive", 0.4f }, { "saturation_tone", 0.25f },
+            { "delay_enable", 0.0f }, { "limiter_enable", 1.0f }
         };
         // Broadcast Voice: strong, consistent level for streaming/radio. A firm
         // gate cuts room tone between phrases and the upward compressor lifts
@@ -6216,6 +6255,7 @@ namespace
         if (name == "Live Scene")            return &liveScene;
         if (name == "Spoken Voice / Podcast") return &spokenPodcast;
         if (name == "Creative Robot")        return &creativeRobot;
+        if (name == "Hard Tune (Cher / T-Pain)") return &hardTune;
         if (name == "Broadcast Voice")       return &broadcastVoice;
         if (name == "Breathy Vocals")        return &breathyVocals;
         if (name == "Lead Vocal")            return &leadVocal;
