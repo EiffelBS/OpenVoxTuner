@@ -17,7 +17,7 @@
 #include <cmath>
 #include <functional>
 
-#include "ui/OVTLanguages.h"
+#include "OVTLanguages.h"
 
 // === Modern / Transparent / Hard graphic switch (studio-console style) ===
 // Three-position horizontal switch placed below the Speed/Amount knobs:

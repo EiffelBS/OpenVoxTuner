@@ -13,9 +13,9 @@
 
 #include <functional>
 
-#include "dsp/MidiImporter.h"
-#include "dsp/NoteUtils.h"
-#include "ui/OVTLanguages.h"
+#include "../dsp/MidiImporter.h"
+#include "../dsp/NoteUtils.h"
+#include "OVTLanguages.h"
 
 class MidiChannelSelectorComponent : public juce::Component
 {

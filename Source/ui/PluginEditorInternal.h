@@ -10,7 +10,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include "PluginEditor.h"
+#include "../PluginEditor.h"
 
 // Helper: ensure a PopupMenu uses our custom LookAndFeel for correct background colours
 inline void applyMenuLookAndFeel (juce::PopupMenu& m, OvtLookAndFeel& lf)

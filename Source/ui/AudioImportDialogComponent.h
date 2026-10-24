@@ -12,8 +12,8 @@
 
 #include <functional>
 
-#include "dsp/AudioCurveImporter.h"
-#include "ui/OVTLanguages.h"
+#include "../dsp/AudioCurveImporter.h"
+#include "OVTLanguages.h"
 
 /**
  * Confirmation dialog shown before an audio file is turned into a curve.
