@@ -4,6 +4,7 @@
 //
 // Preset morphing: the morph slider, its undo state and its context menu.
 // Split out of PluginEditor.cpp (step 2 of the source split) verbatim.
+#include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "ui/PluginEditorInternal.h"
 

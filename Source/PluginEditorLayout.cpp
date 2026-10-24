@@ -6,6 +6,7 @@
 // helpers it is built on. Split out of PluginEditor.cpp (step 2 of the
 // source split) verbatim; the declarations stay in PluginEditor.h, because
 // a member function may be defined in any translation unit.
+#include "PluginProcessor.h"
 #include "PluginEditor.h"
 
 #include "ui/CorrectionModeSwitch.h"

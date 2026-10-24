@@ -12,7 +12,6 @@
 #include <memory>
 #include <functional>
 #include <vector>
-#include "PluginProcessor.h"
 #include "ui/PitchVisualizer.h"
 #include "ui/PitchCurveEditor.h"
 #include "ui/ScaleKeyboardComponent.h"
@@ -27,6 +26,7 @@
 #include "dsp/PresetMorpher.h"
 
 struct OpenVoxTunerUpdateCheckState;
+class OpenVoxTunerAudioProcessor;   // only ever held by reference here
 
 class PresetGallery; // defined in ui/PResetGallery.h
 

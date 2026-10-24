@@ -6,6 +6,7 @@
 // plugin presets on disk, the A/B morph slots, the preset gallery and the
 // MIDI-learn hook that the Advanced menu arms. Split out of
 // PluginEditor.cpp (step 2 of the source split) verbatim.
+#include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "ui/PluginEditorInternal.h"
 

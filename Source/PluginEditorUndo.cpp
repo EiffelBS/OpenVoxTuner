@@ -5,6 +5,7 @@
 // The editor-global undo/redo stack: the keyboard shortcuts, the gesture
 // snapshots and the listeners that open and close them. Split out of
 // PluginEditor.cpp (step 2 of the source split) verbatim.
+#include "PluginProcessor.h"
 #include "PluginEditor.h"
 
 bool OpenVoxTunerAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
